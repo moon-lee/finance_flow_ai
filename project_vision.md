@@ -64,16 +64,28 @@ To maintain a secure, robust, and highly modular codebase, the following rules g
 
 # Technology Stack
 
-* **Frontend:** TypeScript, HTML, CSS (using modern, standard-compliant components)
+* **Frontend:** TypeScript, HTML, CSS
+  * **UI Framework/Library:** Vanilla Web Components with Lit (lightweight, standard-compliant helper) or `@vscode/webview-ui-toolkit` (for native VS Code styling).
+  * **Styling:** Vanilla CSS, structured via CSS Custom Properties (CSS variables) for theme customizability.
+  * **Build Tooling:** Vite (for compiling, packaging, and optimizing renderer assets and Webview modules).
 * **Desktop Framework:** Electron
+  * **Security & IPC:** Node.js integration disabled in renderers, process isolation via `contextBridge` preload scripts, and IPC communication via Electron `MessagePortMain` / JSON-RPC.
+  * **Extension Host:** Isolated background Node.js processes communicating with the main thread using process-level IPC.
 * **Runtime:** Node.js
 * **Editor Architecture Inspiration:** VS Code
-* **Database:** SQLite
+* **Database & Storage:**
+  * **Engine:** SQLite (via `better-sqlite3` driver in the main process for high performance and synchronous thread-safe operations).
+  * **Schema Validation:** `Zod` (for runtime API/data type safety) and `Ajv` (for fast JSON Schema validation of extension settings).
+  * **Database Migrations:** Umzug (lightweight migration runner).
 * **AI Providers:**
   * Local (default): Ollama
   * Cloud (opt-in only): OpenAI (opencode, kilocode), Gemini
   * Cloud providers require explicit user opt-in. The platform performs best-effort sanitization before transmission. Because perfect detection of personally identifiable information cannot be guaranteed, users may optionally review transmitted context before cloud requests are sent.
-* **Development:** TypeScript Strict Mode, Git, npm
+* **Development & Tooling:** TypeScript Strict Mode, Git, npm
+* **App Packaging & Distribution:** `electron-builder` or `electron-forge` for bundling native installers (MSI, DMG, AppImage) and handling code signing.
+* **Testing:**
+  * **Unit/Integration Testing:** Vitest
+  * **E2E Testing:** Playwright (with native Electron automation support)
 
 ---
 

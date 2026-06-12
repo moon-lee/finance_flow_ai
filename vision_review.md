@@ -3,7 +3,7 @@
 **Date:** 2026-06-13
 **Reviewed Documents:** `AGENTS.md`, `project_vision.md`
 **Reviewer:** opencode (Model: MiniMax-M3)
-**Status:** Review Complete - 30 Issues Identified (10 original + 5 follow-up + 6 third-pass + 9 architectural)
+**Status:** Review Complete - 31 Issues Identified (10 original + 5 follow-up + 6 third-pass + 10 architectural)
 
 ---
 
@@ -392,9 +392,25 @@ The document is exceptionally well-structured and perfectly captures the VS Code
 
 ---
 
+### Issue 31: Missing Development/Production Technology Stack Specifications
+-- fixed and updated -project_vision.md
+
+**The Problem:** The technology stack list in the project vision was too high-level, listing only basic dependencies like "TypeScript, HTML, CSS", "Electron", "Node.js", and "SQLite". It missed critical architectural and packaging choices required for a secure, modular, production-ready desktop app:
+1. Frontend build tooling (e.g., Vite/Webpack/Esbuild).
+2. UI rendering libraries/toolkits (e.g., Lit, VS Code Webview UI Toolkit).
+3. Secure IPC details (e.g., `contextBridge`, preload scripts).
+4. SQLite driver choice (e.g., `better-sqlite3` for performance).
+5. Validation framework (e.g., Zod/Ajv).
+6. Packaging/Signing tools (e.g., `electron-builder`/`electron-forge`).
+7. Testing runner and E2E tools (e.g., Vitest, Playwright).
+
+**Suggested Fix:** Expand the `# Technology Stack` section in `project_vision.md` to define these concrete libraries and architecture-level choices.
+
+---
+
 ## Summary
 
-The document is exceptionally well-structured and perfectly captures the VS Code aesthetic. However, locking down these 30 specific contradictions and security/privacy flaws will elevate it from a beautiful vision to a production-ready technical contract.
+The document is exceptionally well-structured and perfectly captures the VS Code aesthetic. However, locking down these 31 specific contradictions and security/privacy flaws will elevate it from a beautiful vision to a production-ready technical contract.
 
 **Highest Priority Issues (Original):**
 1. **Issue 1 & 3 (Database Security):** Critical - Raw SQL access violates the very security promises made elsewhere.
@@ -435,3 +451,21 @@ The document is exceptionally well-structured and perfectly captures the VS Code
 26. **Issue 28 (DAO over-engineering):** Fixed.
 27. **Issue 29 (Missing marketplace roadmap):** Fixed.
 28. **Issue 30 (Outdated architecture diagram):** Fixed.
+29. **Issue 31 (Missing technology stack specifications):** Fixed.
+
+---
+
+## Appendix: Comparison with VS Code's Actual Technology Stack
+
+To ensure that the recommended technology stack aligns with the core inspiration of this project, here is a mapping and rationale comparing the selected choices with VS Code's actual production architecture:
+
+| Component | Our Recommended Stack | VS Code's Actual Stack | Architectural Rationale for Our Selection |
+| :--- | :--- | :--- | :--- |
+| **Frontend Framework** | **Lit** / **`@vscode/webview-ui-toolkit`** | Vanilla Web Components / FAST Web Components | Writing raw Web Components with vanilla JavaScript is highly verbose. Lit provides a standard-compliant, lightweight helper wrapper, and the Webview UI Toolkit provides native VS Code design keys. |
+| **Process Isolation** | `contextBridge` + Preload scripts (Node integration disabled) | `contextBridge` + Preload scripts (Node integration disabled) | Identical security implementation. Prevents Webview / Renderer compromise from gaining arbitrary OS code execution. |
+| **Extension Host** | Isolated Node.js child processes | Isolated Node.js child processes | Identical performance and crash isolation. Ensures heavy computation in extensions does not block UI responsiveness. |
+| **Database & Storage** | **SQLite** (via `better-sqlite3`) | JSON Files + SQLite (workspace state cache) | VS Code manages light UI states, whereas a personal finance workspace requires relational transaction ledgers. `better-sqlite3` is chosen for its superior synchronous performance. |
+| **Build & Bundling** | **Vite** / **Esbuild** | Custom Gulp / Esbuild build scripts | Rather than maintaining legacy or complex custom Gulp build pipelines, Vite offers an out-of-the-box, modern, fast builder for renderers. |
+| **Validation** | **Zod** & **Ajv** | Custom JSON parser + JSON Schema validation | Ajv provides standard, fast JSON Schema validation for manifests, while Zod brings typed runtime safety for modern TypeScript developer experience. |
+| **Testing** | **Vitest** + **Playwright** | Custom Mocha + Smoke test runner | Playwright is developed by Microsoft and includes native API automation for Electron, offering a modern, supported testing framework. |
+
