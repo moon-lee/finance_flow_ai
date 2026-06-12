@@ -33,11 +33,13 @@ Unlike traditional finance applications, it treats AI as a first-class feature a
 To maintain a secure, robust, and highly modular codebase, the following rules govern all development on this platform:
 
 ### 1. Separation of Concerns & Core Control
+
 * **No Finance Logic Inside Core:** The Core Platform must remain completely generic and agnostic of financial business logic. No interest calculators, tax bracket structures, or category managers can be written in Core.
 * **Extensions Own the Domain:** All business logic, tax computations, and user features belong strictly within extensions.
 * **Keep Core Under Control:** Core should focus solely on lifecycle management, shell rendering, security, IPC routing, and AI orchestration.
 
 ### 2. Extension Independence & Safety
+
 * **Build One Extension at a Time:** Focus on fully implementing, testing, and verifying one extension before proceeding to the next milestone.
 * **Run Independently:** Every extension must operate in isolation. An extension cannot assume that any other extension is active or installed unless declaratively specified as a peer dependency.
 * **Do Not Break Other Extensions:** Extensions may interact with each other *only* through Core-mediated API commands (e.g., `finance.commands.execute('budget.getSummary')`). This communication is strictly **optional and graceful**:
@@ -56,6 +58,7 @@ To maintain a secure, robust, and highly modular codebase, the following rules g
   * Uninstalling an extension does not automatically delete user data. Data deletion is always a separate, deliberate action.
 
 ### 3. Code Quality & Technical Standards
+
 * **TypeScript Strict Mode:** Both the Core and all extensions must be compiled under strict TypeScript options (`strict: true`). No implicit `any` is allowed.
 * **Document Every Public API:** All exposed methods, events, and configuration schemas in the public API contract (`finance.d.ts`) must be extensively documented.
 * **Avoid Unnecessary Dependencies:** Prioritize native Node.js APIs and simple, lightweight packages. Avoid heavy libraries that degrade startup performance.
@@ -147,7 +150,9 @@ Platform
 ```
 
 ## Core Platform
+
 Responsible for the runtime shell, visual layout, and core system utilities. It contains **no finance business logic**.
+
 * **Application Shell:** Window management, menu bars, and basic rendering.
 * **Extension Framework:** Discovering, loading, and managing extension life cycles.
 * **Database Access:** SQLite connection, migrations, transactions, and backups.
@@ -171,6 +176,7 @@ Shared Financial Data contains the canonical financial records that multiple ext
 This prevents duplication of financial records while preserving extension isolation.
 
 **Shared Financial Data includes:**
+
 * Accounts
 * Transactions
 * Categories
@@ -201,7 +207,9 @@ Extensions
 ---
 
 ## Extensions
+
 Responsible for all user features, business rules, financial calculations, and domain-specific workflows.
+
 * **Separation of Concerns:** All finance functionality—from calculations to rendering sheets—belongs inside extensions.
 * **Sandboxed Execution:** Extensions operate inside an isolated process and must use the Core API to touch system resources.
 
@@ -212,7 +220,9 @@ Responsible for all user features, business rules, financial calculations, and d
 To achieve the exact modularity and reliability of VS Code, our platform adopts a matching extension system.
 
 ### 1. The Declarative Manifest (`package.json`)
+
 Every extension defines its metadata and capabilities in a declarative manifest. This allows the Core Platform to register and display the extension's entry points in the UI **without loading or running its JavaScript**, ensuring near-instant application startup.
+
 * **`activationEvents`**: Specifies when the extension's code should be executed. Examples:
   * `onView:dashboard` (loads when the user opens the dashboard)
   * `onCommand:tax.calculate` (loads when a specific command is run)
@@ -224,11 +234,14 @@ Every extension defines its metadata and capabilities in a declarative manifest.
   * `configuration`: Custom user settings that the Core automatically displays in the settings panel.
 
 ### 2. Isolated Extension Host Process
+
 Like VS Code, extensions execute inside a separate Node.js background process called the **Extension Host**.
+
 * **System Stability:** Even if an extension is executing a heavy, synchronous calculation (e.g., a 30-year compound interest forecast), the primary UI process remains perfectly smooth and responsive at 60 FPS.
 * **Crash Isolation:** If an extension crashes, the core application shell remains alive and running, allowing the user to reload the crashed extension gracefully.
 
 ### 3. The Secure Extension API (`finance` namespace)
+
 Extensions do not import SQLite, Electron, or Node's file system directly. Instead, they interact with the host via a strictly defined, secure API.
 
 Extensions access their own tables and the Shared Financial Data through simple, typed table accessors. The Core handles SQL generation, permissions, and injection prevention internally.
@@ -260,7 +273,9 @@ finance.ai.registerTool({
 Typed, schema-bound DAO generation may be introduced in a future release but is not required for the first production version.
 
 ### 4. UI Rendering Layer
+
 To allow custom visual experiences while maintaining security and consistency:
+
 * **The Main Workspace (Webviews):** For full-screen dashboards, data grids, and interactive charts, extensions create a secure, sandboxed `WebviewPanel` (using Electron's `iframe` with rigid sandbox constraints). The extension feeds its frontend files (HTML/CSS/JS) to this panel, communicating with its background script via a lightweight, secure bridge (`postMessage`).
 * **The Navigation Panel (Declarative UI):** Standard lists, collapsible trees, and side-menus are rendered directly by the Core. The active extension simply supplies a Data Provider (e.g., a list of budget categories) to the Core's Navigation Service. This ensures a beautifully consistent visual design.
 
@@ -293,6 +308,7 @@ To allow custom visual experiences while maintaining security and consistency:
 Positioned on the far left, mirroring VS Code. It displays the icons of active or installed extensions. Clicking an icon sets the active extension context: it opens a new tab in the Main Workspace (or focuses an existing one if already open) and updates the Navigation Panel accordingly. Existing tabs remain open and accessible via the tab bar.
 
 Examples:
+
 * **Dashboard:** Net worth and high-level health metrics.
 * **Transactions:** Raw ledger entry and categorization.
 * **Budget:** Spending allocations and tracking.
@@ -311,6 +327,7 @@ Examples:
 Displays a context-specific sidebar controlled by the active extension. It contains interactive trees, lists, and controls.
 
 Examples:
+
 * **Budget Extension Active:**
   * Monthly Budget
   * Categories
@@ -327,6 +344,7 @@ Examples:
 # Main Workspace
 
 The primary, high-performance canvas where data is displayed and manipulated. It mirrors VS Code's editor model exactly.
+
 * Supports data grids, rich interactive forms, dashboards, charts, and financial reports.
 * **Tabs:** Opening a workspace mounts it as a new tab. Users can have many tabs open simultaneously and switch between them via the tab bar.
 * **Split-Screen Groups:** Tabs can be dragged into separate editor groups (side-by-side, top-and-bottom, grid layouts), letting the user view two or more extensions concurrently. For example, comparing the Tax summary in one pane against the Budget breakdown in another.
@@ -340,7 +358,9 @@ The primary, high-performance canvas where data is displayed and manipulated. It
 A permanent, collapsible panel on the far right. **The AI Assistant is not an extension; it is a Core Service.**
 
 ### Privacy & Data Flow Policy (Default-Deny)
+
 The AI Assistant is the only Core component that talks to external AI providers. To honor the **Local First** and **Privacy Focused** principles, the following rules govern all AI interactions:
+
 * **Default Provider is Local:** Ollama is the default provider. No financial data leaves the user's machine unless the user explicitly opts in.
 * **Explicit Opt-In Per Provider:** Cloud providers (OpenAI, Gemini) are off by default. The user must actively enable them in Settings and acknowledge a privacy disclosure.
 * **Data Sanitization Layer:** Before any context is sent to a cloud provider, the Core performs best-effort sanitization: account numbers, names, addresses, and other PII are stripped or replaced with tokens. Because perfect detection of personally identifiable information cannot be guaranteed, users may optionally review transmitted context before cloud requests are sent. Extensions may register additional sanitization rules for their own data.
@@ -348,6 +368,7 @@ The AI Assistant is the only Core component that talks to external AI providers.
 * **Read-Only by Default:** The AI Assistant's direct database access is strictly read-only. Any write action (e.g., "create a budget category") must be performed by invoking a tool that the *extension* registered — the AI never writes to the database directly.
 
 ### Core Responsibilities
+
 * **Provider Management:** Handles keys, endpoints, and requests to AI Providers (Ollama, OpenAI, Gemini).
 * **Chat Sessions:** Stores chat session history and prompt templates.
 * **Tool Execution:** Exposes extension-registered tools to the LLM and executes handlers securely.
@@ -355,21 +376,26 @@ The AI Assistant is the only Core component that talks to external AI providers.
 * **Permission Management:** Enforces read-only access by default; write actions require extension-registered tools.
 
 ### AI Extension Responsibilities
+
 Extensions register analytical tools that the Core AI orchestrates. The Core AI itself contains no financial intelligence — all analysis lives in extensions.
 
 **Budget Extension:**
+
 * Spending analysis
 * Budget forecasts
 
 **Tax Extension:**
+
 * Tax estimates
 * Deduction reviews
 
 **Mortgage Extension:**
+
 * Refinance analysis
 * Interest forecasts
 
 ### User Interaction Examples
+
 * *"Show my spending this year in a pie chart."*
 * *"Estimate next year's tax based on my current deductions."*
 * *"Summarize my mortgage interest costs over the last 12 months."*
@@ -382,12 +408,14 @@ Extensions register analytical tools that the Core AI orchestrates. The Core AI 
 # Database Strategy
 
 ### Primary Database: SQLite
+
 * **Local:** Stores all application data locally in a single file (`myfinance.db`).
 * **Fast & Reliable:** Instantaneous local queries, atomic transactions, and zero external service dependencies.
 * **Portable:** Easy to move, clone, or secure.
 * **Backup-Friendly:** Trivial automated backup to an encrypted local file or cloud folder.
 
 ### Future Capability
+
 * **PostgreSQL Bridge:** Built-in adapter interfaces will support linking to a private PostgreSQL instance for optional self-hosted cloud synchronization.
 
 ---
@@ -397,6 +425,7 @@ Extensions register analytical tools that the Core AI orchestrates. The Core AI 
 The Core owns all SQLite connection and file access. Extensions **never** open a direct connection to the SQLite database. Instead, they interact with typed table accessors provided by the Finance API.
 
 The Finance API enforces three data boundaries:
+
 * **Infrastructure tables** (Core-owned): Extension registry, settings, migration log.
 * **Shared Financial Data** (Platform-owned): Accounts, Transactions, Categories, Assets, Liabilities. Extensions may read these but may not modify them directly.
 * **Extension tables** (Extension-owned): Private data for each extension's specific features.
@@ -421,6 +450,7 @@ The Finance API enforces three data boundaries:
 ```
 
 ### Key Benefits
+
 * **Security:** Extensions cannot run `DROP TABLE`, cannot query tables outside their boundaries, and cannot inject raw SQL — the table accessor simply does not expose those capabilities.
 * **Shared Data without Duplication:** Extensions read canonical financial records (Accounts, Transactions) from the Shared Financial Data layer instead of creating private copies.
 * **Ease of Migration:** Schemas can be migrated centrally by the Core. Extension code stays stable during upgrades.
@@ -432,6 +462,7 @@ The Finance API enforces three data boundaries:
 # Core Services
 
 ## Database Service
+
 * Manages the active connection to the SQLite database file.
 * Manages the three data boundaries: infrastructure, shared financial data, and extension-private data.
 * Generates typed table accessors for extensions based on their declared manifests.
@@ -440,17 +471,20 @@ The Finance API enforces three data boundaries:
 * Conducts scheduled and user-initiated encrypted database backups.
 
 ## AI Service
+
 * Manages keys, endpoints, and requests to AI Providers (OpenAI, Gemini, Ollama).
 * Provides context building, chat session history storage, and prompt template management.
 * Handles tool resolution: exposes extension-registered tools to the LLM and executes the handlers securely.
 
 ## Extension Service
+
 * Scans the system extensions directory.
 * Parses declarative `package.json` manifests to build the initial UI and command catalogs.
 * Spawns, monitors, and communicates with the background Extension Host process.
 * Handles installing, enabling, and disabling extensions safely.
 
 ## Settings Service
+
 * Acts as a generic, namespaced Key-Value store. Core owns no schema, no business meaning, and no domain logic.
 * Manages truly app-wide preferences: window state, active theme, AI provider API keys, and database directory paths.
 * Renders the Settings UI for any settings keys that extensions have registered in their `package.json` (`contributes.configuration` block). The Core displays them using generic, schema-driven form components (text fields, toggles, dropdowns) — it does not know or care what the setting *means*.
@@ -488,6 +522,7 @@ The Finance API enforces three data boundaries:
 # Development Roadmap
 
 ### Phase 1a: Core Shell
+
 * Electron shell, window management, and TypeScript Strict Mode.
 * Structural layout: Activity Bar, Navigation Panel, Workspace, and collapsible AI Panel.
 * Command Palette, keyboard shortcut registry, and keyboard-navigable UI.
@@ -495,42 +530,50 @@ The Finance API enforces three data boundaries:
 * Backup and recovery utilities.
 
 ### Phase 1b: Extension Host
+
 * Extension Loader and Extension Host process.
 * Manifest parsing and activation event triggers.
 * The `finance` API contract and table accessor generation.
 * Settings Service, Event System, and IPC routing.
 
 ### Phase 2: Transactions
+
 * First extension — proves the platform works end-to-end.
 * High-speed ledger views, category engines, and CSV/bank import adapters.
 * Shared Financial Data: Accounts, Transactions, Categories.
 
 ### Phase 3: Dashboard
+
 * Aggregator extension — proves Shared Financial Data works across extensions.
 * Net worth calculations, core metrics summaries, and basic webviews.
 * Graceful handling of missing extensions (e.g., no Mortgage installed).
 
 ### Phase 4: Budget
+
 * Proves extension-to-extension communication and data aggregation.
 * Allocation schemas, category tracking, and progress visualization.
 * Reads from Shared Financial Data, writes to its own private tables.
 
 ### Phase 5: AI Assistant
+
 * Core Service — proves AI integration works.
 * Provider management, chat sessions, and context building.
 * Extension-registered tools: spending analysis, tax estimates, refinance analysis.
 
 ### Phase 6: Extension SDK
+
 * Formalizes the public API for external developers.
 * Extension packaging format and documentation.
 * Type definitions, manifest schema, and development guides.
 
 ### Phase 7: Marketplace
+
 * Extension Marketplace for discovering and installing extensions.
 * Digital signing for extension authenticity and security.
 * Version management, dependency resolution, and automatic updates.
 
 ### Future Extensions
+
 Built by the community or by us, after the platform is stable.
 
 * **Tax:** Australian/global income tax workbook with PAYG tracking, dynamic refund calculations, and a deduction records ledger.
