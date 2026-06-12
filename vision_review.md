@@ -3,7 +3,7 @@
 **Date:** 2026-06-13
 **Reviewed Documents:** `AGENTS.md`, `project_vision.md`
 **Reviewer:** opencode (Model: MiniMax-M3)
-**Status:** Review Complete - 10 Issues Identified
+**Status:** Review Complete - 15 Issues Identified (10 original + 5 follow-up)
 
 ---
 
@@ -150,20 +150,91 @@ The document is exceptionally well-structured and perfectly captures the VS Code
 
 ---
 
+### Issue 11 (New A): Activity Bar "Switches" Workspace vs Multi-Tab Workspace
+-- fixed and updated -project_vision.md
+
+**The Contradiction (Line 201 vs Lines 238-241):**
+* Line 201: *"Clicking an icon switches the active context of the Navigation Panel and the Main **Workspace**."*
+* Lines 238-240: Workspace supports tabs, split-screen groups, and multiple concurrent extensions.
+
+**The Problem:** "Switches the workspace" implies closing the current workspace view and replacing it. But the tab/split-screen model says users can have multiple tabs open side-by-side. In VS Code, clicking the Activity Bar icon does not close your editor tabs — it only changes the sidebar.
+
+**Suggested Fix:** Reword to: *"Clicking an icon sets the active extension context. This opens a new tab in the Main Workspace (or focuses an existing one) and updates the Navigation Panel. Existing tabs remain open."*
+
+---
+
+### Issue 12 (New B): Table Naming Convention Mismatch
+-- fixed and updated -project_vision.md
+
+**The Contradiction (Line 48 vs Line 148):**
+* Line 48: *"Extensions must namespace their database tables (e.g., `ext_tax_settings`, `ext_budget_items`)."*
+* Line 148 (code example): `finance.extensions.budget.db.budget_items.find(...)`
+
+**The Problem:** The rule says tables should be named with an `ext_` prefix, but the code example uses `budget_items` (no prefix). The DAO path already provides namespace isolation, so the redundant `ext_` prefix is unnecessary and confusing.
+
+**Suggested Fix:** Remove the `ext_` prefix rule and use plain table names, since the DAO path enforces isolation structurally.
+
+---
+
+### Issue 13 (New C): Phase 1 and Phase 3 Database Scope Ambiguity
+-- fixed and updated -project_vision.md
+
+**The Contradiction (Lines 376-378 vs Lines 385-387):**
+* Phase 1: *"Designing the basic SQLite connection layer."*
+* Phase 3: *"Establishing core schemas, transaction standards, and automated migrations."*
+
+**The Problem:** A connection layer without schemas is just an empty socket. What "core schemas" exist if Core has no finance logic? The scope split between Phase 1 and Phase 3 is vague and potentially circular.
+
+**Suggested Fix:** Move SQLite connection setup to Phase 3. Phase 1 should be purely shell and UI scaffolding. Clarify Phase 3 schemas are infrastructure-only (extension registry, settings store, migration log), not finance data.
+
+---
+
+### Issue 14 (New D): "Instant Startup" Promise vs Heavy Architecture
+-- fixed and updated -project_vision.md
+
+**The Contradiction (Line 26 vs Lines 80-97, 134-137):**
+* Line 26: *"Fast and Lightweight: **Instant startup**, snappy transitions..."*
+* Architecture requires Electron init, manifest parsing, Extension Host spawn, DAO generation, SQLite migrations, and AI service initialization before the user sees a window.
+
+**The Problem:** "Instant startup" (sub-100ms) is unrealistic with this architecture. The document makes a promise it cannot keep.
+
+**Suggested Fix:** Replace "Instant startup" with "Quick shell startup with lazy-loaded extensions" — which matches VS Code's actual behavior and the declarative manifest approach already described in Section 1.
+
+---
+
+### Issue 15 (New E): "Keyboard-Friendly" Nowhere Defined
+-- fixed and updated -project_vision.md
+
+**The Problem (Line 24):**
+* Principle 4: *"Built for power users with a fast, keyboard-friendly desktop UI (Electron)."*
+
+**The Problem:** "Keyboard-friendly" is a promise with zero engineering detail. VS Code achieves this through Command Palette, Quick Open, keyboard shortcuts, and keyboard-navigable trees — none of which are mentioned anywhere in the document.
+
+**Suggested Fix:** Replace vague "keyboard-friendly" with specific commitments: Command Palette, customizable keyboard shortcuts, and keyboard-navigable UI. Add a corresponding deliverable to the Development Roadmap.
+
+---
+
 ## Summary
 
-The document is exceptionally well-structured and perfectly captures the VS Code aesthetic. However, locking down these 10 specific contradictions and security/privacy flaws will elevate it from a beautiful vision to a production-ready technical contract.
+The document is exceptionally well-structured and perfectly captures the VS Code aesthetic. However, locking down these 15 specific contradictions and security/privacy flaws will elevate it from a beautiful vision to a production-ready technical contract.
 
-**Highest Priority Issues:**
+**Highest Priority Issues (Original):**
 1. **Issue 1 & 3 (Database Security):** Critical - Raw SQL access violates the very security promises made elsewhere.
 2. **Issue 5 & 10 (AI Privacy):** Critical - Cloud AI providers contradict the "Local First" and "Privacy Focused" core principles.
 3. **Issue 9 (Extension Independence):** Critical - Inter-extension commands break the "Removability" and "Do Not Break Other Extensions" rules.
 
-**Medium Priority Issues:**
+**Medium Priority Issues (Original):**
 4. **Issue 4 (Settings Conflict):** Important - Unclear ownership boundaries.
 5. **Issue 6 (Workspace Rigidity):** UX limitation - Kills split-screen potential.
 6. **Issue 8 (PostgreSQL Bridge):** Architectural - Future-proofing concern.
 
-**Low Priority Issues:**
+**Low Priority Issues (Original):**
 7. **Issue 2 (Project Name):** Cosmetic - Inconsistent branding.
 8. **Issue 7 (Typo):** Cosmetic - "Performance Security" should be renamed.
+
+**Follow-Up Issues (New):**
+9. **Issue 11 (Activity Bar wording):** Minor - Inconsistent with multi-tab workspace.
+10. **Issue 12 (Table naming):** Low - Rule vs example mismatch.
+11. **Issue 13 (Phase scope):** Medium - Vague roadmap phasing.
+12. **Issue 14 (Startup claim):** Medium - Unrealistic promise.
+13. **Issue 15 (Keyboard definition):** Low - Undefined feature claim.

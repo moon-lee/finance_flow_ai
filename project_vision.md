@@ -21,9 +21,9 @@ Unlike traditional finance applications, it treats AI as a first-class feature a
 1. **Local First:** Your data is stored on your device, not in the cloud. It belongs to you.
 2. **AI First:** AI is integrated deeply into the core platform, not tacked on as an afterthought.
 3. **Extension First:** All financial domain logic is implemented via independent extensions. The core platform is lean and generic.
-4. **Desktop First:** Built for power users with a fast, keyboard-friendly desktop UI (Electron).
+4. **Desktop First:** Built for power users with a fast desktop UI (Electron), featuring a VS Code-inspired command palette, customizable keyboard shortcuts, and fully keyboard-navigable panels, trees, and lists.
 5. **Privacy Focused:** Completely private, offline-capable, and secure.
-6. **Fast and Lightweight:** Instant startup, snappy transitions, and lightweight memory footprint.
+6. **Fast and Lightweight:** Quick shell startup with lazy-loaded extensions. The application shell renders instantly; extensions load on first use, keeping memory and startup time lean.
 7. **Single Source of Truth:** Centralized local database managed via strict, schema-validated APIs.
 
 ---
@@ -45,7 +45,7 @@ To maintain a secure, robust, and highly modular codebase, the following rules g
   * The calling extension must always handle the `null`/missing-extension case and degrade its UX accordingly.
   * Direct in-process imports, shared global state, and direct database cross-writes between extensions are strictly forbidden.
 * **Strict Namespace Isolation (Database & Settings):**
-  * Extensions must namespace their database tables (e.g., `ext_tax_settings`, `ext_budget_items`).
+  * Extensions must namespace their database tables (e.g., `budget_items`, `tax_deductions`) — the Core enforces this by routing all DAO calls through the extension's own namespace path (`finance.extensions.budget.db.*`), so cross-extension table access is structurally impossible.
   * One extension must *never* perform write/update queries directly on another extension's tables.
   * Settings keys must be prefixed with the extension ID (e.g., `budget.monthlyLimit`, `tax.bracketConfig`). The Core's Settings Service enforces this at the storage layer, so cross-extension setting access is structurally impossible.
   * Extensions declare their settings schemas (key, type, default, label) in the `contributes.configuration` block of their `package.json`. The Core reads these manifests and renders a generic settings UI for them — Core never hardcodes any domain-specific setting.
@@ -198,7 +198,7 @@ To allow custom visual experiences while maintaining security and consistency:
 
 # Activity Bar
 
-Positioned on the far left, mirroring VS Code. It displays the icons of active or installed extensions. Clicking an icon switches the active context of the Navigation Panel and the Main Workspace.
+Positioned on the far left, mirroring VS Code. It displays the icons of active or installed extensions. Clicking an icon sets the active extension context: it opens a new tab in the Main Workspace (or focuses an existing one if already open) and updates the Navigation Panel accordingly. Existing tabs remain open and accessible via the tab bar.
 
 Examples:
 * **Dashboard:** Net worth and high-level health metrics.
@@ -375,7 +375,7 @@ The Core owns all SQLite connection and file access. Extensions **never** open a
 ### Phase 1: Core Platform
 * Bootstrapping Electron shell with TypeScript Strict Mode.
 * Implementing the structural layout: Activity Bar, Navigation Panel, Workspace, and collapsible AI Panel.
-* Designing the basic SQLite connection layer.
+* Building the Command Palette, keyboard shortcut registry, and keyboard-navigable UI (trees, lists, panels).
 
 ### Phase 2: Extension Framework
 * Creating the Extension Loader and registering the Extension Host process.
@@ -383,7 +383,9 @@ The Core owns all SQLite connection and file access. Extensions **never** open a
 * Standardizing the `finance` API contract.
 
 ### Phase 3: Database Layer
-* Establishing core schemas, transaction standards, and automated migrations.
+* Setting up the SQLite connection, transaction management, and migration runner.
+* Establishing infrastructure schemas (extension registry, settings store, migration log) — no finance data.
+* Implementing the DAO generator that reads extension table manifests and produces typed accessors.
 * Implementing backup and recovery utilities.
 
 ### Phase 4: Dashboard Extension
