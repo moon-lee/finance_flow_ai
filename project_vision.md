@@ -204,7 +204,8 @@ Examples:
 * **Dashboard:** Net worth and high-level health metrics.
 * **Transactions:** Raw ledger entry and categorization.
 * **Budget:** Spending allocations and tracking.
-* **Tax:** Dedutions, PAYG ledger, and tax estimations.
+* **Cash Flow:** Monthly trends and future forecasts.
+* **Tax:** Deductions, PAYG ledger, and tax estimations.
 * **Mortgage:** Loan schedules and refinance models.
 * **Property:** Costs, rates, and real estate equity.
 * **Super:** Retirement projections and superannuation fees.
@@ -238,7 +239,7 @@ The primary, high-performance canvas where data is displayed and manipulated. It
 * **Tabs:** Opening a workspace mounts it as a new tab. Users can have many tabs open simultaneously and switch between them via the tab bar.
 * **Split-Screen Groups:** Tabs can be dragged into separate editor groups (side-by-side, top-and-bottom, grid layouts), letting the user view two or more extensions concurrently. For example, comparing the Tax summary in one pane against the Budget breakdown in another.
 * **Active Context:** The currently focused tab/group drives the Navigation Panel and other contextual UI. Switching tabs cleanly swaps the active context without losing the inactive tabs' state.
-* **Webviews:** Extensions can also spawn their own sandboxed `WebviewPanel` windows (e.g., a pop-out chart, a modal form) that float independently of the main editor groups.
+* **Webviews:** Extensions can also open their own sandboxed `WebviewPanel` tabs (e.g., a chart view, a detailed form) alongside regular extension tabs within the same editor groups.
 
 ---
 

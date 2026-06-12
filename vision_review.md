@@ -3,7 +3,7 @@
 **Date:** 2026-06-13
 **Reviewed Documents:** `AGENTS.md`, `project_vision.md`
 **Reviewer:** opencode (Model: MiniMax-M3)
-**Status:** Review Complete - 15 Issues Identified (10 original + 5 follow-up)
+**Status:** Review Complete - 21 Issues Identified (10 original + 5 follow-up + 6 third-pass)
 
 ---
 
@@ -15,7 +15,7 @@
 
 ## 2. Review of `project_vision.md`
 
-The document is exceptionally well-structured and perfectly captures the VS Code aesthetic. However, a detailed review revealed 10 areas of inconsistency, missing detail, and technical non-sense that should be addressed before this becomes a hard technical reference.
+The document is exceptionally well-structured and perfectly captures the VS Code aesthetic. However, a detailed review revealed 21 areas of inconsistency, missing detail, and technical non-sense that should be addressed before this becomes a hard technical reference.
 
 ---
 
@@ -214,9 +214,81 @@ The document is exceptionally well-structured and perfectly captures the VS Code
 
 ---
 
+### Issue 16: "OpenAI (opencode, kilocode)" Nonsense in AI Providers
+*Deferred — user will decide later*
+
+**The Problem (Line 70):**
+* `"Cloud (opt-in only): OpenAI (opencode, kilocode), Gemini"`
+
+**The Problem:** "opencode" and "kilocode" are not OpenAI products. These are AI coding assistants, not LLM models. OpenAI's products are GPT-4o, ChatGPT, etc. This looks like a copy-paste artifact from the generation context.
+
+**Suggested Fix:** Replace with actual OpenAI model names (e.g., `OpenAI (GPT-4o)`) or simply list `OpenAI` without sub-product names.
+
+---
+
+### Issue 17: "Dedutions" Typo
+-- fixed and updated -project_vision.md
+
+**The Problem (Line 207):**
+* `"Tax: Dedutions, PAYG ledger, and tax estimations."`
+
+**Suggested Fix:** Change to `"Deductions"`.
+
+---
+
+### Issue 18: Cash Flow Missing from Activity Bar Examples
+-- fixed and updated -project_vision.md
+
+**The Contradiction (Lines 203-212 vs Lines 348-356):**
+* Activity Bar examples list: Dashboard, Transactions, Budget, Tax, Mortgage, Property, Super, Reports, Settings.
+* Initial Extensions list includes: Dashboard, Transactions, Budget, **Cash Flow**, Tax, Mortgage, Property, Super, Reports.
+
+**The Problem:** "Cash Flow" is an Initial Extension but missing from Activity Bar examples. "Settings" is listed as an Activity Bar icon but is a Core service, not an extension. The two lists don't match.
+
+**Suggested Fix:** Add "Cash Flow" to Activity Bar examples. (Settings is fine — it's a Core icon, not an extension.)
+
+---
+
+### Issue 19: `myfinance.db` Placeholder Name
+*Deferred — user will decide app name later*
+
+**The Problem (Lines 277, 321):**
+* `"Stores all application data locally in a single file (myfinance.db)."`
+* `"Manages the active connection to myfinance.db."`
+
+**The Problem:** The database file is called `myfinance.db` but the project has no official name. This is a placeholder that should either be a real project name or a generic name like `workspace.db`.
+
+**Suggested Fix:** Defer until a project name is chosen.
+
+---
+
+### Issue 20: WebviewPanels Described as Floating Windows
+-- fixed and updated -project_vision.md
+
+**The Contradiction (Line 241):**
+* `"Extensions can also spawn their own sandboxed WebviewPanel windows (e.g., a pop-out chart, a modal form) that float independently of the main editor groups."`
+
+**The Problem:** In VS Code, WebviewPanels are tabs within the editor, not independent floating windows. Floating windows would require Electron's BrowserWindow, which is a different (and much heavier) concept. This contradicts the "exactly like VS Code" claim.
+
+**Suggested Fix:** Reword to describe WebviewPanels as tabs within editor groups, not floating windows.
+
+---
+
+### Issue 21: vision_review.md Says "10 areas" After Already Having 15
+-- fixed and updated -vision_review.md
+
+**The Problem (Line 18):**
+* `"a detailed review revealed 10 areas of inconsistency"`
+
+**The Problem:** The intro paragraph was never updated after the 5 follow-up issues were added.
+
+**Suggested Fix:** Change to `"15 areas"`.
+
+---
+
 ## Summary
 
-The document is exceptionally well-structured and perfectly captures the VS Code aesthetic. However, locking down these 15 specific contradictions and security/privacy flaws will elevate it from a beautiful vision to a production-ready technical contract.
+The document is exceptionally well-structured and perfectly captures the VS Code aesthetic. However, locking down these 21 specific contradictions and security/privacy flaws will elevate it from a beautiful vision to a production-ready technical contract.
 
 **Highest Priority Issues (Original):**
 1. **Issue 1 & 3 (Database Security):** Critical - Raw SQL access violates the very security promises made elsewhere.
@@ -238,3 +310,11 @@ The document is exceptionally well-structured and perfectly captures the VS Code
 11. **Issue 13 (Phase scope):** Medium - Vague roadmap phasing.
 12. **Issue 14 (Startup claim):** Medium - Unrealistic promise.
 13. **Issue 15 (Keyboard definition):** Low - Undefined feature claim.
+
+**Third-Pass Issues (Latest):**
+14. **Issue 16 (AI provider names):** Deferred - User will decide later.
+15. **Issue 17 (Typo "Dedutions"):** Fixed.
+16. **Issue 18 (Cash Flow missing):** Fixed.
+17. **Issue 19 (DB placeholder name):** Deferred - User will decide later.
+18. **Issue 20 (WebviewPanel windows):** Fixed.
+19. **Issue 21 (Review count):** Fixed.
