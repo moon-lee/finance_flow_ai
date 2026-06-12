@@ -3,7 +3,7 @@
 **Date:** 2026-06-13
 **Reviewed Documents:** `AGENTS.md`, `project_vision.md`
 **Reviewer:** opencode (Model: MiniMax-M3)
-**Status:** Review Complete - 21 Issues Identified (10 original + 5 follow-up + 6 third-pass)
+**Status:** Review Complete - 30 Issues Identified (10 original + 5 follow-up + 6 third-pass + 9 architectural)
 
 ---
 
@@ -15,7 +15,7 @@
 
 ## 2. Review of `project_vision.md`
 
-The document is exceptionally well-structured and perfectly captures the VS Code aesthetic. However, a detailed review revealed 21 areas of inconsistency, missing detail, and technical non-sense that should be addressed before this becomes a hard technical reference.
+The document is exceptionally well-structured and perfectly captures the VS Code aesthetic. However, a detailed review revealed 30 areas of inconsistency, missing detail, and technical non-sense that should be addressed before this becomes a hard technical reference.
 
 ---
 
@@ -286,9 +286,115 @@ The document is exceptionally well-structured and perfectly captures the VS Code
 
 ---
 
+### Issue 22: Local First Principle Was Incompatible with Cloud AI
+-- fixed and updated -project_vision.md
+
+**The Contradiction (Line 21):**
+* Original: `"Local First: Your data is stored on your device, not in the cloud. It belongs to you."`
+
+**The Problem:** The principle said "not in the cloud" but the platform supports cloud AI providers (OpenAI, Gemini). This was a direct contradiction. The original phrasing also made "Cloud Optional" impossible to add honestly.
+
+**Suggested Fix:** Change to "Local First, Cloud Optional" — all data stored locally by default, cloud services enabled explicitly by the user.
+
+---
+
+### Issue 23: No Shared Financial Data Layer — Who Owns Canonical Records?
+-- fixed and updated -project_vision.md
+
+**The Contradiction:**
+* Core Principles say: "No Finance Logic Inside Core" and "Extensions Own the Domain."
+* But what about canonical records like Accounts, Transactions, and Categories? If Budget and Tax both need transactions, do they each create their own copy?
+
+**The Problem:** The document had no answer. There was a missing architectural layer between Core (no finance logic) and Extensions (private data). Without a shared data model, extensions would either duplicate records or bypass the isolation rules.
+
+**Suggested Fix:** Add a "Shared Financial Data Layer" — platform-owned canonical records (Accounts, Transactions, Categories, Assets, Liabilities) that all extensions can read but not modify directly.
+
+---
+
+### Issue 24: Dashboard Described as Core Feature, Not Extension
+-- fixed and updated -project_vision.md
+
+**The Contradiction (Line 349):**
+* Original: `"Dashboard: Core financial overview displaying Net Worth..."`
+
+**The Problem:** If "No Finance Logic Inside Core" is a rule, then Dashboard (which displays financial data) should be an extension, not a Core feature. But the document listed it as an extension without explaining how it gathers data from other extensions.
+
+**Suggested Fix:** Redefine Dashboard as an "Aggregator Extension" that reads from Shared Financial Data and installed extensions, gracefully handling missing extensions.
+
+---
+
+### Issue 25: AI Core contained Financial Intelligence it shouldn't have
+-- fixed and updated -project_vision.md
+
+**The Contradiction (Lines 258-263):**
+* Core Responsibilities included: "Trend Analysis," "Narrative Reports," "Database Querying"
+
+**The Problem:** "Trend Analysis" and "Narrative Reports" are financial intelligence. If Core must have no finance logic, the AI Service shouldn't contain analytical capabilities — those should live in extensions.
+
+**Suggested Fix:** Split AI responsibilities into Core (Provider Management, Chat Sessions, Tool Execution, Context Building, Permission Management) and Extensions (each registers its own analytical tools).
+
+---
+
+### Issue 26: Privacy Policy Overpromised Perfect PII Detection
+-- fixed and updated -project_vision.md
+
+**The Contradiction (Line 254):**
+* Original: `"account numbers, names, addresses, and other PII are stripped or replaced with tokens"`
+
+**The Problem:** Perfect PII detection is impossible. Names can appear in transaction descriptions, addresses in memo fields, and there's always edge cases. Claiming perfect sanitization is dishonest and creates liability.
+
+**Suggested Fix:** Use honest language: "best-effort sanitization" + optional user review before cloud requests.
+
+---
+
+### Issue 27: Extension Removal Was Binary — No Graceful Lifecycle
+-- fixed and updated -project_vision.md
+
+**The Contradiction (Line 52):**
+* Original: `"An extension must be completely removable without leaving orphaned database tables."`
+
+**The Problem:** Users might want to disable an extension temporarily, or uninstall it but keep their data. The binary "remove everything" approach is too aggressive and doesn't match real user needs.
+
+**Suggested Fix:** Three-tier lifecycle: Disable (off, keeps files), Uninstall (removes files, keeps data), Delete Data (permanent, requires confirmation).
+
+---
+
+### Issue 28: DAO API Was Over-Engineered for First Release
+-- fixed and updated -project_vision.md
+
+**The Contradiction (Lines 144-168):**
+* Original: `finance.extensions.budget.db.budget_items.find()`
+
+**The Problem:** Auto-generating typed, schema-bound DAOs from manifest declarations is complex engineering. For a first release, a simpler `finance.db.table('items')` approach is sufficient. Typed DAOs can be added later.
+
+**Suggested Fix:** Simplify to `finance.db.table('budget_items')` or `finance.db.repository('budget_items')`. Note that typed DAO generation is a future enhancement.
+
+---
+
+### Issue 29: No Extension Marketplace in Roadmap
+-- fixed and updated -project_vision.md
+
+**The Problem:** The Long-Term Vision says "Users should be able to install new capabilities exactly like installing extensions in VS Code." But the roadmap stops at Phase 10 (Advanced AI) with no mention of how extensions are packaged, discovered, or distributed.
+
+**Suggested Fix:** Add Phase 11: Extension Ecosystem — packaging, marketplace, digital signing, version management, dependency resolution, automatic updates.
+
+---
+
+### Issue 30: System Architecture Diagram Showed Only Two Layers
+-- fixed and updated -project_vision.md
+
+**The Contradiction (Lines 80-97):**
+* Original diagram showed: Core Platform → Extension Host
+
+**The Problem:** With the addition of Shared Financial Data as a third layer, the architecture diagram was outdated. The canonical representation of the platform should show all three layers.
+
+**Suggested Fix:** Replace with three-layer diagram: Core Infrastructure → Shared Financial Data → Extensions.
+
+---
+
 ## Summary
 
-The document is exceptionally well-structured and perfectly captures the VS Code aesthetic. However, locking down these 21 specific contradictions and security/privacy flaws will elevate it from a beautiful vision to a production-ready technical contract.
+The document is exceptionally well-structured and perfectly captures the VS Code aesthetic. However, locking down these 30 specific contradictions and security/privacy flaws will elevate it from a beautiful vision to a production-ready technical contract.
 
 **Highest Priority Issues (Original):**
 1. **Issue 1 & 3 (Database Security):** Critical - Raw SQL access violates the very security promises made elsewhere.
@@ -304,17 +410,28 @@ The document is exceptionally well-structured and perfectly captures the VS Code
 7. **Issue 2 (Project Name):** Cosmetic - Inconsistent branding.
 8. **Issue 7 (Typo):** Cosmetic - "Performance Security" should be renamed.
 
-**Follow-Up Issues (New):**
-9. **Issue 11 (Activity Bar wording):** Minor - Inconsistent with multi-tab workspace.
-10. **Issue 12 (Table naming):** Low - Rule vs example mismatch.
-11. **Issue 13 (Phase scope):** Medium - Vague roadmap phasing.
-12. **Issue 14 (Startup claim):** Medium - Unrealistic promise.
-13. **Issue 15 (Keyboard definition):** Low - Undefined feature claim.
+**Follow-Up Issues:**
+9. **Issue 11 (Activity Bar wording):** Fixed.
+10. **Issue 12 (Table naming):** Fixed.
+11. **Issue 13 (Phase scope):** Fixed.
+12. **Issue 14 (Startup claim):** Fixed.
+13. **Issue 15 (Keyboard definition):** Fixed.
 
-**Third-Pass Issues (Latest):**
-14. **Issue 16 (AI provider names):** Deferred - User will decide later.
-15. **Issue 17 (Typo "Dedutions"):** Fixed.
+**Third-Pass Issues:**
+14. **Issue 16 (AI provider names):** Deferred.
+15. **Issue 17 (Typo "Deductions"):** Fixed.
 16. **Issue 18 (Cash Flow missing):** Fixed.
-17. **Issue 19 (DB placeholder name):** Deferred - User will decide later.
+17. **Issue 19 (DB placeholder name):** Deferred.
 18. **Issue 20 (WebviewPanel windows):** Fixed.
 19. **Issue 21 (Review count):** Fixed.
+
+**Architectural Issues (Latest):**
+20. **Issue 22 (Local First contradiction):** Fixed.
+21. **Issue 23 (Missing shared data layer):** Fixed.
+22. **Issue 24 (Dashboard ownership):** Fixed.
+23. **Issue 25 (AI financial intelligence):** Fixed.
+24. **Issue 26 (Privacy overpromise):** Fixed.
+25. **Issue 27 (Extension lifecycle):** Fixed.
+26. **Issue 28 (DAO over-engineering):** Fixed.
+27. **Issue 29 (Missing marketplace roadmap):** Fixed.
+28. **Issue 30 (Outdated architecture diagram):** Fixed.
