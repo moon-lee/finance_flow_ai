@@ -3,7 +3,7 @@
 **Date:** 2026-06-13
 **Reviewed Documents:** `AGENTS.md`, `project_vision.md`
 **Reviewer:** opencode (Model: MiniMax-M3)
-**Status:** Review Complete - 31 Issues Identified (10 original + 5 follow-up + 6 third-pass + 10 architectural)
+**Status:** Review Complete - 34 Issues Identified (10 original + 5 follow-up + 6 third-pass + 13 architectural)
 
 ---
 
@@ -408,9 +408,40 @@ The document is exceptionally well-structured and perfectly captures the VS Code
 
 ---
 
+### Issue 32: Overly Heavy Phase 1 Roadmap Scope
+-- fixed and updated -project_vision.md
+
+**The Problem:** The initial Phase 1 roadmap (divided into Phase 1a and Phase 1b) was heavily overloaded. It required setting up window management, command palettes, keyboard navigation, SQLite connections, database migrations, backup/recovery utilities, setting services, isolated child processes, manifest parsing, and table accessor generation before achieving a single working prototype. This created a high barrier to entry and increased risk of delivery delays.
+
+**Suggested Fix:** Restructure the roadmap to follow a progressive, incremental delivery model:
+1. **Phase 1 (Visual Prototype):** Focus purely on visual UI layout (skeleton shell).
+2. **Phase 2 (Database & Settings):** Initialize local storage and settings backbone.
+3. **Phase 3 (Extension Host & IPC):** Scaffold process isolation and manifest loading.
+4. Move non-essential features (e.g., migration runner, shortcuts registry, backup/recovery) to a later polish phase (Phase 7).
+
+---
+
+### Issue 33: Absence of Incremental Milestone Rules
+-- fixed and updated -project_vision.md
+
+**The Problem:** The Development Rules lacked a formal policy regarding continuous integration and incremental milestone delivery. Without an explicit rule, developers could fall back on "big bang integration" patterns (deferring integration, routing, or database wiring to the very end of a project), increasing integration bugs and implementation risk.
+
+**Suggested Fix:** Add an explicit rule under Code Quality & Technical Standards requiring every phase of the project to end with a working, compilable, and minimally usable release.
+
+---
+
+### Issue 34: Missing Phase-by-Phase Deliverable Specifications in Roadmap
+-- fixed and updated -project_vision.md
+
+**The Problem:** While the Development Rules mandated that every phase of development must end with a working, usable release (Issue 33), the Development Roadmap did not explicitly define the deliverables or "Definition of Done" criteria for each phase. This left room for ambiguity and inconsistent validation of progress.
+
+**Suggested Fix:** Explicitly add a `**Deliverable:**` checkpoint to each phase in the Development Roadmap in `project_vision.md` defining exactly what a usable, working release looks like at the end of that phase.
+
+---
+
 ## Summary
 
-The document is exceptionally well-structured and perfectly captures the VS Code aesthetic. However, locking down these 31 specific contradictions and security/privacy flaws will elevate it from a beautiful vision to a production-ready technical contract.
+The document is exceptionally well-structured and perfectly captures the VS Code aesthetic. However, locking down these 34 specific contradictions and security/privacy flaws will elevate it from a beautiful vision to a production-ready technical contract.
 
 **Highest Priority Issues (Original):**
 1. **Issue 1 & 3 (Database Security):** Critical - Raw SQL access violates the very security promises made elsewhere.
@@ -452,6 +483,9 @@ The document is exceptionally well-structured and perfectly captures the VS Code
 27. **Issue 29 (Missing marketplace roadmap):** Fixed.
 28. **Issue 30 (Outdated architecture diagram):** Fixed.
 29. **Issue 31 (Missing technology stack specifications):** Fixed.
+30. **Issue 32 (Overly Heavy Phase 1 Roadmap Scope):** Fixed.
+31. **Issue 33 (Absence of Incremental Milestone Rules):** Fixed.
+32. **Issue 34 (Missing Phase-by-Phase Deliverable Specifications in Roadmap):** Fixed.
 
 ---
 

@@ -62,6 +62,7 @@ To maintain a secure, robust, and highly modular codebase, the following rules g
 * **TypeScript Strict Mode:** Both the Core and all extensions must be compiled under strict TypeScript options (`strict: true`). No implicit `any` is allowed.
 * **Document Every Public API:** All exposed methods, events, and configuration schemas in the public API contract (`finance.d.ts`) must be extensively documented.
 * **Avoid Unnecessary Dependencies:** Prioritize native Node.js APIs and simple, lightweight packages. Avoid heavy libraries that degrade startup performance.
+* **Incremental Milestone Delivery (Continuous Integration):** Every development phase must end with a working, usable, and compilable release (even if minimal). We do not defer wiring or integrate at the very end ("no big bang integration").
 
 ---
 
@@ -521,59 +522,57 @@ The Finance API enforces three data boundaries:
 
 # Development Roadmap
 
-### Phase 1a: Core Shell
+### Phase 1: Core Shell (Visual Prototype)
+* Electron shell initialization with TypeScript Strict Mode.
+* Main UI layout scaffolding: Activity Bar, Sidebar Navigation Panel, main Workspace tabs, and Collapsible AI Panel.
+* Command Palette (static visual representation and basic list query display).
+* **Deliverable:** A bootable Electron application with a styled layout (sidebar, editor tab groups, collapsible AI panel) and a mock Command Palette interface.
 
-* Electron shell, window management, and TypeScript Strict Mode.
-* Structural layout: Activity Bar, Navigation Panel, Workspace, and collapsible AI Panel.
-* Command Palette, keyboard shortcut registry, and keyboard-navigable UI.
-* SQLite connection, migration runner, and infrastructure schemas.
-* Backup and recovery utilities.
+### Phase 2: Core Database & Settings (The Backbone)
+* SQLite database file connection initialization.
+* Settings Service (basic Key-Value persistence for window state, theme, and DB paths).
+* Infrastructure database schemas (e.g., active extensions list, migration log).
+* **Deliverable:** An app that boots and persists preferences (e.g., UI theme, database directory) locally, loading them automatically on startup.
 
-### Phase 1b: Extension Host
+### Phase 3: Extension Host & IPC Scaffolding (Process Isolation)
+* Spawning the isolated Extension Host Node.js child process.
+* Establishing basic message passing IPC (Electron `MessagePortMain` or standard Node IPC).
+* Extension Loader: Scanning directories, parsing extension declarative manifests (`package.json`), and registering contributed menus/views.
+* Simple extension activation triggers (e.g., loading code when clicking an Activity Bar icon).
+* **Deliverable:** An app that launches, spawns the Extension Host child process, dynamically reads a mock `package.json` extension manifest, and registers its views/commands in the UI.
 
-* Extension Loader and Extension Host process.
-* Manifest parsing and activation event triggers.
-* The `finance` API contract and table accessor generation.
-* Settings Service, Event System, and IPC routing.
+### Phase 4: Shared Financial Data & The First Extension (Transactions)
+* Defining Shared Financial Data schemas (Accounts, Transactions, Categories).
+* Implementing the initial `finance.db.table()` API bridge for basic read/write operations.
+* **Transactions Extension:** High-speed ledger interface, category management, and data import (CSV). Proves database integration.
+* **Deliverable:** A functional ledger UI. Users can input and save transaction entries, view transaction history lists, and verify database writes via an SQL viewer or local files.
 
-### Phase 2: Transactions
+### Phase 5: UI Webviews & Navigation Providers (Full Integration)
+* Sandboxed `WebviewPanel` implementation (mounting iframes inside main workspace tabs).
+* Custom Navigation providers (binding extension sidebar trees to Core UI).
+* **Dashboard Extension:** Proves data read-access across boundaries, net worth aggregations, and visual webview chart widgets.
+* **Deliverable:** Workspace tab views displaying interactive webview charts (e.g., net worth trend widgets) alongside a dynamic side navigation panel populated by the Dashboard extension.
 
-* First extension — proves the platform works end-to-end.
-* High-speed ledger views, category engines, and CSV/bank import adapters.
-* Shared Financial Data: Accounts, Transactions, Categories.
+### Phase 6: AI Assistant Service & Tools
+* Core AI Service provider configuration (local Ollama and cloud keys).
+* Context building and chat session manager.
+* Privacy & Data Sanitization Layer (PII regex/filters + audit logs).
+* Tool Registry (extensions contributing analytical tools to the AI).
+* **Deliverable:** A sidebar chat window that accepts user text queries, filters/sanitizes names/numbers, logs queries, and calls mock extension tools (e.g., "calculate estimates") using a local LLM.
 
-### Phase 3: Dashboard
+### Phase 7: Production Readiness & Polish
+* Automated database migration runner.
+* Customizable keyboard shortcuts registry and full keyboard navigation.
+* Database backup & recovery utilities (validation, encryption).
+* **Deliverable:** An app featuring a shortcut configuration screen, database backup export/import tools, and a verified migration script that runs seamlessly on startup.
 
-* Aggregator extension — proves Shared Financial Data works across extensions.
-* Net worth calculations, core metrics summaries, and basic webviews.
-* Graceful handling of missing extensions (e.g., no Mortgage installed).
-
-### Phase 4: Budget
-
-* Proves extension-to-extension communication and data aggregation.
-* Allocation schemas, category tracking, and progress visualization.
-* Reads from Shared Financial Data, writes to its own private tables.
-
-### Phase 5: AI Assistant
-
-* Core Service — proves AI integration works.
-* Provider management, chat sessions, and context building.
-* Extension-registered tools: spending analysis, tax estimates, refinance analysis.
-
-### Phase 6: Extension SDK
-
-* Formalizes the public API for external developers.
-* Extension packaging format and documentation.
-* Type definitions, manifest schema, and development guides.
-
-### Phase 7: Marketplace
-
-* Extension Marketplace for discovering and installing extensions.
-* Digital signing for extension authenticity and security.
-* Version management, dependency resolution, and automatic updates.
+### Phase 8: Extension SDK & Marketplace
+* Publishing typed definitions (`finance.d.ts`) and developer docs.
+* Packaging tools for extensions.
+* Marketplace discovery, dependency resolution, version management, and digital signing for authenticity.
+* **Deliverable:** A complete distribution package containing a signed desktop installer, type definition file, and a mock package manager to install/disable extensions.
 
 ### Future Extensions
-
 Built by the community or by us, after the platform is stable.
 
 * **Tax:** Australian/global income tax workbook with PAYG tracking, dynamic refund calculations, and a deduction records ledger.
