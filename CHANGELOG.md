@@ -14,8 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Domain Services Layer added to `docs/project_vision.md` - Core Extensions providing shared business logic (TransactionService, AccountService, CategoryService)
+- Domain Services Layer added to `docs/project_vision.md` - Core Extensions providing shared business logic (PayService, DeductionService)
 - Phase 1 implementation plan v2 with fixed Electron+Vite multi-process build (`docs/superpowers/plans/2026-06-14-phase1-core-shell-v2.md`)
+
+### Changed
+- Reordered phases: Salary History extension now Phase 4 (was Transactions), Transactions moved to Phase 6
+- Updated Domain Services to reflect Salary History focus (PayService, DeductionService vs TransactionService)
 
 ## [0.1.0] - 2026-06-14
 

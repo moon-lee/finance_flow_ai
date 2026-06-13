@@ -520,7 +520,8 @@ The Finance API enforces three data boundaries:
 # Initial Extensions
 
 1. **Dashboard:** An Aggregator Extension that gathers information from Shared Financial Data and installed extensions. It must gracefully handle missing extensions — if the Mortgage Extension is not installed, mortgage metrics are omitted rather than generating errors. Displays Net Worth, monthly summaries, overall savings rate, and global cash positions.
-2. **Transactions:** High-speed ledger interface managing incoming, outgoing, and transfer records across categorized accounts.
+2. **Salary History:** Salary/payslip tracking with PAYG withholding, deductions, and income tax calculations.
+3. **Transactions:** High-speed ledger interface managing incoming, outgoing, and transfer records across categorized accounts.
 3. **Budget:** Monthly plan manager enabling users to define envelopes/targets, track categories, and receive over-budget alerts.
 4. **Cash Flow:** Advanced cash projection system calculating monthly trends and running interactive, chart-rich future forecasts.
 5. **Tax:** Australian/global income tax workbook with PAYG tracking, dynamic refund calculations, and a deduction records ledger.
@@ -565,32 +566,37 @@ The Finance API enforces three data boundaries:
 * Simple extension activation triggers (e.g., loading code when clicking an Activity Bar icon).
 * **Deliverable:** An app that launches, spawns the Extension Host child process, dynamically reads a mock `package.json` extension manifest, and registers its views/commands in the UI.
 
-### Phase 4: Shared Financial Data & The First Extension (Transactions)
-* Defining Shared Financial Data schemas (Accounts, Transactions, Categories).
+### Phase 4: Shared Financial Data & The First Extension (Salary History)
+* Defining Shared Financial Data schemas (Accounts, PaySlips, Deductions).
 * Implementing the initial `finance.db.table()` API bridge for basic read/write operations.
-* **Transactions Extension:** High-speed ledger interface, category management, and data import (CSV). Proves database integration.
-* **Deliverable:** A functional ledger UI. Users can input and save transaction entries, view transaction history lists, and verify database writes via an SQL viewer or local files.
+* **Salary History Extension:** Payslip entry form, deduction tracking, income tax calculations. Proves database integration.
+* **Deliverable:** A functional salary history UI with persistent storage. Users can input and save payslips, view salary history, and verify database writes.
 
-### Phase 5: UI Webviews & Navigation Providers (Full Integration)
+### Phase 5: Transactions Extension
+* Shared Financial Data schemas (Transactions, Categories)
+* High-speed ledger interface, category management, data import (CSV)
+* **Deliverable:** A functional transaction ledger with persistent storage. Users can input and save transaction entries, view transaction history lists.
+
+### Phase 6: UI Webviews & Navigation Providers (Full Integration)
 * Sandboxed `WebviewPanel` implementation (mounting iframes inside main workspace tabs).
 * Custom Navigation providers (binding extension sidebar trees to Core UI).
 * **Dashboard Extension:** Proves data read-access across boundaries, net worth aggregations, and visual webview chart widgets.
 * **Deliverable:** Workspace tab views displaying interactive webview charts (e.g., net worth trend widgets) alongside a dynamic side navigation panel populated by the Dashboard extension.
 
-### Phase 6: AI Assistant Service & Tools
+### Phase 7: AI Assistant Service & Tools
 * Core AI Service provider configuration (local Ollama and cloud keys).
 * Context building and chat session manager.
 * Privacy & Data Sanitization Layer (PII regex/filters + audit logs).
 * Tool Registry (extensions contributing analytical tools to the AI).
 * **Deliverable:** A sidebar chat window that accepts user text queries, filters/sanitizes names/numbers, logs queries, and calls mock extension tools (e.g., "calculate estimates") using a local LLM.
 
-### Phase 7: Production Readiness & Polish
+### Phase 8: Production Readiness & Polish
 * Automated database migration runner.
 * Customizable keyboard shortcuts registry and full keyboard navigation.
 * Database backup & recovery utilities (validation, encryption).
 * **Deliverable:** An app featuring a shortcut configuration screen, database backup export/import tools, and a verified migration script that runs seamlessly on startup.
 
-### Phase 8: Extension SDK & Marketplace
+### Phase 9: Extension SDK & Marketplace
 * Publishing typed definitions (`finance.d.ts`) and developer docs.
 * Packaging tools for extensions.
 * Marketplace discovery, dependency resolution, version management, and digital signing for authenticity.

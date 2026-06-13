@@ -8,7 +8,7 @@ status: draft
 
 ## Architecture Approach
 
-**Vertical Slice Model**: Complete a working financial ledger (Transactions extension) before building other extensions. Each extension owns its private data tables with no cross-extension dependencies initially.
+**Vertical Slice Model**: Complete a working Salary History (first extension) before building other extensions. Each extension owns its private data tables with no cross-extension dependencies initially.
 
 ## Implementation Phases (Sequential, Each Delivers Working Software)
 
@@ -28,12 +28,12 @@ status: draft
 - Manifest parser reading `package.json` contributions
 - **Deliverable**: Extension loader spawning process successfully
 
-### Phase 4: Transactions Extension (Vertical Slice) + Domain Services
-- Shared Financial Data schemas: Accounts, Transactions, Categories
+### Phase 4: Salary History Extension (Vertical Slice) + Domain Services
+- Shared Financial Data schemas: Accounts, PaySlips, Deductions
 - `finance.db.table()` API for typed table access (no raw SQL)
-- **Domain Services:** TransactionService for validation/categorization, AccountService for balances
-- Extension UI: transaction entry form, ledger list, category management
-- **Deliverable**: Fully functional transaction ledger with persistent storage
+- **Domain Services:** PayService for payslip validation/aggregation, DeductionService for work-related expense tracking
+- Extension UI: payslip entry form, salary history list, deduction tracking
+- **Deliverable**: Fully functional salary history UI with persistent storage
 
 ### Phase 5: WebviewPanels & Multi-Extension UI
 - Split-screen support, tab management
@@ -41,19 +41,24 @@ status: draft
 - Navigation providers for sidebar trees
 - **Deliverable**: Multiple tabs with live charts in Dashboard, Domain Services consumed consistently
 
-### Phase 6: AI Assistant (Deferred until Phase 5 Complete)
+### Phase 6: Transactions Extension
+- Shared Financial Data schemas: Transactions, Categories
+- Extension UI: transaction entry form, ledger list, category management
+- **Deliverable**: Fully functional transaction ledger with persistent storage
+
+### Phase 7: AI Assistant (Deferred until Phase 6 Complete)
 - Ollama integration (default local only)
 - Context building from Shared Financial Data
 - Tool registry for extension-registered functions
 - **Deliverable**: Chat panel with read-only data queries to local LLM
 
-### Phase 7: Production Polish
+### Phase 8: Production Polish
 - Database migrations, backup/restore, encryption
 - Keyboard shortcuts, customizable settings
 - Theme system, accessibility
 - **Deliverable**: Stable release with backup/export capability
 
-### Phase 8: Extension Ecosystem
+### Phase 9: Extension Ecosystem
 - Extension packaging tooling (`finance.d.ts` type definitions)
 - Dependency resolution, version management, digital signing
 - **Deliverable**: Published extension SDK and installer
