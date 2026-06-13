@@ -28,17 +28,18 @@ status: draft
 - Manifest parser reading `package.json` contributions
 - **Deliverable**: Extension loader spawning process successfully
 
-### Phase 4: Transactions Extension (Vertical Slice)
+### Phase 4: Transactions Extension (Vertical Slice) + Domain Services
 - Shared Financial Data schemas: Accounts, Transactions, Categories
 - `finance.db.table()` API for typed table access (no raw SQL)
+- **Domain Services:** TransactionService for validation/categorization, AccountService for balances
 - Extension UI: transaction entry form, ledger list, category management
 - **Deliverable**: Fully functional transaction ledger with persistent storage
 
 ### Phase 5: WebviewPanels & Multi-Extension UI
 - Split-screen support, tab management
-- Dashboard extension (aggregator, reads Shared Data)
+- Dashboard extension (aggregator, reads Shared Data via Domain Services)
 - Navigation providers for sidebar trees
-- **Deliverable**: Multiple tabs with live charts in Dashboard
+- **Deliverable**: Multiple tabs with live charts in Dashboard, Domain Services consumed consistently
 
 ### Phase 6: AI Assistant (Deferred until Phase 5 Complete)
 - Ollama integration (default local only)

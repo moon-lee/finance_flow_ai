@@ -95,7 +95,7 @@ To maintain a secure, robust, and highly modular codebase, the following rules g
 
 # System Architecture
 
-The application is organized into three layers: the **Core Infrastructure**, the **Shared Financial Data**, and **Extensions**.
+The application is organized into four layers: the **Core Infrastructure**, **Domain Services**, **Shared Financial Data**, and **Extensions**.
 
 ```
 +-------------------------------------------------------------+
@@ -105,6 +105,13 @@ The application is organized into three layers: the **Core Infrastructure**, the
 |   +---------+---------+  +--------+---------+  +---+----+   |
 +-------------|---------------------|----------------|--------+
               | IPC (Secure)        | API                |
++-------------v---------------------v----------------v--------+
+|                     Domain Services (Core Extensions)      |
+|  +------------------+  +-----------+  +------------------+ |
+|  | TransactionService |  | AccountService |  | CategoryService | |
+|  +------------------+  +-----------+  +------------------+ |
++-------------|---------------------|----------------|--------+
+              |                     |                |
 +-------------v---------------------v----------------v--------+
 |                  Shared Financial Data                      |
 |  +----------+ +--------------+ +-----------+ +-----------+  |
@@ -134,6 +141,11 @@ Platform
 │   ├─ Database Service
 │   └─ Backup Service
 │
+├─ Domain Services (Core Extensions)
+│   ├─ TransactionService
+│   ├─ AccountService
+│   └─ CategoryService
+│
 ├─ Shared Financial Data
 │   ├─ Accounts
 │   ├─ Transactions
@@ -142,12 +154,12 @@ Platform
 │   └─ Liabilities
 │
 └─ Extensions
-    ├─ Dashboard
-    ├─ Budget
-    ├─ Tax
-    ├─ Mortgage
-    ├─ Reports
-    └─ Future Extensions
+│   ├─ Dashboard
+│   ├─ Budget
+│   ├─ Tax
+│   ├─ Mortgage
+│   ├─ Reports
+│   └─ Future Extensions
 ```
 
 ## Core Platform
@@ -161,6 +173,18 @@ Responsible for the runtime shell, visual layout, and core system utilities. It 
 * **Settings:** Generic, app-wide preferences only (window state, active theme, AI provider keys, database directory). Domain-specific settings (e.g., "Tax Bracket Configuration") are *not* owned by Core; extensions register their own settings schemas in their `package.json` and the Core renders them using a generic UI.
 * **Event System:** Global event bus (e.g., database changes, window state changes).
 * **Backup System:** Automatic schema-validated JSON/database backups.
+
+---
+
+## Domain Services Layer (Core Extensions)
+
+Business logic that must be shared consistently across extensions lives here. These are **Core Extensions** — bundled extensions that provide reusable services.
+
+* **TransactionService:** Transaction validation, categorization rules, duplicate detection, date parsing.
+* **AccountService:** Balance calculations, account hierarchy logic, transfer handling.
+* **CategoryService:** Category grouping, nested category resolution, spending pattern analysis.
+
+Extensions interact with Domain Services via `finance.services.*` API. If a service extension is missing, the Core returns `null` (graceful degradation).
 
 ---
 
