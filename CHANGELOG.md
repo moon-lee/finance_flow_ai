@@ -1,7 +1,7 @@
 ---
-version: 0.1.1
+version: 0.1.2
 created: 2026-06-14
-last_updated: 2026-06-14T04:15:30+10:00
+last_updated: 2026-06-14T04:33:35+10:00
 ---
 
 # Changelog
@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Phase 1 implementation plan v2 with fixed Electron+Vite multi-process build (`docs/superpowers/plans/2026-06-14-phase1-core-shell-v2.md`)
 
 ### Changed
+- Patched Phase 1 implementation plan with explicit Electron main/preload/renderer builds, safer preload API, dev/start scripts, renderer smoke tests, and manual Electron verification steps.
 - Reordered phases: Salary History extension now Phase 4 (was Transactions), Transactions moved to Phase 5 then to Future Extensions
 - Fixed extension numbering in Initial Extensions list (removed duplicate numbering)
 - Updated Domain Services to reflect Salary History focus (PayService, DeductionService vs TransactionService)
