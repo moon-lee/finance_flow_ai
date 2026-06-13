@@ -531,20 +531,6 @@ The Finance API enforces three data boundaries:
 
 ---
 
-# Future Extensions
-
-* **Transactions:** High-speed ledger interface managing incoming, outgoing, and transfer records across categorized accounts.
-* **Shares & ETFs:** Dynamic stock portfolios, dividend ledgers, and cost basis calculations.
-* **Crypto:** Multi-chain token wallets, transaction histories, and cost-basis analysis.
-* **SMSF (Self-Managed Super Funds):** Compliance sheets, fund registers, and balance summaries.
-* **Rental Properties:** Tenant tracking, rental ledgers, property manager fees, and depreciation logs.
-* **Business Accounting:** Sole trader invoicing, GST ledgers, and BAS preparation templates.
-* **Insurance:** Policy registers, premium trackers, and coverage evaluations.
-* **Financial Goals:** Multi-year goal planners, savings challenge meters, and milestone alerts.
-* **Debt Management:** Snowball or avalanche repayment planners and interest optimization models.
-
----
-
 # Development Roadmap
 
 ### Phase 1: Core Shell (Visual Prototype)
@@ -596,6 +582,16 @@ The Finance API enforces three data boundaries:
 * Packaging tools for extensions.
 * Marketplace discovery, dependency resolution, version management, and digital signing for authenticity.
 * **Deliverable:** A complete distribution package containing a signed desktop installer, type definition file, and a mock package manager to install/disable extensions.
+
+### Future Extensions
+Built by the community or by us, after the platform is stable.
+* **Transactions:** High-speed ledger interface managing incoming, outgoing, and transfer records across categorized accounts.
+* **Tax:** Australian/global income tax workbook with PAYG tracking, dynamic refund calculations, and a deduction records ledger.
+* **Mortgage:** Financial loan calculator modeling balance progressions, interest-vs-principal splits, and potential refinance scenarios.
+* **Reports:** Multi-format document generator outputting clean annual sheets, tax summaries, PDF exports, and AI-written summaries.
+* **Property:** Asset tracker recording home values, council rates, insurance costs, and overall ownership maintenance expenses.
+* **Super:** Superannuation/401k dashboard tracking employer contributions, fund fees, and retirement value projections.
+* **Cash Flow:** Advanced cash projection system calculating monthly trends and running interactive, chart-rich future forecasts.
 
 ---
 
