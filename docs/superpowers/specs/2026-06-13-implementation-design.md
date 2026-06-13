@@ -41,24 +41,19 @@ status: draft
 - Navigation providers for sidebar trees
 - **Deliverable**: Multiple tabs with live charts in Dashboard, Domain Services consumed consistently
 
-### Phase 6: Transactions Extension
-- Shared Financial Data schemas: Transactions, Categories
-- Extension UI: transaction entry form, ledger list, category management
-- **Deliverable**: Fully functional transaction ledger with persistent storage
-
-### Phase 7: AI Assistant (Deferred until Phase 6 Complete)
+### Phase 6: AI Assistant (Deferred until Phase 5 Complete)
 - Ollama integration (default local only)
 - Context building from Shared Financial Data
 - Tool registry for extension-registered functions
 - **Deliverable**: Chat panel with read-only data queries to local LLM
 
-### Phase 8: Production Polish
+### Phase 7: Production Polish
 - Database migrations, backup/restore, encryption
 - Keyboard shortcuts, customizable settings
 - Theme system, accessibility
 - **Deliverable**: Stable release with backup/export capability
 
-### Phase 9: Extension Ecosystem
+### Phase 8: Extension Ecosystem
 - Extension packaging tooling (`finance.d.ts` type definitions)
 - Dependency resolution, version management, digital signing
 - **Deliverable**: Published extension SDK and installer
