@@ -12,7 +12,9 @@ status: draft
 
 **Architecture:** Electron shell with separate main, preload, and renderer builds. The renderer has no Node.js access and is implemented with Lit web components. The preload bridge exposes only allowlisted shell events needed by the prototype.
 
-**Tech Stack:** Electron, TypeScript strict mode, Lit, Vite, HTML, CSS, ESLint, Playwright.
+**Tech Stack:** Electron, TypeScript strict mode, Lit, Vite, HTML, CSS, ESLint, Playwright (optional).
+
+> **Step labels:** `[AI]` = AI/developer writes code. `[You]` = you run or test manually.
 
 ---
 
@@ -35,17 +37,18 @@ status: draft
 
 **Trade-off:** Slightly more configuration in Phase 1, but much less ambiguity around Electron startup and security boundaries.
 
-### Decision 2: Verify the Renderer Shell Before Full Electron E2E
+### Decision 2: Manual Verification with Optional Playwright Smoke Tests
 
-**Choice:** Add Playwright smoke tests against the Vite renderer server, then manually verify Electron boot for Phase 1.
+**Choice:** Use manual test units as the primary verification approach. Playwright test files are created alongside the source code for future use, but running them is optional and deferred to the user's discretion.
 
-**Reasoning:** Phase 1 is a visual shell prototype. Browser-based smoke tests are fast and stable for layout, command palette, and panel toggle behavior. Native Electron automation can be added once the app has persistent settings and richer process behavior.
+**Reasoning:** Phase 1 is a visual shell prototype with no backend logic, database, or extension host. Manual testing provides full coverage of the Electron boot path, layout rendering, keyboard shortcuts, and IPC bridge — all from a single `npm run start` command. Playwright files are kept in the codebase so they can be activated later without rewriting (e.g., if CI is added or regression coverage is needed).
 
 **Alternatives considered:**
 
-- Full Electron Playwright tests immediately: stronger coverage, but higher setup cost before there is real main-process behavior to validate.
+- Full automated Playwright from day one: stronger coverage, but over-engineered for a static layout prototype.
+- No Playwright at all: simpler, but would require recreating test infrastructure from scratch if needed later.
 
-**Trade-off:** Electron boot remains manually verified in this milestone, while automated tests cover the renderer behavior most likely to regress.
+**Trade-off:** Human effort per change is slightly higher during Phase 1, but the Playwright infrastructure is ready to use with `npm run test:e2e` whenever automated testing becomes valuable.
 
 ### Decision 3: Keep the Preload API Minimal and Allowlisted
 
@@ -110,7 +113,7 @@ finance-flow-ai/
 - Create: `vite.main.config.ts`
 - Create: `vite.preload.config.ts`
 
-- [ ] **Step 1: Initialize npm project**
+- [ ] **[AI] Step 1: Initialize npm project**
 
 ```bash
 npm init -y
@@ -118,18 +121,17 @@ npm pkg set type="module"
 npm pkg set main="dist/main/main.js"
 ```
 
-- [ ] **Step 2: Install dependencies**
+- [ ] **[AI] Step 2: Install dependencies**
 
 ```bash
 npm install lit
 npm install -D typescript vite electron @types/node
 npm install -D concurrently wait-on cross-env
 npm install -D eslint @eslint/js typescript-eslint globals
-npm install -D vitest @vitest/coverage-v8
 npm install -D @playwright/test
 ```
 
-- [ ] **Step 3: Create `tsconfig.json`**
+- [ ] **[AI] Step 3: Create `tsconfig.json`**
 
 ```json
 {
@@ -142,6 +144,7 @@ npm install -D @playwright/test
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "experimentalDecorators": true,
+    "useDefineForClassFields": false,
     "rootDir": ".",
     "outDir": "./dist",
     "declaration": true,
@@ -153,7 +156,7 @@ npm install -D @playwright/test
 }
 ```
 
-- [ ] **Step 4: Create `eslint.config.js`**
+- [ ] **[AI] Step 4: Create `eslint.config.js`**
 
 ```javascript
 import js from '@eslint/js';
@@ -182,7 +185,7 @@ export default tseslint.config(
 );
 ```
 
-- [ ] **Step 5: Create `vite.config.ts` for renderer**
+- [ ] **[AI] Step 5: Create `vite.config.ts` for renderer**
 
 ```typescript
 import { defineConfig } from 'vite';
@@ -204,7 +207,7 @@ export default defineConfig({
 });
 ```
 
-- [ ] **Step 6: Create `vite.main.config.ts` for Electron main**
+- [ ] **[AI] Step 6: Create `vite.main.config.ts` for Electron main**
 
 ```typescript
 import { defineConfig } from 'vite';
@@ -225,7 +228,7 @@ export default defineConfig({
 });
 ```
 
-- [ ] **Step 7: Create `vite.preload.config.ts` for Electron preload**
+- [ ] **[AI] Step 7: Create `vite.preload.config.ts` for Electron preload**
 
 ```typescript
 import { defineConfig } from 'vite';
@@ -246,7 +249,7 @@ export default defineConfig({
 });
 ```
 
-- [ ] **Step 8: Add scripts to `package.json`**
+- [ ] **[AI] Step 8: Add scripts to `package.json`**
 
 ```bash
 npm pkg set scripts.dev="concurrently -k \"npm:dev:main\" \"npm:dev:preload\" \"npm:dev:renderer\" \"npm:start:dev\""
@@ -261,11 +264,10 @@ npm pkg set scripts.build:preload="vite build --config vite.preload.config.ts"
 npm pkg set scripts.build:renderer="vite build --config vite.config.ts"
 npm pkg set scripts.typecheck="tsc --noEmit"
 npm pkg set scripts.lint="eslint ."
-npm pkg set scripts.test="vitest run"
 npm pkg set scripts.test:e2e="playwright test"
 ```
 
-- [ ] **Step 9: Commit initialization**
+- [ ] **[AI] Step 9: Commit initialization**
 
 ```bash
 git add package.json package-lock.json tsconfig.json eslint.config.js vite.config.ts vite.main.config.ts vite.preload.config.ts
@@ -280,7 +282,7 @@ git commit -m "chore: initialize Electron TypeScript Vite shell"
 
 - Create: `src/main/main.ts`
 
-- [ ] **Step 1: Create Electron main process**
+- [ ] **[AI] Step 1: Create Electron main process**
 
 `src/main/main.ts`:
 
@@ -344,7 +346,7 @@ app.on('window-all-closed', () => {
 });
 ```
 
-- [ ] **Step 2: Commit main process**
+- [ ] **[AI] Step 2: Commit main process**
 
 ```bash
 git add src/main/main.ts
@@ -361,7 +363,7 @@ git commit -m "feat: add Electron main process bootstrap"
 - Create: `src/types/finance-shell.d.ts`
 - Create: `src/types/finance.d.ts`
 
-- [ ] **Step 1: Create preload script**
+- [ ] **[AI] Step 1: Create preload script**
 
 `src/preload/preload.ts`:
 
@@ -375,7 +377,7 @@ const shellApi = {
 contextBridge.exposeInMainWorld('financeShell', shellApi);
 ```
 
-- [ ] **Step 2: Create renderer global type declarations**
+- [ ] **[AI] Step 2: Create renderer global type declarations**
 
 `src/types/finance-shell.d.ts`:
 
@@ -403,7 +405,7 @@ declare global {
 export {};
 ```
 
-- [ ] **Step 3: Commit preload**
+- [ ] **[AI] Step 3: Commit preload**
 
 ```bash
 git add src/preload/preload.ts src/types/finance-shell.d.ts src/types/finance.d.ts
@@ -419,7 +421,7 @@ git commit -m "feat: add allowlisted preload bridge"
 - Create: `src/renderer/index.html`
 - Create: `src/renderer/styles/layout.css`
 
-- [ ] **Step 1: Create `index.html`**
+- [ ] **[AI] Step 1: Create `index.html`**
 
 `src/renderer/index.html`:
 
@@ -448,7 +450,7 @@ git commit -m "feat: add allowlisted preload bridge"
 </html>
 ```
 
-- [ ] **Step 2: Create `layout.css`**
+- [ ] **[AI] Step 2: Create `layout.css`**
 
 `src/renderer/styles/layout.css`:
 
@@ -561,7 +563,7 @@ body {
 }
 ```
 
-- [ ] **Step 3: Commit layout**
+- [ ] **[AI] Step 3: Commit layout**
 
 ```bash
 git add src/renderer/index.html src/renderer/styles/layout.css
@@ -581,7 +583,7 @@ git commit -m "feat: add VS Code-inspired shell layout"
 - Create: `src/renderer/components/command-palette.ts`
 - Create: `src/renderer/index.ts`
 
-- [ ] **Step 1: Create `activity-bar.ts`**
+- [ ] **[AI] Step 1: Create `activity-bar.ts`**
 
 `src/renderer/components/activity-bar.ts`:
 
@@ -622,19 +624,31 @@ export class ActivityBar extends LitElement {
     }
   `;
 
+  private _activeView = 'Dashboard';
+
+  private _selectView(view: string) {
+    this._activeView = view;
+    this.dispatchEvent(new CustomEvent('view-changed', {
+      detail: { view },
+      bubbles: true,
+      composed: true
+    }));
+    this.requestUpdate();
+  }
+
   render() {
     return html`
-      <button class="active" title="Dashboard" aria-label="Dashboard">D</button>
-      <button title="Transactions" aria-label="Transactions">T</button>
-      <button title="Budget" aria-label="Budget">B</button>
-      <button title="Tax" aria-label="Tax">X</button>
-      <button class="settings" title="Settings" aria-label="Settings">S</button>
+      <button class="${this._activeView === 'Dashboard' ? 'active' : ''}" title="Dashboard" aria-label="Dashboard" @click="${() => this._selectView('Dashboard')}">D</button>
+      <button class="${this._activeView === 'Salary' ? 'active' : ''}" title="Salary History" aria-label="Salary History" @click="${() => this._selectView('Salary')}">P</button>
+      <button class="${this._activeView === 'Budget' ? 'active' : ''}" title="Budget" aria-label="Budget" @click="${() => this._selectView('Budget')}">B</button>
+      <button class="${this._activeView === 'Tax' ? 'active' : ''}" title="Tax" aria-label="Tax" @click="${() => this._selectView('Tax')}">X</button>
+      <button class="settings ${this._activeView === 'Settings' ? 'active' : ''}" title="Settings" aria-label="Settings" @click="${() => this._selectView('Settings')}">S</button>
     `;
   }
 }
 ```
 
-- [ ] **Step 2: Create `navigation-panel.ts`**
+- [ ] **[AI] Step 2: Create `navigation-panel.ts`**
 
 `src/renderer/components/navigation-panel.ts`:
 
@@ -684,13 +698,34 @@ export class NavigationPanel extends LitElement {
     }
   `;
 
+  private _currentView = 'Dashboard';
+
+  setView(view: string) {
+    this._currentView = view;
+    this.requestUpdate();
+  }
+
   render() {
     return html`
       <h2>Explorer</h2>
       <div class="nav-section">
-        <div class="nav-title">Dashboard</div>
-        <div class="nav-item">Net Worth</div>
-        <div class="nav-item">Monthly Overview</div>
+        <div class="nav-title">${this._currentView}</div>
+        ${this._currentView === 'Dashboard' ? html`
+          <div class="nav-item">Net Worth</div>
+          <div class="nav-item">Monthly Overview</div>
+        ` : this._currentView === 'Salary' ? html`
+          <div class="nav-item">Pay History</div>
+          <div class="nav-item">Deductions</div>
+        ` : this._currentView === 'Budget' ? html`
+          <div class="nav-item">Monthly Targets</div>
+          <div class="nav-item">Spending Envelopes</div>
+        ` : this._currentView === 'Tax' ? html`
+          <div class="nav-item">Tax Workbook</div>
+          <div class="nav-item">Deductions Ledger</div>
+        ` : html`
+          <div class="nav-item">App Preferences</div>
+          <div class="nav-item">Manage Extensions</div>
+        `}
       </div>
       <div class="nav-section">
         <div class="nav-title">Recent</div>
@@ -701,7 +736,7 @@ export class NavigationPanel extends LitElement {
 }
 ```
 
-- [ ] **Step 3: Create `workspace.ts`**
+- [ ] **[AI] Step 3: Create `workspace.ts`**
 
 `src/renderer/components/workspace.ts`:
 
@@ -765,7 +800,7 @@ export class WorkspacePanel extends LitElement {
 }
 ```
 
-- [ ] **Step 4: Create `ai-panel.ts`**
+- [ ] **[AI] Step 4: Create `ai-panel.ts`**
 
 `src/renderer/components/ai-panel.ts`:
 
@@ -807,7 +842,7 @@ export class AIPanel extends LitElement {
 }
 ```
 
-- [ ] **Step 5: Create `command-palette.ts`**
+- [ ] **[AI] Step 5: Create `command-palette.ts`**
 
 `src/renderer/components/command-palette.ts`:
 
@@ -857,6 +892,10 @@ export class CommandPalette extends LitElement {
     }
   `;
 
+  focusInput() {
+    this.shadowRoot?.querySelector('input')?.focus();
+  }
+
   render() {
     return html`
       <input aria-label="Command palette input" placeholder="Type a command..." />
@@ -870,7 +909,7 @@ export class CommandPalette extends LitElement {
 }
 ```
 
-- [ ] **Step 6: Create `index.ts` entry point and interactions**
+- [ ] **[AI] Step 6: Create `index.ts` entry point and interactions**
 
 `src/renderer/index.ts`:
 
@@ -882,15 +921,47 @@ import './components/ai-panel';
 import './components/command-palette';
 
 const app = document.querySelector<HTMLElement>('#app');
-const commandPalette = document.querySelector<HTMLElement>('#command-palette');
+const commandPalette = document.querySelector<HTMLElement & { focusInput(): void }>('#command-palette');
+const navigationPanel = document.querySelector<HTMLElement & { setView(view: string): void }>('#navigation-panel');
 
 function setCommandPaletteVisible(visible: boolean): void {
   commandPalette?.classList.toggle('hidden', !visible);
+  if (visible) {
+    commandPalette?.focusInput();
+  }
 }
 
 function toggleAiPanel(): void {
   app?.classList.toggle('ai-collapsed');
 }
+
+window.addEventListener('click', (event) => {
+  if (commandPalette && !commandPalette.classList.contains('hidden')) {
+    const path = event.composedPath();
+    if (!path.includes(commandPalette)) {
+      setCommandPaletteVisible(false);
+    }
+  }
+});
+
+window.addEventListener('view-changed', (event: Event) => {
+  const customEvent = event as CustomEvent<{ view: string }>;
+  if (navigationPanel) {
+    navigationPanel.setView(customEvent.detail.view);
+  }
+});
+
+window.addEventListener('DOMContentLoaded', async () => {
+  const version = await window.financeShell?.getVersion() ?? 'dev-browser';
+  const statusBar = document.querySelector('#status-bar');
+  if (statusBar) {
+    const versionTag = document.createElement('span');
+    versionTag.className = 'status-item version-tag';
+    versionTag.style.marginLeft = 'auto';
+    versionTag.textContent = `v${version}`;
+    statusBar.appendChild(versionTag);
+  }
+});
 
 window.addEventListener('keydown', (event) => {
   const commandKey = event.ctrlKey || event.metaKey;
@@ -911,7 +982,7 @@ window.addEventListener('keydown', (event) => {
 });
 ```
 
-- [ ] **Step 7: Commit components**
+- [ ] **[AI] Step 7: Commit components**
 
 ```bash
 git add src/renderer/components src/renderer/index.ts
@@ -920,14 +991,14 @@ git commit -m "feat: add shell components and prototype interactions"
 
 ---
 
-## Task 6: E2E Smoke Tests and Verification
+## Task 6: Verification — Manual Test Units + Optional Playwright Smoke Tests
 
 **Files:**
 
 - Create: `playwright.config.ts`
 - Create: `tests/e2e/renderer-shell.spec.ts`
 
-- [ ] **Step 1: Configure Playwright**
+- [ ] **[AI] Step 1: Create Playwright config**
 
 `playwright.config.ts`:
 
@@ -960,7 +1031,7 @@ export default defineConfig({
 });
 ```
 
-- [ ] **Step 2: Create renderer smoke tests**
+- [ ] **[AI] Step 2: Create Playwright smoke tests**
 
 `tests/e2e/renderer-shell.spec.ts`:
 
@@ -970,7 +1041,6 @@ import { expect, test } from '@playwright/test';
 test.describe('Phase 1 renderer shell', () => {
   test('displays the core shell regions', async ({ page }) => {
     await page.goto('/');
-
     await expect(page.locator('#activity-bar')).toBeVisible();
     await expect(page.locator('#navigation-panel')).toBeVisible();
     await expect(page.locator('#workspace')).toBeVisible();
@@ -980,78 +1050,232 @@ test.describe('Phase 1 renderer shell', () => {
 
   test('uses the expected grid shell layout', async ({ page }) => {
     await page.goto('/');
-
     await expect(page.locator('#app')).toHaveCSS('display', 'grid');
   });
 
   test('opens and closes the command palette', async ({ page }) => {
     await page.goto('/');
-
     const palette = page.locator('#command-palette');
     await expect(palette).toBeHidden();
-
     await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Shift+P' : 'Control+Shift+P');
     await expect(palette).toBeVisible();
-
+    await expect(palette.locator('input')).toBeFocused();
     await page.keyboard.press('Escape');
+    await expect(palette).toBeHidden();
+  });
+
+  test('closes command palette on click outside', async ({ page }) => {
+    await page.goto('/');
+    const palette = page.locator('#command-palette');
+    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Shift+P' : 'Control+Shift+P');
+    await expect(palette).toBeVisible();
+    await page.mouse.click(10, 10);
     await expect(palette).toBeHidden();
   });
 
   test('collapses and restores the AI panel', async ({ page }) => {
     await page.goto('/');
-
     const app = page.locator('#app');
     await expect(app).not.toHaveClass(/ai-collapsed/);
-
     await page.keyboard.press(process.platform === 'darwin' ? 'Meta+J' : 'Control+J');
     await expect(app).toHaveClass(/ai-collapsed/);
-
     await page.keyboard.press(process.platform === 'darwin' ? 'Meta+J' : 'Control+J');
     await expect(app).not.toHaveClass(/ai-collapsed/);
+  });
+
+  test('switches sidebar navigation on activity bar click', async ({ page }) => {
+    await page.goto('/');
+    const navPanel = page.locator('#navigation-panel');
+    await expect(navPanel.locator('h2')).toHaveText('Explorer');
+    await expect(navPanel.locator('.nav-title').first()).toHaveText('Dashboard');
+    const salaryButton = page.locator('activity-bar button').nth(1);
+    await salaryButton.click();
+    await expect(navPanel.locator('.nav-title').first()).toHaveText('Salary');
+    await expect(navPanel.locator('.nav-item').first()).toHaveText('Pay History');
   });
 });
 ```
 
-- [ ] **Step 3: Run automated verification**
+- [ ] **[You] Step 3: Build and boot the application**
+
+```bash
+npm run build
+npm run start
+```
+
+Wait for the Electron window to appear. Confirm no console errors appear (open DevTools with `Ctrl+Shift+I`).
+
+- [ ] **[You] Step 4: Run through each manual test unit below and mark pass/fail**
+
+---
+
+### Test Unit 1: Shell Layout Visibility
+
+| Field | Detail |
+|-------|--------|
+| **How to test** | Look at the opened Electron window. Identify each region of the shell. |
+| **Checklist** | |
+| | 1. Far left column — **Activity Bar** with 5 icon buttons (D, P, B, X, S) is visible |
+| | 2. Second column — **Navigation Panel** showing "Explorer" header is visible |
+| | 3. Center area — **Workspace** with a tab bar ("Dashboard" tab) and "Select a view" text is visible |
+| | 4. Right column — **AI Assistant** panel with header text is visible |
+| | 5. Bottom bar — **Status Bar** with "Ready" text and version number (e.g., `v1.0.0`) is visible |
+| **Expected result** | All 5 shell regions are present and properly labeled. |
+
+| Pass/Fail | Notes |
+|-----------|-------|
+
+---
+
+### Test Unit 2: Activity Bar Navigation
+
+| Field | Detail |
+|-------|--------|
+| **How to test** | Click each button in the Activity Bar from top to bottom. |
+| **Steps** | 1. Click **D** (Dashboard) — Navigation Panel shows "Dashboard" section with "Net Worth" and "Monthly Overview" |
+| | 2. Click **P** (Salary History) — Navigation Panel shows "Salary" section with "Pay History" and "Deductions" |
+| | 3. Click **B** (Budget) — Navigation Panel shows "Budget" section with "Monthly Targets" and "Spending Envelopes" |
+| | 4. Click **X** (Tax) — Navigation Panel shows "Tax" section with "Tax Workbook" and "Deductions Ledger" |
+| | 5. Click **S** (Settings) — Navigation Panel shows "Settings" section with "App Preferences" and "Manage Extensions" |
+| **Expected result** | Each click updates the Navigation Panel title and items to match the selected view. The clicked button highlights (lighter background). |
+
+| Pass/Fail | Notes |
+|-----------|-------|
+
+---
+
+### Test Unit 3: Command Palette — Open, Auto-Focus, and Close
+
+| Field | Detail |
+|-------|--------|
+| **How to test** | Press keyboard shortcuts and observe the Command Palette behavior. |
+| **Steps** | 1. Press **Ctrl+Shift+P** (or Cmd+Shift+P on macOS) |
+| | 2. Observe that a floating overlay appears centered near the top of the window |
+| | 3. Observe that the input field inside the palette is automatically focused (cursor blinking) |
+| | 4. Type a few characters to confirm the input works |
+| | 5. Press **Escape** |
+| **Expected result** | Palette opens on shortcut, input is auto-focused, and palette closes on Escape. |
+
+| Pass/Fail | Notes |
+|-----------|-------|
+
+---
+
+### Test Unit 4: Command Palette — Click-Away to Close
+
+| Field | Detail |
+|-------|--------|
+| **How to test** | Open the palette, then click anywhere outside it. |
+| **Steps** | 1. Press **Ctrl+Shift+P** to open the Command Palette |
+| | 2. Click on the Activity Bar or Workspace area (anywhere outside the palette) |
+| **Expected result** | The Command Palette closes when you click outside its boundaries. |
+
+| Pass/Fail | Notes |
+|-----------|-------|
+
+---
+
+### Test Unit 5: AI Panel Collapse and Restore
+
+| Field | Detail |
+|-------|--------|
+| **How to test** | Press **Ctrl+J** (or Cmd+J on macOS) twice. |
+| **Steps** | 1. Confirm the AI Assistant panel is visible on the right side |
+| | 2. Press **Ctrl+J** — the AI panel collapses (grid column shrinks to 0) |
+| | 3. Press **Ctrl+J** again — the AI panel restores to full width |
+| **Expected result** | The AI Panel toggles visibility without breaking the layout. |
+
+| Pass/Fail | Notes |
+|-----------|-------|
+
+---
+
+### Test Unit 6: Version Display in Status Bar
+
+| Field | Detail |
+|-------|--------|
+| **How to test** | Look at the far right of the Status Bar at the bottom of the window. |
+| **Checklist** | |
+| | 1. Status Bar shows the text `Ready` on the left |
+| | 2. Status Bar shows a version tag on the right, e.g., `v0.1.0` or `v1.0.0` |
+| **Expected result** | Version number is fetched via the IPC preload bridge and displayed in the Status Bar, confirming the secure bridge works end-to-end. |
+
+| Pass/Fail | Notes |
+|-----------|-------|
+
+---
+
+### Test Unit 7: Window Behavior
+
+| Field | Detail |
+|-------|--------|
+| **How to test** | Interact with the window chrome. |
+| **Checklist** | |
+| | 1. Window title reads "Finance Flow AI" |
+| | 2. Window can be resized (minimum ~960x640) |
+| | 3. Window can be maximized, minimized, and closed |
+| | 4. Background color is dark (#1e1e1e) — no white flash during load |
+| **Expected result** | Standard desktop window behavior works correctly. |
+
+| Pass/Fail | Notes |
+|-----------|-------|
+
+---
+
+### Test Unit 8: Workspace Tab Display
+
+| Field | Detail |
+|-------|--------|
+| **How to test** | Look at the top of the Workspace (center area). |
+| **Checklist** | |
+| | 1. A tab strip is visible with "Dashboard" as the active tab |
+| | 2. Below the tab strip, text reads "Select a view from the Activity Bar" |
+| **Expected result** | Static tab strip and placeholder content are visible. |
+
+| Pass/Fail | Notes |
+|-----------|-------|
+
+---
+
+- [ ] **[You] Step 5: Run typecheck and lint**
 
 ```bash
 npm run typecheck
 npm run lint
-npm run build
+```
+
+- [ ] **[You] Step 6: (Optional) Run Playwright automated smoke tests**
+
+Playwright test files are already created above. If you want automated browser verification in addition to the manual tests:
+
+```bash
 npm run test:e2e
 ```
 
-- [ ] **Step 4: Manually verify Electron boot**
+This launches the Vite dev server and runs all 6 Playwright tests (layout visibility, command palette open/close, click-away, AI panel toggle, sidebar navigation) in headless Chromium.
+
+> **Note:** Skip this step if you prefer manual-only verification. The Playwright files remain in the codebase for future CI or regression testing.
+
+- [ ] **[AI] Step 7: Commit**
 
 ```bash
-npm run start
-```
-
-Confirm:
-
-- Window opens without console errors.
-- Shell regions are visible.
-- `Ctrl+Shift+P` opens the Command Palette.
-- `Escape` closes the Command Palette.
-- `Ctrl+J` collapses and restores the AI Panel.
-
-- [ ] **Step 5: Commit tests**
-
-```bash
-git add playwright.config.ts tests/e2e/renderer-shell.spec.ts
-git commit -m "test: add renderer smoke tests for core shell"
+git add playwright.config.ts tests/e2e/renderer-shell.spec.ts src/renderer/components src/renderer/index.ts src/renderer/index.html src/renderer/styles/layout.css src/main/main.ts src/preload/preload.ts src/types/finance-shell.d.ts src/types/finance.d.ts
+git commit -m "feat: add Phase 1 core shell prototype"
 ```
 
 ---
 
 ## Phase 1 Deliverable Verification
 
-- [ ] Electron app boots with `npm run start`.
-- [ ] Renderer dev shell runs with `npm run dev:renderer`.
-- [ ] Activity Bar, Navigation Panel, Workspace, AI Panel, and Status Bar are visible.
-- [ ] Workspace includes a static tab strip.
-- [ ] Command Palette is hidden by default and can be toggled with `Ctrl+Shift+P`.
-- [ ] AI Panel can be collapsed and restored with `Ctrl+J`.
-- [ ] TypeScript compiles in strict mode.
-- [ ] ESLint passes.
-- [ ] Playwright smoke tests pass.
+- [ ] Electron app boots with `npm run start` — no console errors (DevTools: `Ctrl+Shift+I`).
+- [ ] **Test Unit 1** — All 5 shell regions visible: Activity Bar, Navigation Panel, Workspace, AI Panel, Status Bar.
+- [ ] **Test Unit 2** — Activity Bar buttons switch Navigation Panel context for each view (Dashboard, Salary, Budget, Tax, Settings).
+- [ ] **Test Unit 3** — `Ctrl+Shift+P` opens Command Palette with auto-focused input; `Escape` closes it.
+- [ ] **Test Unit 4** — Command Palette closes on click-away.
+- [ ] **Test Unit 5** — `Ctrl+J` toggles AI Panel collapse/restore.
+- [ ] **Test Unit 6** — Version number displayed in Status Bar via IPC bridge.
+- [ ] **Test Unit 7** — Window has correct title, min size, resize/close works, dark background.
+- [ ] **Test Unit 8** — Workspace shows "Dashboard" tab and placeholder content.
+- [ ] TypeScript compiles in strict mode (`npm run typecheck`).
+- [ ] ESLint passes (`npm run lint`).
+- [ ] (Optional) Playwright smoke tests pass (`npm run test:e2e`) — 6 automated tests cover layout, command palette, AI panel, and sidebar navigation.
