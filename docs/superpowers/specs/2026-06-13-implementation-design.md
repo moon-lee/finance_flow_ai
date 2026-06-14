@@ -62,18 +62,18 @@ status: active
 
 Based on a single full-time developer or agent working sequentially, the project is estimated to take **6 to 8 weeks (30 to 43 business days)**, including a buffer for integration testing and platform-specific compilation checks.
 
-| Phase | Deliverable | Est. Time | Complexity |
-| :--- | :--- | :--- | :--- |
-| **Phase 1** | Core Shell Prototype | 1.5 – 2 Days | Low |
-| **Phase 2** | Database & Settings Backbone | 2 – 3 Days | Medium |
-| **Phase 3** | Extension Host & IPC Foundation | 5 – 7 Days | High |
-| **Phase 4** | Salary History Extension (Slice) | 4 – 6 Days | Medium |
-| **Phase 5** | WebviewPanels & Multi-Extension UI | 4 – 6 Days | High |
-| **Phase 6** | AI Assistant (Local-first) | 3 – 5 Days | Medium |
-| **Phase 7** | Production Polish & Encryption | 3 – 4 Days | Medium |
-| **Phase 8** | Extension Ecosystem & SDK | 3 – 5 Days | High |
-| **Buffer** | Integration, build debugging, platform adjustments | 4 – 5 Days | - |
-| **Total** | **Sleek Desktop Finance Workspace** | **30 – 43 Days** | **High** |
+| Phase | Deliverable | Est. Time | Actual | Complexity |
+| :--- | :--- | :--- | :--- | :--- |
+| **Phase 1** | Core Shell Prototype | 1.5 – 2 Days | 0.5 Days | Low |
+| **Phase 2** | Database & Settings Backbone | 2 – 3 Days | — | Medium |
+| **Phase 3** | Extension Host & IPC Foundation | 5 – 7 Days | — | High |
+| **Phase 4** | Salary History Extension (Slice) | 4 – 6 Days | — | Medium |
+| **Phase 5** | WebviewPanels & Multi-Extension UI | 4 – 6 Days | — | High |
+| **Phase 6** | AI Assistant (Local-first) | 3 – 5 Days | — | Medium |
+| **Phase 7** | Production Polish & Encryption | 3 – 4 Days | — | Medium |
+| **Phase 8** | Extension Ecosystem & SDK | 3 – 5 Days | — | High |
+| **Buffer** | Integration, build debugging, platform adjustments | 4 – 5 Days | — | - |
+| **Total** | **Sleek Desktop Finance Workspace** | **30 – 43 Days** | **0.5 Days** | **High** |
 
 ### Key Complexity & Risk Drivers
 - **Multi-Process IPC Boundary (Phase 3 & 5)**: Routing JSON-RPC requests across isolated Node process wrappers and sandboxed Webview iframes.
