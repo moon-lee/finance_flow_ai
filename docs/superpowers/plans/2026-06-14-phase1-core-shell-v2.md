@@ -126,7 +126,7 @@ npm pkg set main="dist/main/main.js"
 ```bash
 npm install lit
 npm install -D typescript vite electron @types/node
-npm install -D concurrently wait-on cross-env
+npm install -D concurrently wait-on cross-env nodemon
 npm install -D eslint @eslint/js typescript-eslint globals
 npm install -D @playwright/test
 ```
@@ -256,7 +256,7 @@ npm pkg set scripts.dev="concurrently -k \"npm:dev:main\" \"npm:dev:preload\" \"
 npm pkg set scripts.dev:main="vite build --config vite.main.config.ts --watch"
 npm pkg set scripts.dev:preload="vite build --config vite.preload.config.ts --watch"
 npm pkg set scripts.dev:renderer="vite --config vite.config.ts"
-npm pkg set scripts.start:dev="wait-on http://127.0.0.1:5173 dist/main/main.js dist/preload/preload.cjs && cross-env ELECTRON_RENDERER_URL=http://127.0.0.1:5173 electron dist/main/main.js"
+npm pkg set scripts.start:dev="wait-on http://127.0.0.1:5173 dist/main/main.js dist/preload/preload.cjs && cross-env ELECTRON_RENDERER_URL=http://127.0.0.1:5173 nodemon --watch dist/main/main.js --exec \"electron dist/main/main.js\""
 npm pkg set scripts.start="npm run build && electron dist/main/main.js"
 npm pkg set scripts.build="npm run build:main && npm run build:preload && npm run build:renderer"
 npm pkg set scripts.build:main="vite build --config vite.main.config.ts"
@@ -432,6 +432,9 @@ git commit -m "feat: add allowlisted preload bridge"
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Finance Flow AI</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="./styles/layout.css" />
   </head>
   <body>
@@ -456,17 +459,21 @@ git commit -m "feat: add allowlisted preload bridge"
 
 ```css
 :root {
-  --activity-bar-width: 48px;
+  --activity-bar-width: 56px;
   --navigation-width: 260px;
   --ai-panel-width: 320px;
-  --status-bar-height: 24px;
-  --activity-bar-bg: #333333;
-  --sidebar-bg: #252526;
-  --workspace-bg: #1e1e1e;
-  --panel-border: #3c3c3c;
-  --accent: #007acc;
-  --text-primary: #f2f2f2;
-  --text-secondary: #cccccc;
+  --status-bar-height: 26px;
+
+  /* Sleek Obsidian Dark Theme */
+  --activity-bar-bg: #090d16;
+  --sidebar-bg: #0f172a;
+  --workspace-bg: #0b0f19;
+  --panel-border: rgba(255, 255, 255, 0.08);
+  --accent: #6366f1;
+  --accent-gradient: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
 }
 
 * {
@@ -481,7 +488,7 @@ body {
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   background: var(--workspace-bg);
   color: var(--text-secondary);
   overflow: hidden;
@@ -493,6 +500,7 @@ body {
   grid-template-rows: minmax(0, 1fr) var(--status-bar-height);
   width: 100%;
   height: 100%;
+  transition: grid-template-columns 250ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 #activity-bar {
@@ -554,12 +562,31 @@ body {
   width: min(640px, calc(100vw - 32px));
   max-height: min(420px, calc(100vh - 96px));
   transform: translateX(-50%);
-  border: 1px solid var(--accent);
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(12px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.5), 0 8px 10px -6px rgb(0 0 0 / 0.5);
 }
 
 #command-palette.hidden {
   display: none;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #475569;
 }
 ```
 
@@ -603,20 +630,38 @@ export class ActivityBar extends LitElement {
     }
 
     button {
-      width: 32px;
-      height: 32px;
+      position: relative;
+      width: 36px;
+      height: 36px;
       border: 0;
-      border-radius: 4px;
+      border-radius: 6px;
       background: transparent;
-      color: #cccccc;
+      color: #94a3b8;
       cursor: pointer;
       font: inherit;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
     button:hover,
     button.active {
-      background: rgba(255, 255, 255, 0.12);
-      color: #ffffff;
+      background: rgba(255, 255, 255, 0.08);
+      color: #f8fafc;
+    }
+
+    button:hover {
+      transform: scale(1.05);
+    }
+
+    button.active::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 6px;
+      bottom: 6px;
+      width: 3px;
+      background: var(--accent);
+      border-radius: 0 4px 4px 0;
+      box-shadow: 0 0 8px var(--accent);
     }
 
     .settings {
@@ -848,7 +893,7 @@ export class AIPanel extends LitElement {
 
 ```typescript
 import { LitElement, css, html } from 'lit';
-import { customElement } from 'lit/decorators.js';
+import { customElement, state } from 'lit/decorators.js';
 
 @customElement('command-palette')
 export class CommandPalette extends LitElement {
@@ -857,17 +902,14 @@ export class CommandPalette extends LitElement {
       display: flex;
       flex-direction: column;
       overflow: hidden;
-      border-radius: 6px;
-      background: #252526;
-      color: #cccccc;
     }
 
     input {
       width: 100%;
-      padding: 12px;
+      padding: 14px;
       border: 0;
-      border-bottom: 1px solid #3c3c3c;
-      background: #303031;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      background: transparent;
       color: #ffffff;
       font-size: 14px;
     }
@@ -879,30 +921,81 @@ export class CommandPalette extends LitElement {
     .palette-list {
       max-height: 320px;
       overflow-y: auto;
-      padding: 4px 0;
+      padding: 6px;
     }
 
     .palette-item {
       padding: 8px 12px;
       font-size: 13px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.15s ease;
     }
 
-    .palette-item:hover {
-      background: #094771;
+    .palette-item.selected {
+      background: var(--accent);
+      color: #ffffff;
     }
   `;
 
+  @state()
+  private _selectedIndex = 0;
+
+  private _items = [
+    { id: 'view-dashboard', label: 'View: Dashboard' },
+    { id: 'toggle-ai', label: 'View: Toggle AI Assistant' },
+    { id: 'new-workspace', label: 'File: New Workspace' }
+  ];
+
+  firstUpdated() {
+    this.addEventListener('keydown', this._handleKeyDown);
+  }
+
   focusInput() {
-    this.shadowRoot?.querySelector('input')?.focus();
+    const input = this.shadowRoot?.querySelector('input');
+    if (input) {
+      input.focus();
+      input.value = '';
+    }
+    this._selectedIndex = 0;
+  }
+
+  private _handleKeyDown(event: KeyboardEvent) {
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      this._selectedIndex = (this._selectedIndex + 1) % this._items.length;
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      this._selectedIndex = (this._selectedIndex - 1 + this._items.length) % this._items.length;
+    } else if (event.key === 'Enter') {
+      event.preventDefault();
+      this._selectItem(this._items[this._selectedIndex]);
+    }
+  }
+
+  private _selectItem(item: { id: string; label: string }) {
+    this.dispatchEvent(new CustomEvent('command-selected', {
+      detail: { command: item.id },
+      bubbles: true,
+      composed: true
+    }));
   }
 
   render() {
     return html`
       <input aria-label="Command palette input" placeholder="Type a command..." />
-      <div class="palette-list">
-        <div class="palette-item">View: Dashboard</div>
-        <div class="palette-item">View: Toggle AI Assistant</div>
-        <div class="palette-item">File: New Workspace</div>
+      <div class="palette-list" role="listbox">
+        ${this._items.map((item, index) => html`
+          <div 
+            class="palette-item ${index === this._selectedIndex ? 'selected' : ''}" 
+            role="option"
+            aria-selected="${index === this._selectedIndex}"
+            @click="${() => this._selectItem(item)}"
+            @mouseenter="${() => this._selectedIndex = index}"
+          >
+            ${item.label}
+          </div>
+        `)}
       </div>
     `;
   }
@@ -949,6 +1042,19 @@ window.addEventListener('view-changed', (event: Event) => {
   if (navigationPanel) {
     navigationPanel.setView(customEvent.detail.view);
   }
+});
+
+window.addEventListener('command-selected', (event: Event) => {
+  const customEvent = event as CustomEvent<{ command: string }>;
+  const cmd = customEvent.detail.command;
+  if (cmd === 'toggle-ai') {
+    toggleAiPanel();
+  } else if (cmd === 'view-dashboard') {
+    if (navigationPanel) {
+      navigationPanel.setView('Dashboard');
+    }
+  }
+  setCommandPaletteVisible(false);
 });
 
 window.addEventListener('DOMContentLoaded', async () => {
