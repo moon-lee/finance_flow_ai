@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Finance Flow AI</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="./styles/layout.css" />
+  </head>
+  <body>
+    <div id="app">
+      <activity-bar id="activity-bar"></activity-bar>
+      <navigation-panel id="navigation-panel"></navigation-panel>
+      <workspace-panel id="workspace"></workspace-panel>
+      <ai-panel id="ai-panel"></ai-panel>
+      <status-bar id="status-bar">
+        <span class="status-item">Ready</span>
+      </status-bar>
+    </div>
+    <command-palette id="command-palette" class="hidden"></command-palette>
+    <script type="module" src="./index.ts"></script>
+  </body>
+</html>

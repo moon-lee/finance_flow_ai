@@ -16,6 +16,7 @@
 
 # Test coverage
 /coverage
+test-results/
 
 # Logs
 *.log

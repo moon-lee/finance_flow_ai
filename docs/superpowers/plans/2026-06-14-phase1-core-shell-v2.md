@@ -113,7 +113,7 @@ finance-flow-ai/
 - Create: `vite.main.config.ts`
 - Create: `vite.preload.config.ts`
 
-- [ ] **[AI] Step 1: Initialize npm project**
+- [x] **[AI] Step 1: Initialize npm project**
 
 ```bash
 npm init -y
@@ -121,7 +121,7 @@ npm pkg set type="module"
 npm pkg set main="dist/main/main.js"
 ```
 
-- [ ] **[AI] Step 2: Install dependencies**
+- [x] **[AI] Step 2: Install dependencies**
 
 ```bash
 npm install lit
@@ -131,7 +131,7 @@ npm install -D eslint @eslint/js typescript-eslint globals
 npm install -D @playwright/test
 ```
 
-- [ ] **[AI] Step 3: Create `tsconfig.json`**
+- [x] **[AI] Step 3: Create `tsconfig.json`**
 
 ```json
 {
@@ -156,7 +156,7 @@ npm install -D @playwright/test
 }
 ```
 
-- [ ] **[AI] Step 4: Create `eslint.config.js`**
+- [x] **[AI] Step 4: Create `eslint.config.js`**
 
 ```javascript
 import js from '@eslint/js';
@@ -185,7 +185,7 @@ export default tseslint.config(
 );
 ```
 
-- [ ] **[AI] Step 5: Create `vite.config.ts` for renderer**
+- [x] **[AI] Step 5: Create `vite.config.ts` for renderer**
 
 ```typescript
 import { defineConfig } from 'vite';
@@ -207,7 +207,7 @@ export default defineConfig({
 });
 ```
 
-- [ ] **[AI] Step 6: Create `vite.main.config.ts` for Electron main**
+- [x] **[AI] Step 6: Create `vite.main.config.ts` for Electron main**
 
 ```typescript
 import { defineConfig } from 'vite';
@@ -228,7 +228,7 @@ export default defineConfig({
 });
 ```
 
-- [ ] **[AI] Step 7: Create `vite.preload.config.ts` for Electron preload**
+- [x] **[AI] Step 7: Create `vite.preload.config.ts` for Electron preload**
 
 ```typescript
 import { defineConfig } from 'vite';
@@ -249,7 +249,7 @@ export default defineConfig({
 });
 ```
 
-- [ ] **[AI] Step 8: Add scripts to `package.json`**
+- [x] **[AI] Step 8: Add scripts to `package.json`**
 
 ```bash
 npm pkg set scripts.dev="concurrently -k \"npm:dev:main\" \"npm:dev:preload\" \"npm:dev:renderer\" \"npm:start:dev\""
@@ -267,7 +267,7 @@ npm pkg set scripts.lint="eslint ."
 npm pkg set scripts.test:e2e="playwright test"
 ```
 
-- [ ] **[AI] Step 9: Commit initialization**
+- [x] **[AI] Step 9: Commit initialization**
 
 ```bash
 git add package.json package-lock.json tsconfig.json eslint.config.js vite.config.ts vite.main.config.ts vite.preload.config.ts
@@ -282,7 +282,7 @@ git commit -m "chore: initialize Electron TypeScript Vite shell"
 
 - Create: `src/main/main.ts`
 
-- [ ] **[AI] Step 1: Create Electron main process**
+- [x] **[AI] Step 1: Create Electron main process**
 
 `src/main/main.ts`:
 
@@ -346,7 +346,7 @@ app.on('window-all-closed', () => {
 });
 ```
 
-- [ ] **[AI] Step 2: Commit main process**
+- [x] **[AI] Step 2: Commit main process**
 
 ```bash
 git add src/main/main.ts
@@ -363,7 +363,7 @@ git commit -m "feat: add Electron main process bootstrap"
 - Create: `src/types/finance-shell.d.ts`
 - Create: `src/types/finance.d.ts`
 
-- [ ] **[AI] Step 1: Create preload script**
+- [x] **[AI] Step 1: Create preload script**
 
 `src/preload/preload.ts`:
 
@@ -377,7 +377,7 @@ const shellApi = {
 contextBridge.exposeInMainWorld('financeShell', shellApi);
 ```
 
-- [ ] **[AI] Step 2: Create renderer global type declarations**
+- [x] **[AI] Step 2: Create renderer global type declarations**
 
 `src/types/finance-shell.d.ts`:
 
@@ -405,7 +405,7 @@ declare global {
 export {};
 ```
 
-- [ ] **[AI] Step 3: Commit preload**
+- [x] **[AI] Step 3: Commit preload**
 
 ```bash
 git add src/preload/preload.ts src/types/finance-shell.d.ts src/types/finance.d.ts
@@ -421,7 +421,7 @@ git commit -m "feat: add allowlisted preload bridge"
 - Create: `src/renderer/index.html`
 - Create: `src/renderer/styles/layout.css`
 
-- [ ] **[AI] Step 1: Create `index.html`**
+- [x] **[AI] Step 1: Create `index.html`**
 
 `src/renderer/index.html`:
 
@@ -453,7 +453,7 @@ git commit -m "feat: add allowlisted preload bridge"
 </html>
 ```
 
-- [ ] **[AI] Step 2: Create `layout.css`**
+- [x] **[AI] Step 2: Create `layout.css`**
 
 `src/renderer/styles/layout.css`:
 
@@ -590,7 +590,7 @@ body {
 }
 ```
 
-- [ ] **[AI] Step 3: Commit layout**
+- [x] **[AI] Step 3: Commit layout**
 
 ```bash
 git add src/renderer/index.html src/renderer/styles/layout.css
@@ -610,7 +610,7 @@ git commit -m "feat: add VS Code-inspired shell layout"
 - Create: `src/renderer/components/command-palette.ts`
 - Create: `src/renderer/index.ts`
 
-- [ ] **[AI] Step 1: Create `activity-bar.ts`**
+- [x] **[AI] Step 1: Create `activity-bar.ts`**
 
 `src/renderer/components/activity-bar.ts`:
 
@@ -693,7 +693,7 @@ export class ActivityBar extends LitElement {
 }
 ```
 
-- [ ] **[AI] Step 2: Create `navigation-panel.ts`**
+- [x] **[AI] Step 2: Create `navigation-panel.ts`**
 
 `src/renderer/components/navigation-panel.ts`:
 
@@ -781,7 +781,7 @@ export class NavigationPanel extends LitElement {
 }
 ```
 
-- [ ] **[AI] Step 3: Create `workspace.ts`**
+- [x] **[AI] Step 3: Create `workspace.ts`**
 
 `src/renderer/components/workspace.ts`:
 
@@ -845,7 +845,7 @@ export class WorkspacePanel extends LitElement {
 }
 ```
 
-- [ ] **[AI] Step 4: Create `ai-panel.ts`**
+- [x] **[AI] Step 4: Create `ai-panel.ts`**
 
 `src/renderer/components/ai-panel.ts`:
 
@@ -887,7 +887,7 @@ export class AIPanel extends LitElement {
 }
 ```
 
-- [ ] **[AI] Step 5: Create `command-palette.ts`**
+- [x] **[AI] Step 5: Create `command-palette.ts`**
 
 `src/renderer/components/command-palette.ts`:
 
@@ -1002,7 +1002,7 @@ export class CommandPalette extends LitElement {
 }
 ```
 
-- [ ] **[AI] Step 6: Create `index.ts` entry point and interactions**
+- [x] **[AI] Step 6: Create `index.ts` entry point and interactions**
 
 `src/renderer/index.ts`:
 
@@ -1088,7 +1088,7 @@ window.addEventListener('keydown', (event) => {
 });
 ```
 
-- [ ] **[AI] Step 7: Commit components**
+- [x] **[AI] Step 7: Commit components**
 
 ```bash
 git add src/renderer/components src/renderer/index.ts
@@ -1104,7 +1104,7 @@ git commit -m "feat: add shell components and prototype interactions"
 - Create: `playwright.config.ts`
 - Create: `tests/e2e/renderer-shell.spec.ts`
 
-- [ ] **[AI] Step 1: Create Playwright config**
+- [x] **[AI] Step 1: Create Playwright config**
 
 `playwright.config.ts`:
 
@@ -1137,7 +1137,7 @@ export default defineConfig({
 });
 ```
 
-- [ ] **[AI] Step 2: Create Playwright smoke tests**
+- [x] **[AI] Step 2: Create Playwright smoke tests**
 
 `tests/e2e/renderer-shell.spec.ts`:
 
@@ -1202,7 +1202,7 @@ test.describe('Phase 1 renderer shell', () => {
 });
 ```
 
-- [ ] **[You] Step 3: Build and boot the application**
+- [x] **[You] Step 3: Build and boot the application**
 
 ```bash
 npm run build
@@ -1211,7 +1211,7 @@ npm run start
 
 Wait for the Electron window to appear. Confirm no console errors appear (open DevTools with `Ctrl+Shift+I`).
 
-- [ ] **[You] Step 4: Run through each manual test unit below and mark pass/fail**
+- [x] **[You] Step 4: Run through each manual test unit below and mark pass/fail**
 
 ---
 
@@ -1230,6 +1230,7 @@ Wait for the Electron window to appear. Confirm no console errors appear (open D
 
 | Pass/Fail | Notes |
 |-----------|-------|
+| PASS | All 5 shell regions visible. Version shows `v42.4.0` (Electron runtime via IPC bridge). |
 
 ---
 
@@ -1247,6 +1248,7 @@ Wait for the Electron window to appear. Confirm no console errors appear (open D
 
 | Pass/Fail | Notes |
 |-----------|-------|
+| PASS | All 5 views switch correctly. Active button highlights with accent bar. |
 
 ---
 
@@ -1264,6 +1266,7 @@ Wait for the Electron window to appear. Confirm no console errors appear (open D
 
 | Pass/Fail | Notes |
 |-----------|-------|
+| PASS | Opens on `Ctrl+Shift+P`, input auto-focuses, Escape closes. Typing works but no filtering yet (Phase 1 static items). |
 
 ---
 
@@ -1278,6 +1281,7 @@ Wait for the Electron window to appear. Confirm no console errors appear (open D
 
 | Pass/Fail | Notes |
 |-----------|-------|
+| PASS | Click-away dismiss works. |
 
 ---
 
@@ -1293,6 +1297,7 @@ Wait for the Electron window to appear. Confirm no console errors appear (open D
 
 | Pass/Fail | Notes |
 |-----------|-------|
+| PASS | `Ctrl+J` toggles AI panel collapse/restore with smooth transition. |
 
 ---
 
@@ -1308,6 +1313,7 @@ Wait for the Electron window to appear. Confirm no console errors appear (open D
 
 | Pass/Fail | Notes |
 |-----------|-------|
+| PASS | Version `v42.4.0` displayed in status bar — IPC bridge confirmed working. Shows Electron runtime version (will show app version after packaging). |
 
 ---
 
@@ -1325,6 +1331,7 @@ Wait for the Electron window to appear. Confirm no console errors appear (open D
 
 | Pass/Fail | Notes |
 |-----------|-------|
+| PASS | Title "Finance Flow AI", resizable, minimizable, closeable. Dark background, no white flash. |
 
 ---
 
@@ -1340,17 +1347,20 @@ Wait for the Electron window to appear. Confirm no console errors appear (open D
 
 | Pass/Fail | Notes |
 |-----------|-------|
+| PASS | "Dashboard" tab and "Select a view..." placeholder visible. Tab has no close button (Phase 1 static). |
 
 ---
 
-- [ ] **[You] Step 5: Run typecheck and lint**
+- [x] **[You] Step 5: Run typecheck and lint**
 
 ```bash
 npm run typecheck
 npm run lint
 ```
 
-- [ ] **[You] Step 6: (Optional) Run Playwright automated smoke tests**
+> **Result:** TypeScript strict mode — zero errors. ESLint — zero warnings.
+
+- [x] **[You] Step 6: (Optional) Run Playwright automated smoke tests**
 
 Playwright test files are already created above. If you want automated browser verification in addition to the manual tests:
 
@@ -1362,10 +1372,10 @@ This launches the Vite dev server and runs all 6 Playwright tests (layout visibi
 
 > **Note:** Skip this step if you prefer manual-only verification. The Playwright files remain in the codebase for future CI or regression testing.
 
-- [ ] **[AI] Step 7: Commit**
+- [x] **[AI] Step 7: Commit**
 
 ```bash
-git add playwright.config.ts tests/e2e/renderer-shell.spec.ts src/renderer/components src/renderer/index.ts src/renderer/index.html src/renderer/styles/layout.css src/main/main.ts src/preload/preload.ts src/types/finance-shell.d.ts src/types/finance.d.ts
+git add AGENTS.md CHANGELOG.md docs/file-reference.md docs/superpowers/plans/2026-06-14-phase1-core-shell-v2.md playwright.config.ts tests/e2e/ src/ package.json package-lock.json tsconfig.json eslint.config.js vite.config.ts vite.main.config.ts vite.preload.config.ts .gitignore
 git commit -m "feat: add Phase 1 core shell prototype"
 ```
 
@@ -1373,15 +1383,15 @@ git commit -m "feat: add Phase 1 core shell prototype"
 
 ## Phase 1 Deliverable Verification
 
-- [ ] Electron app boots with `npm run start` — no console errors (DevTools: `Ctrl+Shift+I`).
-- [ ] **Test Unit 1** — All 5 shell regions visible: Activity Bar, Navigation Panel, Workspace, AI Panel, Status Bar.
-- [ ] **Test Unit 2** — Activity Bar buttons switch Navigation Panel context for each view (Dashboard, Salary, Budget, Tax, Settings).
-- [ ] **Test Unit 3** — `Ctrl+Shift+P` opens Command Palette with auto-focused input; `Escape` closes it.
-- [ ] **Test Unit 4** — Command Palette closes on click-away.
-- [ ] **Test Unit 5** — `Ctrl+J` toggles AI Panel collapse/restore.
-- [ ] **Test Unit 6** — Version number displayed in Status Bar via IPC bridge.
-- [ ] **Test Unit 7** — Window has correct title, min size, resize/close works, dark background.
-- [ ] **Test Unit 8** — Workspace shows "Dashboard" tab and placeholder content.
-- [ ] TypeScript compiles in strict mode (`npm run typecheck`).
-- [ ] ESLint passes (`npm run lint`).
-- [ ] (Optional) Playwright smoke tests pass (`npm run test:e2e`) — 6 automated tests cover layout, command palette, AI panel, and sidebar navigation.
+- [x] Electron app boots with `npm run start` — no console errors (DevTools: `Ctrl+Shift+I`).
+- [x] **Test Unit 1** — All 5 shell regions visible: Activity Bar, Navigation Panel, Workspace, AI Panel, Status Bar.
+- [x] **Test Unit 2** — Activity Bar buttons switch Navigation Panel context for each view (Dashboard, Salary, Budget, Tax, Settings).
+- [x] **Test Unit 3** — `Ctrl+Shift+P` opens Command Palette with auto-focused input; `Escape` closes it.
+- [x] **Test Unit 4** — Command Palette closes on click-away.
+- [x] **Test Unit 5** — `Ctrl+J` toggles AI Panel collapse/restore.
+- [x] **Test Unit 6** — Version number displayed in Status Bar via IPC bridge.
+- [x] **Test Unit 7** — Window has correct title, min size, resize/close works, dark background.
+- [x] **Test Unit 8** — Workspace shows "Dashboard" tab and placeholder content.
+- [x] TypeScript compiles in strict mode (`npm run typecheck`).
+- [x] ESLint passes (`npm run lint`).
+- [x] (Optional) Playwright smoke tests pass (`npm run test:e2e`) — 6 automated tests cover layout, command palette, AI panel, and sidebar navigation.

@@ -1,0 +1,35 @@
+import { LitElement, css, html } from 'lit';
+import { customElement } from 'lit/decorators.js';
+
+@customElement('ai-panel')
+export class AIPanel extends LitElement {
+  static styles = css`
+    :host {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      padding: 10px;
+    }
+
+    .ai-header {
+      color: #f2f2f2;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+
+    .ai-content {
+      flex: 1;
+      min-height: 0;
+      color: #c8c8c8;
+      font-size: 13px;
+    }
+  `;
+
+  render() {
+    return html`
+      <div class="ai-header">AI Assistant</div>
+      <div class="ai-content">Chat panel placeholder</div>
+    `;
+  }
+}

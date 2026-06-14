@@ -12,4 +12,4 @@
 
 5. **Update CHANGELOG.md after completing work** - Document all notable changes in `CHANGELOG.md` with proper version bump and last_updated timestamp whenever implementation work is completed.
 
-6. **Read project context before implementation** - Always read `docs/project_vision.md` and the latest implementation plans/specs in `docs/superpowers/` before starting any work to ensure alignment with project goals.
+6. **Read project context before implementation** - Always read `docs/project_vision.md`, `docs/file-reference.md`, and the latest implementation plans/specs in `docs/superpowers/` before starting any work to ensure alignment with project goals.
