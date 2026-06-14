@@ -1,7 +1,7 @@
 ---
 version: 0.1.2
 created: 2026-06-14
-last_updated: 2026-06-14T15:47:08+10:00
+last_updated: 2026-06-14T18:06:09+10:00
 ---
 
 # Changelog
@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Added development timeline estimation and phase risk/complexity breakdowns to `docs/superpowers/specs/2026-06-13-implementation-design.md`.
 
 ### Changed
 
