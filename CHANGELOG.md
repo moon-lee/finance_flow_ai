@@ -19,6 +19,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.2.0] - 2026-06-14
 
+### Added
+- Phase 1: Bootable Electron app with VS Code-inspired shell layout
+- Electron main process with secure preload bridge (`contextBridge`, `contextIsolation`, `sandbox`)
+- Lit web components: Activity Bar, Navigation Panel, Workspace, AI Panel, Command Palette
+- Obsidian dark theme with Outfit font, glassmorphism Command Palette, custom scrollbars
+- Keyboard shortcuts: `Ctrl+Shift+P` (Command Palette), `Ctrl+J` (AI Panel toggle), `Escape` (close)
+- Activity Bar navigation switching Navigation Panel context (Dashboard, Salary, Budget, Tax, Settings)
+- Version display in Status Bar via IPC bridge (`shell:get-version`)
+- AI Panel collapse/restore with animated grid transition
+- Click-away dismiss for Command Palette
+- Playwright E2E smoke tests (6 tests: layout, commands, keyboard, navigation)
+- Separate Vite builds for main, preload, and renderer processes
+- Dev mode with concurrent watchers and Vite hot-reload
+
+### Changed
+
 ## [0.1.3] - 2026-06-14
 
 ### Added
