@@ -8,9 +8,9 @@ status: draft
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Complete this milestone and wait for review before starting Phase 3.
 
-**Goal:** Add SQLite database initialization, a namespaced settings service, and window-state persistence so the app boots and restores preferences (theme, AI panel state, window bounds) automatically.
+**Goal:** Add SQLite database initialization, a namespaced settings service, and window-state persistence so the app boots and restores preferences (theme, AI panel state, window bounds) automatically. Phase 2 uses Electron's default `userData` location for `finance.db`; custom database directory/path selection is explicitly deferred.
 
-**Architecture:** All database access lives in the Electron main process using `better-sqlite3` (native SQLite driver). The Settings Service wraps a `settings` SQLite table as a namespaced KV store, serializing values as JSON. A simple inline migration system tracks schema versions in a `migration_log` table. IPC handlers expose settings to the renderer through the secure preload bridge. The renderer loads persisted preferences after DOM content is ready and applies them (theme CSS class, AI panel collapsed state, status bar theme toggle).
+**Architecture:** All database access lives in the Electron main process using `better-sqlite3` (native SQLite driver). The Settings Service wraps a `settings` SQLite table as a namespaced KV store, serializing values as JSON. A simple inline migration system tracks schema versions in a `migration_log` table. IPC handlers expose settings to the renderer through the secure preload bridge. The renderer loads persisted preferences after DOM content is ready and applies them (theme CSS class, AI panel collapsed state, status bar theme toggle). The main process resolves the database path through a small helper that currently returns `join(app.getPath('userData'), 'finance.db')`; a future bootstrap config file can be read there before SQLite is opened, avoiding the circular dependency of storing the database path inside the same database.
 
 **Tech Stack:** better-sqlite3 (native SQLite), Vite (main process bundler with native module externalization), Lit (renderer components), Electron IPC (settings bridge).
 
@@ -20,9 +20,9 @@ status: draft
 
 ### Decision 1: Inline Migrations Instead of Umzug
 
-**Choice:** Define migrations as a typed array of `{ name, up, down }` objects with a simple runner that checks `migration_log` table.
+**Choice:** Define migrations as a typed array of `{ name, up }` objects with a simple runner that checks `migration_log` table.
 
-**Reasoning:** Phase 2 creates exactly one migration (infrastructure tables). Umzug is useful for rollback and multi-version management but adds a dependency and configuration overhead for a single initial migration. The inline runner handles `CREATE TABLE IF NOT EXISTS` idempotently and records each migration in the log table. We can adopt Umzug in Phase 4 when extension schemas need versioned migrations.
+**Reasoning:** Phase 2 creates exactly one migration (infrastructure tables). Umzug is useful for rollback and multi-version management but adds a dependency and configuration overhead for a single initial migration. The inline runner handles `CREATE TABLE IF NOT EXISTS` idempotently, applies each migration and its `migration_log` insert inside one SQLite transaction, and records each migration in the log table only after the migration succeeds. We can adopt Umzug in Phase 4 when extension schemas need versioned migrations.
 
 **Trade-off:** Slightly more code to write now, but zero dependency overhead and trivial to replace later.
 
@@ -54,11 +54,11 @@ status: draft
 
 ### Decision 5: Strict Namespace Enforcement at the Storage Layer
 
-**Choice:** The Settings Service validates every key against a set of registered extension namespace prefixes. `core` is registered at startup. All keys must follow `namespace.key` format — bare keys are rejected. `undefined` values are rejected explicitly. `JSON.parse` failures return `undefined` instead of throwing.
+**Choice:** The Settings Service validates every key against a set of registered namespace prefixes. `core` is registered at startup. All keys must follow `namespace.key` format — bare keys are rejected. `undefined` values are rejected explicitly. `JSON.parse` failures return `undefined` instead of throwing. Phase 2 exposes only core settings through renderer IPC; future extension settings must use a caller-bound settings facade, not raw cross-namespace key access.
 
-**Reasoning:** The project vision requires structural impossibility of cross-extension access (docs/project_vision.md:49-53). By validating at the service level (not just IPC), every code path is covered — IPC handlers, main process init, and future extension hosts.
+**Reasoning:** The project vision requires structural impossibility of cross-extension access (docs/project_vision.md:49-53). Service-level namespace validation prevents accidental bare or unknown keys in Phase 2. It is a foundation for isolation, not the complete extension security boundary; Phase 4 must bind each extension caller to its own namespace before exposing settings APIs to the extension host.
 
-**Trade-off:** Slightly more code in the service. But enforcement is comprehensive, uniform, and Phase 4 extensions slot in by calling `registerExtensionNamespace(extId)`.
+**Trade-off:** Slightly more code in the service, and one more facade will be needed when extensions arrive. That extra boundary keeps Phase 2 simple while avoiding the false guarantee that any caller holding `getSetting(key)` can be safely trusted with arbitrary namespaces.
 
 ---
 
@@ -223,36 +223,54 @@ export function initializeDatabase(dbPath: string): Database.Database {
     mkdirSync(dbDir, { recursive: true });
   }
 
-  // Open the database, recovering from a corrupt file rather than
-  // making the app unbootable. The bad file is renamed with a
-  // timestamp suffix and a fresh DB is created.
+  // Open the database and recover only from open/health-check failures.
+  // Migration failures are allowed to surface: treating a bad migration
+  // as corruption could replace a valid user database unnecessarily.
   try {
-    db = new Database(dbPath);
-    db.pragma('journal_mode = WAL');
-    db.pragma('foreign_keys = ON');
-    runMigrations(db);
+    db = openDatabaseWithPragmas(dbPath);
   } catch (err) {
-    const corruptPath = `${dbPath}.corrupt-${Date.now()}`;
-    console.error(
-      `Database at ${dbPath} is unreadable; renaming to ${corruptPath} and starting fresh.`,
-      err
-    );
-    try {
-      db?.close();
-    } catch {
-      // db may not have opened successfully; ignore.
-    }
-    db = null;
-    if (existsSync(dbPath)) {
-      renameSync(dbPath, corruptPath);
-    }
-    db = new Database(dbPath);
-    db.pragma('journal_mode = WAL');
-    db.pragma('foreign_keys = ON');
-    runMigrations(db);
+    db = recoverUnreadableDatabase(dbPath, err);
   }
 
+  runMigrations(db);
+
   return db;
+}
+
+function openDatabaseWithPragmas(dbPath: string): Database.Database {
+  const database = new Database(dbPath);
+  database.pragma('journal_mode = WAL');
+  database.pragma('foreign_keys = ON');
+  const quickCheck = database.pragma('quick_check') as { quick_check: string }[];
+  if (quickCheck[0]?.quick_check !== 'ok') {
+    database.close();
+    throw new Error(`SQLite quick_check failed for ${dbPath}`);
+  }
+  return database;
+}
+
+function recoverUnreadableDatabase(dbPath: string, cause: unknown): Database.Database {
+  const corruptPath = `${dbPath}.corrupt-${Date.now()}`;
+  console.error(
+    `Database at ${dbPath} is unreadable; renaming to ${corruptPath} and starting fresh.`,
+    cause
+  );
+  try {
+    db?.close();
+  } catch {
+    // db may not have opened successfully; ignore.
+  }
+  db = null;
+  if (existsSync(dbPath)) {
+    renameSync(dbPath, corruptPath);
+  }
+  for (const suffix of ['-wal', '-shm']) {
+    const sidecarPath = `${dbPath}${suffix}`;
+    if (existsSync(sidecarPath)) {
+      renameSync(sidecarPath, `${corruptPath}${suffix}`);
+    }
+  }
+  return openDatabaseWithPragmas(dbPath);
 }
 
 function runMigrations(database: Database.Database): void {
@@ -267,10 +285,14 @@ function runMigrations(database: Database.Database): void {
     (database.prepare('SELECT name FROM migration_log ORDER BY name').all() as { name: string }[]).map(r => r.name)
   );
 
+  const applyMigration = database.transaction((migration: Migration) => {
+    migration.up(database);
+    database.prepare('INSERT INTO migration_log (name) VALUES (?)').run(migration.name);
+  });
+
   for (const migration of migrations) {
     if (!applied.has(migration.name)) {
-      migration.up(database);
-      database.prepare('INSERT INTO migration_log (name) VALUES (?)').run(migration.name);
+      applyMigration(migration);
       applied.add(migration.name);
     }
   }
@@ -507,6 +529,14 @@ function resolveRendererIndex(): string {
   return join(mainDir, '../renderer/index.html');
 }
 
+function resolveDatabasePath(): string {
+  // Phase 2 keeps the database in Electron's default app data folder.
+  // Future custom DB path support should read a tiny bootstrap config
+  // here before SQLite opens; do not store the DB path only inside
+  // the DB itself, because startup would not know which DB to open.
+  return join(app.getPath('userData'), 'finance.db');
+}
+
 function saveWindowState(): void {
   if (!mainWindow || dbClosed) return;
   const maximized = mainWindow.isMaximized();
@@ -607,11 +637,10 @@ export async function createWindow(): Promise<BrowserWindow> {
 function registerIpcHandlers(): void {
   ipcMain.handle('shell:get-version', () => app.getVersion());
 
-  // Settings IPC handlers wrap the service calls in try/catch so that
-  // a misbehaving renderer (or an early IPC fire before DB init) gets
-  // a logged error rather than an unhandled rejection. Errors collapse
-  // to `undefined` for `get` (renderer treats undefined as "missing")
-  // and to a silent no-op for `set`.
+  // Settings IPC handlers log service errors before returning them to
+  // the renderer. `get` collapses to `undefined` because the renderer
+  // treats it as "missing"; `set` rethrows so persistence failures are
+  // visible to callers and tests.
   ipcMain.handle('settings:get', (_event, key: string) => {
     try {
       return getSetting(key);
@@ -626,6 +655,7 @@ function registerIpcHandlers(): void {
       setSetting(key, value);
     } catch (err) {
       console.error(`settings:set failed for key "${key}":`, err);
+      throw err;
     }
   });
 
@@ -635,7 +665,7 @@ registerMigration(infrastructureMigration);
 registerIpcHandlers();
 
 app.whenReady().then(() => {
-  const dbPath = join(app.getPath('userData'), 'finance.db');
+  const dbPath = resolveDatabasePath();
   initializeDatabase(dbPath);
   initializeSettings();
   void createWindow();
@@ -1179,7 +1209,7 @@ describe('SettingsService', () => {
 npx vitest run
 ```
 
-Expected: All tests pass (database-service: 6 tests, settings-service: 17 tests). The `test:unit` script rebuilds `better-sqlite3` for the Node ABI before invoking Vitest (see Task 1 step 2 for rationale); the rebuild is silent and a no-op when the binary already matches.
+Expected: All tests pass (database-service: 6 tests, settings-service: 17 tests; 23 total). The `test:unit` script rebuilds `better-sqlite3` for the Node ABI before invoking Vitest (see Task 1 step 2 for rationale); the rebuild is silent and a no-op when the binary already matches.
 
 - [ ] **Step 5: Commit**
 
@@ -1403,7 +1433,7 @@ git commit -m "test: add E2E tests for theme toggle and status bar button"
 | **How to test** | Run all verification commands |
 | **Steps** | 1. Run `npm run typecheck` — zero errors |
 | | 2. Run `npm run lint` — zero warnings |
-| | 3. Run `npm run test:unit` — 26 tests pass |
+| | 3. Run `npm run test:unit` — 23 tests pass (6 database-service, 17 settings-service) |
 | **Expected result** | TypeScript strict mode, ESLint, and Vitest all pass |
 
 | Pass/Fail | Notes |
@@ -1416,7 +1446,7 @@ git commit -m "test: add E2E tests for theme toggle and status bar button"
 
 **1. Spec coverage:**
 - [ ] SQLite database file connection initialization → Task 3, Task 6
-- [ ] Settings Service (basic Key-Value persistence for window state, theme, and DB paths) → Task 5, Task 6, Task 10
+- [ ] Settings Service (basic Key-Value persistence for window state and theme; database path fixed to Electron `userData` for Phase 2) → Task 5, Task 6, Task 10
 - [ ] Infrastructure database schemas (extension_registry, migration_log) → Task 4
 - [ ] Deliverable: app boots and persists preferences → All tasks verified in manual tests
 - [ ] Theme persistence → Task 9, Task 10

@@ -1,7 +1,7 @@
 ---
-version: 0.3.0
+version: 0.3.1
 created: 2026-06-14
-last_updated: 2026-06-20T16:45:00+10:00
+last_updated: 2026-06-20T19:50:42+10:00
 ---
 
 # Changelog
@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Phase 2 file reference table in `docs/file-reference.md` documenting the planned new and modified files for the Core Database & Settings Backbone milestone (8 modified, 6 new), sourced from `docs/superpowers/plans/2026-06-20-phase2-database-settings-backbone.md`.
 
 ### Changed
+- Phase 2 implementation plan review corrections (`docs/superpowers/plans/2026-06-20-phase2-database-settings-backbone.md`): aligned migration shape with ADR-0002, made migrations transactional, narrowed corrupt-DB recovery to open/health-check failures, clarified settings namespace isolation boundaries, surfaced settings write failures through IPC, corrected unit-test totals, and deferred custom database path selection behind a future bootstrap config hook.
 - AGENTS.md Key Requirement #6 (`Read project context before implementation`) reworded to make the two trigger points explicit: at session start and before writing or modifying implementation code. Adds a re-read reminder to prevent stale-plan drift when a plan/spec is updated mid-session.
 - Phase 2 implementation plan (`docs/superpowers/plans/2026-06-20-phase2-database-settings-backbone.md`): applied review pass covering 16 items.
   - **Bug-prevention fixes:** debounced window-state save now cancelled on close (prevents post-shutdown timer firing); corrupt-DB recovery in `initializeDatabase` (renames bad file to `.corrupt-<timestamp>`); off-screen restore guard via `screen.getAllDisplays()`; `getDatabase()` also guards on `db.open`.
