@@ -1,7 +1,7 @@
 ---
-version: 0.2.0
+version: 0.3.0
 created: 2026-06-14
-last_updated: 2026-06-20T12:57:51+10:00
+last_updated: 2026-06-20T15:44:21+10:00
 ---
 
 # Changelog
@@ -14,8 +14,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- ADR-0002 documenting the inline migration runner decision (`docs/decisions/0002-inline-migrations.md`)
 
 ### Changed
+- Phase 2 implementation plan (`docs/superpowers/plans/2026-06-20-phase2-database-settings-backbone.md`): applied review pass covering 16 items.
+  - **Bug-prevention fixes:** debounced window-state save now cancelled on close (prevents post-shutdown timer firing); corrupt-DB recovery in `initializeDatabase` (renames bad file to `.corrupt-<timestamp>`); off-screen restore guard via `screen.getAllDisplays()`; `getDatabase()` also guards on `db.open`.
+  - **Test infrastructure:** `test:unit` script rebuilds `better-sqlite3` for Node ABI before Vitest; E2E suite resets persisted settings in `beforeEach` to avoid test-order flake.
+  - **Type safety:** renderer `applyTheme` and `core.ui.aiCollapsed` no longer rely on unchecked IPC casts; IPC handlers wrap service calls in try/catch with `console.error` logging.
+  - **API hygiene:** `Migration` interface slimmed to `{ name, up }` (the `down` callback was defined but never invoked); test fixtures and infrastructure migration updated to match.
+  - **Documentation:** corrected unit-test count (17, not 20); fixed `project_vision.md` line citation (`55` → `49-53`); added Agent completion note to Self-Review Checklist; theme toggle button now carries `data-action="toggle-theme"` and E2E selectors target it specifically.
 
 ## [0.3.0] - 2026-06-20
 

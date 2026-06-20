@@ -26,6 +26,8 @@ status: draft
 
 **Trade-off:** Slightly more code to write now, but zero dependency overhead and trivial to replace later.
 
+> Recorded as [ADR-0002](docs/decisions/0002-inline-migrations.md).
+
 ### Decision 2: Serialize Settings Values as JSON Strings
 
 **Choice:** Store all setting values as JSON text in a single TEXT column. TypeScript generics on `get<T>()` deserialize on read.
@@ -54,7 +56,7 @@ status: draft
 
 **Choice:** The Settings Service validates every key against a set of registered extension namespace prefixes. `core` is registered at startup. All keys must follow `namespace.key` format — bare keys are rejected. `undefined` values are rejected explicitly. `JSON.parse` failures return `undefined` instead of throwing.
 
-**Reasoning:** The project vision requires structural impossibility of cross-extension access (docs/project_vision.md:55). By validating at the service level (not just IPC), every code path is covered — IPC handlers, main process init, and future extension hosts.
+**Reasoning:** The project vision requires structural impossibility of cross-extension access (docs/project_vision.md:49-53). By validating at the service level (not just IPC), every code path is covered — IPC handlers, main process init, and future extension hosts.
 
 **Trade-off:** Slightly more code in the service. But enforcement is comprehensive, uniform, and Phase 4 extensions slot in by calling `registerExtensionNamespace(extId)`.
 
@@ -105,10 +107,12 @@ npm install -D @types/better-sqlite3 vitest @electron/rebuild
 
 ```bash
 npm pkg set scripts.rebuild="electron-rebuild"
-npm pkg set scripts.test:unit="vitest run"
+npm pkg set scripts.test:unit="npm rebuild better-sqlite3 >/dev/null 2>&1 || true && vitest run"
 npm pkg set scripts.test:unit:watch="vitest"
 npm pkg set scripts.test="npm run test:unit"
 ```
+
+> **Why the rebuild prefix?** `@electron/rebuild` (Task 1 step 1) compiles `better-sqlite3` against Electron's Node ABI. Vitest runs under the *system* Node, so if `rebuild` was run first the native binary fails to load with a `NODE_MODULE_VERSION` mismatch error. `npm rebuild better-sqlite3` recompiles for the current Node ABI before Vitest starts; it is a no-op when the binary already matches, so it is safe to leave in.
 
 After running these commands, `package.json` scripts section should contain (additional scripts from Phase 1 remain):
 
@@ -116,7 +120,7 @@ After running these commands, `package.json` scripts section should contain (add
 {
   "scripts": {
     "test": "npm run test:unit",
-    "test:unit": "vitest run",
+    "test:unit": "npm rebuild better-sqlite3 >/dev/null 2>&1 || true && vitest run",
     "test:unit:watch": "vitest",
     "rebuild": "electron-rebuild",
     "dev": "concurrently -k npm:dev:main npm:dev:preload npm:dev:renderer npm:start:dev",
@@ -193,12 +197,14 @@ git commit -m "chore: externalize better-sqlite3 from Vite main build"
 ```typescript
 import Database from 'better-sqlite3';
 import { dirname } from 'node:path';
-import { existsSync, mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync, renameSync } from 'node:fs';
 
+// Phase 2 has no rollback requirement; the `down` callback is
+// intentionally omitted from the interface to keep the surface area
+// honest. Revisit this if Phase 7 needs DB downgrade support.
 export interface Migration {
   name: string;
   up: (db: Database.Database) => void;
-  down: (db: Database.Database) => void;
 }
 
 let db: Database.Database | null = null;
@@ -216,11 +222,34 @@ export function initializeDatabase(dbPath: string): Database.Database {
     mkdirSync(dbDir, { recursive: true });
   }
 
-  db = new Database(dbPath);
-  db.pragma('journal_mode = WAL');
-  db.pragma('foreign_keys = ON');
-
-  runMigrations(db);
+  // Open the database, recovering from a corrupt file rather than
+  // making the app unbootable. The bad file is renamed with a
+  // timestamp suffix and a fresh DB is created.
+  try {
+    db = new Database(dbPath);
+    db.pragma('journal_mode = WAL');
+    db.pragma('foreign_keys = ON');
+    runMigrations(db);
+  } catch (err) {
+    const corruptPath = `${dbPath}.corrupt-${Date.now()}`;
+    console.error(
+      `Database at ${dbPath} is unreadable; renaming to ${corruptPath} and starting fresh.`,
+      err
+    );
+    try {
+      db?.close();
+    } catch {
+      // db may not have opened successfully; ignore.
+    }
+    db = null;
+    if (existsSync(dbPath)) {
+      renameSync(dbPath, corruptPath);
+    }
+    db = new Database(dbPath);
+    db.pragma('journal_mode = WAL');
+    db.pragma('foreign_keys = ON');
+    runMigrations(db);
+  }
 
   return db;
 }
@@ -246,7 +275,10 @@ function runMigrations(database: Database.Database): void {
 }
 
 export function getDatabase(): Database.Database {
-  if (!db) throw new Error('Database not initialized. Call initializeDatabase() first.');
+  // Guard against both null (never initialised) and a closed handle
+  // (e.g. after `closeDatabase` was called, or a double-init race
+  // during HMR).
+  if (!db || !db.open) throw new Error('Database not initialized. Call initializeDatabase() first.');
   return db;
 }
 
@@ -299,10 +331,6 @@ export const infrastructureMigration: Migration = {
         activated_at TEXT
       )
     `);
-  },
-  down: (db) => {
-    db.exec('DROP TABLE IF EXISTS extension_registry');
-    db.exec('DROP TABLE IF EXISTS settings');
   }
 };
 ```
@@ -455,7 +483,7 @@ This is the most involved task. The main process must:
 Full file replacement:
 
 ```typescript
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, screen } from 'electron';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { initializeDatabase, registerMigration, closeDatabase } from './services/database-service';
@@ -467,6 +495,7 @@ const rendererDevUrl = process.env.ELECTRON_RENDERER_URL;
 
 let mainWindow: BrowserWindow | null = null;
 let windowStateSaveTimer: ReturnType<typeof setTimeout> | null = null;
+let dbClosed = false;
 
 function resolvePreloadPath(): string {
   return join(mainDir, '../preload/preload.cjs');
@@ -477,7 +506,7 @@ function resolveRendererIndex(): string {
 }
 
 function saveWindowState(): void {
-  if (!mainWindow) return;
+  if (!mainWindow || dbClosed) return;
   const bounds = mainWindow.getBounds();
   const maximized = mainWindow.isMaximized();
   setSetting('core.window.x', bounds.x);
@@ -495,18 +524,42 @@ function debouncedSaveWindowState(): void {
   }, 500);
 }
 
+function resolveInitialBounds(): { width: number; height: number; x?: number; y?: number } {
+  const width = getSetting<number>('core.window.width') ?? 1280;
+  const height = getSetting<number>('core.window.height') ?? 820;
+  const x = getSetting<number>('core.window.x');
+  const y = getSetting<number>('core.window.y');
+
+  // If no saved position, let Electron centre the window.
+  if (x === undefined || y === undefined) {
+    return { width, height };
+  }
+
+  // Validate that the saved rect intersects at least one currently
+  // connected display work area. Otherwise the window would open
+  // off-screen (e.g. saved on a monitor that is no longer attached).
+  const intersects = screen.getAllDisplays().some(display => {
+    const wa = display.workArea;
+    return !(
+      x + width <= wa.x ||
+      x >= wa.x + wa.width ||
+      y + height <= wa.y ||
+      y >= wa.y + wa.height
+    );
+  });
+
+  return intersects ? { width, height, x, y } : { width, height };
+}
+
 export async function createWindow(): Promise<BrowserWindow> {
-  const savedX = getSetting<number>('core.window.x');
-  const savedY = getSetting<number>('core.window.y');
-  const savedWidth = getSetting<number>('core.window.width') ?? 1280;
-  const savedHeight = getSetting<number>('core.window.height') ?? 820;
+  const bounds = resolveInitialBounds();
   const savedMaximized = getSetting<boolean>('core.window.maximized') ?? false;
 
   mainWindow = new BrowserWindow({
-    width: savedWidth,
-    height: savedHeight,
-    ...(savedX !== undefined ? { x: savedX } : {}),
-    ...(savedY !== undefined ? { y: savedY } : {}),
+    width: bounds.width,
+    height: bounds.height,
+    ...(bounds.x !== undefined ? { x: bounds.x } : {}),
+    ...(bounds.y !== undefined ? { y: bounds.y } : {}),
     minWidth: 960,
     minHeight: 640,
     backgroundColor: '#1e1e1e',
@@ -526,6 +579,13 @@ export async function createWindow(): Promise<BrowserWindow> {
   mainWindow.on('resize', debouncedSaveWindowState);
   mainWindow.on('move', debouncedSaveWindowState);
   mainWindow.on('close', () => {
+    // Cancel any pending debounced save — the synchronous save below is
+    // the final state, and we must not let a later timer fire after the
+    // DB has been closed by `will-quit → closeDatabase()`.
+    if (windowStateSaveTimer) {
+      clearTimeout(windowStateSaveTimer);
+      windowStateSaveTimer = null;
+    }
     saveWindowState();
   });
 
@@ -541,12 +601,26 @@ export async function createWindow(): Promise<BrowserWindow> {
 function registerIpcHandlers(): void {
   ipcMain.handle('shell:get-version', () => app.getVersion());
 
+  // Settings IPC handlers wrap the service calls in try/catch so that
+  // a misbehaving renderer (or an early IPC fire before DB init) gets
+  // a logged error rather than an unhandled rejection. Errors collapse
+  // to `undefined` for `get` (renderer treats undefined as "missing")
+  // and to a silent no-op for `set`.
   ipcMain.handle('settings:get', (_event, key: string) => {
-    return getSetting(key);
+    try {
+      return getSetting(key);
+    } catch (err) {
+      console.error(`settings:get failed for key "${key}":`, err);
+      return undefined;
+    }
   });
 
   ipcMain.handle('settings:set', (_event, key: string, value: unknown) => {
-    setSetting(key, value);
+    try {
+      setSetting(key, value);
+    } catch (err) {
+      console.error(`settings:set failed for key "${key}":`, err);
+    }
   });
 
 }
@@ -576,6 +650,7 @@ app.on('window-all-closed', () => {
 app.on('will-quit', () => {
   closeSettings();
   closeDatabase();
+  dbClosed = true;
 });
 ```
 
@@ -740,7 +815,12 @@ function toggleAiPanel(): void {
   void window.financeShell?.settings.set('core.ui.aiCollapsed', app?.classList.contains('ai-collapsed'));
 }
 
-async function applyTheme(theme: string): Promise<void> {
+async function applyTheme(theme: unknown): Promise<void> {
+  // Defensive: the DB could contain a non-string for "core.theme" if
+  // a future migration wrote one. Fall back to dark for any value
+  // other than the literal string "light" rather than corrupting UI
+  // state. Accepting `unknown` here forces callers to drop unchecked
+  // casts at the IPC boundary.
   if (theme === 'light') {
     document.body.classList.add('light-theme');
   } else {
@@ -786,14 +866,16 @@ window.addEventListener('DOMContentLoaded', async () => {
   const version = await window.financeShell?.getVersion() ?? 'dev-browser';
 
   // Load persisted theme
-  const theme = await window.financeShell?.settings.get('core.theme') as string | undefined;
-  if (theme) {
+  const theme = await window.financeShell?.settings.get('core.theme');
+  if (theme !== undefined) {
     await applyTheme(theme);
   }
 
-  // Load persisted AI panel state
-  const aiCollapsed = await window.financeShell?.settings.get('core.ui.aiCollapsed') as boolean | undefined;
-  if (aiCollapsed) {
+  // Load persisted AI panel state — strict `=== true` so a non-boolean
+  // truthy value (e.g. a string from a corrupt DB row) does not
+  // silently collapse the panel.
+  const aiCollapsed = await window.financeShell?.settings.get('core.ui.aiCollapsed');
+  if (aiCollapsed === true) {
     app?.classList.add('ai-collapsed');
   }
 
@@ -803,6 +885,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     // Theme toggle button
     const themeBtn = document.createElement('span');
     themeBtn.className = 'status-item status-btn';
+    themeBtn.dataset.action = 'toggle-theme';
     themeBtn.textContent = document.body.classList.contains('light-theme') ? '☀ Light' : '🌙 Dark';
     themeBtn.addEventListener('click', async () => {
       await toggleTheme();
@@ -910,8 +993,7 @@ describe('DatabaseService', () => {
       name: 'test-migration',
       up: (db) => {
         db.exec('CREATE TABLE IF NOT EXISTS test_table (id INTEGER PRIMARY KEY)');
-      },
-      down: () => {}
+      }
     });
     initializeDatabase(dbPath);
     const db = getDatabase();
@@ -923,8 +1005,7 @@ describe('DatabaseService', () => {
     let runCount = 0;
     registerMigration({
       name: 'count-migration',
-      up: () => { runCount++; },
-      down: () => {}
+      up: () => { runCount++; }
     });
     initializeDatabase(dbPath);
     closeDatabase();
@@ -1087,7 +1168,7 @@ describe('SettingsService', () => {
 npx vitest run
 ```
 
-Expected: All tests pass (database-service: 6 tests, settings-service: 20 tests). You may see a warning about native module rebuild for Electron — ignore it, Vitest runs under Node.js where better-sqlite3 works natively.
+Expected: All tests pass (database-service: 6 tests, settings-service: 17 tests). The `test:unit` script rebuilds `better-sqlite3` for the Node ABI before invoking Vitest (see Task 1 step 2 for rationale); the rebuild is silent and a no-op when the binary already matches.
 
 - [ ] **Step 5: Commit**
 
@@ -1168,17 +1249,29 @@ test.describe('Phase 1 renderer shell', () => {
 });
 
 test.describe('Phase 2 settings and theme', () => {
+  // Reset persisted settings before each test so test order does not
+  // matter. Without this, the second test to run may see state left by
+  // the first (e.g. light-theme persisted from a prior toggle).
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.evaluate(async () => {
+      await window.financeShell.settings.set('core.theme', 'dark');
+      await window.financeShell.settings.set('core.ui.aiCollapsed', false);
+    });
+    await page.reload();
+  });
+
   test('displays theme toggle button in status bar', async ({ page }) => {
     await page.goto('/');
     const statusBar = page.locator('#status-bar');
-    const themeBtn = statusBar.locator('.status-btn');
+    const themeBtn = statusBar.locator('.status-btn[data-action="toggle-theme"]');
     await expect(themeBtn).toBeVisible();
   });
 
   test('toggles theme when clicking status bar button', async ({ page }) => {
     await page.goto('/');
     const body = page.locator('body');
-    const themeBtn = page.locator('.status-btn');
+    const themeBtn = page.locator('.status-btn[data-action="toggle-theme"]');
 
     // Default is dark
     await expect(body).not.toHaveClass(/light-theme/);
@@ -1322,6 +1415,8 @@ git commit -m "test: add E2E tests for theme toggle and status bar button"
 **2. Placeholder scan:** No TBD, TODOs, "implement later", or "add error handling" without code. Every step has complete code.
 
 **3. Type consistency:** `settings.get` returns `Promise<unknown>`, `settings.set` accepts `(key: string, value: unknown)`. `FinanceShellApi` includes `settings: SettingsApi`. `registerExtensionNamespace` and `getSettings(namespace)` are internal to main process — not exposed via IPC. All keys follow `namespace.key` format. Consistent across Tasks 5, 7, 8, 10.
+
+> **Agent:** Tick each checkbox above as you complete the corresponding task before running manual tests.
 
 ---
 
