@@ -107,12 +107,12 @@ npm install -D @types/better-sqlite3 vitest @electron/rebuild
 
 ```bash
 npm pkg set scripts.rebuild="electron-rebuild"
-npm pkg set scripts.test:unit="npm rebuild better-sqlite3 >/dev/null 2>&1 || true && vitest run"
+npm pkg set scripts.test:unit="vitest run"
 npm pkg set scripts.test:unit:watch="vitest"
 npm pkg set scripts.test="npm run test:unit"
 ```
 
-> **Why the rebuild prefix?** `@electron/rebuild` (Task 1 step 1) compiles `better-sqlite3` against Electron's Node ABI. Vitest runs under the *system* Node, so if `rebuild` was run first the native binary fails to load with a `NODE_MODULE_VERSION` mismatch error. `npm rebuild better-sqlite3` recompiles for the current Node ABI before Vitest starts; it is a no-op when the binary already matches, so it is safe to leave in.
+> **Why the rebuild prefix?** `@electron/rebuild` (Task 1 step 1) compiles `better-sqlite3` against Electron's Node ABI. Vitest runs under the *system* Node. If there is a `NODE_MODULE_VERSION` mismatch error, developers can run `npm run rebuild` to recompile the native binary for Electron.
 
 After running these commands, `package.json` scripts section should contain (additional scripts from Phase 1 remain):
 
@@ -120,7 +120,7 @@ After running these commands, `package.json` scripts section should contain (add
 {
   "scripts": {
     "test": "npm run test:unit",
-    "test:unit": "npm rebuild better-sqlite3 >/dev/null 2>&1 || true && vitest run",
+    "test:unit": "vitest run",
     "test:unit:watch": "vitest",
     "rebuild": "electron-rebuild",
     "dev": "concurrently -k npm:dev:main npm:dev:preload npm:dev:renderer npm:start:dev",
@@ -211,6 +211,7 @@ let db: Database.Database | null = null;
 let migrations: Migration[] = [];
 
 export function registerMigration(migration: Migration): void {
+  if (migrations.some(m => m.name === migration.name)) return;
   migrations.push(migration);
 }
 
@@ -270,6 +271,7 @@ function runMigrations(database: Database.Database): void {
     if (!applied.has(migration.name)) {
       migration.up(database);
       database.prepare('INSERT INTO migration_log (name) VALUES (?)').run(migration.name);
+      applied.add(migration.name);
     }
   }
 }
@@ -507,13 +509,15 @@ function resolveRendererIndex(): string {
 
 function saveWindowState(): void {
   if (!mainWindow || dbClosed) return;
-  const bounds = mainWindow.getBounds();
   const maximized = mainWindow.isMaximized();
-  setSetting('core.window.x', bounds.x);
-  setSetting('core.window.y', bounds.y);
-  setSetting('core.window.width', bounds.width);
-  setSetting('core.window.height', bounds.height);
   setSetting('core.window.maximized', maximized);
+  if (!maximized) {
+    const bounds = mainWindow.getBounds();
+    setSetting('core.window.x', bounds.x);
+    setSetting('core.window.y', bounds.y);
+    setSetting('core.window.width', bounds.width);
+    setSetting('core.window.height', bounds.height);
+  }
 }
 
 function debouncedSaveWindowState(): void {
@@ -554,6 +558,8 @@ function resolveInitialBounds(): { width: number; height: number; x?: number; y?
 export async function createWindow(): Promise<BrowserWindow> {
   const bounds = resolveInitialBounds();
   const savedMaximized = getSetting<boolean>('core.window.maximized') ?? false;
+  const theme = getSetting<string>('core.theme') ?? 'dark';
+  const backgroundColor = theme === 'light' ? '#f8fafc' : '#1e1e1e';
 
   mainWindow = new BrowserWindow({
     width: bounds.width,
@@ -562,7 +568,7 @@ export async function createWindow(): Promise<BrowserWindow> {
     ...(bounds.y !== undefined ? { y: bounds.y } : {}),
     minWidth: 960,
     minHeight: 640,
-    backgroundColor: '#1e1e1e',
+    backgroundColor: backgroundColor,
     title: 'Finance Flow AI',
     webPreferences: {
       preload: resolvePreloadPath(),
@@ -1031,18 +1037,23 @@ describe('DatabaseService', () => {
 `tests/unit/services/settings-service.test.ts`:
 
 ```typescript
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, beforeAll } from 'vitest';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { mkdtempSync, rmSync } from 'node:fs';
-import { initializeDatabase, closeDatabase, getDatabase } from '../../../src/main/services/database-service';
+import { initializeDatabase, closeDatabase, getDatabase, registerMigration } from '../../../src/main/services/database-service';
 import {
   initializeSettings, closeSettings, getSetting, setSetting, deleteSetting, getSettings,
   registerExtensionNamespace
 } from '../../../src/main/services/settings-service';
+import { infrastructureMigration } from '../../../src/main/services/infrastructure-migration';
 
 describe('SettingsService', () => {
   let tmpDir: string;
+
+  beforeAll(() => {
+    registerMigration(infrastructureMigration);
+  });
 
   beforeEach(() => {
     tmpDir = mkdtempSync(join(tmpdir(), 'finance-flow-test-'));
