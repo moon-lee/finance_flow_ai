@@ -25,7 +25,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Test infrastructure:** `test:unit` script rebuilds `better-sqlite3` for Node ABI before Vitest; E2E suite resets persisted settings in `beforeEach` to avoid test-order flake.
   - **Type safety:** renderer `applyTheme` and `core.ui.aiCollapsed` no longer rely on unchecked IPC casts; IPC handlers wrap service calls in try/catch with `console.error` logging.
   - **API hygiene:** `Migration` interface slimmed to `{ name, up }` (the `down` callback was defined but never invoked); test fixtures and infrastructure migration updated to match.
-  - **Documentation:** corrected unit-test count (17, not 20); fixed `project_vision.md` line citation (`55` → `49-53`); added Agent completion note to Self-Review Checklist; theme toggle button now carries `data-action="toggle-theme"` and E2E selectors target it specifically.
+   - **Documentation:** corrected unit-test count (17, not 20); fixed `project_vision.md` line citation (`55` → `49-53`); added Agent completion note to Self-Review Checklist; theme toggle button now carries `data-action="toggle-theme"` and E2E selectors target it specifically.
+- Phase 2 implementation plan (`docs/superpowers/plans/2026-06-20-phase2-database-settings-backbone.md`): applied second review pass.
+  - **Error handling:** `app.whenReady()` now wraps `initializeDatabase`/`initializeSettings`/`createWindow` in `try/catch` with `dialog.showErrorBox` and graceful `app.quit()` on fatal startup errors.
+  - **CHANGELOG compliance:** added Task 13 instructing implementers to update `CHANGELOG.md` per AGENTS.md Rule 5 after completing Phase 2.
+  - **Scripts clarity:** Task 1 Step 2's JSON block now shows only the 4 additive scripts (`test`, `test:unit`, `test:unit:watch`, `rebuild`) instead of a misleading full-scripts snapshot.
 
 ## [0.3.0] - 2026-06-20
 
