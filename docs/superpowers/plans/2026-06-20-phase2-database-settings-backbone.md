@@ -114,7 +114,7 @@ npm pkg set scripts.test="npm run test:unit"
 
 > **Why the rebuild prefix?** `@electron/rebuild` (Task 1 step 1) compiles `better-sqlite3` against Electron's Node ABI. Vitest runs under the *system* Node. If there is a `NODE_MODULE_VERSION` mismatch error, developers can run `npm run rebuild` to recompile the native binary for Electron.
 
-After running these commands, `package.json` scripts section should contain (additional scripts from Phase 1 remain):
+After running these commands, the following 4 scripts are **added** to `package.json` (all scripts from Phase 1 remain unchanged):
 
 ```json
 {
@@ -122,9 +122,7 @@ After running these commands, `package.json` scripts section should contain (add
     "test": "npm run test:unit",
     "test:unit": "vitest run",
     "test:unit:watch": "vitest",
-    "rebuild": "electron-rebuild",
-    "dev": "concurrently -k npm:dev:main npm:dev:preload npm:dev:renderer npm:start:dev",
-    "build": "npm run build:main && npm run build:preload && npm run build:renderer"
+    "rebuild": "electron-rebuild"
   }
 }
 ```
@@ -507,7 +505,7 @@ This is the most involved task. The main process must:
 Full file replacement:
 
 ```typescript
-import { app, BrowserWindow, ipcMain, screen } from 'electron';
+import { app, BrowserWindow, ipcMain, screen, dialog } from 'electron';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { initializeDatabase, registerMigration, closeDatabase } from './services/database-service';
@@ -665,10 +663,19 @@ registerMigration(infrastructureMigration);
 registerIpcHandlers();
 
 app.whenReady().then(() => {
-  const dbPath = resolveDatabasePath();
-  initializeDatabase(dbPath);
-  initializeSettings();
-  void createWindow();
+  try {
+    const dbPath = resolveDatabasePath();
+    initializeDatabase(dbPath);
+    initializeSettings();
+    void createWindow();
+  } catch (err) {
+    console.error('Fatal error during app initialization:', err);
+    dialog.showErrorBox(
+      'Startup Error',
+      `Finance Flow AI encountered a fatal error during startup:\n\n${err instanceof Error ? err.message : String(err)}\n\nPlease check the logs and try again.`
+    );
+    app.quit();
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -1232,24 +1239,6 @@ git commit -m "test: add unit tests for database and namespaced settings service
 ```typescript
 import { expect, test } from '@playwright/test';
 
-// Inject mock financeShell object so renderer calls do not fail when run in a standard browser.
-test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() => {
-    window.financeShell = {
-      getVersion: async () => '1.0.0-mock',
-      settings: {
-        get: async (key: string) => {
-          const val = sessionStorage.getItem(`mock_settings_${key}`);
-          return val ? JSON.parse(val) : undefined;
-        },
-        set: async (key: string, value: any) => {
-          sessionStorage.setItem(`mock_settings_${key}`, JSON.stringify(value));
-        }
-      }
-    };
-  });
-});
-
 test.describe('Phase 1 renderer shell', () => {
   test('displays the core shell regions', async ({ page }) => {
     await page.goto('/');
@@ -1528,12 +1517,4 @@ git commit -m "docs: update CHANGELOG for Phase 2 implementation"
 
 ---
 
-## Execution Handoff
 
-Plan complete and saved to `docs/superpowers/plans/2026-06-20-phase2-database-settings-backbone.md`. Two execution options:
-
-**1. Subagent-Driven (recommended)** — I dispatch a fresh subagent per task, review between tasks, fast iteration
-
-**2. Inline Execution** — Execute tasks in this session using `executing-plans`, batch execution with checkpoints
-
-**Which approach?**
