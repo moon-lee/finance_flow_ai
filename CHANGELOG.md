@@ -1,7 +1,7 @@
 ---
 version: 0.3.1
 created: 2026-06-14
-last_updated: 2026-06-20T19:50:42+10:00
+last_updated: 2026-06-20T11:56:44+00:00
 ---
 
 # Changelog
@@ -30,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Error handling:** `app.whenReady()` now wraps `initializeDatabase`/`initializeSettings`/`createWindow` in `try/catch` with `dialog.showErrorBox` and graceful `app.quit()` on fatal startup errors.
   - **CHANGELOG compliance:** added Task 13 instructing implementers to update `CHANGELOG.md` per AGENTS.md Rule 5 after completing Phase 2.
   - **Scripts clarity:** Task 1 Step 2's JSON block now shows only the 4 additive scripts (`test`, `test:unit`, `test:unit:watch`, `rebuild`) instead of a misleading full-scripts snapshot.
+- Phase 2 implementation plan (`docs/superpowers/plans/2026-06-20-phase2-database-settings-backbone.md`): removed Task 13 (standalone CHANGELOG update task). CHANGELOG compliance is now documented in the Self-Review Checklist as a final aggregate commit performed after all implementation tasks complete, rather than as a separate intermediate task.
 
 ## [0.3.0] - 2026-06-20
 

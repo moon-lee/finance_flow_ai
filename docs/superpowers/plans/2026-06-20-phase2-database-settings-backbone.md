@@ -1353,54 +1353,6 @@ git commit -m "test: add E2E tests for theme toggle and status bar button"
 
 ---
 
-## Task 13: Update CHANGELOG.md
-
-> **Rationale:** AGENTS.md Rule 5 requires documenting all notable changes in `CHANGELOG.md` with a proper version bump and `last_updated` timestamp whenever implementation work is completed.
-
-**Files:**
-- Modify: `CHANGELOG.md`
-
-- [ ] **Step 1: Read the current CHANGELOG.md to understand the format**
-
-Read the existing `CHANGELOG.md` to see the latest release version and unreleased entries.
-
-- [ ] **Step 2: Add Phase 2 changes under `[Unreleased]`**
-
-Append the following entries under the appropriate sections in `[Unreleased]`:
-
-### Added
-- Phase 2 implementation plan (`docs/superpowers/plans/2026-06-20-phase2-database-settings-backbone.md`)
-- Database Service with SQLite initialization, migration runner, and `extension_registry`/`migration_log` infrastructure tables
-- Settings Service for namespaced key-value persistence with JSON Schema validation
-- Light theme CSS variables and `Ctrl+L` theme toggle
-- Window state persistence (size, position, maximized) via Settings Service
-- AI Panel collapse state persistence
-- Unit tests for DatabaseService (insert, find, update) and SettingsService (CRUD, namespacing, defaults)
-- E2E tests for theme toggle and status bar interaction
-
-### Changed
-- Updated Electron main process to initialize DB on startup, run migrations, and restore window state
-- Updated Preload bridge to expose `settings.get`/`settings.set` methods
-- Updated `FinanceShellApi` type declarations with settings API
-- Updated Vite main config to externalize `better-sqlite3` as a native module
-- Updated Renderer `index.ts` to load + persist theme and AI panel state on startup
-- Updated `layout.css` with light theme variables and red/green accent colors
-
-- [ ] **Step 3: Bump version and update timestamp**
-
-Update the YAML frontmatter:
-- `version`: bump to the next patch version (e.g., `0.2.0` for Phase 2)
-- `last_updated`: set to the current timestamp
-
-- [ ] **Step 4: Commit**
-
-```bash
-git add CHANGELOG.md
-git commit -m "docs: update CHANGELOG for Phase 2 implementation"
-```
-
----
-
 ## Phase 2 Deliverable Verification
 
 ### Manual Test Units
@@ -1507,7 +1459,7 @@ git commit -m "docs: update CHANGELOG for Phase 2 implementation"
 - [ ] Theme persistence → Task 9, Task 10
 - [ ] Window state persistence → Task 6
 - [ ] Loading preferences on startup → Task 6 (window), Task 10 (theme, AI panel)
-- [ ] CHANGELOG.md updated per AGENTS.md Rule 5 → Task 13
+- [ ] CHANGELOG.md updated per AGENTS.md Rule 5 → each task's commit message describes its change; aggregate changelog update is done in a final commit after all tasks complete
 
 **2. Placeholder scan:** No TBD, TODOs, "implement later", or "add error handling" without code. Every step has complete code.
 
