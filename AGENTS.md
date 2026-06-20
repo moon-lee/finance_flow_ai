@@ -12,7 +12,7 @@
 
 5. **Update CHANGELOG.md after completing work** - Document all notable changes in `CHANGELOG.md` with proper version bump and last_updated timestamp whenever implementation work is completed.
 
-6. **Read project context before implementation** - Always read `docs/project_vision.md`, `docs/file-reference.md`, the latest implementation plans/specs in `docs/superpowers/`, and scan `docs/decisions/` for any ADRs relevant to the area you're working in — especially before starting a new phase.
+6. **Read project context at session start and before implementation** - Always read `docs/project_vision.md`, `docs/file-reference.md`, the latest plans/specs under `docs/superpowers/`, and any ADRs in `docs/decisions/` relevant to the area you're touching; re-read the relevant plan/spec at the start of any new session and again immediately before writing or modifying implementation code.
 
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence

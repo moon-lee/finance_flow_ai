@@ -1,7 +1,7 @@
 ---
 version: 0.3.0
 created: 2026-06-14
-last_updated: 2026-06-20T15:44:21+10:00
+last_updated: 2026-06-20T16:45:00+10:00
 ---
 
 # Changelog
@@ -15,8 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - ADR-0002 documenting the inline migration runner decision (`docs/decisions/0002-inline-migrations.md`)
+- Phase 2 file reference table in `docs/file-reference.md` documenting the planned new and modified files for the Core Database & Settings Backbone milestone (8 modified, 6 new), sourced from `docs/superpowers/plans/2026-06-20-phase2-database-settings-backbone.md`.
 
 ### Changed
+- AGENTS.md Key Requirement #6 (`Read project context before implementation`) reworded to make the two trigger points explicit: at session start and before writing or modifying implementation code. Adds a re-read reminder to prevent stale-plan drift when a plan/spec is updated mid-session.
 - Phase 2 implementation plan (`docs/superpowers/plans/2026-06-20-phase2-database-settings-backbone.md`): applied review pass covering 16 items.
   - **Bug-prevention fixes:** debounced window-state save now cancelled on close (prevents post-shutdown timer firing); corrupt-DB recovery in `initializeDatabase` (renames bad file to `.corrupt-<timestamp>`); off-screen restore guard via `screen.getAllDisplays()`; `getDatabase()` also guards on `db.open`.
   - **Test infrastructure:** `test:unit` script rebuilds `better-sqlite3` for Node ABI before Vitest; E2E suite resets persisted settings in `beforeEach` to avoid test-order flake.
