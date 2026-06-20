@@ -1,7 +1,7 @@
 ---
 version: 0.2.0
 created: 2026-06-14
-last_updated: 2026-06-14T20:45:00+10:00
+last_updated: 2026-06-20T15:00:00+10:00
 ---
 
 # Changelog
@@ -16,6 +16,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 ### Changed
+
+## [0.3.0] - 2026-06-20
+
+### Added
+- Phase 2 implementation plan for Core Database & Settings Backbone (`docs/superpowers/plans/2026-06-20-phase2-database-settings-backbone.md`)
+  - Architecture decisions: inline migrations, JSON-serialized settings KV, debounced window state, CSS class theming, strict namespace enforcement
+  - Task breakdown: SQLite via better-sqlite3, Settings Service with `registerExtensionNamespace` validation, window state persistence, light/dark theme toggle, 20 unit tests, E2E theme toggle test
+  - Namespace enforcement at the storage layer: `core.*` prefix for all core settings, `registerExtensionNamespace()` for Phase 4 extension adoption
 
 ## [0.2.0] - 2026-06-14
 
