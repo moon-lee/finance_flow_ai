@@ -1,7 +1,7 @@
 ---
 version: 0.2.0
 created: 2026-06-14
-last_updated: 2026-06-20T15:00:00+10:00
+last_updated: 2026-06-20T12:57:51+10:00
 ---
 
 # Changelog
@@ -24,6 +24,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Architecture decisions: inline migrations, JSON-serialized settings KV, debounced window state, CSS class theming, strict namespace enforcement
   - Task breakdown: SQLite via better-sqlite3, Settings Service with `registerExtensionNamespace` validation, window state persistence, light/dark theme toggle, 20 unit tests, E2E theme toggle test
   - Namespace enforcement at the storage layer: `core.*` prefix for all core settings, `registerExtensionNamespace()` for Phase 4 extension adoption
+
+### Changed
+- Tightened the Phase 2 plan with stricter namespace validation, JSON serialization guards, unused import cleanup, and corrected unit test count.
 
 ## [0.2.0] - 2026-06-14
 

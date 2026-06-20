@@ -334,8 +334,8 @@ let db: Database.Database | null = null;
 const registeredNamespaces = new Set<string>();
 
 export function registerExtensionNamespace(namespace: string): void {
-  if (namespace.includes('.')) {
-    throw new Error(`Namespace "${namespace}" must not contain dots`);
+  if (!namespace || !/^[A-Za-z0-9-]+$/.test(namespace)) {
+    throw new Error(`Namespace "${namespace}" is invalid. Use letters, numbers, or hyphens.`);
   }
   registeredNamespaces.add(namespace);
 }
@@ -349,6 +349,10 @@ function validateKey(key: string): void {
     );
   }
   const namespace = key.substring(0, dotIndex);
+  const localKey = key.substring(dotIndex + 1);
+  if (!localKey) {
+    throw new Error(`Settings key "${key}" has an empty local key.`);
+  }
   if (!registeredNamespaces.has(namespace)) {
     throw new Error(
       `Settings namespace "${namespace}" is not registered. ` +
@@ -384,8 +388,12 @@ export function setSetting(key: string, value: unknown): void {
     );
   }
   validateKey(key);
+  const serialized = JSON.stringify(value);
+  if (serialized === undefined) {
+    throw new Error(`Cannot serialize settings key "${key}".`);
+  }
   db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)')
-    .run(key, JSON.stringify(value));
+    .run(key, serialized);
 }
 
 export function deleteSetting(key: string): void {
@@ -452,7 +460,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { initializeDatabase, registerMigration, closeDatabase } from './services/database-service';
 import { infrastructureMigration } from './services/infrastructure-migration';
-import { initializeSettings, closeSettings, getSetting, setSetting, registerExtensionNamespace } from './services/settings-service';
+import { initializeSettings, closeSettings, getSetting, setSetting } from './services/settings-service';
 
 const mainDir = fileURLToPath(new URL('.', import.meta.url));
 const rendererDevUrl = process.env.ELECTRON_RENDERER_URL;
@@ -867,7 +875,6 @@ export default defineConfig({
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { randomUUID } from 'node:crypto';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { initializeDatabase, closeDatabase, getDatabase, registerMigration } from '../../../src/main/services/database-service';
 
@@ -1026,8 +1033,8 @@ describe('SettingsService', () => {
     expect(getSetting<number>('budget.monthlyLimit')).toBe(2000);
   });
 
-  it('registerExtensionNamespace rejects namespaces with dots', () => {
-    expect(() => registerExtensionNamespace('a.b')).toThrow('must not contain dots');
+  it('registerExtensionNamespace rejects invalid namespaces', () => {
+    expect(() => registerExtensionNamespace('a.b')).toThrow('is invalid');
   });
 
   // --- getSettings(namespace) ---
@@ -1292,7 +1299,7 @@ git commit -m "test: add E2E tests for theme toggle and status bar button"
 | **How to test** | Run all verification commands |
 | **Steps** | 1. Run `npm run typecheck` — zero errors |
 | | 2. Run `npm run lint` — zero warnings |
-| | 3. Run `npm run test:unit` — 16+ tests pass |
+| | 3. Run `npm run test:unit` — 26 tests pass |
 | **Expected result** | TypeScript strict mode, ESLint, and Vitest all pass |
 
 | Pass/Fail | Notes |
