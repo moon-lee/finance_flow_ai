@@ -56,3 +56,43 @@ test.describe('Phase 1 renderer shell', () => {
     await expect(navPanel.locator('.nav-item').first()).toHaveText('Pay History');
   });
 });
+
+test.describe('Phase 2 settings and theme', () => {
+  // Reset persisted settings before each test so test order does not
+  // matter. Without this, the second test to run may see state left by
+  // the first (e.g. light-theme persisted from a prior toggle).
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.evaluate(async () => {
+      await window.financeShell.settings.set('core.theme', 'dark');
+      await window.financeShell.settings.set('core.ui.aiCollapsed', false);
+    });
+    await page.reload();
+  });
+
+  test('displays theme toggle button in status bar', async ({ page }) => {
+    await page.goto('/');
+    const statusBar = page.locator('#status-bar');
+    const themeBtn = statusBar.locator('.status-btn[data-action="toggle-theme"]');
+    await expect(themeBtn).toBeVisible();
+  });
+
+  test('toggles theme when clicking status bar button', async ({ page }) => {
+    await page.goto('/');
+    const body = page.locator('body');
+    const themeBtn = page.locator('.status-btn[data-action="toggle-theme"]');
+
+    // Default is dark
+    await expect(body).not.toHaveClass(/light-theme/);
+
+    // Click to toggle to light
+    await themeBtn.click();
+    await expect(body).toHaveClass(/light-theme/);
+    await expect(themeBtn).toContainText('Light');
+
+    // Click to toggle back to dark
+    await themeBtn.click();
+    await expect(body).not.toHaveClass(/light-theme/);
+    await expect(themeBtn).toContainText('Dark');
+  });
+});
