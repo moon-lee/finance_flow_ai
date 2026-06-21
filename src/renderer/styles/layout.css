@@ -126,3 +126,35 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #475569;
 }
+
+body.light-theme {
+  --activity-bar-bg: #f1f5f9;
+  --sidebar-bg: #ffffff;
+  --workspace-bg: #f8fafc;
+  --panel-border: rgba(0, 0, 0, 0.08);
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+}
+
+body.light-theme #status-bar {
+  color: #0f172a;
+}
+
+.status-btn {
+  cursor: pointer;
+  padding: 0 8px;
+  border-radius: 3px;
+  transition: background 0.15s ease;
+}
+
+.status-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+body.light-theme .status-btn:hover {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.version-tag {
+  margin-left: auto;
+}
