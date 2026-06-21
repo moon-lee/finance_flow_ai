@@ -1,7 +1,7 @@
 ---
-version: 0.3.1
+version: 0.4.0
 created: 2026-06-14
-last_updated: 2026-06-21T11:44:00+10:00
+last_updated: 2026-06-21T16:10:00+10:00
 ---
 
 # Changelog
@@ -14,7 +14,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- ADR-0002 documenting the inline migration runner decision (`docs/decisions/0002-inline-migrations.md`)
+
+### Changed
+
+## [0.4.0] - 2026-06-21
+
+### Added
+- Phase 2: Core Database & Settings Backbone implementation (`docs/superpowers/plans/2026-06-20-phase2-database-settings-backbone.md`).
+  - SQLite database connection via `better-sqlite3` in the Electron main process (WAL journal mode, `foreign_keys = ON`, `quick_check` health probe) — `src/main/services/database-service.ts`.
+  - Inline migration runner with corrupt-DB recovery (renames unreadable file to `finance.db.corrupt-<timestamp>`) and `001-init-infrastructure` migration creating the `settings` and `extension_registry` tables.
+  - Namespaced Settings Service (`src/main/services/settings-service.ts`): strict `namespace.key` validation, `core` namespace registered at startup, JSON-serialized values, `registerExtensionNamespace()` for Phase 4 extensions, `getSettings(namespace)` bulk reader.
+  - Settings IPC bridge (`settings:get` / `settings:set`) over `contextBridge` — `src/preload/preload.ts` + `src/types/finance-shell.d.ts`.
+  - Window-state persistence: 500ms debounced save on `resize`/`move`, synchronous save on `close`, off-screen restore guard via `screen.getAllDisplays()`, debounce timer cleared on `will-quit` shutdown.
+  - Theme persistence: `body.light-theme` CSS class toggle, status-bar theme button with `data-action="toggle-theme"`, persisted as `core.theme`.
+  - AI panel state persistence: collapsed state saved as `core.ui.aiCollapsed` with strict `=== true` guard against non-boolean truthy values.
+  - Vitest unit-test infrastructure: `vitest.config.ts`, 6 database-service tests, 18 settings-service tests (24 total) under `tests/unit/services/`.
+  - Playwright E2E theme-toggle tests under `tests/e2e/renderer-shell.spec.ts` (status-bar button visibility + click toggles `body.light-theme`).
+- npm scripts: `test`, `test:unit`, `test:unit:watch`, `rebuild` (recompiles `better-sqlite3` for Electron's Node ABI; use after `NODE_MODULE_VERSION` mismatch).
+
+### Changed
+- Electron main process (`src/main/main.ts`) rewritten to initialize DB + settings on `whenReady`, persist window bounds, debounce window-state saves, register settings IPC handlers, wrap startup in try/catch with `dialog.showErrorBox` on fatal errors, and shut down persistence on `will-quit`.
+- Vite main build (`vite.main.config.ts`) externalizes `better-sqlite3` and `node:fs` (native module + Node built-ins).
+- Preload bridge exposes `financeShell.settings.get`/`.set` via `contextBridge`.
+- Renderer (`src/renderer/index.ts`) loads persisted theme + AI panel state on `DOMContentLoaded`, wires status-bar theme toggle.
+- `layout.css` adds `body.light-theme` overrides and `.status-btn` / `.version-tag` styles.
+- `eslint.config.js` ignores `.gitnexus/**` (generated GitNexus tool file; was failing lint with `no-undef` on Node globals from a CommonJS runner that the TypeScript-aware ESLint config could not parse).
+
+### Notes
+- Manual verification of theme / AI-panel / window-bounds persistence across restarts (Phase 2 plan Test Units 2-6) requires GUI interaction on Windows. Confirmed in this session: the Electron process boots cleanly, creates `finance.db` at the Electron userData path with all 3 infrastructure tables and the `001-init-infrastructure` migration logged, and the WAL journal mode is active. Theme/AI panel/window-bounds manual restarts are left to a Windows GUI session.
+- The Phase 2 E2E tests in `tests/e2e/renderer-shell.spec.ts` exercise `window.financeShell.settings` IPC which only exists in the Electron context; the existing `playwright.config.ts` only launches the Vite renderer. Running `npm run test:e2e` would require either an Electron-aware Playwright setup (Phase 3) or stubbing the bridge for browser-only runs. Tests are kept in the suite so they activate when that wiring lands.
+
+## [0.3.1] - 2026-06-21
+
+### Added
+- ADR-0002 documenting the inline migration runner decision (`docs/decisions/0002-inline-migrations.md`).
 - Phase 2 file reference table in `docs/file-reference.md` documenting the planned new and modified files for the Core Database & Settings Backbone milestone (8 modified, 6 new), sourced from `docs/superpowers/plans/2026-06-20-phase2-database-settings-backbone.md`.
 
 ### Changed
@@ -25,7 +58,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Test infrastructure:** `test:unit` script rebuilds `better-sqlite3` for Node ABI before Vitest; E2E suite resets persisted settings in `beforeEach` to avoid test-order flake.
   - **Type safety:** renderer `applyTheme` and `core.ui.aiCollapsed` no longer rely on unchecked IPC casts; IPC handlers wrap service calls in try/catch with `console.error` logging.
   - **API hygiene:** `Migration` interface slimmed to `{ name, up }` (the `down` callback was defined but never invoked); test fixtures and infrastructure migration updated to match.
-   - **Documentation:** corrected unit-test count (17, not 20); fixed `project_vision.md` line citation (`55` → `49-53`); added Agent completion note to Self-Review Checklist; theme toggle button now carries `data-action="toggle-theme"` and E2E selectors target it specifically.
+  - **Documentation:** corrected unit-test count (17, not 20); fixed `project_vision.md` line citation (`55` → `49-53`); added Agent completion note to Self-Review Checklist; theme toggle button now carries `data-action="toggle-theme"` and E2E selectors target it specifically.
 - Phase 2 implementation plan (`docs/superpowers/plans/2026-06-20-phase2-database-settings-backbone.md`): applied second review pass.
   - **Error handling:** `app.whenReady()` now wraps `initializeDatabase`/`initializeSettings`/`createWindow` in `try/catch` with `dialog.showErrorBox` and graceful `app.quit()` on fatal startup errors.
   - **CHANGELOG compliance:** added Task 13 instructing implementers to update `CHANGELOG.md` per AGENTS.md Rule 5 after completing Phase 2.
