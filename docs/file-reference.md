@@ -40,5 +40,5 @@
 | `src/renderer/index.ts` | modified | Load persisted theme + AI-panel state on `DOMContentLoaded`, wire status-bar theme toggle |
 | `vitest.config.ts` | new | Vitest config scoped to `tests/unit/**/*.test.ts` |
 | `tests/unit/services/database-service.test.ts` | new | DB init, migration idempotency, WAL pragma, get-before-init guard (6 tests) |
-| `tests/unit/services/settings-service.test.ts` | new | KV CRUD, namespace enforcement, `getSettings(namespace)`, JSON / `undefined` edge cases (17 tests) |
+| `tests/unit/services/settings-service.test.ts` | new | KV CRUD, namespace enforcement, `getSettings(namespace)`, JSON / `undefined` edge cases (18 tests) |
 | `tests/e2e/renderer-shell.spec.ts` | modified | Add status-bar theme toggle and `light-theme` class E2E tests |

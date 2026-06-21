@@ -1,7 +1,7 @@
 ---
 version: 0.3.1
 created: 2026-06-14
-last_updated: 2026-06-20T11:56:44+00:00
+last_updated: 2026-06-21T11:44:00+10:00
 ---
 
 # Changelog
@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **CHANGELOG compliance:** added Task 13 instructing implementers to update `CHANGELOG.md` per AGENTS.md Rule 5 after completing Phase 2.
   - **Scripts clarity:** Task 1 Step 2's JSON block now shows only the 4 additive scripts (`test`, `test:unit`, `test:unit:watch`, `rebuild`) instead of a misleading full-scripts snapshot.
 - Phase 2 implementation plan (`docs/superpowers/plans/2026-06-20-phase2-database-settings-backbone.md`): removed Task 13 (standalone CHANGELOG update task). CHANGELOG compliance is now documented in the Self-Review Checklist as a final aggregate commit performed after all implementation tasks complete, rather than as a separate intermediate task.
+- Phase 2 implementation plan (`docs/superpowers/plans/2026-06-20-phase2-database-settings-backbone.md`): aligned `getSetting()` and `getSettings()` JSON parse failure semantics, added malformed-JSON coverage for `getSettings()`, and made window-state shutdown clear the debounced timer on `will-quit` before closing settings/database.
 
 ## [0.3.0] - 2026-06-20
 

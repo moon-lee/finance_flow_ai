@@ -422,8 +422,12 @@ export function getSetting<T = string>(key: string): T | undefined {
   const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key) as
     { value: string } | undefined;
   if (!row) return undefined;
+  return parseStoredValue(row.value) as T;
+}
+
+function parseStoredValue(value: string): unknown {
   try {
-    return JSON.parse(row.value) as T;
+    return JSON.parse(value);
   } catch {
     return undefined;
   }
@@ -467,11 +471,7 @@ export function getSettings(namespace: string): Record<string, unknown> {
     .all(prefix + '%') as { key: string; value: string }[];
   const result: Record<string, unknown> = {};
   for (const row of rows) {
-    try {
-      result[row.key] = JSON.parse(row.value);
-    } catch {
-      result[row.key] = row.value;
-    }
+    result[row.key] = parseStoredValue(row.value);
   }
   return result;
 }
@@ -535,6 +535,13 @@ function resolveDatabasePath(): string {
   return join(app.getPath('userData'), 'finance.db');
 }
 
+function clearWindowStateSaveTimer(): void {
+  if (windowStateSaveTimer) {
+    clearTimeout(windowStateSaveTimer);
+    windowStateSaveTimer = null;
+  }
+}
+
 function saveWindowState(): void {
   if (!mainWindow || dbClosed) return;
   const maximized = mainWindow.isMaximized();
@@ -549,10 +556,11 @@ function saveWindowState(): void {
 }
 
 function debouncedSaveWindowState(): void {
-  if (windowStateSaveTimer) clearTimeout(windowStateSaveTimer);
+  if (dbClosed) return;
+  clearWindowStateSaveTimer();
   windowStateSaveTimer = setTimeout(() => {
-    saveWindowState();
     windowStateSaveTimer = null;
+    saveWindowState();
   }, 500);
 }
 
@@ -613,14 +621,8 @@ export async function createWindow(): Promise<BrowserWindow> {
   mainWindow.on('resize', debouncedSaveWindowState);
   mainWindow.on('move', debouncedSaveWindowState);
   mainWindow.on('close', () => {
-    // Cancel any pending debounced save — the synchronous save below is
-    // the final state, and we must not let a later timer fire after the
-    // DB has been closed by `will-quit → closeDatabase()`.
-    if (windowStateSaveTimer) {
-      clearTimeout(windowStateSaveTimer);
-      windowStateSaveTimer = null;
-    }
     saveWindowState();
+    clearWindowStateSaveTimer();
   });
 
   if (rendererDevUrl) {
@@ -659,6 +661,13 @@ function registerIpcHandlers(): void {
 
 }
 
+function shutdownPersistence(): void {
+  dbClosed = true;
+  clearWindowStateSaveTimer();
+  closeSettings();
+  closeDatabase();
+}
+
 registerMigration(infrastructureMigration);
 registerIpcHandlers();
 
@@ -690,11 +699,7 @@ app.on('window-all-closed', () => {
   }
 });
 
-app.on('will-quit', () => {
-  closeSettings();
-  closeDatabase();
-  dbClosed = true;
-});
+app.on('will-quit', shutdownPersistence);
 ```
 
 - [ ] **Step 2: Commit**
@@ -1203,6 +1208,12 @@ describe('SettingsService', () => {
     expect(result).toBeUndefined();
   });
 
+  it('getSettings returns undefined for malformed JSON in DB', () => {
+    const db = getDatabase();
+    db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run('core.badjson', '{invalid');
+    expect(getSettings('core')).toHaveProperty('core.badjson', undefined);
+  });
+
   it('throws if settings are not initialized', () => {
     closeSettings();
     expect(() => getSetting('core.key')).toThrow('Settings not initialized');
@@ -1216,7 +1227,7 @@ describe('SettingsService', () => {
 npx vitest run
 ```
 
-Expected: All tests pass (database-service: 6 tests, settings-service: 17 tests; 23 total). The `test:unit` script rebuilds `better-sqlite3` for the Node ABI before invoking Vitest (see Task 1 step 2 for rationale); the rebuild is silent and a no-op when the binary already matches.
+Expected: All tests pass (database-service: 6 tests, settings-service: 18 tests; 24 total). The `test:unit` script rebuilds `better-sqlite3` for the Node ABI before invoking Vitest (see Task 1 step 2 for rationale); the rebuild is silent and a no-op when the binary already matches.
 
 - [ ] **Step 5: Commit**
 
@@ -1440,7 +1451,7 @@ git commit -m "test: add E2E tests for theme toggle and status bar button"
 | **How to test** | Run all verification commands |
 | **Steps** | 1. Run `npm run typecheck` — zero errors |
 | | 2. Run `npm run lint` — zero warnings |
-| | 3. Run `npm run test:unit` — 23 tests pass (6 database-service, 17 settings-service) |
+| | 3. Run `npm run test:unit` — 24 tests pass (6 database-service, 18 settings-service) |
 | **Expected result** | TypeScript strict mode, ESLint, and Vitest all pass |
 
 | Pass/Fail | Notes |
