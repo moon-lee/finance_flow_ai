@@ -1,7 +1,8 @@
 ---
 title: Phase 2 - Core Database & Settings Backbone
 date: 2026-06-20
-status: draft
+status: completed
+completed: 2026-06-21
 ---
 
 # Phase 2 — Core Database & Settings Backbone Implementation Plan
@@ -96,14 +97,14 @@ tests/
 **Files:**
 - Modify: `package.json`
 
-- [ ] **Step 1: Install better-sqlite3 and dev dependencies**
+- [x] **Step 1: Install better-sqlite3 and dev dependencies**
 
 ```bash
 npm install better-sqlite3
 npm install -D @types/better-sqlite3 vitest @electron/rebuild
 ```
 
-- [ ] **Step 2: Add rebuild and test scripts**
+- [x] **Step 2: Add rebuild and test scripts**
 
 ```bash
 npm pkg set scripts.rebuild="electron-rebuild"
@@ -127,7 +128,7 @@ After running these commands, the following 4 scripts are **added** to `package.
 }
 ```
 
-- [ ] **Step 3: Verify better-sqlite3 works in Node.js**
+- [x] **Step 3: Verify better-sqlite3 works in Node.js**
 
 ```bash
 node -e "const Database = require('better-sqlite3'); const db = new Database(':memory:'); db.exec('CREATE TABLE test (id INTEGER PRIMARY KEY)'); console.log('better-sqlite3 OK'); db.close();"
@@ -135,7 +136,7 @@ node -e "const Database = require('better-sqlite3'); const db = new Database(':m
 
 Expected output: `better-sqlite3 OK`
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add package.json package-lock.json
@@ -151,7 +152,7 @@ git commit -m "chore: add better-sqlite3, vitest, electron-rebuild"
 
 `better-sqlite3` is a native Node.js addon. Vite must not bundle it — it must remain an external require.
 
-- [ ] **Step 1: Add native modules to main process externals**
+- [x] **Step 1: Add native modules to main process externals**
 
 `vite.main.config.ts` — add `'better-sqlite3'` to the `external` array:
 
@@ -174,7 +175,7 @@ export default defineConfig({
 });
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add vite.main.config.ts
@@ -188,7 +189,7 @@ git commit -m "chore: externalize better-sqlite3 from Vite main build"
 **Files:**
 - Create: `src/main/services/database-service.ts`
 
-- [ ] **Step 1: Create database service with migration infrastructure**
+- [x] **Step 1: Create database service with migration infrastructure**
 
 `src/main/services/database-service.ts`:
 
@@ -312,7 +313,7 @@ export function closeDatabase(): void {
 }
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add src/main/services/database-service.ts
@@ -326,7 +327,7 @@ git commit -m "feat: add database service with inline migration runner"
 **Files:**
 - Create: `src/main/services/infrastructure-migration.ts`
 
-- [ ] **Step 1: Define the initial infrastructure migration**
+- [x] **Step 1: Define the initial infrastructure migration**
 
 `src/main/services/infrastructure-migration.ts`:
 
@@ -357,7 +358,7 @@ export const infrastructureMigration: Migration = {
 };
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add src/main/services/infrastructure-migration.ts
@@ -371,7 +372,7 @@ git commit -m "feat: add infrastructure migration (settings, extension_registry 
 **Files:**
 - Create: `src/main/services/settings-service.ts`
 
-- [ ] **Step 1: Create the settings KV service with namespace enforcement**
+- [x] **Step 1: Create the settings KV service with namespace enforcement**
 
 `src/main/services/settings-service.ts`:
 
@@ -477,7 +478,7 @@ export function getSettings(namespace: string): Record<string, unknown> {
 }
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add src/main/services/settings-service.ts
@@ -500,7 +501,7 @@ This is the most involved task. The main process must:
 6. Save state synchronously on close
 7. Register settings IPC handlers
 
-- [ ] **Step 1: Rewrite `src/main/main.ts`**
+- [x] **Step 1: Rewrite `src/main/main.ts`**
 
 Full file replacement:
 
@@ -702,7 +703,7 @@ app.on('window-all-closed', () => {
 app.on('will-quit', shutdownPersistence);
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add src/main/main.ts
@@ -716,7 +717,7 @@ git commit -m "feat: integrate DB, settings, window state persistence into main 
 **Files:**
 - Modify: `src/preload/preload.ts`
 
-- [ ] **Step 1: Add settings IPC methods to preload bridge**
+- [x] **Step 1: Add settings IPC methods to preload bridge**
 
 `src/preload/preload.ts`:
 
@@ -734,7 +735,7 @@ const shellApi = {
 contextBridge.exposeInMainWorld('financeShell', shellApi);
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add src/preload/preload.ts
@@ -748,7 +749,7 @@ git commit -m "feat: add settings IPC methods to preload bridge"
 **Files:**
 - Modify: `src/types/finance-shell.d.ts`
 
-- [ ] **Step 1: Add settings API interface**
+- [x] **Step 1: Add settings API interface**
 
 `src/types/finance-shell.d.ts`:
 
@@ -770,7 +771,7 @@ declare global {
 }
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add src/types/finance-shell.d.ts
@@ -784,7 +785,7 @@ git commit -m "feat: add settings API to type declarations"
 **Files:**
 - Modify: `src/renderer/styles/layout.css`
 
-- [ ] **Step 1: Add light theme CSS variable overrides and status bar theme button**
+- [x] **Step 1: Add light theme CSS variable overrides and status bar theme button**
 
 Add after the `:root` block in `src/renderer/styles/layout.css`:
 
@@ -822,7 +823,7 @@ body.light-theme .status-btn:hover {
 }
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add src/renderer/styles/layout.css
@@ -836,7 +837,7 @@ git commit -m "feat: add light theme CSS variables and status bar theme toggle s
 **Files:**
 - Modify: `src/renderer/index.ts`
 
-- [ ] **Step 1: Load persisted state and add theme toggle on DOMContentLoaded**
+- [x] **Step 1: Load persisted state and add theme toggle on DOMContentLoaded**
 
 `src/renderer/index.ts` — full replacement:
 
@@ -968,7 +969,7 @@ window.addEventListener('keydown', (event) => {
 });
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add src/renderer/index.ts
@@ -984,7 +985,7 @@ git commit -m "feat: add theme persistence, AI panel state restore, status bar t
 - Create: `tests/unit/services/database-service.test.ts`
 - Create: `tests/unit/services/settings-service.test.ts`
 
-- [ ] **Step 1: Create Vitest config**
+- [x] **Step 1: Create Vitest config**
 
 `vitest.config.ts`:
 
@@ -998,7 +999,7 @@ export default defineConfig({
 });
 ```
 
-- [ ] **Step 2: Write database service unit test**
+- [x] **Step 2: Write database service unit test**
 
 `tests/unit/services/database-service.test.ts`:
 
@@ -1074,7 +1075,7 @@ describe('DatabaseService', () => {
 });
 ```
 
-- [ ] **Step 3: Write settings service unit test with namespace enforcement**
+- [x] **Step 3: Write settings service unit test with namespace enforcement**
 
 `tests/unit/services/settings-service.test.ts`:
 
@@ -1221,7 +1222,7 @@ describe('SettingsService', () => {
 });
 ```
 
-- [ ] **Step 4: Run unit tests and verify they pass**
+- [x] **Step 4: Run unit tests and verify they pass**
 
 ```bash
 npx vitest run
@@ -1229,7 +1230,7 @@ npx vitest run
 
 Expected: All tests pass (database-service: 6 tests, settings-service: 18 tests; 24 total). The `test:unit` script rebuilds `better-sqlite3` for the Node ABI before invoking Vitest (see Task 1 step 2 for rationale); the rebuild is silent and a no-op when the binary already matches.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add vitest.config.ts tests/unit/services/database-service.test.ts tests/unit/services/settings-service.test.ts
@@ -1243,7 +1244,7 @@ git commit -m "test: add unit tests for database and namespaced settings service
 **Files:**
 - Modify: `tests/e2e/renderer-shell.spec.ts`
 
-- [ ] **Step 1: Add E2E test for theme toggle UI**
+- [x] **Step 1: Add E2E test for theme toggle UI**
 
 `tests/e2e/renderer-shell.spec.ts` — full replacement:
 
@@ -1348,14 +1349,14 @@ test.describe('Phase 2 settings and theme', () => {
 });
 ```
 
-- [ ] **Step 2: Run lint/typecheck**
+- [x] **Step 2: Run lint/typecheck**
 
 ```bash
 npm run typecheck
 npm run lint
 ```
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add tests/e2e/renderer-shell.spec.ts
@@ -1381,7 +1382,7 @@ git commit -m "test: add E2E tests for theme toggle and status bar button"
 
 | Pass/Fail | Notes |
 |-----------|-------|
-| | |
+| **PASS** | DB created at `C:\Users\Moon\AppData\Roaming\Finance Flow AI\finance.db` (28 KB after first checkpoint). Tables present: `extension_registry`, `migration_log`, `settings`. Migration `001-init-infrastructure` recorded at `2026-06-21 06:03:32`. WAL mode active. Dev-mode userData path required adding both `productName` in `package.json` and `app.setName('Finance Flow AI')` in `main.ts` — see [Post-release Fixes](#phase-2-post-release-fixes-v041) below. |
 
 #### Test Unit 2: Theme Persists Across Restarts
 
@@ -1397,7 +1398,7 @@ git commit -m "test: add E2E tests for theme toggle and status bar button"
 
 | Pass/Fail | Notes |
 |-----------|-------|
-| | |
+| **PASS** | Manual toggling from dark → light → dark across two restarts restored `core.theme` value each time. Final DB state showed `core.theme = "dark"` (last toggle). The strict `=== "light"` guard in `applyTheme()` falls back to dark for any non-string value, so a corrupted DB row never corrupts UI state. |
 
 #### Test Unit 3: AI Panel State Persists Across Restarts
 
@@ -1412,7 +1413,7 @@ git commit -m "test: add E2E tests for theme toggle and status bar button"
 
 | Pass/Fail | Notes |
 |-----------|-------|
-| | |
+| **PASS** | `Ctrl+J` collapses the AI panel; `core.ui.aiCollapsed` written to DB on every toggle. Restart restored the saved state. The renderer's `=== true` strict guard in `DOMContentLoaded` prevents a non-boolean truthy value (e.g. `"true"` string) from collapsing the panel by accident. |
 
 #### Test Unit 4: Window Bounds Persist Across Restarts
 
@@ -1427,7 +1428,7 @@ git commit -m "test: add E2E tests for theme toggle and status bar button"
 
 | Pass/Fail | Notes |
 |-----------|-------|
-| | |
+| **PASS** | 500 ms debounce + synchronous `close` save produced expected row set: `core.window.x`, `core.window.y`, `core.window.width`, `core.window.height`, `core.window.maximized`. Final observed values: `x=2084, y=111, width=1482, height=895`. Restart restored the window to those bounds. The `screen.getAllDisplays().some(...)` off-screen guard correctly refused to restore to a monitor that was no longer attached. |
 
 #### Test Unit 5: Database Persists Between Sessions
 
@@ -1442,7 +1443,7 @@ git commit -m "test: add E2E tests for theme toggle and status bar button"
 
 | Pass/Fail | Notes |
 |-----------|-------|
-| | |
+| **PASS** | All 7 keys present, all namespaced under `core.*`. Dumped via an ad-hoc Electron probe (no commit — probe scripts are intentionally ephemeral):<br><pre>=== settings table (7 rows) ===<br>  core.theme                   = "dark"<br>  core.ui.aiCollapsed          = false<br>  core.window.height           = 895<br>  core.window.maximized        = false<br>  core.window.width            = 1482<br>  core.window.x                = 2084<br>  core.window.y                = 111</pre>Namespace enforcement held: any attempt to `setSetting('barekey', ...)` or `setSetting('unknown.key', ...)` would have thrown (covered by 18 unit tests). |
 
 #### Test Unit 6: Existing Tests Still Pass
 
@@ -1456,27 +1457,94 @@ git commit -m "test: add E2E tests for theme toggle and status bar button"
 
 | Pass/Fail | Notes |
 |-----------|-------|
-| | |
+| **PASS** | `npm run typecheck` — clean. `npm run lint` — `ESLint: No issues found` (required adding `.gitnexus/**` to the ignore list — generated GitNexus tool file was failing with `no-undef` on Node globals from a CommonJS runner). `npm run test:unit` — **25/25 pass** (6 database-service + 1 new regression test added in 0.4.1 + 18 settings-service). Test count differs from the plan's stated 24 because the 0.4.1 data-loss fix added `does not rename on open failure (no silent data loss)`. `npm run test:unit` and `npm start` now auto-rebuild `better-sqlite3` for their respective ABI (Node for vitest, Electron for the app); the manual rebuild dance described in early CHANGELOG entries is no longer required. |
 
 ---
 
 ## Self-Review Checklist
 
 **1. Spec coverage:**
-- [ ] SQLite database file connection initialization → Task 3, Task 6
-- [ ] Settings Service (basic Key-Value persistence for window state and theme; database path fixed to Electron `userData` for Phase 2) → Task 5, Task 6, Task 10
-- [ ] Infrastructure database schemas (extension_registry, migration_log) → Task 4
-- [ ] Deliverable: app boots and persists preferences → All tasks verified in manual tests
-- [ ] Theme persistence → Task 9, Task 10
-- [ ] Window state persistence → Task 6
-- [ ] Loading preferences on startup → Task 6 (window), Task 10 (theme, AI panel)
-- [ ] CHANGELOG.md updated per AGENTS.md Rule 5 → each task's commit message describes its change; aggregate changelog update is done in a final commit after all tasks complete
+- [x] SQLite database file connection initialization → Task 3, Task 6
+- [x] Settings Service (basic Key-Value persistence for window state and theme; database path fixed to Electron `userData` for Phase 2) → Task 5, Task 6, Task 10
+- [x] Infrastructure database schemas (extension_registry, migration_log) → Task 4
+- [x] Deliverable: app boots and persists preferences → All tasks verified in manual tests
+- [x] Theme persistence → Task 9, Task 10
+- [x] Window state persistence → Task 6
+- [x] Loading preferences on startup → Task 6 (window), Task 10 (theme, AI panel)
+- [x] CHANGELOG.md updated per AGENTS.md Rule 5 → each task's commit message describes its change; aggregate changelog update is done in a final commit after all tasks complete
 
 **2. Placeholder scan:** No TBD, TODOs, "implement later", or "add error handling" without code. Every step has complete code.
 
 **3. Type consistency:** `settings.get` returns `Promise<unknown>`, `settings.set` accepts `(key: string, value: unknown)`. `FinanceShellApi` includes `settings: SettingsApi`. `registerExtensionNamespace` and `getSettings(namespace)` are internal to main process — not exposed via IPC. All keys follow `namespace.key` format. Consistent across Tasks 5, 7, 8, 10.
 
 > **Agent:** Tick each checkbox above as you complete the corresponding task before running manual tests.
+
+---
+
+## Phase 2 Post-Release Fixes (v0.4.1)
+
+Three follow-up fixes landed the same day Phase 2 was released, all from real-world verification on Windows. Each is documented in detail in the CHANGELOG under `## [0.4.1] - 2026-06-21`; the summaries below explain *why* the plan didn't anticipate them and what the plan would do differently next time.
+
+### Fix 1: Data-loss in corrupt-DB recovery path — `database-service.ts`
+
+**Symptom**: First `npm start` after `npm rebuild better-sqlite3` (which switches the native binary from Electron ABI → Node ABI for the test suite) failed with `NODE_MODULE_VERSION 137 vs 146`. The recovery path renamed the perfectly valid `finance.db` to `finance.db.corrupt-<ts>` before its own re-open also failed (still ABI mismatch), so no replacement DB was created. The user's DB survived only because the rename put it under a recognisable suffix and the `.corrupt-*` files weren't yet cleaned up.
+
+**Root cause**: The plan's `openDatabaseWithPragmas` call sat inside a broad `try { ... } catch { recoverUnreadableDatabase(...) }` in `initializeDatabase`. Recovery was supposed to fire only on `quick_check` failure (genuine corruption) but the `try` also wrapped the `new Database(path)` call, so every environmental failure (ABI mismatch, permission denied, file locked) was treated as corruption and the file was renamed.
+
+**Fix**: Split open from integrity check. The `try` now wraps only `verifyDatabaseIntegrity(database)` (a thin wrapper around `PRAGMA quick_check`). Open failures propagate with the real error and the file is untouched. Recovery runs only when `quick_check` returns anything other than `ok`.
+
+**Plan lesson**: Plan author should have read the plan's own Decision 5 comment about "treating a bad migration as corruption could replace a valid user database unnecessarily" and applied the same principle to the open step. The comment was correct but the code didn't match it.
+
+**Regression test added**: `tests/unit/services/database-service.test.ts > does not rename on open failure (no silent data loss)` — injects a stub `better-sqlite3` constructor that throws on `new Ctor(path)`, asserts the error propagates and that zero `.corrupt-*` files were created. Required adding `_setDatabaseConstructorForTesting(ctor)` injection point so the test can simulate native-module failures without rebuilding the binary.
+
+**Function rename**: `recoverUnreadableDatabase` → `renameCorruptDatabase` to reflect the narrower trigger condition. The function no longer tries to re-open inline; `initializeDatabase` recurses.
+
+### Fix 2: UserData path mismatch in dev mode — `package.json` + `main.ts`
+
+**Symptom**: `app.getPath('userData')` resolved to `C:\Users\Moon\AppData\Roaming\Electron\` for `npm start` (unpackaged dev launches), but Test Unit 1's "Expected result" stated `%APPDATA%/Finance Flow AI/`. Same code, different paths depending on whether the app was packaged or not.
+
+**Root cause**: Electron uses the `productName` from `package.json` for `app.getName()` only when the binary is packaged. For `electron dist/main/main.js` (unpackaged dev launch) it defaults to the literal string `"Electron"`. The plan only mentioned the production userData path, so this discrepancy slipped past plan review.
+
+**Fix**: Two-line change, both required:
+- Add `"productName": "Finance Flow AI"` to `package.json` (covers packaged launches).
+- Call `app.setName('Finance Flow AI')` immediately after the imports in `src/main/main.ts` (covers unpackaged dev launches).
+
+Together they make `app.getPath('userData')` resolve identically in both modes. Verified post-fix: `electron dist/main/main.js` now creates `Cache/`, `GPUCache/`, `Local Storage/`, and `finance.db` under `%APPDATA%/Finance Flow AI/`.
+
+**Data migration**: The existing DB (orphaned at `%APPDATA%/Electron/finance.db` after the data-loss bug above) was moved into the new path. Schema and migration log preserved. Documented in CHANGELOG 0.4.1 Fixed entry.
+
+**Plan lesson**: When a plan documents a path the user is expected to verify, the plan should either (a) cross-check both dev and prod behaviour, or (b) explicitly note which mode the path applies to.
+
+### Fix 3: Automated ABI switching in npm scripts — `package.json`
+
+**Symptom**: After `npm start` ran successfully (Electron ABI), the next `npm run test:unit` failed with `NODE_MODULE_VERSION 146 vs 137`. The plan's Test Unit 6 step 3 (`npm run test:unit`) never mentioned the prerequisite rebuild. Users running the manual test units hit this every time they alternated between Electron and vitest.
+
+**Root cause**: Same ABI mismatch from Fix 1, but the recovery path was wrong here too — instead of an automated toggle, the plan asked users to remember to run `npm run rebuild` before Electron and `npm rebuild better-sqlite3` before vitest. That's not realistic.
+
+**Fix**: Wire the rebuild into the scripts that need it. New scripts:
+- `scripts.rebuild = electron-rebuild --force` (the `--force` flag bypasses electron-rebuild's "is already built" cache, which was silently no-op'ing on this WSL/Windows setup)
+- `scripts.rebuild:test = npm rebuild better-sqlite3`
+- `scripts.test:unit = npm run rebuild:test && vitest run` (auto-rebuild for Node ABI before vitest)
+- `scripts.start = npm run build && npm run rebuild && electron dist/main/main.js` (auto-rebuild for Electron ABI before launch)
+
+Cost: ~5–10 s rebuild per command invocation. Benefit: zero manual ABI dance; both `npm run test:unit` and `npm start` work unattended.
+
+**Plan lesson**: When a plan introduces a native-module dependency that has multiple ABIs, the plan should either (a) include scripts that handle the toggle automatically from day one, or (b) explicitly call out the rebuild step in every test/install/run instruction.
+
+### Summary of impact on the plan's success criteria
+
+| Original criterion | Status | Evidence |
+|---|---|---|
+| SQLite database connection init | ✅ Met | Test Unit 1 (DB at `%APPDATA%/Finance Flow AI/finance.db`) |
+| Settings Service (window, theme, DB path) | ✅ Met | Test Units 2, 4, 5 (all `core.*` keys persisted) |
+| Infrastructure DB schemas | ✅ Met | Test Unit 1 probe (`extension_registry`, `migration_log`, `settings`) |
+| App boots and persists preferences | ✅ Met | All 6 manual test units pass |
+| Theme persistence | ✅ Met | Test Unit 2 |
+| Window state persistence | ✅ Met | Test Unit 4 |
+| Loading preferences on startup | ✅ Met | Test Units 2, 3, 4 |
+| TypeScript strict, ESLint, Vitest | ✅ Met | Test Unit 6 (25/25 pass after the 0.4.1 regression test) |
+
+All criteria satisfied. Phase 2 is **complete**. Per AGENTS.md Rule 4, awaiting review before starting Phase 3 (Extension Host & IPC Foundation — see `docs/superpowers/specs/2026-06-13-implementation-design.md`).
 
 ---
 

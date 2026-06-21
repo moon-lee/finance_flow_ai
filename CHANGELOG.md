@@ -1,7 +1,7 @@
 ---
-version: 0.4.0
+version: 0.4.1
 created: 2026-06-14
-last_updated: 2026-06-21T16:10:00+10:00
+last_updated: 2026-06-21T17:15:00+10:00
 ---
 
 # Changelog

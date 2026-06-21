@@ -17,7 +17,16 @@ status: active
 - Mock static layout to validate UI/UX before wiring logic
 - **Deliverable**: Bootable Electron app with styled panels and static Command Palette
 
-### Phase 2: Database & Settings Backbone (Est: 2 – 3 Days)
+### ✅ Phase 2: Database & Settings Backbone (Complete — 1 Day, 2026-06-21)
+- SQLite connection with infrastructure tables (extension registry, settings, migration log)
+- Namespaced settings service with `registerExtensionNamespace()` for Phase 4 extension adoption
+- Window state persistence (500 ms debounced) with off-screen restore guard
+- Theme persistence (dark/light) via `body.light-theme` CSS class
+- AI panel collapsed state persistence
+- 25 Vitest unit tests + Playwright E2E suite (deferred run — Phase 3)
+- **Deliverable**: App persisting UI preferences and loading last window state. Schema, migration runner, settings table all verified; all 6 manual test units pass.
+- **Post-release fixes (v0.4.1)**: data-loss bug in corrupt-DB recovery (now only triggers on `quick_check` failure), userData path alignment between dev/prod, automated ABI switching in npm scripts. Full write-up in `docs/superpowers/plans/2026-06-20-phase2-database-settings-backbone.md` under "Post-release Fixes".
+- Plan: `docs/superpowers/plans/2026-06-20-phase2-database-settings-backbone.md`
 - SQLite connection with infrastructure tables only (extension registry, migration log, settings)
 - Settings service: app-wide preferences, window state, theme
 - **Deliverable**: App persisting UI preferences and loading last window state
@@ -65,7 +74,7 @@ Based on a single full-time developer or agent working sequentially, the project
 | Phase | Deliverable | Est. Time | Actual | Complexity |
 | :--- | :--- | :--- | :--- | :--- |
 | **Phase 1** | Core Shell Prototype | 1.5 – 2 Days | 0.5 Days | Low |
-| **Phase 2** | Database & Settings Backbone | 2 – 3 Days | — | Medium |
+| **Phase 2** | Database & Settings Backbone | 2 – 3 Days | 1 Day | Medium |
 | **Phase 3** | Extension Host & IPC Foundation | 5 – 7 Days | — | High |
 | **Phase 4** | Salary History Extension (Slice) | 4 – 6 Days | — | Medium |
 | **Phase 5** | WebviewPanels & Multi-Extension UI | 4 – 6 Days | — | High |
@@ -73,7 +82,7 @@ Based on a single full-time developer or agent working sequentially, the project
 | **Phase 7** | Production Polish & Encryption | 3 – 4 Days | — | Medium |
 | **Phase 8** | Extension Ecosystem & SDK | 3 – 5 Days | — | High |
 | **Buffer** | Integration, build debugging, platform adjustments | 4 – 5 Days | — | - |
-| **Total** | **Sleek Desktop Finance Workspace** | **30 – 43 Days** | **0.5 Days** | **High** |
+| **Total** | **Sleek Desktop Finance Workspace** | **30 – 43 Days** | **1.5 Days** | **High** |
 
 ### Key Complexity & Risk Drivers
 - **Multi-Process IPC Boundary (Phase 3 & 5)**: Routing JSON-RPC requests across isolated Node process wrappers and sandboxed Webview iframes.
