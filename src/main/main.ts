@@ -8,6 +8,17 @@ import { initializeSettings, closeSettings, getSetting, setSetting } from './ser
 const mainDir = fileURLToPath(new URL('.', import.meta.url));
 const rendererDevUrl = process.env.ELECTRON_RENDERER_URL;
 
+// Force the app name before any path lookup. Without this,
+// unpackaged dev launches (`electron dist/main/main.js`) report
+// `app.getName() === 'Electron'` and `app.getPath('userData')` then
+// resolves to `%APPDATA%/Electron/` instead of the production
+// path `%APPDATA%/Finance Flow AI/`. `productName` in package.json
+// is only honoured for packaged builds; for unpackaged dev we must
+// override explicitly. Pairing `productName` (for production) with
+// `app.setName(...)` (for dev) keeps userData identical in both
+// modes so the Phase 2 plan's expected path matches reality.
+app.setName('Finance Flow AI');
+
 let mainWindow: BrowserWindow | null = null;
 let windowStateSaveTimer: ReturnType<typeof setTimeout> | null = null;
 let dbClosed = false;
