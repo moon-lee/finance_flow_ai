@@ -11,7 +11,7 @@ export interface Migration {
 }
 
 let db: Database.Database | null = null;
-let migrations: Migration[] = [];
+const migrations: Migration[] = [];
 
 export function registerMigration(migration: Migration): void {
   if (migrations.some(m => m.name === migration.name)) return;
