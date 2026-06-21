@@ -10,7 +10,7 @@ export default defineConfig({
       fileName: () => 'main.js'
     },
     rollupOptions: {
-      external: ['electron', 'node:path', 'node:url']
+      external: ['electron', 'node:path', 'node:url', 'node:fs', 'better-sqlite3']
     }
   }
 });
