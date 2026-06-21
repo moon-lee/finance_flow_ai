@@ -17,6 +17,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+## [0.4.1] - 2026-06-21
+
+### Fixed
+- **Data-loss bug in corrupt-DB recovery** (`src/main/services/database-service.ts`): `initializeDatabase` previously caught *any* failure during `openDatabaseWithPragmas` (native-module ABI mismatch, permission denied, file locked by another process) and treated the database file as corrupt — renaming it to `.corrupt-<ts>` and starting fresh. That destroyed valid user data whenever the compiled `better-sqlite3` binary's `NODE_MODULE_VERSION` did not match the running runtime (a common situation when switching between `npm test` and `npm start`, since vitest runs under Node and Electron runs under Electron's Node).
+  - The catch now only wraps the integrity check (`PRAGMA quick_check`). Open failures propagate to the caller with the real error. Recovery runs only when quick_check returns anything other than `ok`, which is the actual corruption signal.
+  - Renamed `recoverUnreadableDatabase` → `renameCorruptDatabase` to reflect the narrower trigger condition. The function no longer tries to re-open the file inline — it renames and lets the caller (`initializeDatabase`) re-open against the new path.
+  - Added `_setDatabaseConstructorForTesting(ctor)` injection point so the unit suite can simulate native-module failures without rebuilding the binary. Used by the new regression test below.
+- **Regression test** (`tests/unit/services/database-service.test.ts`): `does not rename on open failure (no silent data loss)` injects a stub constructor that throws `Simulated ABI mismatch` on `new Ctor(path)` and asserts that `initializeDatabase` propagates the error and leaves the original file untouched (no `.corrupt-*` sibling created).
+
+### Notes
+- This bug was discovered the same day Phase 2 was released (2026-06-21) when a user ran `npm start` after `npm rebuild better-sqlite3` for unit tests had switched the native binary back to Node's ABI. The valid DB from the prior successful run was renamed to `finance.db.corrupt-<ts>` on first Electron launch, then the recovery's own re-open also failed (still ABI mismatch) so no fresh DB was created. The DB was restored from the `.corrupt-*` artifact before this fix landed.
+- `better-sqlite3` is currently compiled for the **Electron** ABI in this checkout (post-`npm run rebuild`). Running `npm rebuild better-sqlite3` will switch it back to the Node ABI for the vitest suite — remember to run `npm run rebuild` before launching Electron again.
+
 ## [0.4.0] - 2026-06-21
 
 ### Added

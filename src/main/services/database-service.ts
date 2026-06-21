@@ -1,4 +1,4 @@
-import Database from 'better-sqlite3';
+import BetterSqlite3 from 'better-sqlite3';
 import { dirname } from 'node:path';
 import { existsSync, mkdirSync, renameSync } from 'node:fs';
 
@@ -7,10 +7,24 @@ import { existsSync, mkdirSync, renameSync } from 'node:fs';
 // honest. Revisit this if Phase 7 needs DB downgrade support.
 export interface Migration {
   name: string;
-  up: (db: Database.Database) => void;
+  up: (db: BetterSqlite3.Database) => void;
 }
 
-let db: Database.Database | null = null;
+// Module-level reference to the better-sqlite3 constructor. Exposed
+// for testing only — production code should never swap this. Tests
+// that need to simulate open failures (e.g. native-module ABI
+// mismatch) can assign a stub via _setDatabaseConstructorForTesting
+// to verify the service handles those failures without silently
+// destroying user data.
+type DatabaseConstructor = typeof BetterSqlite3;
+let DatabaseCtor: DatabaseConstructor = BetterSqlite3;
+
+/** @internal — tests only. Production code must not call this. */
+export function _setDatabaseConstructorForTesting(ctor: DatabaseConstructor): void {
+  DatabaseCtor = ctor;
+}
+
+let db: BetterSqlite3.Database | null = null;
 const migrations: Migration[] = [];
 
 export function registerMigration(migration: Migration): void {
@@ -18,7 +32,7 @@ export function registerMigration(migration: Migration): void {
   migrations.push(migration);
 }
 
-export function initializeDatabase(dbPath: string): Database.Database {
+export function initializeDatabase(dbPath: string): BetterSqlite3.Database {
   if (db) return db;
 
   const dbDir = dirname(dbPath);
@@ -26,44 +40,41 @@ export function initializeDatabase(dbPath: string): Database.Database {
     mkdirSync(dbDir, { recursive: true });
   }
 
-  // Open the database and recover only from open/health-check failures.
-  // Migration failures are allowed to surface: treating a bad migration
-  // as corruption could replace a valid user database unnecessarily.
-  try {
-    db = openDatabaseWithPragmas(dbPath);
-  } catch (err) {
-    db = recoverUnreadableDatabase(dbPath, err);
+  // Open the database. Failures here are environmental (native-module
+  // ABI mismatch, permission denied, file locked by another process)
+  // and are NOT corruption — they must propagate so the caller sees
+  // the real error instead of having a valid DB silently renamed to
+  // `.corrupt-<ts>`.
+  const database = new DatabaseCtor(dbPath);
+  database.pragma('journal_mode = WAL');
+  database.pragma('foreign_keys = ON');
+
+  // Verify integrity. quick_check succeeds for empty databases and
+  // for healthy ones; it only fails when the file exists but is
+  // genuinely corrupt. That is the only situation in which we
+  // destroy the file.
+  if (!verifyDatabaseIntegrity(database)) {
+    database.close();
+    renameCorruptDatabase(dbPath);
+    return initializeDatabase(dbPath);
   }
 
+  db = database;
   runMigrations(db);
 
   return db;
 }
 
-function openDatabaseWithPragmas(dbPath: string): Database.Database {
-  const database = new Database(dbPath);
-  database.pragma('journal_mode = WAL');
-  database.pragma('foreign_keys = ON');
+function verifyDatabaseIntegrity(database: BetterSqlite3.Database): boolean {
   const quickCheck = database.pragma('quick_check') as { quick_check: string }[];
-  if (quickCheck[0]?.quick_check !== 'ok') {
-    database.close();
-    throw new Error(`SQLite quick_check failed for ${dbPath}`);
-  }
-  return database;
+  return quickCheck[0]?.quick_check === 'ok';
 }
 
-function recoverUnreadableDatabase(dbPath: string, cause: unknown): Database.Database {
+function renameCorruptDatabase(dbPath: string): void {
   const corruptPath = `${dbPath}.corrupt-${Date.now()}`;
   console.error(
-    `Database at ${dbPath} is unreadable; renaming to ${corruptPath} and starting fresh.`,
-    cause
+    `Database at ${dbPath} failed integrity check; renaming to ${corruptPath} and starting fresh.`
   );
-  try {
-    db?.close();
-  } catch {
-    // db may not have opened successfully; ignore.
-  }
-  db = null;
   if (existsSync(dbPath)) {
     renameSync(dbPath, corruptPath);
   }
@@ -73,10 +84,9 @@ function recoverUnreadableDatabase(dbPath: string, cause: unknown): Database.Dat
       renameSync(sidecarPath, `${corruptPath}${suffix}`);
     }
   }
-  return openDatabaseWithPragmas(dbPath);
 }
 
-function runMigrations(database: Database.Database): void {
+function runMigrations(database: BetterSqlite3.Database): void {
   database.exec(`
     CREATE TABLE IF NOT EXISTS migration_log (
       name TEXT PRIMARY KEY,
@@ -101,7 +111,7 @@ function runMigrations(database: Database.Database): void {
   }
 }
 
-export function getDatabase(): Database.Database {
+export function getDatabase(): BetterSqlite3.Database {
   // Guard against both null (never initialised) and a closed handle
   // (e.g. after `closeDatabase` was called, or a double-init race
   // during HMR).

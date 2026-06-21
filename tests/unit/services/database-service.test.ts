@@ -1,8 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { initializeDatabase, closeDatabase, getDatabase, registerMigration } from '../../../src/main/services/database-service';
+import { mkdtempSync, rmSync, writeFileSync, readdirSync } from 'node:fs';
+import {
+  initializeDatabase, closeDatabase, getDatabase, registerMigration,
+  _setDatabaseConstructorForTesting
+} from '../../../src/main/services/database-service';
+import BetterSqlite3 from 'better-sqlite3';
 
 describe('DatabaseService', () => {
   let tmpDir: string;
@@ -65,5 +69,43 @@ describe('DatabaseService', () => {
     const db = getDatabase();
     const pragma = db.pragma('journal_mode') as { journal_mode: string }[];
     expect(pragma[0].journal_mode).toBe('wal');
+  });
+
+  // Regression test for the Phase 2 data-loss bug fixed in 0.4.1.
+  // Previously `initializeDatabase` caught *any* open failure
+  // (including native-module ABI mismatch, permission denied, or
+  // opening a non-file path) and renamed the path's contents to
+  // `.corrupt-<ts>`. That destroyed a perfectly valid user DB when
+  // the only problem was a mismatch between the compiled native
+  // binary and the running Electron/Node ABI.
+  //
+  // After the fix, open failures propagate and recovery only
+  // triggers on an actual integrity-check failure (quick_check).
+  // We simulate the ABI-mismatch scenario by injecting a stub
+  // constructor via _setDatabaseConstructorForTesting that throws
+  // on `new Ctor(path)` — the same shape as `better-sqlite3`'s
+  // real `NODE_MODULE_VERSION` failure.
+  it('does not rename on open failure (no silent data loss)', () => {
+    // Stage: an existing valid SQLite file at dbPath. With the buggy
+    // code, the open failure would cause this file to be renamed to
+    // `.corrupt-<ts>` (data loss).
+    writeFileSync(dbPath, '');
+
+    class ThrowingCtor {
+      constructor() {
+        throw new Error('Simulated ABI mismatch');
+      }
+    }
+    _setDatabaseConstructorForTesting(ThrowingCtor as unknown as typeof BetterSqlite3);
+
+    try {
+      expect(() => initializeDatabase(dbPath)).toThrow(/ABI mismatch/);
+      const leftover = readdirSync(tmpDir).filter((f) => f.includes('.corrupt-'));
+      expect(leftover).toEqual([]);
+      // Original file is untouched.
+      expect(readdirSync(tmpDir)).toContain('test.db');
+    } finally {
+      _setDatabaseConstructorForTesting(BetterSqlite3);
+    }
   });
 });
