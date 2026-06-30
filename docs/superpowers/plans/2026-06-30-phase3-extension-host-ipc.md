@@ -26,6 +26,8 @@ status: draft
 
 **Reasoning:** `utilityProcess` is the modern Electron API (Electron 22+) designed exactly for this pattern: a sandboxed, long-lived Node.js child process tied to Electron's lifecycle but isolated from it. It supports `postMessage()`/`'message'` events AND structured-clone `MessagePort` transfer, which is the cleanest way to pass a bidirectional RPC channel between Main and the Host. Plain `child_process.fork()` would also work but loses Electron lifecycle integration, sandbox defaults, and the structured MessagePort primitive.
 
+Process isolation is not just a crash-safety measure — it is what *structurally enforces* the vision's "Do Not Break Other Extensions" rule: *"Direct in-process imports, shared global state, and direct database cross-writes between extensions are strictly forbidden"* (`project_vision.md:48`). Because every extension runs in its own process, there is no shared in-process module graph for extensions to import from. All cross-extension traffic is forced through the JSON-RPC channel between Main and each Host, which is what makes the rule *structurally* impossible to violate rather than relying on convention.
+
 **Alternatives considered:**
 
 - `child_process.fork()` + Node IPC: simpler in concept, but no MessagePort, no Electron sandbox defaults, and lifecycle management (kill on app quit) becomes manual.
@@ -2713,6 +2715,7 @@ last_updated: <ISO timestamp at time of completion>
 - [ ] Crash isolation — Host runs in a separate `utilityProcess`; manual test 5 verifies
 - [ ] Graceful degradation — `commands.execute` returns `null` for missing commands; manifest validation skips invalid manifests without aborting startup
 - [ ] Strict namespace isolation — `extension_registry` and settings keys remain namespaced; Phase 3 does not bypass this
+- [ ] **No direct cross-extension access** — verified per `project_vision.md:48` ("Direct in-process imports, shared global state, and direct database cross-writes between extensions are strictly forbidden"). Process isolation via `utilityProcess` makes in-process imports *structurally impossible*; all inter-extension traffic routes through `finance.commands.execute()` (returns `null` on missing target) and the JSON-RPC Main↔Host channel. No extension imports `node:fs`, `node:net`, or raw `better-sqlite3` directly; no two extensions share a module graph; the loader, registry, and IPC services sit entirely in Main.
 
 **3. Phase 2 regression coverage:**
 - [ ] `extension_registry` table now actively used (populated by `ExtensionRegistry.upsert`)

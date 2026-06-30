@@ -1,7 +1,7 @@
 ---
-version: 0.4.1
+version: 0.5.0
 created: 2026-06-14
-last_updated: 2026-06-21T17:15:00+10:00
+last_updated: 2026-06-30T18:00:00+10:00
 ---
 
 # Changelog
@@ -16,6 +16,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 ### Changed
+- **AGENTS.md rule refinement** (`AGENTS.md`): removed GitNexus documentation section (was lines 36–91 pre-edit); strengthened **Rule #5 (CHANGELOG procedure)** with numbered steps, version-bump guidance per SemVer, mandatory self-verification, and explicit scope of "notable work"; strengthened **Rule #6 (session-start docs)** with numbered procedure, recursive `*.md` discovery under `docs/` and `docs/decisions/`, and mandatory self-verification. Rule #6b updated to remove the now-orphaned `impact()` reference.
+
+## [0.5.0] - 2026-06-30
+
+### Added
+- Phase 3 implementation plan drafted at `docs/superpowers/plans/2026-06-30-phase3-extension-host-ipc.md` (2732 lines, 9 architecture decisions, 17 tasks, 8 manual test units, 23 new unit tests, 5 new E2E tests). Status: **draft — not yet implemented**.
+  - **Manifest types and Zod validation** (`src/types/finance.d.ts` populated; replaces Phase 1 placeholder): `FinanceExtensionManifest`, `ActivationEvent`, `ManifestViewContribution`/`CommandContribution`/`MenuContribution`/`ConfigurationContribution`, `PackageJsonFinanceExtension`. Zod schema in `src/extension-host/manifest-schema.ts` rejects unknown manifest keys (strict mode), validates semver, enum types, and activation-event regex patterns.
+  - **Electron `utilityProcess.fork()` Extension Host** spawned from Main on app startup as a sandboxed Node.js child process. JSON-RPC 2.0 envelopes over the MessagePort for all Main↔Host traffic (`src/extension-host/json-rpc.ts` with request/response correlation, notifications, and standard error codes).
+  - **Extension Loader service** (`src/main/services/extension-loader.ts`) scans `<appRoot>/extensions/` for subdirectories with `package.json#financeExtension`; validates each manifest; cross-checks `package.json#name` matches `financeExtension.id`; skips `node_modules/`, `dist/`, and malformed manifests with a console warning.
+  - **Extension Registry service** (`src/main/services/extension-registry.ts`) provides in-memory cache backed by Phase 2's `extension_registry` SQLite table; idempotent `upsert`, `markActivated`, `isEnabled`/`setEnabled`, and aggregation helpers for views and commands.
+  - **Extension IPC transport** (`src/main/services/extension-ipc.ts`) spawns the Host, performs the `host.ready` handshake, exposes a typed `request<T>()`/`notify()` API with per-request timeouts and crash detection.
+  - **`finance.*` API stubs** in the Host (`src/extension-host/api/`): functional `commands.registerCommand` and `commands.execute` (returns `null` on missing command — graceful degradation per `project_vision.md:46`); `db.table()` returns empty queryables; `ai.registerTool()` stores tool definitions. Phase 4 replaces DB stubs with real DAO access; Phase 6 replaces AI stubs with tool execution.
+  - **Mock `extensions/salary-history/`** placeholder extension declares one view and two commands; activates on `onView:salary-history`; entry point registers command handlers via the parameter-injected `finance` API.
+  - **Renderer Activity Bar rebuilt as contribution-driven Lit component** (`src/renderer/components/activity-bar.ts`); Phase 1's hardcoded `D/P/B/X` buttons removed; built-in `S` (Settings) button retained.
+  - **Command Palette renders extension commands** under an "Extensions" group label (`src/renderer/components/command-palette.ts`).
+  - **Preload bridge** exposes `financeShell.extensions.list()` and `financeShell.extensions.activateView()` (`src/preload/preload.ts` + `src/types/finance-shell.d.ts`).
+  - **Electron-aware Playwright config** (`playwright.electron.config.ts`) so Phase 2's deferred E2E tests (which exercise `window.financeShell.settings`) and the new Phase 3 E2E tests can run against the real Electron app.
+  - **23 new unit tests** (10 manifest-schema, 7 JSON-RPC envelope, 6 extension-loader) bringing the total to 48.
+  - **5 new E2E tests**: dynamic Activity Bar shows extension view, Settings button always present, Command Palette lists extension commands, view activation round-trips through Host, host-crash placeholder.
+  - **8 manual test units**: host spawn, dynamic Activity Bar, activation round-trip, Command Palette groups, crash isolation (kill host process), disable-via-DB, invalid manifest handling, full verification.
+
+### Changed
+- `docs/file-reference.md` updated with Phase 3 plan reference (per AGENTS.md Rule #6 discoverability).
+
+### Notes
+- Phase 3 plan reflects `project_vision.md:48` ("Direct in-process imports, shared global state, and direct database cross-writes between extensions are strictly forbidden") both architecturally (process isolation via `utilityProcess` makes in-process imports structurally impossible) and procedurally (Self-Review Checklist section 2 explicitly verifies the rule is upheld).
+- Phase 3 establishes the `finance` API loading mechanism via parameter injection (`activate(finance)`); the vision's illustrative `import * as finance from 'finance'` pseudocode becomes the Phase 4+ migration target when a real multi-file extension is built. The `FinanceApi` type contract in `finance.d.ts` is unchanged across the transition.
+- Self-Review Checklist section 7 documents 6 explicit deferrals (none blocking Phase 3 verification): `contributes.configuration` UI renderer → Phase 7; Extension Manager UI → Phase 8; NavigationProvider pattern → Phase 5; menu bar contribution rendering → Phase 5; canonical `import * as finance from 'finance'` → Phase 4+; cross-process event bus → Phase 5.
+- The implementation design spec (`docs/superpowers/specs/2026-06-13-implementation-design.md`) was last updated 2026-06-14 and has not been refreshed since Phase 2's completion; it should be brought current after Phase 3 lands (not a Phase 3 blocker).
+- ADR-0003 candidate (IPC transport choice per Decision 1) is deferred until the Phase 3 plan is approved and implementation begins.
 
 ## [0.4.1] - 2026-06-21
 

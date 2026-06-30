@@ -7,6 +7,7 @@ This directory captures important architectural decisions: what was decided, why
 | ADR | Title | Status | Date |
 |-----|-------|--------|------|
 | [0002](0002-inline-migrations.md) | Inline Migration Runner Instead of Umzug | Accepted | 2026-06-20 |
+| [0003](0003-extension-host-transport.md) | Extension Host Transport — `utilityProcess.fork` + JSON-RPC 2.0 | Accepted | 2026-06-30 |
 
 ## Conventions
 

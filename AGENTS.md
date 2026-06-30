@@ -10,50 +10,40 @@
 
 4. **Wait for review before starting the next milestone** - Complete each milestone fully, verify it works, and obtain explicit approval before proceeding to the next phase of work.
 
-5. **Update CHANGELOG.md after completing work** - Document all notable changes in `CHANGELOG.md` with proper version bump and last_updated timestamp whenever implementation work is completed.
+5. **Update CHANGELOG.md after completing work** - This rule is non-optional. A task is **not complete** until `CHANGELOG.md` reflects it. If your work produced a notable change, the agent's final summary is incomplete without a CHANGELOG entry.
 
-6. **Read project context at session start and before implementation** - Always read `docs/project_vision.md`, `docs/file-reference.md`, the latest plans/specs under `docs/superpowers/`, and any ADRs in `docs/decisions/` relevant to the area you're touching; re-read the relevant plan/spec at the start of any new session and again immediately before writing or modifying implementation code.
+   **Procedure.** After any notable work (new feature, implementation plan, ADR, refactor, bug fix, dependency change, schema migration, config change, or significant doc addition), do all of the following in order:
 
-<!-- gitnexus:start -->
-# GitNexus — Code Intelligence
+   1. **Edit `CHANGELOG.md`:**
+      - Add a bullet under the appropriate subsection (`### Added`, `### Changed`, `### Fixed`, `### Removed`, `### Security`) — follow the Keep a Changelog format already declared at the top of the file.
+      - Cite the file paths changed and, where applicable, the spec/ADR/vision line numbers.
+      - If the work warrants a version bump (patch for fixes, minor for new features and plans, major for breaking changes — per SemVer), add a new dated version header (e.g., `## [0.6.0] - 2026-07-15`).
+   2. **Update frontmatter:**
+      - Bump `version` to match the new release header.
+      - Update `last_updated` to the current ISO timestamp with timezone (e.g., `2026-07-15T14:30:00+10:00`).
+   3. **Sync related files when applicable:**
+      - `package.json#version` — CHANGELOG is the source of truth; sync `package.json` to it.
+      - `docs/file-reference.md` — if files were added, removed, or significantly modified.
+      - `docs/decisions/NNNN-*.md` — write a new ADR if an architectural decision was made.
 
-This project is indexed by GitNexus as **finance_flow_ai** (259 symbols, 302 relationships, 0 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+   **Mandatory self-verification.** The agent's final summary of any task that constitutes "completed work" must include a line like `CHANGELOG.md updated: yes` (or `no — reason`). The user uses this to confirm compliance.
 
-> Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
+   **Scope of "notable work":** Includes implementation plans, ADRs, source files, configuration, dependencies, build tooling, and significant doc additions. Excludes purely conversational work, internal agent thinking, and trivial edits that do not change user-visible behavior (e.g., typo fixes in a comment).
 
-## Always Do
+   **Why this matters.** `CHANGELOG.md` is the project's memory of what changed and when. Skipping it breaks version tracking, makes release notes impossible, and hides regressions behind missing history. The cost of updating CHANGELOG.md is two minutes; the cost of discovering six months later that work was never recorded is hours of archaeology.
 
-- **MUST run impact analysis before editing any symbol.** Before modifying a function, class, or method, run `impact({target: "symbolName", direction: "upstream"})` and report the blast radius (direct callers, affected processes, risk level) to the user.
-- **MUST run `detect_changes()` before committing** to verify your changes only affect expected symbols and execution flows. For regression review, compare against the default branch: `detect_changes({scope: "compare", base_ref: "main"})`.
-- **MUST warn the user** if impact analysis returns HIGH or CRITICAL risk before proceeding with edits.
-- When exploring unfamiliar code, use `query({query: "concept"})` to find execution flows instead of grepping. It returns process-grouped results ranked by relevance.
-- When you need full context on a specific symbol — callers, callees, which execution flows it participates in — use `context({name: "symbolName"})`.
+6. **Read project context at session start and before implementation** - This rule fires on two triggers: (a) the first response of any new session, and (b) immediately before writing or modifying implementation code. Both triggers must be satisfied; neither is optional.
 
-## Never Do
+   **(a) Session start procedure.** Before producing any work in a new session, read **every one** of these in order:
 
-- NEVER edit a function, class, or method without first running `impact` on it.
-- NEVER ignore HIGH or CRITICAL risk warnings from impact analysis.
-- NEVER rename symbols with find-and-replace — use `rename` which understands the call graph.
-- NEVER commit changes without running `detect_changes()` to check affected scope.
+   1. `AGENTS.md` (this file) — confirm the rules have not changed since your training cutoff.
+   2. `docs/project_vision.md` — the authoritative vision; everything else aligns to it.
+   3. `docs/file-reference.md` — current file inventory by phase.
+   4. **Every `.md` file under `docs/` and `docs/decisions/` recursively.** This includes plans, specs, ADRs, handoff docs, decision indexes, and any new doc added in the future. Do not skip files. Do not stop at the first match. Do not filter by "relevance" — read everything.
+   5. The newest file in `docs/superpowers/plans/` (by filename date, e.g. `YYYY-MM-DD-*.md`) — read it last because it is the most recent and most specific to the current work.
 
-## Resources
+   **Mandatory self-verification.** In your first response of every session, briefly list the docs you read at session start. If you could not read all of them, say so explicitly and explain why. The user uses this list to verify the protocol was followed.
 
-| Resource | Use for |
-|----------|---------|
-| `gitnexus://repo/finance_flow_ai/context` | Codebase overview, check index freshness |
-| `gitnexus://repo/finance_flow_ai/clusters` | All functional areas |
-| `gitnexus://repo/finance_flow_ai/processes` | All execution flows |
-| `gitnexus://repo/finance_flow_ai/process/{name}` | Step-by-step execution trace |
+   **(b) Before writing or modifying implementation code.** Re-read the specific plan, spec, or ADR that authorizes the change. In your work, cite the section number, ADR number, or vision line number that the change aligns with. If the change touches a function, class, or method, identify its blast radius (callers, affected modules, dependency surface) before proceeding.
 
-## CLI
-
-| Task | Read this skill file |
-|------|---------------------|
-| Understand architecture / "How does X work?" | `.claude/skills/gitnexus/gitnexus-exploring/SKILL.md` |
-| Blast radius / "What breaks if I change X?" | `.claude/skills/gitnexus/gitnexus-impact-analysis/SKILL.md` |
-| Trace bugs / "Why is X failing?" | `.claude/skills/gitnexus/gitnexus-debugging/SKILL.md` |
-| Rename / extract / split / refactor | `.claude/skills/gitnexus/gitnexus-refactoring/SKILL.md` |
-| Tools, resources, schema reference | `.claude/skills/gitnexus/gitnexus-guide/SKILL.md` |
-| Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus/gitnexus-cli/SKILL.md` |
-
-<!-- gitnexus:end -->
+   **Why the breadth is intentional.** Future sessions inherit incomplete context if any doc is skipped. Small handoff docs and ADRs often contain the *why* behind decisions that the plans only summarize; an agent that skips them may re-litigate settled questions or unknowingly violate a documented constraint. The cost of reading a few extra files is far less than the cost of producing work that conflicts with a rule the agent never saw.
