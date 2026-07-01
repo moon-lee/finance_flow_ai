@@ -1,7 +1,7 @@
 ---
 version: 0.5.0
 created: 2026-06-14
-last_updated: 2026-07-01T10:30:00+10:00
+last_updated: 2026-07-02T00:33:00+10:00
 ---
 
 # Changelog
@@ -33,6 +33,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Observation #2** (Task 5 Host `extension.executeCommand` handler): Changed bare `executeCommand(...)` call to `finance.commands.execute(...)`. The Host now exercises the same API surface extensions use — exactly one canonical path. No extra import from `./api/commands` needed. Phase 5's real execution replaces this method without touching the call site.
   - **Observation #3** (Task 8 `ExtensionIPC.handleExit()` shutdown branch): Added `this.process = null;` after clearing `this.shuttingDown`. Fixes a latent bug where after a graceful `stop()`, `isRunning()` returned `true` (the process reference still pointed at the dead `UtilityProcess`, and `this.crashed` was never set). The next `start()` early-returned without re-sending manifests, breaking the shutdown-then-start sequence and causing subsequent `request()` calls to post to a dead handle. The race between `stop()`'s null-check and `notify()` is what surfaces this; the fix makes both shutdown and crash paths converge on a consistent "not running" state.
 - **AGENTS.md rule refinement** (`AGENTS.md`): removed GitNexus documentation section (was lines 36–91 pre-edit); strengthened **Rule #5 (CHANGELOG procedure)** with numbered steps, version-bump guidance per SemVer, mandatory self-verification, and explicit scope of "notable work"; strengthened **Rule #6 (session-start docs)** with numbered procedure, recursive `*.md` discovery under `docs/` and `docs/decisions/`, and mandatory self-verification. Rule #6b updated to remove the now-orphaned `impact()` reference.
+- **Phase 3 plan: follow-up review refinements** (`docs/superpowers/plans/2026-06-30-phase3-extension-host-ipc.md`, `docs/file-reference.md`). Integrated 5 follow-up improvements into the Phase 3 implementation plan after the second conversational review. Frontmatter `fixes_applied` and `Self-Review Checklist` updated with numbered fixes §3.7 to §3.11:
+  - **§3.7 Dev Concurrency Watcher** (Task 1): Updated `scripts.dev` to watch `npm:dev:extension-host` so changes compile automatically.
+  - **§3.8 Build-Time Electron Isolation** (File Structure, Tasks 5 + 8): Split constants into `src/shared/extension-constants.ts` (constants only) and runtime paths into `src/shared/extension-paths.ts`. Isolates build-time Vite config compilation from runtime Electron `app` API imports.
+  - **§3.9 Activate-View Try/Catch Protection** (Task 10): Wrapped Main's `extensions:activate-view` IPC handler in `try/catch` to return graceful failure details instead of propagating unhandled promise rejections.
+  - **§3.10 Host Deactivation Hook Execution** (Task 5): Updated `host.ts` to listen for JSON-RPC notifications and invoke the `deactivate()` hook of each active extension on `host.shutdown` before terminating.
+  - **§3.11 Command Palette UI Polish** (Task 13): Implemented `_scrollSelectedIntoView()` in the Command Palette keyboard handler using Lit's `updateComplete` promise, ensuring selected items scroll into view during navigation.
 
 ## [0.5.0] - 2026-06-30
 

@@ -53,7 +53,9 @@
 | `extensions/salary-history/package.json` | new (planned) | Mock extension manifest declaring `id: salary-history`, one view, two commands |
 | `extensions/salary-history/src/main.ts` | new (planned) | Stub extension entry — registers command handlers via the parameter-injected `finance` API |
 | `src/extension-host/host.ts` | new (planned) | Extension Host process entry point: lifecycle, JSON-RPC dispatch, `activateExtension()` |
-| `src/extension-host/json-rpc.ts` | new (planned) | JSON-RPC 2.0 envelope types and helpers shared by Main and Host |
+| `src/shared/json-rpc.ts` | new (planned) | JSON-RPC 2.0 envelope types and helpers shared by Main and Host |
+| `src/shared/extension-constants.ts` | new (planned) | Build-time and runtime constants (HOST_BUNDLE_DIR, HOST_BUNDLE_FILENAME) to isolate Vite config from Electron imports |
+| `src/shared/extension-paths.ts` | new (planned) | Runtime path resolution utilities for finding the Extension Host bundle using Electron's `app` API |
 | `src/extension-host/manifest-schema.ts` | new (planned) | Zod validation schemas for manifests; strict mode rejects unknown keys |
 | `src/extension-host/api/db.ts` | new (planned) | `finance.db.table()` stub returning empty queryables (Phase 3 stub; Phase 4 fills in) |
 | `src/extension-host/api/commands.ts` | new (planned) | `finance.commands.registerCommand()` and `.execute()` (returns `null` on missing — graceful degradation) |

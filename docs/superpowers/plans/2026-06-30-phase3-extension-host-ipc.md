@@ -14,6 +14,11 @@ fixes_applied:
   - §3.4 E2E selector coupling removed in favour of IPC observation (Task 16)
   - §3.5 Test Unit 6 path uses app.getPath('userData') not %APPDATA%
   - §3.6 HOST_BUNDLE_PATH constant extracted + startup logging (Task 8)
+  - §3.7 Dev script concurrency watch (Task 1)
+  - §3.8 Split extension-constants and extension-paths to avoid Electron import in Vite config (File Structure + Tasks 5, 8)
+  - §3.9 Try/catch in extensions:activate-view IPC handler (Task 10)
+  - §3.10 Extension Host deactivation hook cleanup (Task 5)
+  - §3.11 Command Palette scroll-into-view selected item (Task 13)
 ---
 
 # Phase 3 — Extension Host & IPC Scaffolding Implementation Plan
@@ -179,6 +184,7 @@ finance-flow-ai/
 |-- src/
 |   |-- shared/                                 # NEW: shared between Main + Host + Vite configs *(per [Review fix §3.1] and §3.6)*
 |   |   |-- json-rpc.ts                         # MOVED from extension-host/ — envelope helpers (shared types)
+|   |   |-- extension-constants.ts              # NEW: HOST_BUNDLE_DIR + HOST_BUNDLE_FILENAME (constants only) *(per [Review fix §3.8])*
 |   |   `-- extension-paths.ts                  # NEW: HOST_BUNDLE_DIR + resolveHostBundlePath() *(per [Review fix §3.6])*
 |   |-- main/
 |   |   |-- main.ts                             # Modified: spawn host, loader, registry
@@ -230,12 +236,13 @@ finance-flow-ai/
 npm install zod
 ```
 
-- [ ] **Step 2: Add build scripts for the Extension Host**
+- [ ] **Step 2: Add build scripts for the Extension Host** *(incorporates [Review fix §3.7] — dev script concurrency)*
 
 ```bash
 npm pkg set scripts.build:extension-host="vite build --config vite.extension-host.config.ts"
 npm pkg set scripts.build="npm run build:main && npm run build:preload && npm run build:extension-host && npm run build:renderer"
 npm pkg set scripts.dev:extension-host="vite build --config vite.extension-host.config.ts --watch"
+npm pkg set scripts.dev="concurrently -k \"npm:dev:main\" \"npm:dev:preload\" \"npm:dev:extension-host\" \"npm:dev:renderer\" \"npm:start:dev\""
 npm pkg set scripts.start:dev="wait-on http://127.0.0.1:5173 dist/main/main.js dist/preload/preload.cjs dist/extension-host/host.js && cross-env ELECTRON_RENDERER_URL=http://127.0.0.1:5173 nodemon --watch dist/main/main.js --watch dist/extension-host/host.js --exec \"electron dist/main/main.js\""
 ```
 
@@ -729,13 +736,13 @@ git commit -m "feat: add finance.* API stubs in the Extension Host"
 - Create: `src/extension-host/host.ts`
 - Create: `vite.extension-host.config.ts`
 
-- [ ] **Step 1: Create the Vite config for the Extension Host** *(incorporates [Review fix §3.6] — `outDir` derived from shared constant)*
+- [ ] **Step 1: Create the Vite config for the Extension Host** *(incorporates [Review fix §3.6] and [Review fix §3.8] — shared constants isolated)*
 
 `vite.extension-host.config.ts`:
 
 ```typescript
 import { defineConfig } from 'vite';
-import { HOST_BUNDLE_DIR } from './src/shared/extension-paths';
+import { HOST_BUNDLE_DIR } from './src/shared/extension-constants';
 
 export default defineConfig({
   build: {
@@ -760,7 +767,7 @@ export default defineConfig({
 });
 ```
 
-> **Why import the constant:** The Vite config and the IPC transport both need to agree on where the bundle lands. Importing `HOST_BUNDLE_DIR` from `src/shared/extension-paths.ts` (created in Task 8) gives a single source of truth — a build-layout change requires editing only one file. The IPC transport's `resolveHostBundlePath()` reads the same constant at runtime.
+> **Why import the constant:** The Vite config and the IPC transport both need to agree on where the bundle lands. Importing `HOST_BUNDLE_DIR` from `src/shared/extension-constants.ts` (created in Task 8) gives a single source of truth — a build-layout change requires editing only one file. The IPC transport's `resolveHostBundlePath()` reads the same constant at runtime.
 
 - [ ] **Step 2: Create the Host process entry**
 
@@ -786,10 +793,12 @@ export default defineConfig({
 import { finance } from './api/index';
 import {
   isRequest,
+  isNotification,
   makeRequestId,
   RpcErrorCode,
   type JsonRpcRequest,
-  type JsonRpcResponse
+  type JsonRpcResponse,
+  type JsonRpcNotification
 } from '../shared/json-rpc';
 import type { FinanceExtensionManifest } from '../types/finance';
 
@@ -946,9 +955,33 @@ async function activateExtension(extensionId: string, reason: string): Promise<b
   }
 }
 
+// [Review fix §3.10] Extension Host deactivation hook cleanup
+async function handleNotification(notification: JsonRpcNotification): Promise<void> {
+  if (notification.method === 'host.shutdown') {
+    console.log('[host] shutdown request received, deactivating extensions...');
+    for (const [id, ext] of activeExtensions) {
+      if (ext.moduleUrl) {
+        try {
+          const { createRequire } = await import('node:module');
+          const requireFromHere = createRequire(import.meta.url);
+          const extModule = requireFromHere(ext.moduleUrl);
+          if (typeof extModule?.deactivate === 'function') {
+            await extModule.deactivate();
+          }
+        } catch (err) {
+          console.error(`[host] failed to deactivate "${id}":`, err);
+        }
+      }
+    }
+    process.exit(0);
+  }
+}
+
 parentPort.on('message', (msg: unknown) => {
   if (isRequest(msg)) {
     void handleRequest(msg);
+  } else if (isNotification(msg)) {
+    void handleNotification(msg);
   }
 });
 
@@ -1210,32 +1243,40 @@ git commit -m "feat: add Extension Registry service with DB-backed persistence"
 ## Task 8: Create the Extension IPC Transport
 
 **Files:**
-- Create: `src/shared/extension-paths.ts` *(shared between Main and Vite config — see [Review fix §3.6])*
+- Create: `src/shared/extension-constants.ts` *(shared build-time constants — see [Review fix §3.8])*
+- Create: `src/shared/extension-paths.ts` *(runtime paths relying on Electron APIs)*
 - Create: `src/main/services/extension-ipc.ts`
 
 The transport spawns the Host process, performs the JSON-RPC handshake, exposes a typed RPC client for Main to call into the Host, and — per [Review fix §2.1] — recovers from a crash by re-spawning on the next user-initiated request.
 
-- [ ] **Step 1a: Create the shared extension-paths module**
+- [ ] **Step 1a: Create the shared extension-constants module**
+
+`src/shared/extension-constants.ts`:
+
+```typescript
+/**
+ * Single source of truth for where the Extension Host bundle lives.
+ * This file contains only build-time constants and has no external or Electron imports.
+ * The Vite config (`vite.extension-host.config.ts`) imports `HOST_BUNDLE_DIR` directly
+ * without loading any runtime Electron APIs, preventing build-time configuration failures.
+ */
+export const HOST_BUNDLE_DIR = 'dist/extension-host';
+export const HOST_BUNDLE_FILENAME = 'host.js';
+```
+
+- [ ] **Step 1b: Create the shared extension-paths module**
 
 `src/shared/extension-paths.ts`:
 
 ```typescript
 import { join } from 'node:path';
 import { app } from 'electron';
+import { HOST_BUNDLE_DIR, HOST_BUNDLE_FILENAME } from './extension-constants';
 
 /**
- * Single source of truth for where the Extension Host bundle lives.
- * The Vite config (`vite.extension-host.config.ts`) imports `HOST_BUNDLE_DIR`
- * to keep its `outDir` in sync; the IPC transport imports `resolveHostBundlePath()`
- * to construct the absolute path at runtime.
- *
- * If the build layout ever changes, only this file needs editing — both
- * sides pick up the new path automatically. The resolved path is logged on
- * startup so a misconfigured build fails loudly.
+ * Constructs the absolute path to the Extension Host bundle at runtime.
+ * The resolved path is logged on startup so a misconfigured build fails loudly.
  */
-export const HOST_BUNDLE_DIR = 'dist/extension-host';
-export const HOST_BUNDLE_FILENAME = 'host.js';
-
 export function resolveHostBundlePath(): string {
   const path = join(app.getAppPath(), HOST_BUNDLE_DIR, HOST_BUNDLE_FILENAME);
   console.log(`[extension-host] bundle path resolved: ${path}`);
@@ -1243,7 +1284,7 @@ export function resolveHostBundlePath(): string {
 }
 ```
 
-- [ ] **Step 1b: Create the IPC transport with crash recovery** *(incorporates [Review fix §2.1] and §3.6)*
+- [ ] **Step 1c: Create the IPC transport with crash recovery** *(incorporates [Review fix §2.1] and §3.6)*
 
 `src/main/services/extension-ipc.ts`:
 
@@ -1716,19 +1757,25 @@ ipcMain.handle('extensions:list', () => {
   };
 });
 
+// [Review fix §3.9] Main-side activate-view try/catch error handling
 ipcMain.handle('extensions:activate-view', async (_event, viewId: string) => {
   if (!extensionIPC || !extensionRegistry) return { activated: false, reason: 'host not running' };
-  // Find the extension that owns this view, then ask the host to activate it.
-  const owning = extensionRegistry.views().find((v) => v.view.id === viewId);
-  if (!owning) return { activated: false, reason: 'view not found' };
-  const result = await extensionIPC.request<{ activated: boolean }>('extension.activate', {
-    extensionId: owning.extensionId,
-    reason: `onView:${viewId}`
-  });
-  if (result.activated) {
-    extensionRegistry.markActivated(owning.extensionId);
+  try {
+    // Find the extension that owns this view, then ask the host to activate it.
+    const owning = extensionRegistry.views().find((v) => v.view.id === viewId);
+    if (!owning) return { activated: false, reason: 'view not found' };
+    const result = await extensionIPC.request<{ activated: boolean }>('extension.activate', {
+      extensionId: owning.extensionId,
+      reason: `onView:${viewId}`
+    });
+    if (result.activated) {
+      extensionRegistry.markActivated(owning.extensionId);
+    }
+    return result;
+  } catch (err) {
+    console.error(`extensions:activate-view failed for "${viewId}":`, err);
+    return { activated: false, reason: err instanceof Error ? err.message : String(err) };
   }
-  return result;
 });
 
 // [Review fix §2.3] Phase 3 stub: prove the IPC channel exists end-to-end by
@@ -2109,13 +2156,23 @@ export class CommandPalette extends LitElement {
     if (event.key === 'ArrowDown') {
       event.preventDefault();
       this._selectedIndex = (this._selectedIndex + 1) % items.length;
+      this._scrollSelectedIntoView();
     } else if (event.key === 'ArrowUp') {
       event.preventDefault();
       this._selectedIndex = (this._selectedIndex - 1 + items.length) % items.length;
+      this._scrollSelectedIntoView();
     } else if (event.key === 'Enter') {
       event.preventDefault();
       this._selectItem(items[this._selectedIndex]);
     }
+  }
+
+  // [Review fix §3.11] Command Palette selection scroll into view
+  private _scrollSelectedIntoView() {
+    this.updateComplete.then(() => {
+      const selected = this.shadowRoot?.querySelector('.palette-item.selected');
+      selected?.scrollIntoView({ block: 'nearest' });
+    });
   }
 
   private _selectItem(item: PaletteCommand) {
@@ -3027,6 +3084,11 @@ These checklist items verify the 9 fixes from the plan review. Each maps to a `[
 - [ ] **§3.4 — E2E test exercises the IPC contract, not Phase 1 DOM.** `tests/e2e/extension-host.spec.ts` has the test "View activation via IPC returns activated=true after the host runs" which uses `page.evaluate(() => window.financeShell.extensions.activateView(...))`. No `#navigation-panel .nav-title` selector remains in the file.
 - [ ] **§3.5 — Database path is logged on startup.** Launching the app prints `[main] database path: <absolute path>` to DevTools console. Test Unit 6 references this log instead of a hard-coded `%APPDATA%` path.
 - [ ] **§3.6 — `HOST_BUNDLE_DIR` is a shared constant.** `src/shared/extension-paths.ts` exports `HOST_BUNDLE_DIR` and `resolveHostBundlePath()`. `vite.extension-host.config.ts` imports `HOST_BUNDLE_DIR` for its `outDir`. `extension-ipc.ts` calls `resolveHostBundlePath()` (which logs the resolved path). A grep for `'dist/extension-host'` returns exactly one hit (the `HOST_BUNDLE_DIR` constant itself).
+- [ ] **§3.7 — Watch script includes Extension Host.** The `npm run dev` script includes `npm:dev:extension-host` so that file changes in `src/extension-host` trigger recompilation.
+- [ ] **§3.8 — Shared constants isolated.** `src/shared/extension-constants.ts` defines `HOST_BUNDLE_DIR` and `HOST_BUNDLE_FILENAME` without Electron imports. `vite.extension-host.config.ts` imports from this file, avoiding any build-time Electron import errors.
+- [ ] **§3.9 — Try/catch in extensions:activate-view.** Main's `extensions:activate-view` IPC handler catches errors and returns `{ activated: false, reason: message }` instead of propagating unhandled promise rejections.
+- [ ] **§3.10 — Extension Host deactivation hook.** The Host processes `host.shutdown` notifications (via `isNotification(msg)`) and calls the `deactivate()` hook of each active extension before exit.
+- [ ] **§3.11 — Command Palette scroll selection.** Selected items scroll into view when navigating via keyboard in the Command Palette.
 
 ---
 
