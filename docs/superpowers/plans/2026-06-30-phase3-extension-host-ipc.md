@@ -1,12 +1,26 @@
 ---
 title: Phase 3 - Extension Host & IPC Scaffolding
 date: 2026-06-30
-status: draft
+status: draft — review feedback integrated
+reviewed_by: docs/phase3-plan-review.md
+review_date: 2026-07-01
+fixes_applied:
+  - §2.1 Extension Host crash recovery (Task 8 + Test Unit 5)
+  - §2.2 Fire-and-forget start() replaced with .catch() (Task 10)
+  - §2.3 extensions:execute-command IPC handler stub added (Tasks 5 + 10)
+  - §3.1 json-rpc.ts moved to src/shared/ (File Structure + Tasks 3, 5, 8)
+  - §3.2 ManifestViewContribution/CommandContribution deduplicated (Task 12)
+  - §3.3 Command palette @input filter handler added (Task 13)
+  - §3.4 E2E selector coupling removed in favour of IPC observation (Task 16)
+  - §3.5 Test Unit 6 path uses app.getPath('userData') not %APPDATA%
+  - §3.6 HOST_BUNDLE_PATH constant extracted + startup logging (Task 8)
 ---
 
 # Phase 3 — Extension Host & IPC Scaffolding Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Complete this milestone and wait for review before starting Phase 4.
+>
+> **Review integration:** This draft incorporates 9 fixes from `docs/phase3-plan-review.md` (3 must-fix, 6 should-fix). Each fix is annotated inline with `[Review fix §N.M]` comments so the executor knows where the change came from. Self-Review Checklist §8 verifies all 9 fixes.
 >
 > **Scope reminder:** Phase 3 *only* delivers the Extension Host process, manifest parsing, contribution registration, and activation triggers. It does **not** deliver domain logic (no `finance.db.table()` reads, no extension UI rendering, no AI tools). Those land in Phase 4+ against the same APIs this phase stubs. The mock `salary-history` extension exists solely to prove the registration pipeline.
 
@@ -163,15 +177,17 @@ finance-flow-ai/
 |       `-- src/
 |           `-- main.ts                         # NEW: stub entry
 |-- src/
+|   |-- shared/                                 # NEW: shared between Main + Host + Vite configs *(per [Review fix §3.1] and §3.6)*
+|   |   |-- json-rpc.ts                         # MOVED from extension-host/ — envelope helpers (shared types)
+|   |   `-- extension-paths.ts                  # NEW: HOST_BUNDLE_DIR + resolveHostBundlePath() *(per [Review fix §3.6])*
 |   |-- main/
 |   |   |-- main.ts                             # Modified: spawn host, loader, registry
 |   |   `-- services/
 |   |       |-- extension-loader.ts             # NEW: discover, parse, validate
 |   |       |-- extension-registry.ts           # NEW: in-memory + DB sync
-|   |       `-- extension-ipc.ts                # NEW: utilityProcess + JSON-RPC
+|   |       `-- extension-ipc.ts                # NEW: utilityProcess + JSON-RPC + crash recovery
 |   |-- extension-host/                         # NEW: bundled separately
 |   |   |-- host.ts                             # NEW: process entry, RPC dispatch
-|   |   |-- json-rpc.ts                         # NEW: envelope helpers (shared types)
 |   |   |-- manifest-schema.ts                  # NEW: Zod schemas
 |   |   `-- api/
 |   |       |-- index.ts                        # NEW: aggregate finance.* export
@@ -432,13 +448,15 @@ git commit -m "feat: define manifest types and Zod validation schema"
 ## Task 3: Create JSON-RPC Envelope Helpers
 
 **Files:**
-- Create: `src/extension-host/json-rpc.ts`
+- Create: `src/shared/json-rpc.ts` *(moved from `src/extension-host/` per [Review fix §3.1] — the protocol is shared by both processes)*
 
 The JSON-RPC types are used by both the Main process (sender of requests) and the Extension Host (handler). Importing from a shared module is cleaner than duplicating the shape.
 
+> **[Review fix §3.1]** The original plan put `json-rpc.ts` under `src/extension-host/`. Main (`src/main/services/extension-ipc.ts`) imports from it, which makes the folder name misleading as the protocol surface grows (Phase 4+ will add command execution, event subscriptions, etc.). Move to `src/shared/json-rpc.ts` so both processes own the protocol equally.
+
 - [ ] **Step 1: Create the envelope helpers**
 
-`src/extension-host/json-rpc.ts`:
+`src/shared/json-rpc.ts`:
 
 ```typescript
 /**
@@ -514,7 +532,7 @@ export function isNotification(value: unknown): value is JsonRpcNotification {
 - [ ] **Step 2: Commit**
 
 ```bash
-git add src/extension-host/json-rpc.ts
+git add src/shared/json-rpc.ts
 git commit -m "feat: add JSON-RPC envelope types shared by Main and Host"
 ```
 
@@ -711,16 +729,17 @@ git commit -m "feat: add finance.* API stubs in the Extension Host"
 - Create: `src/extension-host/host.ts`
 - Create: `vite.extension-host.config.ts`
 
-- [ ] **Step 1: Create the Vite config for the Extension Host**
+- [ ] **Step 1: Create the Vite config for the Extension Host** *(incorporates [Review fix §3.6] — `outDir` derived from shared constant)*
 
 `vite.extension-host.config.ts`:
 
 ```typescript
 import { defineConfig } from 'vite';
+import { HOST_BUNDLE_DIR } from './src/shared/extension-paths';
 
 export default defineConfig({
   build: {
-    outDir: 'dist/extension-host',
+    outDir: HOST_BUNDLE_DIR,
     emptyOutDir: true,
     lib: {
       entry: 'src/extension-host/host.ts',
@@ -740,6 +759,8 @@ export default defineConfig({
   }
 });
 ```
+
+> **Why import the constant:** The Vite config and the IPC transport both need to agree on where the bundle lands. Importing `HOST_BUNDLE_DIR` from `src/shared/extension-paths.ts` (created in Task 8) gives a single source of truth — a build-layout change requires editing only one file. The IPC transport's `resolveHostBundlePath()` reads the same constant at runtime.
 
 - [ ] **Step 2: Create the Host process entry**
 
@@ -769,7 +790,7 @@ import {
   RpcErrorCode,
   type JsonRpcRequest,
   type JsonRpcResponse
-} from './json-rpc';
+} from '../shared/json-rpc';
 import type { FinanceExtensionManifest } from '../types/finance';
 
 declare const process: NodeJS.Process & {
@@ -850,6 +871,15 @@ async function handleRequest(req: JsonRpcRequest): Promise<void> {
       case 'commands.registered': {
         // Acknowledgement from Main after we've notified of a new command.
         respond(req.id, { acknowledged: true });
+        return;
+      }
+      case 'extension.executeCommand': {
+        // [Review fix §2.3] Phase 3 stub: forward to the commands registry
+        // so the IPC channel is observable end-to-end. Phase 5 will swap
+        // this for real execution semantics; the envelope stays the same.
+        const { commandId, args } = req.params as { commandId: string; args: unknown[] };
+        const result = await executeCommand(commandId, ...args);
+        respond(req.id, { executed: result !== null, result });
         return;
       }
       default:
@@ -1174,24 +1204,53 @@ git commit -m "feat: add Extension Registry service with DB-backed persistence"
 ## Task 8: Create the Extension IPC Transport
 
 **Files:**
+- Create: `src/shared/extension-paths.ts` *(shared between Main and Vite config — see [Review fix §3.6])*
 - Create: `src/main/services/extension-ipc.ts`
 
-The transport spawns the Host process, performs the JSON-RPC handshake, and exposes a typed RPC client for Main to call into the Host.
+The transport spawns the Host process, performs the JSON-RPC handshake, exposes a typed RPC client for Main to call into the Host, and — per [Review fix §2.1] — recovers from a crash by re-spawning on the next user-initiated request.
 
-- [ ] **Step 1: Create the IPC transport**
+- [ ] **Step 1a: Create the shared extension-paths module**
+
+`src/shared/extension-paths.ts`:
+
+```typescript
+import { join } from 'node:path';
+import { app } from 'electron';
+
+/**
+ * Single source of truth for where the Extension Host bundle lives.
+ * The Vite config (`vite.extension-host.config.ts`) imports `HOST_BUNDLE_DIR`
+ * to keep its `outDir` in sync; the IPC transport imports `resolveHostBundlePath()`
+ * to construct the absolute path at runtime.
+ *
+ * If the build layout ever changes, only this file needs editing — both
+ * sides pick up the new path automatically. The resolved path is logged on
+ * startup so a misconfigured build fails loudly.
+ */
+export const HOST_BUNDLE_DIR = 'dist/extension-host';
+export const HOST_BUNDLE_FILENAME = 'host.js';
+
+export function resolveHostBundlePath(): string {
+  const path = join(app.getAppPath(), HOST_BUNDLE_DIR, HOST_BUNDLE_FILENAME);
+  console.log(`[extension-host] bundle path resolved: ${path}`);
+  return path;
+}
+```
+
+- [ ] **Step 1b: Create the IPC transport with crash recovery** *(incorporates [Review fix §2.1] and §3.6)*
 
 `src/main/services/extension-ipc.ts`:
 
 ```typescript
-import { utilityProcess, MessageChannelMain, type UtilityProcess, app } from 'electron';
-import { join } from 'node:path';
+import { utilityProcess, type UtilityProcess } from 'electron';
 import {
   isRequest,
   makeRequestId,
   RpcErrorCode,
   type JsonRpcRequest,
   type JsonRpcResponse
-} from '../../extension-host/json-rpc';
+} from '../../shared/json-rpc';
+import { resolveHostBundlePath } from '../../shared/extension-paths';
 import type { FinanceExtensionManifest } from '../../types/finance';
 
 interface PendingRequest {
@@ -1200,8 +1259,20 @@ interface PendingRequest {
   timer: ReturnType<typeof setTimeout>;
 }
 
+/**
+ * Lifecycle events emitted by the IPC transport. Subscribers (typically Main)
+ * forward these to the Renderer as `extensions:host-status` notifications so a
+ * status-bar UI can show when extensions are unavailable.
+ */
+export type HostStatus =
+  | { status: 'starting' }
+  | { status: 'ready' }
+  | { status: 'crashed'; exitCode: number | null }
+  | { status: 'restarting' }
+  | { status: 'restart-failed'; error: string };
+
 export interface ExtensionIPCOptions {
-  /** Path to the bundled Host entry. Defaults to `dist/extension-host/host.js`. */
+  /** Path to the bundled Host entry. Defaults to `resolveHostBundlePath()`. */
   hostPath?: string;
   /** Request timeout in ms. Defaults to 10_000. */
   requestTimeoutMs?: number;
@@ -1211,53 +1282,120 @@ export class ExtensionIPC {
   private process: UtilityProcess | null = null;
   private readonly pending = new Map<number, PendingRequest>();
   private readonly listeners = new Set<(msg: unknown) => void>();
+  private readonly statusListeners = new Set<(status: HostStatus) => void>();
   private readonly requestTimeoutMs: number;
   private readonly hostPath: string;
+  private initialManifests: FinanceExtensionManifest[] = [];
+  private crashed = false;
+  private shuttingDown = false;
+  private restartPromise: Promise<void> | null = null;
 
   constructor(options: ExtensionIPCOptions = {}) {
     this.requestTimeoutMs = options.requestTimeoutMs ?? 10_000;
-    this.hostPath = options.hostPath ?? join(app.getAppPath(), 'dist', 'extension-host', 'host.js');
+    this.hostPath = options.hostPath ?? resolveHostBundlePath();
   }
 
+  /**
+   * Start the Extension Host and send it the initial manifest list.
+   * Safe to call on first start and to drive automatic re-spawn after a crash.
+   */
   async start(initialManifests: FinanceExtensionManifest[]): Promise<void> {
-    if (this.process) return;
+    if (this.process && !this.crashed) return;
+    if (this.restartPromise) return this.restartPromise;
 
-    this.process = utilityProcess.fork(this.hostPath, [], {
-      serviceName: 'finance-extension-host',
-      stdio: 'inherit'
+    this.initialManifests = initialManifests;
+    this.crashed = false;
+    this.emitStatus({ status: 'starting' });
+
+    const doStart = async (): Promise<void> => {
+      this.process = utilityProcess.fork(this.hostPath, [], {
+        serviceName: 'finance-extension-host',
+        stdio: 'inherit'
+      });
+
+      this.process.on('message', (msg: unknown) => this.handleMessage(msg));
+      this.process.on('exit', (code) => this.handleExit(code));
+
+      // Wait for the Host to announce readiness.
+      await new Promise<void>((resolveReady, rejectReady) => {
+        const timer = setTimeout(
+          () => rejectReady(new Error('Extension Host did not become ready in time')),
+          this.requestTimeoutMs
+        );
+        const onMessage = (msg: unknown): void => {
+          if (
+            typeof msg === 'object' &&
+            msg !== null &&
+            (msg as { method?: string }).method === 'host.ready'
+          ) {
+            clearTimeout(timer);
+            this.process?.off('message', onMessage);
+            resolveReady();
+          }
+        };
+        this.process!.on('message', onMessage);
+      });
+
+      // Send the manifests.
+      await this.request('host.initialize', { manifests: this.initialManifests });
+      this.emitStatus({ status: 'ready' });
+    };
+
+    this.restartPromise = doStart().finally(() => {
+      this.restartPromise = null;
     });
 
-    this.process.on('message', (msg: unknown) => this.handleMessage(msg));
-    this.process.on('exit', (code) => {
-      const err = new Error(`Extension Host exited unexpectedly (code ${code})`);
-      for (const pending of this.pending.values()) {
-        clearTimeout(pending.timer);
-        pending.reject(err);
-      }
-      this.pending.clear();
-      this.process = null;
-    });
+    try {
+      await this.restartPromise;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      this.emitStatus({ status: 'restart-failed', error: message });
+      throw err;
+    }
+  }
 
-    // Wait for the Host to announce readiness.
-    await new Promise<void>((resolveReady, rejectReady) => {
-      const timer = setTimeout(() => rejectReady(new Error('Extension Host did not become ready in time')), this.requestTimeoutMs);
-      const onMessage = (msg: unknown) => {
-        if (typeof msg === 'object' && msg !== null && (msg as { method?: string }).method === 'host.ready') {
-          clearTimeout(timer);
-          this.process?.off('message', onMessage);
-          resolveReady();
-        }
-      };
-      this.process!.on('message', onMessage);
-    });
+  /**
+   * `utilityProcess` 'exit' handler. Differentiates graceful shutdown
+   * (from `stop()`) from an unexpected crash, and on crash sets the
+   * `crashed` flag so the next `request()` triggers re-spawn.
+   */
+  private handleExit(code: number | null): void {
+    if (this.shuttingDown) {
+      // Expected shutdown — clear the flag and do not treat as a crash.
+      this.shuttingDown = false;
+      return;
+    }
+    const err = new Error(`Extension Host exited unexpectedly (code ${code})`);
+    for (const pending of this.pending.values()) {
+      clearTimeout(pending.timer);
+      pending.reject(err);
+    }
+    this.pending.clear();
+    this.process = null;
+    this.crashed = true;
+    this.emitStatus({ status: 'crashed', exitCode: code });
+  }
 
-    // Send the manifests.
-    await this.request('host.initialize', { manifests: initialManifests });
+  /**
+   * Ensure the Host is running before any RPC call. If it has crashed,
+   * transparently re-spawns with the same manifest list. If it has never
+   * been started, throws a clear error so the caller can distinguish
+   * "never started" from "crashed and retrying".
+   */
+  private async ensureRunning(): Promise<void> {
+    if (this.process && !this.crashed) return;
+    if (this.restartPromise) return this.restartPromise;
+    if (!this.crashed) {
+      throw new Error('ExtensionIPC not started. Call start() first.');
+    }
+    this.emitStatus({ status: 'restarting' });
+    await this.start(this.initialManifests);
   }
 
   async request<T = unknown>(method: string, params?: unknown): Promise<T> {
+    await this.ensureRunning();
     if (!this.process) {
-      throw new Error('ExtensionIPC not started. Call start() first.');
+      throw new Error('Extension Host unavailable after restart attempt.');
     }
     const id = makeRequestId();
     const message: JsonRpcRequest = { jsonrpc: '2.0', id, method, params };
@@ -1272,12 +1410,35 @@ export class ExtensionIPC {
   }
 
   notify(method: string, params?: unknown): void {
-    if (!this.process) return;
+    if (!this.process || this.crashed) return;
     this.process.postMessage({ jsonrpc: '2.0', method, params });
+  }
+
+  /**
+   * Subscribe to lifecycle status changes. Used by Main to forward
+   * `extensions:host-status` notifications to the Renderer for a status-bar UI.
+   * Returns an unsubscribe function.
+   */
+  onHostStatus(listener: (status: HostStatus) => void): () => void {
+    this.statusListeners.add(listener);
+    return () => {
+      this.statusListeners.delete(listener);
+    };
+  }
+
+  private emitStatus(status: HostStatus): void {
+    for (const listener of this.statusListeners) {
+      try {
+        listener(status);
+      } catch (err) {
+        console.error('[extension-ipc] status listener threw:', err);
+      }
+    }
   }
 
   async stop(): Promise<void> {
     if (!this.process) return;
+    this.shuttingDown = true;
     this.notify('host.shutdown');
     // Give the Host 1s to gracefully exit, then kill.
     await new Promise<void>((resolve) => {
@@ -1290,7 +1451,7 @@ export class ExtensionIPC {
   }
 
   isRunning(): boolean {
-    return this.process !== null;
+    return this.process !== null && !this.crashed;
   }
 
   private handleMessage(msg: unknown): void {
@@ -1318,6 +1479,8 @@ export class ExtensionIPC {
   }
 }
 ```
+
+> **Edge case — crash during `ensureRunning` re-spawn:** If the Host crashes again immediately after re-spawning (e.g., the bundled `host.js` is corrupted), `ensureRunning` awaits `start()`, which rejects and emits `restart-failed`. The renderer's call to `financeShell.extensions.activateView()` rejects with the same error, and the Renderer surfaces it in the status bar. This is the correct graceful-degradation behaviour: the shell stays alive and the user sees a clear failure message.
 
 - [ ] **Step 2: Commit**
 
@@ -1455,6 +1618,10 @@ Replace the body of `app.whenReady().then(...)` to include extension boot:
 app.whenReady().then(() => {
   try {
     const dbPath = resolveDatabasePath();
+    // [Review fix §3.5] Log the resolved database path so Test Unit 6 (and
+    // any future manual debugging) knows where the SQLite file lives without
+    // guessing platform-specific %APPDATA%/XDG_CONFIG_HOME paths.
+    console.log(`[main] database path: ${dbPath}`);
     initializeDatabase(dbPath);
     initializeSettings();
 
@@ -1469,7 +1636,22 @@ app.whenReady().then(() => {
     }
 
     extensionIPC = new ExtensionIPC();
-    void extensionIPC.start(extensionRegistry.list());
+    extensionIPC.start(extensionRegistry.list()).catch((err) => {
+      // [Review fix §2.2] Replace fire-and-forget `void` with an explicit
+      // .catch() so startup failures (missing bundle, sandbox restrictions,
+      // handshake timeout) are logged cleanly instead of becoming unhandled
+      // promise rejections. The renderer still boots; it just sees an empty
+      // contribution list until the host recovers (see §2.1 crash recovery).
+      console.error('[extensions] Extension Host failed to start:', err);
+    });
+
+    // Forward host lifecycle events to the renderer so the status bar can
+    // surface crash / restart / unavailable state. See Test Unit 5.
+    extensionIPC.onHostStatus((status) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('extensions:host-status', status);
+      }
+    });
 
     registerIpcHandlers();
     void createWindow();
@@ -1530,6 +1712,26 @@ ipcMain.handle('extensions:activate-view', async (_event, viewId: string) => {
   }
   return result;
 });
+
+// [Review fix §2.3] Phase 3 stub: prove the IPC channel exists end-to-end by
+// forwarding extension command execution to the Host. The Host handler is a
+// thin wrapper around the existing `finance.commands.execute` stub. Phase 5
+// will swap the stub for real execution; the Main-side handler is unchanged.
+ipcMain.handle(
+  'extensions:execute-command',
+  async (_event, commandId: string, ...args: unknown[]) => {
+    if (!extensionIPC) return { executed: false, reason: 'host not running' };
+    try {
+      const result = await extensionIPC.request<{ executed: boolean; result: unknown }>(
+        'extension.executeCommand',
+        { commandId, args }
+      );
+      return result;
+    } catch (err) {
+      return { executed: false, reason: err instanceof Error ? err.message : String(err) };
+    }
+  }
+);
 ```
 
 - [ ] **Step 3: Commit**
@@ -1586,26 +1788,20 @@ git commit -m "feat: add extensions API to preload bridge"
 **Files:**
 - Modify: `src/types/finance-shell.d.ts`
 
-- [ ] **Step 1: Add the Extensions API types**
+- [ ] **Step 1: Add the Extensions API types** *(incorporates [Review fix §3.2] — import the manifest types from `finance.d.ts` rather than redeclaring)*
 
 `src/types/finance-shell.d.ts`:
 
 ```typescript
+// [Review fix §3.2] Import the canonical manifest contribution shapes from
+// `finance.d.ts` instead of redeclaring them here. A shape change in the
+// canonical type now propagates automatically; the previous redeclaration
+// was a latent drift bug if the types ever diverged.
+import type { ManifestViewContribution, ManifestCommandContribution } from './finance';
+
 export interface SettingsApi {
   get: (key: string) => Promise<unknown>;
   set: (key: string, value: unknown) => Promise<void>;
-}
-
-export interface ManifestViewContribution {
-  id: string;
-  name: string;
-  icon: string;
-}
-
-export interface ManifestCommandContribution {
-  id: string;
-  title: string;
-  keybinding?: string;
 }
 
 export interface ExtensionsApi {
@@ -1760,7 +1956,7 @@ export class ActivityBar extends LitElement {
 }
 ```
 
-- [ ] **Step 2: Update `command-palette.ts` to accept extension commands**
+- [ ] **Step 2: Update `command-palette.ts` to accept extension commands** *(incorporates [Review fix §3.3] — add `@input` filter so typing actually filters the list)*
 
 `src/renderer/components/command-palette.ts`:
 
@@ -1830,16 +2026,43 @@ export class CommandPalette extends LitElement {
       text-transform: uppercase;
       letter-spacing: 0.05em;
     }
+
+    .empty-hint {
+      padding: 12px;
+      color: #94a3b8;
+      font-size: 12px;
+      text-align: center;
+    }
   `;
 
   @state()
   private _selectedIndex = 0;
 
+  // [Review fix §3.3] Holds the live filter query. Updated via the input's
+  // `@input` handler; resets to '' when the palette is re-opened.
+  @state()
+  private _query = '';
+
   @property({ type: Array })
   extensionCommands: PaletteCommand[] = [];
 
+  /** Case-insensitive substring filter applied to both groups. */
+  private _matches(cmd: PaletteCommand): boolean {
+    if (this._query === '') return true;
+    return cmd.label.toLowerCase().includes(this._query.toLowerCase());
+  }
+
+  private get _builtInFiltered(): PaletteCommand[] {
+    return BUILT_IN_COMMANDS.filter((c) => this._matches(c));
+  }
+
+  private get _extensionFiltered(): PaletteCommand[] {
+    return this.extensionCommands.filter((c) => this._matches(c));
+  }
+
+  /** Flat list for keyboard navigation. Indices line up with rendered rows. */
   private get _items(): PaletteCommand[] {
-    return [...BUILT_IN_COMMANDS, ...this.extensionCommands];
+    return [...this._builtInFiltered, ...this._extensionFiltered];
   }
 
   firstUpdated() {
@@ -1852,19 +2075,28 @@ export class CommandPalette extends LitElement {
       input.focus();
       input.value = '';
     }
+    this._query = '';
+    this._selectedIndex = 0;
+  }
+
+  private _handleInput(event: Event) {
+    const input = event.target as HTMLInputElement;
+    this._query = input.value;
     this._selectedIndex = 0;
   }
 
   private _handleKeyDown(event: KeyboardEvent) {
+    const items = this._items;
+    if (items.length === 0) return;
     if (event.key === 'ArrowDown') {
       event.preventDefault();
-      this._selectedIndex = (this._selectedIndex + 1) % this._items.length;
+      this._selectedIndex = (this._selectedIndex + 1) % items.length;
     } else if (event.key === 'ArrowUp') {
       event.preventDefault();
-      this._selectedIndex = (this._selectedIndex - 1 + this._items.length) % this._items.length;
+      this._selectedIndex = (this._selectedIndex - 1 + items.length) % items.length;
     } else if (event.key === 'Enter') {
       event.preventDefault();
-      this._selectItem(this._items[this._selectedIndex]);
+      this._selectItem(items[this._selectedIndex]);
     }
   }
 
@@ -1877,13 +2109,21 @@ export class CommandPalette extends LitElement {
   }
 
   render() {
-    const items = this._items;
-    const builtInEnd = BUILT_IN_COMMANDS.length;
+    const builtIn = this._builtInFiltered;
+    const extension = this._extensionFiltered;
+    const builtInEnd = builtIn.length;
+    const hasResults = builtIn.length + extension.length > 0;
+
     return html`
-      <input aria-label="Command palette input" placeholder="Type a command..." />
+      <input
+        aria-label="Command palette input"
+        placeholder="Type a command..."
+        @input=${this._handleInput}
+      />
       <div class="palette-list" role="listbox">
-        <div class="group-label">Built-in</div>
-        ${BUILT_IN_COMMANDS.map((item, index) => html`
+        ${hasResults ? '' : html`<div class="empty-hint">No matching commands</div>`}
+        ${builtIn.length > 0 ? html`<div class="group-label">Built-in</div>` : ''}
+        ${builtIn.map((item, index) => html`
           <div
             class="palette-item ${index === this._selectedIndex ? 'selected' : ''}"
             role="option"
@@ -1892,21 +2132,19 @@ export class CommandPalette extends LitElement {
             @mouseenter="${() => this._selectedIndex = index}"
           >${item.label}</div>
         `)}
-        ${this.extensionCommands.length > 0 ? html`
-          <div class="group-label">Extensions</div>
-          ${this.extensionCommands.map((item, i) => {
-            const index = builtInEnd + i;
-            return html`
-              <div
-                class="palette-item ${index === this._selectedIndex ? 'selected' : ''}"
-                role="option"
-                aria-selected="${index === this._selectedIndex}"
-                @click="${() => this._selectItem(item)}"
-                @mouseenter="${() => this._selectedIndex = index}"
-              >${item.label}</div>
-            `;
-          })}
-        ` : ''}
+        ${extension.length > 0 ? html`<div class="group-label">Extensions</div>` : ''}
+        ${extension.map((item, i) => {
+          const index = builtInEnd + i;
+          return html`
+            <div
+              class="palette-item ${index === this._selectedIndex ? 'selected' : ''}"
+              role="option"
+              aria-selected="${index === this._selectedIndex}"
+              @click="${() => this._selectItem(item)}"
+              @mouseenter="${() => this._selectedIndex = index}"
+            >${item.label}</div>
+          `;
+        })}
       </div>
     `;
   }
@@ -2225,7 +2463,7 @@ describe('validateManifest', () => {
 
 ```typescript
 import { describe, it, expect } from 'vitest';
-import { isRequest, isNotification, makeRequestId } from '../../../src/extension-host/json-rpc';
+import { isRequest, isNotification, makeRequestId } from '../../../src/shared/json-rpc';
 
 describe('JSON-RPC envelopes', () => {
   it('isRequest accepts a valid request', () => {
@@ -2459,12 +2697,18 @@ test.describe('Phase 3 Extension Host', () => {
     await page.keyboard.press('Escape');
   });
 
-  test('Clicking the salary-history view button activates the extension in the host', async () => {
-    const viewBtn = page.locator('activity-bar button[data-view-id="salary-history"]');
-    await viewBtn.click();
-    // The activation flows through Main → ExtensionIPC → Host, then updates the registry.
-    // We verify the navigation panel updated to reflect the selected view.
-    await expect(page.locator('#navigation-panel .nav-title').first()).toHaveText('Salary');
+  test('View activation via IPC returns activated=true after the host runs', async () => {
+    // [Review fix §3.4] Drives the activation through the IPC contract rather
+    // than coupling to Phase 1's `#navigation-panel .nav-title` DOM structure.
+    // The original assertion was undocumented Phase 1 HTML; if the NavigationPanel
+    // ever changes its class names or header structure, the test would fail for
+    // an unrelated reason. The IPC contract (`activateView()` returns
+    // `{ activated: boolean }`) is the stable public surface this test pins.
+    const result = await page.evaluate(async () => {
+      return await window.financeShell.extensions.activateView('salary-history');
+    });
+
+    expect(result).toMatchObject({ activated: true });
   });
 
   test('Host process crash is non-fatal (placeholder, see manual test for full coverage)', async () => {
@@ -2577,17 +2821,20 @@ Wait for the Electron window to appear. Confirm no console errors (DevTools: `Ct
 
 ---
 
-### Test Unit 5: Extension Host Crash Isolation
+### Test Unit 5: Extension Host Crash Isolation & Recovery
 
 | Field | Detail |
 |-------|--------|
-| **How to test** | Force-kill the Extension Host process and observe the shell stays alive |
-| **Steps** | 1. Open Task Manager (or `ps`/Activity Monitor) |
-| | 2. Find the `electron.exe` / `Electron Helper` process that is the utility process |
-| | 3. Kill it |
-| | 4. Observe the shell window remains visible, the Activity Bar still shows the buttons (contributions cached in registry) |
-| | 5. Clicking the Salary button logs an error but does not crash the shell |
-| **Expected result** | The Electron shell stays alive when the Extension Host dies. This is the vision's "Crash Isolation" guarantee. |
+| **How to test** | Force-kill the Extension Host process; observe the shell stays alive *and* recovers on next interaction *(incorporates [Review fix §2.1])* |
+| **Steps** | 1. Open DevTools console (Ctrl+Shift+I) |
+| | 2. Open Task Manager (or `ps`/Activity Monitor) |
+| | 3. Find the `electron.exe` / `Electron Helper` process that is the utility process |
+| | 4. Kill it |
+| | 5. Observe the shell window remains visible, the Activity Bar still shows the buttons (contributions cached in registry) |
+| | 6. **DevTools console shows `[extension-ipc] Extension Host exited unexpectedly (code …)` followed by a status-bar notification** that extensions are unavailable (wired via `extensions:host-status` IPC channel) |
+| | 7. Click the Salary button. Observe the status bar briefly shows "Restarting…", then returns to ready. The click succeeds — the Navigation Panel updates to Salary, the DevTools console shows a fresh `[host] Extension Host process started (pid <N>)` log line with a **different PID than the original**. |
+| | 8. The shell is fully functional again. |
+| **Expected result** | (a) The Electron shell stays alive when the Extension Host dies — vision's "Crash Isolation" guarantee. (b) The next user-initiated extension interaction transparently re-spawns the Host with the same manifest list — completion of the lifecycle. (c) Status-bar notifications (forwarded via `extensions:host-status`) make the crash and recovery visible to the user. |
 
 | Pass/Fail | Notes |
 |-----------|-------|
@@ -2599,9 +2846,10 @@ Wait for the Electron window to appear. Confirm no console errors (DevTools: `Ct
 | Field | Detail |
 |-------|--------|
 | **How to test** | Mark the extension as disabled in the `extension_registry` table and relaunch |
-| **Steps** | 1. Open a SQLite browser against `%APPDATA%/Finance Flow AI/finance.db` |
-| | 2. Run `UPDATE extension_registry SET enabled = 0 WHERE id = 'salary-history';` |
-| | 3. Restart the app |
+| **Steps** | 1. Launch the app once. DevTools console shows `[main] database path: <absolute path>` *(per [Review fix §3.5] — the resolved `app.getPath('userData')` + `finance.db` is logged on startup so the tester doesn't need to guess platform-specific paths)* |
+| | 2. Open a SQLite browser against that logged path |
+| | 3. Run `UPDATE extension_registry SET enabled = 0 WHERE id = 'salary-history';` |
+| | 4. Restart the app |
 | **Expected result** | The Activity Bar shows no `P` button. The Command Palette shows no salary-history commands. The built-in Settings button remains. |
 
 | Pass/Fail | Notes |
@@ -2661,7 +2909,7 @@ Append to `CHANGELOG.md`:
 ### Added
 - Phase 3: Extension Host & IPC Scaffolding implementation (`docs/superpowers/plans/2026-06-30-phase3-extension-host-ipc.md`).
   - Electron `utilityProcess.fork()` Extension Host process spawned from Main on app startup; isolated, crash-resistant Node.js child process.
-  - JSON-RPC 2.0 envelopes over the Host's MessagePort; request/response correlation, notifications, and standard error codes (`src/extension-host/json-rpc.ts`).
+  - JSON-RPC 2.0 envelopes over the Host's MessagePort; request/response correlation, notifications, and standard error codes (`src/shared/json-rpc.ts` — moved from `src/extension-host/` per [Review fix §3.1] so the protocol is owned equally by Main and Host).
   - Manifest types in `src/types/finance.d.ts` (replaces Phase 1 placeholder): `FinanceExtensionManifest`, `ActivationEvent`, `ManifestViewContribution`, `ManifestCommandContribution`, `ManifestMenuContribution`, `ManifestConfigurationContribution`, `PackageJsonFinanceExtension`.
   - Zod validation schema for manifests (`src/extension-host/manifest-schema.ts`): strict-mode rejects unknown keys, validates semver versions, enum types, and activation-event regexes.
   - Extension Loader service (`src/main/services/extension-loader.ts`): scans `<appRoot>/extensions/` for subdirectories with `package.json` containing a `financeExtension` field; validates each manifest; cross-checks `package.json#name` matches `financeExtension.id`; skips `node_modules/` and `dist/`; skips malformed manifests with a console warning.
@@ -2747,6 +2995,20 @@ These items are acknowledged as part of the vision but are deliberately deferred
 - [ ] **Menu bar contribution rendering** — `ManifestMenuContribution` type is defined and validated, but Electron `Menu`/`MenuItem` rendering of contributed menu items is deferred to **Phase 5 (Webviews & Multi-Extension UI)**. The mock `salary-history` extension does not contribute menus, and Electron's `Menu.setApplicationMenu` integration is non-trivial enough to defer alongside the other UI contribution rendering.
 - [ ] **`import * as finance from 'finance'` canonical import pattern** — Phase 3 establishes the parameter-injection loading mechanism (Decision 9). The vision's literal `import * as finance from 'finance'` pseudocode becomes the Phase 4+ migration target when a real multi-file extension is built. The `FinanceApi` type contract in `finance.d.ts` is unchanged across the transition.
 - [ ] **Global event bus (cross-process)** — The vision lists "Event System: Global event bus" as a Core Platform responsibility. Phase 3 does not implement it; the renderer uses DOM `window.dispatchEvent` for view-changed and command-selected events within its own process. A cross-process event bus becomes relevant only when multiple extensions emit events to each other, which lands alongside the NavigationProvider pattern in **Phase 5**.
+
+**8. Review fixes applied** *(per `docs/phase3-plan-review.md`, 2026-07-01)*:
+
+These checklist items verify the 9 fixes from the plan review. Each maps to a `[Review fix §N.M]` annotation in the relevant task. The executor must tick each box before declaring Phase 3 complete.
+
+- [ ] **§2.1 — Crash recovery exists and is exercised by Test Unit 5.** `src/main/services/extension-ipc.ts` exposes `onHostStatus()`, has a `crashed` flag, a `restartPromise` guard, and `ensureRunning()` that re-spawns on next `request()`. Manual Test Unit 5 verifies both survival and re-spawn (new PID in DevTools after kill).
+- [ ] **§2.2 — `start()` is not fire-and-forget.** `src/main/main.ts` calls `extensionIPC.start(extensionRegistry.list()).catch((err) => console.error(...))` — no `void` prefix. A grep for `void extensionIPC.start` returns no results.
+- [ ] **§2.3 — `extensions:execute-command` IPC handler exists.** `src/main/main.ts` registers the handler; `src/extension-host/host.ts` switch has `case 'extension.executeCommand'` delegating to `executeCommand()` from `api/commands`. Manual verification: clicking an extension command in the palette produces `[host] invoked executeCommand('salary.showPayHistory')` in DevTools.
+- [ ] **§3.1 — `json-rpc.ts` lives at `src/shared/json-rpc.ts`.** Main (`extension-ipc.ts`), Host (`host.ts`), Vite config (none currently — extension-paths.ts only), and the unit test (`tests/unit/extension-host/json-rpc.test.ts`) all import from `src/shared/json-rpc`. No references to `src/extension-host/json-rpc.ts` exist.
+- [ ] **§3.2 — `finance-shell.d.ts` does not redeclare `ManifestViewContribution` or `ManifestCommandContribution`.** The file imports them from `./finance`. A grep for `^export interface Manifest(View|Command)Contribution` in `finance-shell.d.ts` returns no results.
+- [ ] **§3.3 — Command palette filter is wired.** Typing in the palette input narrows the list to commands whose `label` contains the query (case-insensitive). Empty result shows "No matching commands". ArrowUp/Down navigation is bounded by the filtered list length.
+- [ ] **§3.4 — E2E test exercises the IPC contract, not Phase 1 DOM.** `tests/e2e/extension-host.spec.ts` has the test "View activation via IPC returns activated=true after the host runs" which uses `page.evaluate(() => window.financeShell.extensions.activateView(...))`. No `#navigation-panel .nav-title` selector remains in the file.
+- [ ] **§3.5 — Database path is logged on startup.** Launching the app prints `[main] database path: <absolute path>` to DevTools console. Test Unit 6 references this log instead of a hard-coded `%APPDATA%` path.
+- [ ] **§3.6 — `HOST_BUNDLE_DIR` is a shared constant.** `src/shared/extension-paths.ts` exports `HOST_BUNDLE_DIR` and `resolveHostBundlePath()`. `vite.extension-host.config.ts` imports `HOST_BUNDLE_DIR` for its `outDir`. `extension-ipc.ts` calls `resolveHostBundlePath()` (which logs the resolved path). A grep for `'dist/extension-host'` returns exactly one hit (the `HOST_BUNDLE_DIR` constant itself).
 
 ---
 

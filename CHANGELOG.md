@@ -1,7 +1,7 @@
 ---
 version: 0.5.0
 created: 2026-06-14
-last_updated: 2026-06-30T18:00:00+10:00
+last_updated: 2026-07-01T10:00:00+10:00
 ---
 
 # Changelog
@@ -14,8 +14,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Phase 3 plan review** (`docs/phase3-plan-review.md`, ~16 KB) — read-only review of `docs/superpowers/plans/2026-06-30-phase3-extension-host-ipc.md`. Findings: 3 must-fix, 6 should-fix, 6 consider (optional polish). All must-fix and should-fix items applied to the plan (see Changed below).
 
 ### Changed
+- **Phase 3 plan review integration** (`docs/superpowers/plans/2026-06-30-phase3-extension-host-ipc.md`, frontmatter `status: draft → draft — review feedback integrated`). 9 fixes from `docs/phase3-plan-review.md` annotated inline with `[Review fix §N.M]` tags for traceability. No version bump — plan was already at 0.5.0 and the deliverable scope is unchanged.
+  - **Must-fix §2.1** (Task 8, Test Unit 5): Extension Host crash recovery — added `onHostStatus()` lifecycle events, `crashed` flag, `restartPromise` guard, and `ensureRunning()` re-spawn on next `request()`. Test Unit 5 expanded to verify both shell survival AND transparent re-spawn (new PID after kill). `extensions:host-status` notifications forwarded to renderer for status-bar UI.
+  - **Must-fix §2.2** (Task 10): Replaced `void extensionIPC.start(extensionRegistry.list())` with `.catch((err) => console.error(...))` so startup failures log cleanly instead of becoming unhandled promise rejections.
+  - **Must-fix §2.3** (Tasks 5, 10): Added `extensions:execute-command` IPC handler in Main + `extension.executeCommand` switch case in Host (delegating to existing `commands.execute` stub). Proves the IPC channel exists end-to-end; Phase 5 swaps stub for real execution.
+  - **Should-fix §3.1** (Tasks 3, 5, 8, 15; File Structure): Moved `src/extension-host/json-rpc.ts` → `src/shared/json-rpc.ts`. Main, Host, and the unit test now import from the shared location. File Structure diagram updated.
+  - **Should-fix §3.2** (Task 12): `src/types/finance-shell.d.ts` now imports `ManifestViewContribution` and `ManifestCommandContribution` from `./finance` instead of redeclaring them. Eliminates latent drift risk if canonical shapes evolve.
+  - **Should-fix §3.3** (Task 13): Command Palette gets an `@input` filter handler — typing narrows the list to commands whose `label` contains the query (case-insensitive). Empty result shows "No matching commands". Keyboard navigation is bounded by filtered list length.
+  - **Should-fix §3.4** (Task 16): E2E test "Clicking the salary-history view button activates the extension" replaced with "View activation via IPC returns activated=true after the host runs". Uses `page.evaluate(() => window.financeShell.extensions.activateView(...))` instead of coupling to Phase 1's undocumented `#navigation-panel .nav-title` DOM.
+  - **Should-fix §3.5** (Task 10, Test Unit 6): Added `console.log(`[main] database path: ${dbPath}`)` to Main boot block. Test Unit 6 now references this logged path instead of a hard-coded `%APPDATA%/Finance Flow AI/finance.db` (which was Windows-only and undocumented).
+  - **Should-fix §3.6** (Task 8, File Structure, Task 5): New `src/shared/extension-paths.ts` exports `HOST_BUNDLE_DIR`, `HOST_BUNDLE_FILENAME`, and `resolveHostBundlePath()` (with startup logging). `vite.extension-host.config.ts` imports `HOST_BUNDLE_DIR` for its `outDir`; `extension-ipc.ts` calls `resolveHostBundlePath()`. Single source of truth for the build layout.
+  - **Self-Review Checklist §8** (added): 9 verification items, one per fix, with concrete checks (grep patterns, file existence, manual test steps). Executor must tick all before declaring Phase 3 complete.
 - **AGENTS.md rule refinement** (`AGENTS.md`): removed GitNexus documentation section (was lines 36–91 pre-edit); strengthened **Rule #5 (CHANGELOG procedure)** with numbered steps, version-bump guidance per SemVer, mandatory self-verification, and explicit scope of "notable work"; strengthened **Rule #6 (session-start docs)** with numbered procedure, recursive `*.md` discovery under `docs/` and `docs/decisions/`, and mandatory self-verification. Rule #6b updated to remove the now-orphaned `impact()` reference.
 
 ## [0.5.0] - 2026-06-30
