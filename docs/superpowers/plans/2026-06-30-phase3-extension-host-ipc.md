@@ -5,6 +5,7 @@ status: draft — review feedback integrated
 reviewed_by: docs/phase3-plan-review.md
 review_date: 2026-07-01
 fixes_applied:
+  # From docs/phase3-plan-review.md (the 9 review findings)
   - §2.1 Extension Host crash recovery (Task 8 + Test Unit 5)
   - §2.2 Fire-and-forget start() replaced with .catch() (Task 10)
   - §2.3 extensions:execute-command IPC handler stub added (Tasks 5 + 10)
@@ -14,11 +15,14 @@ fixes_applied:
   - §3.4 E2E selector coupling removed in favour of IPC observation (Task 16)
   - §3.5 Test Unit 6 path uses app.getPath('userData') not %APPDATA%
   - §3.6 HOST_BUNDLE_PATH constant extracted + startup logging (Task 8)
-  - §3.7 Dev script concurrency watch (Task 1)
-  - §3.8 Split extension-constants and extension-paths to avoid Electron import in Vite config (File Structure + Tasks 5, 8)
-  - §3.9 Try/catch in extensions:activate-view IPC handler (Task 10)
-  - §3.10 Extension Host deactivation hook cleanup (Task 5)
-  - §3.11 Command Palette scroll-into-view selected item (Task 13)
+  # Follow-ups added AFTER the review document (not in docs/phase3-plan-review.md).
+  # Renamed to [Follow-up §N.M] so a future agent greping the review doc for §3.7
+  # will not find a phantom reference. Provenance: commit 1416e16 + manual additions.
+  - Follow-up §3.7 Dev script concurrency watch (Task 1)
+  - Follow-up §3.8 Split extension-constants and extension-paths to avoid Electron import in Vite config (File Structure + Tasks 5, 8)
+  - Follow-up §3.9 Try/catch in extensions:activate-view IPC handler (Task 10)
+  - Follow-up §3.10 Extension Host deactivation hook cleanup (Task 5)
+  - Follow-up §3.11 Command Palette scroll-into-view selected item (Task 13)
 ---
 
 # Phase 3 — Extension Host & IPC Scaffolding Implementation Plan
@@ -184,7 +188,7 @@ finance-flow-ai/
 |-- src/
 |   |-- shared/                                 # NEW: shared between Main + Host + Vite configs *(per [Review fix §3.1] and §3.6)*
 |   |   |-- json-rpc.ts                         # MOVED from extension-host/ — envelope helpers (shared types)
-|   |   |-- extension-constants.ts              # NEW: HOST_BUNDLE_DIR + HOST_BUNDLE_FILENAME (constants only) *(per [Review fix §3.8])*
+|   |   |-- extension-constants.ts              # NEW: HOST_BUNDLE_DIR + HOST_BUNDLE_FILENAME (constants only) *(per [Follow-up §3.8])*
 |   |   `-- extension-paths.ts                  # NEW: HOST_BUNDLE_DIR + resolveHostBundlePath() *(per [Review fix §3.6])*
 |   |-- main/
 |   |   |-- main.ts                             # Modified: spawn host, loader, registry
@@ -236,7 +240,7 @@ finance-flow-ai/
 npm install zod
 ```
 
-- [ ] **Step 2: Add build scripts for the Extension Host** *(incorporates [Review fix §3.7] — dev script concurrency)*
+- [ ] **Step 2: Add build scripts for the Extension Host** *(incorporates [Follow-up §3.7] — dev script concurrency)*
 
 ```bash
 npm pkg set scripts.build:extension-host="vite build --config vite.extension-host.config.ts"
@@ -736,7 +740,7 @@ git commit -m "feat: add finance.* API stubs in the Extension Host"
 - Create: `src/extension-host/host.ts`
 - Create: `vite.extension-host.config.ts`
 
-- [ ] **Step 1: Create the Vite config for the Extension Host** *(incorporates [Review fix §3.6] and [Review fix §3.8] — shared constants isolated)*
+- [ ] **Step 1: Create the Vite config for the Extension Host** *(incorporates [Review fix §3.6] and [Follow-up §3.8] — shared constants isolated)*
 
 `vite.extension-host.config.ts`:
 
@@ -955,7 +959,7 @@ async function activateExtension(extensionId: string, reason: string): Promise<b
   }
 }
 
-// [Review fix §3.10] Extension Host deactivation hook cleanup
+// [Follow-up §3.10] Extension Host deactivation hook cleanup
 async function handleNotification(notification: JsonRpcNotification): Promise<void> {
   if (notification.method === 'host.shutdown') {
     console.log('[host] shutdown request received, deactivating extensions...');
@@ -1243,7 +1247,7 @@ git commit -m "feat: add Extension Registry service with DB-backed persistence"
 ## Task 8: Create the Extension IPC Transport
 
 **Files:**
-- Create: `src/shared/extension-constants.ts` *(shared build-time constants — see [Review fix §3.8])*
+- Create: `src/shared/extension-constants.ts` *(shared build-time constants — see [Follow-up §3.8])*
 - Create: `src/shared/extension-paths.ts` *(runtime paths relying on Electron APIs)*
 - Create: `src/main/services/extension-ipc.ts`
 
@@ -1757,7 +1761,7 @@ ipcMain.handle('extensions:list', () => {
   };
 });
 
-// [Review fix §3.9] Main-side activate-view try/catch error handling
+// [Follow-up §3.9] Main-side activate-view try/catch error handling
 ipcMain.handle('extensions:activate-view', async (_event, viewId: string) => {
   if (!extensionIPC || !extensionRegistry) return { activated: false, reason: 'host not running' };
   try {
@@ -2167,7 +2171,7 @@ export class CommandPalette extends LitElement {
     }
   }
 
-  // [Review fix §3.11] Command Palette selection scroll into view
+  // [Follow-up §3.11] Command Palette selection scroll into view
   private _scrollSelectedIntoView() {
     this.updateComplete.then(() => {
       const selected = this.shadowRoot?.querySelector('.palette-item.selected');
@@ -3084,11 +3088,11 @@ These checklist items verify the 9 fixes from the plan review. Each maps to a `[
 - [ ] **§3.4 — E2E test exercises the IPC contract, not Phase 1 DOM.** `tests/e2e/extension-host.spec.ts` has the test "View activation via IPC returns activated=true after the host runs" which uses `page.evaluate(() => window.financeShell.extensions.activateView(...))`. No `#navigation-panel .nav-title` selector remains in the file.
 - [ ] **§3.5 — Database path is logged on startup.** Launching the app prints `[main] database path: <absolute path>` to DevTools console. Test Unit 6 references this log instead of a hard-coded `%APPDATA%` path.
 - [ ] **§3.6 — `HOST_BUNDLE_DIR` is a shared constant.** `src/shared/extension-paths.ts` exports `HOST_BUNDLE_DIR` and `resolveHostBundlePath()`. `vite.extension-host.config.ts` imports `HOST_BUNDLE_DIR` for its `outDir`. `extension-ipc.ts` calls `resolveHostBundlePath()` (which logs the resolved path). A grep for `'dist/extension-host'` returns exactly one hit (the `HOST_BUNDLE_DIR` constant itself).
-- [ ] **§3.7 — Watch script includes Extension Host.** The `npm run dev` script includes `npm:dev:extension-host` so that file changes in `src/extension-host` trigger recompilation.
-- [ ] **§3.8 — Shared constants isolated.** `src/shared/extension-constants.ts` defines `HOST_BUNDLE_DIR` and `HOST_BUNDLE_FILENAME` without Electron imports. `vite.extension-host.config.ts` imports from this file, avoiding any build-time Electron import errors.
-- [ ] **§3.9 — Try/catch in extensions:activate-view.** Main's `extensions:activate-view` IPC handler catches errors and returns `{ activated: false, reason: message }` instead of propagating unhandled promise rejections.
-- [ ] **§3.10 — Extension Host deactivation hook.** The Host processes `host.shutdown` notifications (via `isNotification(msg)`) and calls the `deactivate()` hook of each active extension before exit.
-- [ ] **§3.11 — Command Palette scroll selection.** Selected items scroll into view when navigating via keyboard in the Command Palette.
+- [ ] **Follow-up §3.7 — Watch script includes Extension Host.** The `npm run dev` script includes `npm:dev:extension-host` so that file changes in `src/extension-host` trigger recompilation. *(Note: this verification item was added in a follow-up to the original review; it is NOT in `docs/phase3-plan-review.md`. The missing dev-deps install step is tracked separately.)*
+- [ ] **Follow-up §3.8 — Shared constants isolated.** `src/shared/extension-constants.ts` defines `HOST_BUNDLE_DIR` and `HOST_BUNDLE_FILENAME` without Electron imports. `vite.extension-host.config.ts` imports from this file, avoiding any build-time Electron import errors.
+- [ ] **Follow-up §3.9 — Try/catch in extensions:activate-view.** Main's `extensions:activate-view` IPC handler catches errors and returns `{ activated: false, reason: message }` instead of propagating unhandled promise rejections.
+- [ ] **Follow-up §3.10 — Extension Host deactivation hook.** The Host processes `host.shutdown` notifications (via `isNotification(msg)`) and calls the `deactivate()` hook of each active extension before exit.
+- [ ] **Follow-up §3.11 — Command Palette scroll selection.** Selected items scroll into view when navigating via keyboard in the Command Palette.
 
 ---
 
