@@ -3077,22 +3077,29 @@ These items are acknowledged as part of the vision but are deliberately deferred
 
 **8. Review fixes applied** *(per `docs/phase3-plan-review.md`, 2026-07-01)*:
 
-These checklist items verify the 9 fixes from the plan review. Each maps to a `[Review fix §N.M]` annotation in the relevant task. The executor must tick each box before declaring Phase 3 complete.
+These checklist items verify the **9 fixes from the plan review**. Each maps to a `[Review fix §N.M]` annotation in the relevant task. The executor must tick each box before declaring Phase 3 complete.
 
 - [ ] **§2.1 — Crash recovery exists and is exercised by Test Unit 5.** `src/main/services/extension-ipc.ts` exposes `onHostStatus()`, has a `crashed` flag, a `restartPromise` guard, and `ensureRunning()` that re-spawns on next `request()`. Manual Test Unit 5 verifies both survival and re-spawn (new PID in DevTools after kill).
 - [ ] **§2.2 — `start()` is not fire-and-forget.** `src/main/main.ts` calls `extensionIPC.start(extensionRegistry.list()).catch((err) => console.error(...))` — no `void` prefix. A grep for `void extensionIPC.start` returns no results.
-- [ ] **§2.3 — `extensions:execute-command` IPC handler exists.** `src/main/main.ts` registers the handler; `src/extension-host/host.ts` switch has `case 'extension.executeCommand'` delegating to `executeCommand()` from `api/commands`. Manual verification: clicking an extension command in the palette produces `[host] invoked executeCommand('salary.showPayHistory')` in DevTools.
+- [ ] **§2.3 — `extensions:execute-command` IPC handler exists.** `src/main/main.ts` registers the handler; `src/extension-host/host.ts` switch has `case 'extension.executeCommand'` delegating to `finance.commands.execute(...)` (the canonical API surface, not the lower-level `executeCommand` import — per post-review observation #2). Manual verification: clicking an extension command in the palette produces `[host] invoked executeCommand('salary.showPayHistory')` in DevTools.
 - [ ] **§3.1 — `json-rpc.ts` lives at `src/shared/json-rpc.ts`.** Main (`extension-ipc.ts`), Host (`host.ts`), Vite config (none currently — extension-paths.ts only), and the unit test (`tests/unit/extension-host/json-rpc.test.ts`) all import from `src/shared/json-rpc`. No references to `src/extension-host/json-rpc.ts` exist.
 - [ ] **§3.2 — `finance-shell.d.ts` does not redeclare `ManifestViewContribution` or `ManifestCommandContribution`.** The file imports them from `./finance`. A grep for `^export interface Manifest(View|Command)Contribution` in `finance-shell.d.ts` returns no results.
 - [ ] **§3.3 — Command palette filter is wired.** Typing in the palette input narrows the list to commands whose `label` contains the query (case-insensitive). Empty result shows "No matching commands". ArrowUp/Down navigation is bounded by the filtered list length.
 - [ ] **§3.4 — E2E test exercises the IPC contract, not Phase 1 DOM.** `tests/e2e/extension-host.spec.ts` has the test "View activation via IPC returns activated=true after the host runs" which uses `page.evaluate(() => window.financeShell.extensions.activateView(...))`. No `#navigation-panel .nav-title` selector remains in the file.
 - [ ] **§3.5 — Database path is logged on startup.** Launching the app prints `[main] database path: <absolute path>` to DevTools console. Test Unit 6 references this log instead of a hard-coded `%APPDATA%` path.
 - [ ] **§3.6 — `HOST_BUNDLE_DIR` is a shared constant.** `src/shared/extension-paths.ts` exports `HOST_BUNDLE_DIR` and `resolveHostBundlePath()`. `vite.extension-host.config.ts` imports `HOST_BUNDLE_DIR` for its `outDir`. `extension-ipc.ts` calls `resolveHostBundlePath()` (which logs the resolved path). A grep for `'dist/extension-host'` returns exactly one hit (the `HOST_BUNDLE_DIR` constant itself).
-- [ ] **Follow-up §3.7 — Watch script includes Extension Host.** The `npm run dev` script includes `npm:dev:extension-host` so that file changes in `src/extension-host` trigger recompilation. *(Note: this verification item was added in a follow-up to the original review; it is NOT in `docs/phase3-plan-review.md`. The missing dev-deps install step is tracked separately.)*
+
+---
+
+**9. Follow-up improvements** *(added after the review doc, commit `1416e16`)*:
+
+These checklist items verify the **5 follow-up fixes that were added to the plan after `docs/phase3-plan-review.md` was finalized**. They are NOT covered by the review document. Each maps to a `[Follow-up §N.M]` annotation in the relevant task. The executor must also tick each box in this section before declaring Phase 3 complete.
+
+- [ ] **Follow-up §3.7 — Watch script includes Extension Host.** The `npm run dev` script includes `npm:dev:extension-host` so that file changes in `src/extension-host` trigger recompilation. *Related gap to address: Task 1 Step 1 also needs to install `concurrently`, `wait-on`, `nodemon`, and `cross-env` as devDependencies — currently only `zod` is installed.*
 - [ ] **Follow-up §3.8 — Shared constants isolated.** `src/shared/extension-constants.ts` defines `HOST_BUNDLE_DIR` and `HOST_BUNDLE_FILENAME` without Electron imports. `vite.extension-host.config.ts` imports from this file, avoiding any build-time Electron import errors.
-- [ ] **Follow-up §3.9 — Try/catch in extensions:activate-view.** Main's `extensions:activate-view` IPC handler catches errors and returns `{ activated: false, reason: message }` instead of propagating unhandled promise rejections.
+- [ ] **Follow-up §3.9 — Try/catch in `extensions:activate-view`.** Main's `extensions:activate-view` IPC handler catches errors and returns `{ activated: false, reason: message }` instead of propagating unhandled promise rejections.
 - [ ] **Follow-up §3.10 — Extension Host deactivation hook.** The Host processes `host.shutdown` notifications (via `isNotification(msg)`) and calls the `deactivate()` hook of each active extension before exit.
-- [ ] **Follow-up §3.11 — Command Palette scroll selection.** Selected items scroll into view when navigating via keyboard in the Command Palette.
+- [ ] **Follow-up §3.11 — Command Palette scroll selection.** Selected items scroll into view when navigating via keyboard in the Command Palette (via `_scrollSelectedIntoView()` after ArrowUp/Down).
 
 ---
 

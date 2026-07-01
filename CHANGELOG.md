@@ -1,7 +1,7 @@
 ---
 version: 0.5.0
 created: 2026-06-14
-last_updated: 2026-07-02T00:50:00+10:00
+last_updated: 2026-07-02T01:10:00+10:00
 ---
 
 # Changelog
@@ -40,6 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **§3.10 Host Deactivation Hook Execution** (Task 5): Updated `host.ts` to listen for JSON-RPC notifications and invoke the `deactivate()` hook of each active extension on `host.shutdown` before terminating.
   - **§3.11 Command Palette UI Polish** (Task 13): Implemented `_scrollSelectedIntoView()` in the Command Palette keyboard handler using Lit's `updateComplete` promise, ensuring selected items scroll into view during navigation.
 - **Phase 3 plan: audit trail rename of follow-up fixes** (`docs/superpowers/plans/2026-06-30-phase3-extension-host-ipc.md`). The §3.7–§3.11 annotations added in the previous follow-up commit were labeled `[Review fix §N.M]`, but those numbers do not exist in `docs/phase3-plan-review.md` — they were added after the review document was finalized. Renamed all 9 inline occurrences and 5 Self-Review Checklist items to `[Follow-up §N.M]` so a future agent greping the review doc for §3.7–§3.11 will not find a phantom reference. Frontmatter `fixes_applied` split into two groups: 9 review findings (with provenance pointing to the review doc) + 5 follow-ups (with provenance pointing to commit `1416e16`). The review document remains the source of truth for the original 9 findings.
+- **Phase 3 plan: split Self-Review Checklist §8 into review fixes vs follow-ups** (`docs/superpowers/plans/2026-06-30-phase3-extension-host-ipc.md`). §8 now contains only the 9 review fixes (provenance: `docs/phase3-plan-review.md`); the 5 follow-up items moved to a new §9 section (provenance: commit `1416e16`). §9 explicitly notes these are NOT in the review document so the executor does not mistakenly believe the review doc covers them. §2.3 item updated to reference the canonical `finance.commands.execute(...)` call site (per post-review observation #2). §3.7 item gained a gap-to-address note about Task 1 Step 1 needing to install `concurrently`, `wait-on`, `nodemon`, and `cross-env` as devDependencies — currently only `zod` is installed.
 
 ## [0.5.0] - 2026-06-30
 
