@@ -1,7 +1,7 @@
 ---
 version: 0.5.0
 created: 2026-06-14
-last_updated: 2026-07-01T10:00:00+10:00
+last_updated: 2026-07-01T10:30:00+10:00
 ---
 
 # Changelog
@@ -28,6 +28,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Should-fix §3.5** (Task 10, Test Unit 6): Added `console.log(`[main] database path: ${dbPath}`)` to Main boot block. Test Unit 6 now references this logged path instead of a hard-coded `%APPDATA%/Finance Flow AI/finance.db` (which was Windows-only and undocumented).
   - **Should-fix §3.6** (Task 8, File Structure, Task 5): New `src/shared/extension-paths.ts` exports `HOST_BUNDLE_DIR`, `HOST_BUNDLE_FILENAME`, and `resolveHostBundlePath()` (with startup logging). `vite.extension-host.config.ts` imports `HOST_BUNDLE_DIR` for its `outDir`; `extension-ipc.ts` calls `resolveHostBundlePath()`. Single source of truth for the build layout.
   - **Self-Review Checklist §8** (added): 9 verification items, one per fix, with concrete checks (grep patterns, file existence, manual test steps). Executor must tick all before declaring Phase 3 complete.
+- **Phase 3 plan: three post-review observations** (`docs/superpowers/plans/2026-06-30-phase3-extension-host-ipc.md`). Follow-up fixes after the initial review-integration commit (`380fada`). All changes annotated inline with `[Review observation #N — post-review]` tags. No version bump — docs-only changes, no source files touched.
+  - **Observation #1** (Test Unit 5 step 6): Clarified that the visible status-bar UI ("Extensions unavailable" badge) is **deferred to Phase 4/5 polish**. Phase 3's `extensions:host-status` IPC plumbing is observable end-to-end (Main pushes to renderer webContents, DevTools can listen on the channel), but no renderer-side component consumes the status events yet. Phase 3 verification stops at "crash is observable in DevTools"; the user-facing status bar is real component work that belongs with the other deferred UI.
+  - **Observation #2** (Task 5 Host `extension.executeCommand` handler): Changed bare `executeCommand(...)` call to `finance.commands.execute(...)`. The Host now exercises the same API surface extensions use — exactly one canonical path. No extra import from `./api/commands` needed. Phase 5's real execution replaces this method without touching the call site.
+  - **Observation #3** (Task 8 `ExtensionIPC.handleExit()` shutdown branch): Added `this.process = null;` after clearing `this.shuttingDown`. Fixes a latent bug where after a graceful `stop()`, `isRunning()` returned `true` (the process reference still pointed at the dead `UtilityProcess`, and `this.crashed` was never set). The next `start()` early-returned without re-sending manifests, breaking the shutdown-then-start sequence and causing subsequent `request()` calls to post to a dead handle. The race between `stop()`'s null-check and `notify()` is what surfaces this; the fix makes both shutdown and crash paths converge on a consistent "not running" state.
 - **AGENTS.md rule refinement** (`AGENTS.md`): removed GitNexus documentation section (was lines 36–91 pre-edit); strengthened **Rule #5 (CHANGELOG procedure)** with numbered steps, version-bump guidance per SemVer, mandatory self-verification, and explicit scope of "notable work"; strengthened **Rule #6 (session-start docs)** with numbered procedure, recursive `*.md` discovery under `docs/` and `docs/decisions/`, and mandatory self-verification. Rule #6b updated to remove the now-orphaned `impact()` reference.
 
 ## [0.5.0] - 2026-06-30

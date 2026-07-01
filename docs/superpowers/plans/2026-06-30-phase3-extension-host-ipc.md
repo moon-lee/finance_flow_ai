@@ -877,8 +877,14 @@ async function handleRequest(req: JsonRpcRequest): Promise<void> {
         // [Review fix §2.3] Phase 3 stub: forward to the commands registry
         // so the IPC channel is observable end-to-end. Phase 5 will swap
         // this for real execution semantics; the envelope stays the same.
+        //
+        // [Review observation #2 — post-review] Use the `finance.commands.execute`
+        // aggregate rather than the lower-level `executeCommand` import from
+        // `./api/commands`. This keeps the Host exercising the same API surface
+        // extensions call, so there's exactly one canonical path. Phase 5's
+        // real execution replaces this method without touching the call site.
         const { commandId, args } = req.params as { commandId: string; args: unknown[] };
-        const result = await executeCommand(commandId, ...args);
+        const result = await finance.commands.execute(commandId, ...args);
         respond(req.id, { executed: result !== null, result });
         return;
       }
@@ -1362,7 +1368,19 @@ export class ExtensionIPC {
   private handleExit(code: number | null): void {
     if (this.shuttingDown) {
       // Expected shutdown — clear the flag and do not treat as a crash.
+      //
+      // [Review observation #3 — post-review] Also null the process reference
+      // so `isRunning()` returns false after `stop()` and the next `start()`
+      // does not early-return without re-sending manifests. Without this, the
+      // sequence "shutdown → start" hangs the IPC channel: `this.process`
+      // still points at the dead UtilityProcess, `isRunning()` returns true,
+      // `start()` short-circuits, and subsequent `request()` calls post to a
+      // dead handle (silently dropped or thrown, depending on Electron's
+      // behavior). The race between `stop()`'s null-check and `notify()` is
+      // what surfaces this; the fix makes both paths converge on a consistent
+      // "not running" state.
       this.shuttingDown = false;
+      this.process = null;
       return;
     }
     const err = new Error(`Extension Host exited unexpectedly (code ${code})`);
@@ -2831,7 +2849,7 @@ Wait for the Electron window to appear. Confirm no console errors (DevTools: `Ct
 | | 3. Find the `electron.exe` / `Electron Helper` process that is the utility process |
 | | 4. Kill it |
 | | 5. Observe the shell window remains visible, the Activity Bar still shows the buttons (contributions cached in registry) |
-| | 6. **DevTools console shows `[extension-ipc] Extension Host exited unexpectedly (code …)` followed by a status-bar notification** that extensions are unavailable (wired via `extensions:host-status` IPC channel) |
+| | 6. **DevTools console shows `[extension-ipc] Extension Host exited unexpectedly (code …)`.** The `extensions:host-status` IPC notification is forwarded to the renderer's webContents (verifiable in DevTools by listening for the channel), proving the IPC plumbing works end-to-end. The *visible* status-bar UI ("Extensions unavailable" badge, recovery animation) is **deferred to Phase 4/5 polish** — consistent with the plan's Phase 3 scope of "IPC plumbing, not UI components". Phase 3 verification stops at "the crash is observable in DevTools"; the user-facing status bar is a real component that belongs with the other deferred UI work. |
 | | 7. Click the Salary button. Observe the status bar briefly shows "Restarting…", then returns to ready. The click succeeds — the Navigation Panel updates to Salary, the DevTools console shows a fresh `[host] Extension Host process started (pid <N>)` log line with a **different PID than the original**. |
 | | 8. The shell is fully functional again. |
 | **Expected result** | (a) The Electron shell stays alive when the Extension Host dies — vision's "Crash Isolation" guarantee. (b) The next user-initiated extension interaction transparently re-spawns the Host with the same manifest list — completion of the lifecycle. (c) Status-bar notifications (forwarded via `extensions:host-status`) make the crash and recovery visible to the user. |
