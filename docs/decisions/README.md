@@ -8,6 +8,7 @@ This directory captures important architectural decisions: what was decided, why
 |-----|-------|--------|------|
 | [0002](0002-inline-migrations.md) | Inline Migration Runner Instead of Umzug | Accepted | 2026-06-20 |
 | [0003](0003-extension-host-transport.md) | Extension Host Transport — `utilityProcess.fork` + JSON-RPC 2.0 | Accepted | 2026-06-30 |
+| [0004](0004-extension-entry-bundling.md) | Extension Entry Architecture — Build-Time Bundling | Accepted | 2026-07-03 |
 
 ## Conventions
 
