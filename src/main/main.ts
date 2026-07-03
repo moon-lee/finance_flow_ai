@@ -2,8 +2,11 @@ import { app, BrowserWindow, ipcMain, screen, dialog } from 'electron';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { initializeDatabase, registerMigration, closeDatabase } from './services/database-service';
-import { infrastructureMigration } from './services/infrastructure-migration';
+import { infrastructureMigration, extensionCrashTrackingMigration } from './services/infrastructure-migration';
 import { initializeSettings, closeSettings, getSetting, setSetting } from './services/settings-service';
+import { discoverExtensions } from './services/extension-loader';
+import { ExtensionRegistry } from './services/extension-registry';
+import { ExtensionIPC } from './services/extension-ipc';
 
 const mainDir = fileURLToPath(new URL('.', import.meta.url));
 const rendererDevUrl = process.env.ELECTRON_RENDERER_URL;
@@ -22,6 +25,8 @@ app.setName('Finance Flow AI');
 let mainWindow: BrowserWindow | null = null;
 let windowStateSaveTimer: ReturnType<typeof setTimeout> | null = null;
 let dbClosed = false;
+let extensionRegistry: ExtensionRegistry | null = null;
+let extensionIPC: ExtensionIPC | null = null;
 
 function resolvePreloadPath(): string {
   return join(mainDir, '../preload/preload.cjs');
@@ -37,6 +42,11 @@ function resolveDatabasePath(): string {
   // here before SQLite opens; do not store the DB path only inside
   // the DB itself, because startup would not know which DB to open.
   return join(app.getPath('userData'), 'finance.db');
+}
+
+function resolveExtensionsRoot(): string {
+  // Phase 3: extensions live inside the repo. Phase 8 will add a user-data root.
+  return join(app.getAppPath(), 'extensions');
 }
 
 function clearWindowStateSaveTimer(): void {
@@ -163,23 +173,145 @@ function registerIpcHandlers(): void {
     }
   });
 
+  ipcMain.handle('extensions:list', () => {
+    if (!extensionRegistry) return { views: [], commands: [] };
+    return {
+      views: extensionRegistry.views(),
+      commands: extensionRegistry.commands()
+    };
+  });
+
+  // [Follow-up §3.9] Main-side activate-view try/catch error handling
+  // [Review fix §4.2] Calls `extensionRegistry.recordCrash()` on activation failure
+  // so the registry can auto-disable persistently-crashing extensions after
+  // `AUTO_DISABLE_CRASH_THRESHOLD` crashes. The auto-disable status is forwarded
+  // to the renderer via `extensions:host-status` so the status bar can surface it.
+  // [Review fix §5.3] Hot-disable contract: `views().find(...)` re-filters by
+  // `isEnabled()` per call, so a stale Activity Bar button click on a disabled
+  // extension returns `{ activated: false, reason: 'view not found' }` here
+  // before any IPC traffic to the Host. The Host is therefore unreachable
+  // for disabled extensions even with a stale renderer cache.
+  ipcMain.handle('extensions:activate-view', async (_event, viewId: string) => {
+    if (!extensionIPC || !extensionRegistry) return { activated: false, reason: 'host not running' };
+
+    // Find the extension that owns this view BEFORE the try block so the catch
+    // handler has the extension id available for recordCrash(). The find()
+    // call invokes views() which re-filters by isEnabled() — a disabled
+    // extension's view does not appear here.
+    const owning = extensionRegistry.views().find((v) => v.view.id === viewId);
+    if (!owning) return { activated: false, reason: 'view not found' };
+    const owningExtensionId = owning.extensionId;
+
+    try {
+      const result = await extensionIPC.request<{ activated: boolean }>('extension.activate', {
+        extensionId: owningExtensionId,
+        reason: `onView:${viewId}`
+      });
+      if (result.activated) {
+        extensionRegistry.markActivated(owningExtensionId);
+        extensionRegistry.clearCrashes(owningExtensionId);
+      }
+      return result;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(`extensions:activate-view failed for "${viewId}":`, message);
+
+      // Record the crash so the registry can auto-disable after threshold.
+      const { crashCount, autoDisabled } = extensionRegistry.recordCrash(owningExtensionId, message);
+
+      // If auto-disable kicked in, push a host-status notification so the
+      // renderer can update its UI. The ExtensionIPC owns the status listener
+      // pipeline; we reuse it for this extension-scoped status.
+      if (autoDisabled && mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('extensions:host-status', {
+          status: 'extension-auto-disabled',
+          extensionId: owningExtensionId,
+          crashCount
+        });
+      }
+
+      return { activated: false, reason: message, crashCount, autoDisabled };
+    }
+  });
+
+  // [Review fix §2.3] Phase 3 stub: prove the IPC channel exists end-to-end by
+  // forwarding extension command execution to the Host. The Host handler is a
+  // thin wrapper around the existing `finance.commands.execute` stub. Phase 5
+  // will swap the stub for real execution; the Main-side handler is unchanged.
+  ipcMain.handle(
+    'extensions:execute-command',
+    async (_event, commandId: string, ...args: unknown[]) => {
+      if (!extensionIPC) return { executed: false, reason: 'host not running' };
+      try {
+        const result = await extensionIPC.request<{ executed: boolean; result: unknown }>(
+          'extension.executeCommand',
+          { commandId, args }
+        );
+        return result;
+      } catch (err) {
+        return { executed: false, reason: err instanceof Error ? err.message : String(err) };
+      }
+    }
+  );
 }
 
 function shutdownPersistence(): void {
   dbClosed = true;
   clearWindowStateSaveTimer();
+  void extensionIPC?.stop().catch((err) => console.error('Extension IPC shutdown failed:', err));
+  extensionIPC = null;
   closeSettings();
   closeDatabase();
 }
 
 registerMigration(infrastructureMigration);
+registerMigration(extensionCrashTrackingMigration);
 registerIpcHandlers();
 
 app.whenReady().then(() => {
   try {
     const dbPath = resolveDatabasePath();
+    // [Review fix §3.5] Log the resolved database path so Test Unit 6 (and
+    // any future manual debugging) knows where the SQLite file lives without
+    // guessing platform-specific %APPDATA%/XDG_CONFIG_HOME paths.
+    console.log(`[main] database path: ${dbPath}`);
     initializeDatabase(dbPath);
     initializeSettings();
+
+    // Boot extensions BEFORE the window so the renderer can fetch contributions on first paint.
+    extensionRegistry = new ExtensionRegistry();
+    const discovery = discoverExtensions(resolveExtensionsRoot());
+    for (const { manifest } of discovery.extensions) {
+      extensionRegistry.upsert(manifest);
+    }
+    for (const skipped of discovery.skipped) {
+      console.warn(`[extensions] skipped "${skipped.directory}": ${skipped.reason}`);
+    }
+
+    extensionIPC = new ExtensionIPC();
+    extensionIPC.start(extensionRegistry.list()).catch((err) => {
+      // [Review fix §2.2] Replace fire-and-forget `void` with an explicit
+      // .catch() so startup failures (missing bundle, sandbox restrictions,
+      // handshake timeout) are logged cleanly instead of becoming unhandled
+      // promise rejections. The renderer still boots; it just sees an empty
+      // contribution list until the host recovers (see §2.1 crash recovery).
+      console.error('[extensions] Extension Host failed to start:', err);
+    });
+
+    // Forward host lifecycle events to the renderer so the status bar can
+    // surface crash / restart / unavailable state. See Test Unit 5.
+    extensionIPC.onHostStatus((status) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('extensions:host-status', status);
+      }
+    });
+
+    // SINGLE POINT OF REGISTRATION. Do not invoke registerIpcHandlers() anywhere
+    // else in this file or in any module imported during bootstrap. Duplicate
+    // registration would either be a no-op (ipcMain.handle throws on second
+    // call) or, worse, leak stale handlers across HMR reloads. See [Review fix
+    // §HOST-5].
+    registerIpcHandlers();
     void createWindow();
   } catch (err) {
     console.error('Fatal error during app initialization:', err);

@@ -1,5 +1,11 @@
 import { LitElement, css, html } from 'lit';
-import { customElement } from 'lit/decorators.js';
+import { customElement, property } from 'lit/decorators.js';
+
+export interface ActivityView {
+  id: string;
+  name: string;
+  icon: string;
+}
 
 @customElement('activity-bar')
 export class ActivityBar extends LitElement {
@@ -50,14 +56,26 @@ export class ActivityBar extends LitElement {
     .settings {
       margin-top: auto;
     }
+
+    .empty-hint {
+      color: #475569;
+      font-size: 10px;
+      margin-top: 8px;
+      writing-mode: vertical-rl;
+      text-orientation: mixed;
+    }
   `;
 
-  private _activeView = 'Dashboard';
+  @property({ type: Array })
+  views: ActivityView[] = [];
 
-  private _selectView(view: string) {
-    this._activeView = view;
+  @property({ type: String })
+  activeView: string = '';
+
+  private _selectView(viewId: string) {
+    this.activeView = viewId;
     this.dispatchEvent(new CustomEvent('view-changed', {
-      detail: { view },
+      detail: { view: viewId, source: 'extension' },
       bubbles: true,
       composed: true
     }));
@@ -65,12 +83,24 @@ export class ActivityBar extends LitElement {
   }
 
   render() {
+    const buttons = this.views.map((view) => html`
+      <button
+        class="${this.activeView === view.id ? 'active' : ''}"
+        title="${view.name}"
+        aria-label="${view.name}"
+        data-view-id="${view.id}"
+        @click="${() => this._selectView(view.id)}"
+      >${view.icon}</button>
+    `);
     return html`
-      <button class="${this._activeView === 'Dashboard' ? 'active' : ''}" title="Dashboard" aria-label="Dashboard" @click="${() => this._selectView('Dashboard')}">D</button>
-      <button class="${this._activeView === 'Salary' ? 'active' : ''}" title="Salary History" aria-label="Salary History" @click="${() => this._selectView('Salary')}">P</button>
-      <button class="${this._activeView === 'Budget' ? 'active' : ''}" title="Budget" aria-label="Budget" @click="${() => this._selectView('Budget')}">B</button>
-      <button class="${this._activeView === 'Tax' ? 'active' : ''}" title="Tax" aria-label="Tax" @click="${() => this._selectView('Tax')}">X</button>
-      <button class="settings ${this._activeView === 'Settings' ? 'active' : ''}" title="Settings" aria-label="Settings" @click="${() => this._selectView('Settings')}">S</button>
+      ${buttons}
+      ${this.views.length === 0 ? html`<div class="empty-hint">No extensions</div>` : ''}
+      <button
+        class="settings ${this.activeView === '__settings__' ? 'active' : ''}"
+        title="Settings"
+        aria-label="Settings"
+        @click="${() => this._selectView('__settings__')}"
+      >S</button>
     `;
   }
 }

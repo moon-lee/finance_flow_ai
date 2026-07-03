@@ -43,7 +43,7 @@
 | `tests/unit/services/settings-service.test.ts` | new | KV CRUD, namespace enforcement, `getSettings(namespace)`, JSON / `undefined` edge cases (18 tests) |
 | `tests/e2e/renderer-shell.spec.ts` | modified | Add status-bar theme toggle and `light-theme` class E2E tests |
 
-## Phase 3 — Extension Host & IPC Scaffolding (Plan Only, Not Yet Implemented)
+## Phase 3 — Extension Host & IPC Scaffolding (Implemented; v0.6.0)
 
 | File | Status | Purpose |
 |------|--------|---------|

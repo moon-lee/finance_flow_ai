@@ -993,6 +993,13 @@ if (!parentPort) {
 interface ActiveExtension {
   manifest: FinanceExtensionManifest;
   moduleUrl?: string;
+  // Cached at activation so the shutdown handler can call deactivate() without
+  // re-loading the module. The bundled extension is ESM; require()-ing it
+  // throws ERR_REQUIRE_ESM. See [Review fix §HOST-1].
+  module?: {
+    activate?: (finance: unknown) => unknown | Promise<unknown>;
+    deactivate?: () => unknown | Promise<unknown>;
+  };
 }
 
 const activeExtensions = new Map<string, ActiveExtension>();
@@ -1121,7 +1128,11 @@ async function activateExtension(extensionId: string, reason: string): Promise<b
     if (typeof extModule?.activate === 'function') {
       await extModule.activate(finance);
     }
+    // Cache both the on-disk path AND the live module reference so the
+    // shutdown handler can call deactivate() without re-loading (require() of
+    // an ESM bundle throws ERR_REQUIRE_ESM). See [Review fix §HOST-1].
     ext.moduleUrl = entryPath;
+    ext.module = extModule;
     notify('extension.activated', { extensionId, reason });
     console.log(`[host] activated "${extensionId}" via "${reason}" (loaded from ${entryPath})`);
     return true;
@@ -1136,14 +1147,12 @@ async function handleNotification(notification: JsonRpcNotification): Promise<vo
   if (notification.method === 'host.shutdown') {
     console.log('[host] shutdown request received, deactivating extensions...');
     for (const [id, ext] of activeExtensions) {
-      if (ext.moduleUrl) {
+      // Reuse the module reference cached at activation; do NOT re-load via
+      // require() — the bundle is ESM and require() will throw ERR_REQUIRE_ESM.
+      // See [Review fix §HOST-1].
+      if (ext.module && typeof ext.module.deactivate === 'function') {
         try {
-          const { createRequire } = await import('node:module');
-          const requireFromHere = createRequire(import.meta.url);
-          const extModule = requireFromHere(ext.moduleUrl);
-          if (typeof extModule?.deactivate === 'function') {
-            await extModule.deactivate();
-          }
+          await ext.module.deactivate();
         } catch (err) {
           console.error(`[host] failed to deactivate "${id}":`, err);
         }
@@ -1940,7 +1949,7 @@ npm pkg set scripts.start:dev="wait-on http://127.0.0.1:5173 dist/main/main.js d
 
 ```typescript
 import { defineConfig } from 'vite';
-import { readdirSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   EXTENSIONS_BUNDLE_DIR,
@@ -1961,14 +1970,35 @@ function discoverExtensionEntries(): Record<string, string> {
   const entries: Record<string, string> = {};
   for (const name of readdirSync(extRoot)) {
     const dir = join(extRoot, name);
+    let pkg: { name?: string; financeExtension?: { id?: string; main?: string } };
     try {
-      const pkg = require(join(dir, 'package.json'));
-      if (pkg.financeExtension) {
-        entries[extensionBundleFilename(name).replace(/\.js$/, '')] = join(dir, pkg.financeExtension.main);
+      // readFileSync + JSON.parse is required because this config runs as ESM
+      // (Vite's default for `.ts` configs) and `require` is undefined. The
+      // empty-catch silent-skip pattern from the previous draft also masked
+      // malformed extension packages; surface those as warnings instead.
+      // See [Review fix §HOST-2].
+      pkg = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8'));
+    } catch (err) {
+      console.warn(`[vite.extensions] skipping ${dir}: ${err instanceof Error ? err.message : String(err)}`);
+      continue;
+    }
+    if (pkg.financeExtension) {
+      // Key the bundle output by the manifest's canonical id, NOT the directory
+      // name, so a future divergence between folder name and `financeExtension.id`
+      // cannot silently break activation. See [Review fix §HOST-3].
+      const id = pkg.financeExtension.id ?? pkg.name;
+      if (!id) {
+        console.warn(`[vite.extensions] skipping ${dir}: package.json has neither financeExtension.id nor name`);
+        continue;
       }
-    } catch {
-      // Skip non-extension directories silently; the loader's runtime validation
-      // produces a proper warning for malformed extension packages.
+      if (name !== id) {
+        console.warn(
+          `[vite.extensions] extension folder "${name}" declares id "${id}" — ` +
+          `bundling under id, but extension-loader validation may reject this. ` +
+          `Rename folder to "${id}" or update financeExtension.id to match.`
+        );
+      }
+      entries[extensionBundleFilename(id).replace(/\.js$/, '')] = join(dir, pkg.financeExtension.main ?? 'src/main.ts');
     }
   }
   return entries;
@@ -2156,6 +2186,11 @@ app.whenReady().then(() => {
       }
     });
 
+    // SINGLE POINT OF REGISTRATION. Do not invoke registerIpcHandlers() anywhere
+    // else in this file or in any module imported during bootstrap. Duplicate
+    // registration would either be a no-op (ipcMain.handle throws on second
+    // call) or, worse, leak stale handlers across HMR reloads. See [Review fix
+    // §HOST-5].
     registerIpcHandlers();
     void createWindow();
   } catch (err) {
@@ -2721,8 +2756,8 @@ import './components/navigation-panel';
 import './components/workspace';
 import './components/ai-panel';
 import './components/command-palette';
-import type { ActivityView, PaletteCommand } from './components/activity-bar';
-import type { PaletteCommand as PaletteCommandItem } from './components/command-palette';
+import type { ActivityView } from './components/activity-bar';
+import type { PaletteCommand } from './components/command-palette';
 
 const app = document.querySelector<HTMLElement>('#app');
 const commandPalette = document.querySelector<HTMLElement & { focusInput(): void }>('#command-palette');
@@ -2854,7 +2889,7 @@ window.addEventListener('keydown', (event) => {
 });
 ```
 
-> **Note:** `PaletteCommand` is exported from both `activity-bar.ts` and `command-palette.ts` — the `index.ts` import for `PaletteCommand` was renamed to `PaletteCommandItem` to avoid the duplicate-name collision. The shape is identical.
+> **Note:** `PaletteCommand` is defined once, in `command-palette.ts`. `index.ts` imports it from there (alongside `ActivityView` from `activity-bar.ts`). A previous draft had a duplicate definition in `activity-bar.ts`; that was removed to keep a single source of truth. See [Review fix §HOST-4].
 
 - [ ] **Step 4: Commit**
 
@@ -3625,6 +3660,16 @@ These checklist items verify the **3 third-pass review fixes** raised after the 
 - [ ] **§5.3 — Hot-disable behavioural contract is documented and tested.** `ExtensionRegistry.setEnabled()` JSDoc (Task 7) lists the six contract items (registry re-filter, IPC list freshness, activate-view gating, transport non-check, Activity Bar staleness, Host in-memory retention). `ExtensionIPC.request()` JSDoc (Task 8) explicitly states the transport does NOT check `isEnabled()`. `extensions:activate-view` IPC handler (Task 10) comments reference the contract items. Self-Review §7 hot-disable deferral entry summarizes the contract with phase targets. Test Unit 6 has in-memory steps (5–7) verifying list re-filter, activate-view gating, and Host retention. Verification: a grep for `Hot-disable contract` in `docs/superpowers/plans/2026-06-30-phase3-extension-host-ipc.md` returns hits in Task 7, Task 8, Task 10, Self-Review §7, and Test Unit 6.
 - [ ] **§5.4 — ADR-0003 reflects the post-§3.1 path move.** `docs/decisions/0003-extension-host-transport.md` references `src/shared/json-rpc.ts` (the new location) instead of `src/extension-host/json-rpc.ts` (the old location). A post-review note documents the move. Verification: a grep for `src/extension-host/json-rpc.ts` in `docs/decisions/0003-extension-host-transport.md` returns zero hits; a grep for `src/shared/json-rpc.ts` returns at least one hit (the Decision section and the Related section). A grep for `§3.1` in the ADR returns at least one hit (the post-review note explaining the move).
 - [ ] **§5.5 — `docs/extension-api.md` is a Task 2 deliverable.** The File Structure diagram references `§5.5` (not the phantom `§4.10`). Task 2's Files list includes `docs/extension-api.md` with `Create` status. Task 2 Step 2b creates or verifies the file against the canonical content (manifest schema, activation events, `finance.*` surface, lifecycle hooks, loading mechanism, error handling, security model, working example, Phase 4+ migration notes). Task 2 Step 3's `git add` includes `docs/extension-api.md`. Verification: a grep for `phantom` or `§4.10` in the File Structure diagram returns zero hits; a grep for `extension-api.md` in the plan returns hits in the File Structure diagram AND Task 2 Files list AND Task 2 Step 2b AND Task 2 Step 3 commit.
+
+## Self-Review Checklist §11 — Fifth-pass HOST review
+
+These checklist items verify the **5 fifth-pass review fixes** raised after the fourth-pass fixes were integrated. They are NOT in `docs/phase3-plan-review.md` or any prior reviewer document; the patches were drafted in `.kimchi/docs/phase3-review-patches.md` and applied to the plan after the user approved them. Each maps to a `[Review fix §HOST-N]` annotation in the relevant task. The executor must tick each box before declaring Phase 3 complete.
+
+- [ ] **§HOST-1 — Extension module reference is cached at activation and reused at shutdown.** The `ActiveExtension` interface (Task 5) gains a `module?: { activate?, deactivate? }` field. `activateExtension()` assigns `ext.module = extModule` immediately after `ext.moduleUrl = entryPath` (atomic with the URL assignment). The `host.shutdown` notification handler iterates `activeExtensions` and calls `ext.module?.deactivate()` directly — no `createRequire` or `require()` call remains in the shutdown path. Verification: a grep for `createRequire` in `src/extension-host/host.ts` returns zero hits; a grep for `ext.module` in `src/extension-host/host.ts` returns hits in both the activation function and the shutdown handler.
+- [ ] **§HOST-2 — `vite.extensions.config.ts` does not use `require`.** The config imports `readFileSync` from `node:fs` and parses `package.json` via `JSON.parse(readFileSync(...))`. The empty-catch silent-skip around `package.json` parsing is replaced with a `console.warn` that surfaces the parse error. The `require()` identifier does not appear anywhere in `vite.extensions.config.ts`. Verification: a grep for `require(` in `vite.extensions.config.ts` returns zero hits; `npm run build:extensions` exits 0.
+- [ ] **§HOST-3 — Extension bundle output is keyed by `financeExtension.id`, not directory name.** `discoverExtensionEntries()` reads `pkg.financeExtension.id ?? pkg.name`, emits a `console.warn` if `id !== folder name`, and uses `extensionBundleFilename(id)` as the Rollup entry key. The runtime loader at `host.ts#activateExtension` reads the same `id` from the manifest via `extension-loader.ts` so the two paths converge. Verification: `dist/extensions/<id>.js` exists for the manifest id, not the folder name; if folder and id diverge, the build emits exactly one `[vite.extensions] extension folder "X" declares id "Y" ...` warning.
+- [ ] **§HOST-4 — `PaletteCommand` has a single source of truth.** `src/renderer/index.ts` imports `PaletteCommand` from `./components/command-palette` only (the `activity-bar` import is removed and the `PaletteCommandItem` alias is gone). `activity-bar.ts` does not export `PaletteCommand`. The note above Task 13 Step 3 no longer claims a duplicate export. Verification: a grep for `interface PaletteCommand` in `docs/superpowers/plans/2026-06-30-phase3-extension-host-ipc.md` returns exactly one hit (in the `command-palette.ts` snippet); a grep for `PaletteCommandItem` returns zero hits; a grep for `PaletteCommand` in the activity-bar import line returns zero hits.
+- [ ] **§HOST-5 — `registerIpcHandlers()` is called exactly once.** Task 10's bootstrap path has a single call site annotated `// SINGLE POINT OF REGISTRATION.` No imports of `registerIpcHandlers` exist outside `src/main/main.ts`. The Self-Review §11 item above verifies the contract. Verification: a grep for `registerIpcHandlers` in `src/main/main.ts` returns exactly one call site; a grep for `registerIpcHandlers` in any other file returns zero hits.
 
 ---
 

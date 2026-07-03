@@ -1,0 +1,33 @@
+{
+  "name": "salary-history",
+  "version": "0.1.0",
+  "description": "Salary History extension (Phase 3 stub — registration only).",
+  "private": true,
+  "main": "src/main.ts",
+  "financeExtension": {
+    "id": "salary-history",
+    "displayName": "Salary History",
+    "version": "0.1.0",
+    "description": "Payslip entry and salary history tracking.",
+    "activationEvents": ["onView:salary-history"],
+    "contributes": {
+      "views": [
+        {
+          "id": "salary-history",
+          "name": "Salary",
+          "icon": "P"
+        }
+      ],
+      "commands": [
+        {
+          "id": "salary.show-pay-history",
+          "title": "View: Pay History"
+        },
+        {
+          "id": "salary.show-deductions",
+          "title": "View: Deductions"
+        }
+      ]
+    }
+  }
+}

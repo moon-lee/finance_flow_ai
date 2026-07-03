@@ -1,5 +1,18 @@
 import { LitElement, css, html } from 'lit';
-import { customElement, state } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
+
+export interface PaletteCommand {
+  id: string;
+  label: string;
+  /** If true, this is an extension command and we forward the click to Main. */
+  extensionCommand?: boolean;
+}
+
+const BUILT_IN_COMMANDS: PaletteCommand[] = [
+  { id: 'view-dashboard', label: 'View: Dashboard' },
+  { id: 'toggle-ai', label: 'View: Toggle AI Assistant' },
+  { id: 'new-workspace', label: 'File: New Workspace' }
+];
 
 @customElement('command-palette')
 export class CommandPalette extends LitElement {
@@ -42,16 +55,52 @@ export class CommandPalette extends LitElement {
       background: var(--accent);
       color: #ffffff;
     }
+
+    .group-label {
+      padding: 6px 12px 2px;
+      color: #94a3b8;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .empty-hint {
+      padding: 12px;
+      color: #94a3b8;
+      font-size: 12px;
+      text-align: center;
+    }
   `;
 
   @state()
   private _selectedIndex = 0;
 
-  private _items = [
-    { id: 'view-dashboard', label: 'View: Dashboard' },
-    { id: 'toggle-ai', label: 'View: Toggle AI Assistant' },
-    { id: 'new-workspace', label: 'File: New Workspace' }
-  ];
+  // [Review fix §3.3] Holds the live filter query. Updated via the input's
+  // `@input` handler; resets to '' when the palette is re-opened.
+  @state()
+  private _query = '';
+
+  @property({ type: Array })
+  extensionCommands: PaletteCommand[] = [];
+
+  /** Case-insensitive substring filter applied to both groups. */
+  private _matches(cmd: PaletteCommand): boolean {
+    if (this._query === '') return true;
+    return cmd.label.toLowerCase().includes(this._query.toLowerCase());
+  }
+
+  private get _builtInFiltered(): PaletteCommand[] {
+    return BUILT_IN_COMMANDS.filter((c) => this._matches(c));
+  }
+
+  private get _extensionFiltered(): PaletteCommand[] {
+    return this.extensionCommands.filter((c) => this._matches(c));
+  }
+
+  /** Flat list for keyboard navigation. Indices line up with rendered rows. */
+  private get _items(): PaletteCommand[] {
+    return [...this._builtInFiltered, ...this._extensionFiltered];
+  }
 
   firstUpdated() {
     this.addEventListener('keydown', this._handleKeyDown);
@@ -63,45 +112,86 @@ export class CommandPalette extends LitElement {
       input.focus();
       input.value = '';
     }
+    this._query = '';
+    this._selectedIndex = 0;
+  }
+
+  private _handleInput(event: Event) {
+    const input = event.target as HTMLInputElement;
+    this._query = input.value;
     this._selectedIndex = 0;
   }
 
   private _handleKeyDown(event: KeyboardEvent) {
+    const items = this._items;
+    if (items.length === 0) return;
     if (event.key === 'ArrowDown') {
       event.preventDefault();
-      this._selectedIndex = (this._selectedIndex + 1) % this._items.length;
+      this._selectedIndex = (this._selectedIndex + 1) % items.length;
+      this._scrollSelectedIntoView();
     } else if (event.key === 'ArrowUp') {
       event.preventDefault();
-      this._selectedIndex = (this._selectedIndex - 1 + this._items.length) % this._items.length;
+      this._selectedIndex = (this._selectedIndex - 1 + items.length) % items.length;
+      this._scrollSelectedIntoView();
     } else if (event.key === 'Enter') {
       event.preventDefault();
-      this._selectItem(this._items[this._selectedIndex]);
+      this._selectItem(items[this._selectedIndex]);
     }
   }
 
-  private _selectItem(item: { id: string; label: string }) {
+  // [Follow-up §3.11] Command Palette selection scroll into view
+  private _scrollSelectedIntoView() {
+    this.updateComplete.then(() => {
+      const selected = this.shadowRoot?.querySelector('.palette-item.selected');
+      selected?.scrollIntoView({ block: 'nearest' });
+    });
+  }
+
+  private _selectItem(item: PaletteCommand) {
     this.dispatchEvent(new CustomEvent('command-selected', {
-      detail: { command: item.id },
+      detail: { command: item.id, extensionCommand: !!item.extensionCommand },
       bubbles: true,
       composed: true
     }));
   }
 
   render() {
+    const builtIn = this._builtInFiltered;
+    const extension = this._extensionFiltered;
+    const builtInEnd = builtIn.length;
+    const hasResults = builtIn.length + extension.length > 0;
+
     return html`
-      <input aria-label="Command palette input" placeholder="Type a command..." />
+      <input
+        aria-label="Command palette input"
+        placeholder="Type a command..."
+        @input=${this._handleInput}
+      />
       <div class="palette-list" role="listbox">
-        ${this._items.map((item, index) => html`
-          <div 
-            class="palette-item ${index === this._selectedIndex ? 'selected' : ''}" 
+        ${hasResults ? '' : html`<div class="empty-hint">No matching commands</div>`}
+        ${builtIn.length > 0 ? html`<div class="group-label">Built-in</div>` : ''}
+        ${builtIn.map((item, index) => html`
+          <div
+            class="palette-item ${index === this._selectedIndex ? 'selected' : ''}"
             role="option"
             aria-selected="${index === this._selectedIndex}"
             @click="${() => this._selectItem(item)}"
             @mouseenter="${() => this._selectedIndex = index}"
-          >
-            ${item.label}
-          </div>
+          >${item.label}</div>
         `)}
+        ${extension.length > 0 ? html`<div class="group-label">Extensions</div>` : ''}
+        ${extension.map((item, i) => {
+          const index = builtInEnd + i;
+          return html`
+            <div
+              class="palette-item ${index === this._selectedIndex ? 'selected' : ''}"
+              role="option"
+              aria-selected="${index === this._selectedIndex}"
+              @click="${() => this._selectItem(item)}"
+              @mouseenter="${() => this._selectedIndex = index}"
+            >${item.label}</div>
+          `;
+        })}
       </div>
     `;
   }

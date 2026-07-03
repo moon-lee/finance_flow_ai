@@ -1,6 +1,7 @@
 import BetterSqlite3 from 'better-sqlite3';
 import { dirname } from 'node:path';
 import { existsSync, mkdirSync, renameSync } from 'node:fs';
+import { infrastructureMigration, extensionCrashTrackingMigration } from './infrastructure-migration';
 
 // Phase 2 has no rollback requirement; the `down` callback is
 // intentionally omitted from the interface to keep the surface area
@@ -117,6 +118,35 @@ export function getDatabase(): BetterSqlite3.Database {
   // during HMR).
   if (!db || !db.open) throw new Error('Database not initialized. Call initializeDatabase() first.');
   return db;
+}
+
+/**
+ * Test-only database factory. Returns a fresh in-memory SQLite connection
+ * with all migrations applied, so unit tests exercise the exact schema the
+ * production code expects without touching the user's real `finance.db`.
+ *
+ * Each call returns a NEW database — tests that need isolation between
+ * cases should call this once per `describe()` or per `beforeEach()`.
+ * The returned database is the caller's responsibility to close.
+ *
+ * **Prerequisite for Task 15 Step 4:** the executor must verify this helper
+ * exists before running `npm run test:unit`. If absent, add it here
+ * (this step) before any `extensionRegistry` unit test runs. *(per
+ * [Review fix §5.1] — addresses the undocumented prerequisite flagged in
+ * the second-pass review.)*
+ *
+ * Migrations are registered idempotently (see `registerMigration`'s dedup
+ * check), so calling this helper multiple times — or alongside a production
+ * startup that also registers the migrations — is safe.
+ */
+export function getTestDatabase(): BetterSqlite3.Database {
+  const database = new DatabaseCtor(':memory:');
+  database.pragma('journal_mode = MEMORY');
+  database.pragma('foreign_keys = ON');
+  registerMigration(infrastructureMigration);
+  registerMigration(extensionCrashTrackingMigration);
+  runMigrations(database);
+  return database;
 }
 
 export function closeDatabase(): void {

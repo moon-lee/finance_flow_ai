@@ -3,16 +3,17 @@ import './components/navigation-panel';
 import './components/workspace';
 import './components/ai-panel';
 import './components/command-palette';
+import type { ActivityView } from './components/activity-bar';
+import type { PaletteCommand } from './components/command-palette';
 
 const app = document.querySelector<HTMLElement>('#app');
-const commandPalette = document.querySelector<HTMLElement & { focusInput(): void }>('#command-palette');
+const commandPalette = document.querySelector<HTMLElement & { focusInput(): void; extensionCommands: PaletteCommand[] }>('#command-palette');
 const navigationPanel = document.querySelector<HTMLElement & { setView(view: string): void }>('#navigation-panel');
+const activityBar = document.querySelector<HTMLElement & { views: ActivityView[]; activeView: string }>('#activity-bar');
 
 function setCommandPaletteVisible(visible: boolean): void {
   commandPalette?.classList.toggle('hidden', !visible);
-  if (visible) {
-    commandPalette?.focusInput();
-  }
+  if (visible) commandPalette?.focusInput();
 }
 
 function toggleAiPanel(): void {
@@ -21,16 +22,8 @@ function toggleAiPanel(): void {
 }
 
 async function applyTheme(theme: unknown): Promise<void> {
-  // Defensive: the DB could contain a non-string for "core.theme" if
-  // a future migration wrote one. Fall back to dark for any value
-  // other than the literal string "light" rather than corrupting UI
-  // state. Accepting `unknown` here forces callers to drop unchecked
-  // casts at the IPC boundary.
-  if (theme === 'light') {
-    document.body.classList.add('light-theme');
-  } else {
-    document.body.classList.remove('light-theme');
-  }
+  if (theme === 'light') document.body.classList.add('light-theme');
+  else document.body.classList.remove('light-theme');
 }
 
 async function toggleTheme(): Promise<void> {
@@ -38,31 +31,60 @@ async function toggleTheme(): Promise<void> {
   await window.financeShell?.settings.set('core.theme', isLight ? 'light' : 'dark');
 }
 
+async function loadExtensionContributions(): Promise<void> {
+  try {
+    const contributions = await window.financeShell?.extensions.list();
+    if (!contributions) return;
+    if (activityBar) {
+      activityBar.views = contributions.views.map((v) => ({ id: v.view.id, name: v.view.name, icon: v.view.icon }));
+    }
+    if (commandPalette) {
+      commandPalette.extensionCommands = contributions.commands.map((c) => ({
+        id: c.command.id,
+        label: c.command.title,
+        extensionCommand: true
+      }));
+    }
+  } catch (err) {
+    console.error('Failed to load extension contributions:', err);
+  }
+}
+
 window.addEventListener('click', (event) => {
   if (commandPalette && !commandPalette.classList.contains('hidden')) {
     const path = event.composedPath();
-    if (!path.includes(commandPalette)) {
-      setCommandPaletteVisible(false);
-    }
+    if (!path.includes(commandPalette)) setCommandPaletteVisible(false);
   }
 });
 
 window.addEventListener('view-changed', (event: Event) => {
-  const customEvent = event as CustomEvent<{ view: string }>;
-  if (navigationPanel) {
-    navigationPanel.setView(customEvent.detail.view);
+  const customEvent = event as CustomEvent<{ view: string; source: string }>;
+  if (navigationPanel) navigationPanel.setView(customEvent.detail.view);
+  // Ask Main to activate the extension behind this view (no-op for built-in settings view).
+  if (customEvent.detail.view !== '__settings__' && customEvent.detail.source === 'extension') {
+    void window.financeShell?.extensions.activateView(customEvent.detail.view);
   }
 });
 
 window.addEventListener('command-selected', (event: Event) => {
-  const customEvent = event as CustomEvent<{ command: string }>;
+  const customEvent = event as CustomEvent<{ command: string; extensionCommand: boolean }>;
   const cmd = customEvent.detail.command;
-  if (cmd === 'toggle-ai') {
-    toggleAiPanel();
-  } else if (cmd === 'view-dashboard') {
-    if (navigationPanel) {
-      navigationPanel.setView('Dashboard');
-    }
+  if (customEvent.detail.extensionCommand) {
+    // [Review fix §4.6] Forward to the Main-side IPC handler instead of just
+    // logging. The Main handler delegates to the Extension Host, which calls
+    // the extension's registered command handler via `finance.commands.execute()`.
+    // Phase 5 will add a per-extension command allowlist here; see Self-Review
+    // §7 Security deferral note.
+    window.financeShell?.extensions.executeCommand(cmd).then((result) => {
+      if (!result.executed) {
+        console.warn(`[palette] extension command "${cmd}" did not execute: ${result.reason ?? 'unknown reason'}`);
+      }
+    }).catch((err) => {
+      console.error(`[palette] extension command "${cmd}" threw:`, err);
+    });
+  } else {
+    if (cmd === 'toggle-ai') toggleAiPanel();
+    else if (cmd === 'view-dashboard') navigationPanel?.setView('Dashboard');
   }
   setCommandPaletteVisible(false);
 });
@@ -70,24 +92,16 @@ window.addEventListener('command-selected', (event: Event) => {
 window.addEventListener('DOMContentLoaded', async () => {
   const version = await window.financeShell?.getVersion() ?? 'dev-browser';
 
-  // Load persisted theme
   const theme = await window.financeShell?.settings.get('core.theme');
-  if (theme !== undefined) {
-    await applyTheme(theme);
-  }
+  if (theme !== undefined) await applyTheme(theme);
 
-  // Load persisted AI panel state — strict `=== true` so a non-boolean
-  // truthy value (e.g. a string from a corrupt DB row) does not
-  // silently collapse the panel.
   const aiCollapsed = await window.financeShell?.settings.get('core.ui.aiCollapsed');
-  if (aiCollapsed === true) {
-    app?.classList.add('ai-collapsed');
-  }
+  if (aiCollapsed === true) app?.classList.add('ai-collapsed');
 
-  // Build status bar
+  await loadExtensionContributions();
+
   const statusBar = document.querySelector('#status-bar');
   if (statusBar) {
-    // Theme toggle button
     const themeBtn = document.createElement('span');
     themeBtn.className = 'status-item status-btn';
     themeBtn.dataset.action = 'toggle-theme';
@@ -98,7 +112,6 @@ window.addEventListener('DOMContentLoaded', async () => {
     });
     statusBar.appendChild(themeBtn);
 
-    // Version tag
     const versionTag = document.createElement('span');
     versionTag.className = 'status-item version-tag';
     versionTag.textContent = `v${version}`;
@@ -119,7 +132,5 @@ window.addEventListener('keydown', (event) => {
     toggleAiPanel();
   }
 
-  if (event.key === 'Escape') {
-    setCommandPaletteVisible(false);
-  }
+  if (event.key === 'Escape') setCommandPaletteVisible(false);
 });

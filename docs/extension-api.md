@@ -1,280 +1,90 @@
-# Extension API Reference
+# Finance Extension API Reference
 
-> **Status:** Phase 3 skeleton. Documents the API surface as it exists after Phase 3 (the Extension Host & IPC Scaffolding milestone). Phase 4+ will fill in the `finance.db.*` and `finance.ai.*` implementations; Phase 5 will harden the security model. Items marked **(stub)** are functional but return empty or no-op results in Phase 3.
+> **Status:** Phase 3 skeleton. `finance.db.*` and `finance.ai.*` are stubbed and will fill in during Phase 4 and Phase 6 respectively. Phase 4+ migration notes document the planned API evolution.
 
-This document is the canonical reference for extension authors. It covers:
+## Manifest schema
 
-1. [Manifest schema](#1-manifest-schema)
-2. [Activation events](#2-activation-events)
-3. [The `finance.*` API surface](#3-the-finance-api-surface)
-4. [Lifecycle hooks](#4-lifecycle-hooks)
-5. [Loading mechanism](#5-loading-mechanism)
-6. [Error handling](#6-error-handling)
-7. [Security model](#7-security-model)
-8. [Working example: `salary-history`](#8-working-example-salary-history)
-9. [Phase 4+ migration notes](#9-phase-4-migration-notes)
+Every extension declares a `financeExtension` block in its `package.json`. The canonical TypeScript types live in [`src/types/finance.d.ts`](../types/finance.d.ts). Runtime validation is enforced by the Zod schema in [`src/extension-host/manifest-schema.ts`](../extension-host/manifest-schema.ts).
 
----
+| Field | Type | Notes |
+|---|---|---|
+| `id` | `string` | Lowercase alphanumeric/hyphen; must match `package.json#name`. |
+| `displayName` | `string` | Human-readable name shown in the Extension Manager. |
+| `version` | `string` | Semver (e.g. `0.1.0`). |
+| `activationEvents` | `ActivationEvent[]` | At least one. `*` activates on startup; `onView:<id>` and `onCommand:<id>` are lazy. |
+| `contributions` | `ManifestContributions` | `views`, `commands`, `menus`, `configuration`. |
+| `main` | `string` | Path to the bundled ESM entry (relative to package root). |
 
-## 1. Manifest schema
+### `contributes.views`
 
-Every extension has a `package.json` at its root with a `financeExtension` field. The full TypeScript type lives in [`src/types/finance.dts`](src/types/finance.d.ts); runtime validation lives in [`src/extension-host/manifest-schema.ts`](src/extension-host/manifest-schema.ts) (Zod, strict mode).
+Each view contributes one Activity Bar button. Phase 3 renders the icon as a single character; the renderer ignores any CSS-class suggestion.
 
-```typescript
-interface FinanceExtensionManifest {
-  id: string;                          // globally unique; lowercase + hyphen
-  displayName: string;                 // human-readable
-  version: string;                     // semver
-  description?: string;
-  dependencies?: string[];             // other extension ids
-  activationEvents: ActivationEvent[]; // at least one required
-  contributions: {
-    views?: ManifestViewContribution[];
-    commands?: ManifestCommandContribution[];
-    menus?: ManifestMenuContribution[];           // (UI deferred to Phase 5)
-    configuration?: ManifestConfigurationContribution[]; // (UI deferred to Phase 7)
-  };
-  main: string;                        // path to entry, relative to extension root
-}
-```
+### `contributes.commands`
 
-**Discovery rules** (enforced by `ExtensionLoader` in `src/main/services/extension-loader.ts`):
+Each command registers a Palette entry. Phase 3 wires execution end-to-end; the renderer invokes commands via `window.financeShell.extensions.executeCommand(id, ...args)`.
 
-- `package.json#name` must equal `financeExtension.id`. Mismatches are skipped with a warning.
-- `package.json#version` is used as the fallback if `financeExtension.version` is omitted.
-- Directories named `node_modules` or `dist` are skipped.
-- Invalid manifests (failed Zod validation) are skipped with a warning; other extensions still load.
+### `contributes.menus` (deferred)
 
-**Manifests with unknown top-level keys are rejected** (strict mode). This prevents typos from silently no-op'ing.
+Schema is defined; Electron `Menu` rendering is deferred to Phase 5.
 
----
+### `contributes.configuration` (deferred)
 
-## 2. Activation events
+Schema is defined; the generic settings UI renderer is deferred to Phase 7.
 
-Extensions activate when one of their `activationEvents` fires. Phase 3 supports two trigger kinds:
+## Activation events
 
-| Pattern              | Fires when                                               |
-| -------------------- | -------------------------------------------------------- |
-| `*`                  | Immediately on app startup (use sparingly)               |
-| `onView:<viewId>`    | The user activates a view with `<viewId>` in the Activity Bar |
+- `*` — load immediately on app start.
+- `onView:<viewId>` — load when the user activates the named view.
+- `onCommand:<commandId>` — load when the named command is invoked.
 
-Future trigger kinds (deferred to later phases):
+## `finance.*` API surface
 
-- `onCommand:<commandId>` — Phase 4+
-- `onSettings:<namespace>` — Phase 7
-- `onWorkspaceOpen` — Phase 5
+The `finance` global is parameter-injected into the extension's `activate(finance)` function. **Phase 3 does not implement canonical `import * as finance from 'finance'`** — the parameter-injection mechanism is the Phase 3 contract; Phase 4+ adds module-loader support for multi-file extensions without changing this signature.
 
-Once activated, an extension stays active until app shutdown. Re-activation is a no-op (the in-memory `activeExtensions` map dedupes by extension id).
+### `finance.commands.registerCommand(id, title, handler, keybinding?)`
 
----
+Register a command. Throws if `id` is already registered. `keybinding` is stored but not enforced until Phase 7.
 
-## 3. The `finance.*` API surface
+### `finance.commands.execute(id, ...args)`
 
-Extensions receive the `finance` object as the only argument to their `activate(finance)` function. The shape is:
+Execute a command. Returns `null` if the command is missing (graceful degradation per `project_vision.md:46`). Never throws.
 
-```typescript
-interface FinanceApi {
-  commands: {
-    registerCommand(id: string, title: string, handler: CommandHandler, keybinding?: string): void;
-    execute(id: string, ...args: unknown[]): Promise<unknown>;
-  };
-  db: {
-    table(name: string): QueryChain; // (stub in Phase 3)
-  };
-  ai: {
-    registerTool(tool: ToolDefinition): void; // (stub in Phase 3)
-  };
-}
-```
+### `finance.db.table(name)` (Phase 3 stub)
 
-### 3.1 `finance.commands`
+Returns an empty queryable. Phase 4 wires real access via the Core DAO.
 
-**`registerCommand(id, title, handler, keybinding?)`** — Register a command that the Command Palette can invoke. Phase 3 surfaces registered commands in the Command Palette under an "Extensions" group. The `keybinding` argument is accepted but **not enforced** in Phase 3; it is registered for Phase 7's keyboard-shortcut layer.
+### `finance.ai.registerTool(definition)` (Phase 3 stub)
 
-**Contract:**
+Stores the tool definition and forwards it to Main. Phase 6 wires execution.
 
-- `id` must be unique across all installed extensions. Re-registering an existing id throws.
-- `title` is the human-readable label shown in the Command Palette.
-- `handler` receives the args passed to `execute(id, ...args)` and returns anything (sync or async).
-- The `deactivate()` lifecycle hook can dispose of any side effects the handler set up.
+## Lifecycle hooks
 
-**`execute(id, ...args)`** — Run a command by id. Returns the handler's return value, or `null` if the command is not registered. **Never throws** on missing commands — this is the vision's "graceful degradation" rule (`project_vision.md:46`). Other failures (handler throws) bubble up as a rejected promise.
+- `activate(finance)` — called when an activation event fires. Required export.
+- `deactivate()` — called when the Extension Host shuts down (graceful shutdown only). Optional.
 
-### 3.2 `finance.db.table(name)` **(stub in Phase 3)**
+## Loading mechanism
 
-Returns a query chain for the named table. Phase 3 returns shape-correct empty queryables; Phase 4 replaces them with real DAO access.
+Extension entries are bundled to `dist/extensions/<id>.js` by `vite.extensions.config.ts` (per ADR-0004 and Decision 10). The Extension Host loads the bundle via dynamic `import()`. Extensions are authored in TypeScript but authors do not need to know about the bundler.
 
-```typescript
-interface QueryChain {
-  find(filter?: unknown): Promise<unknown[]>;
-  findOne(filter?: unknown): Promise<unknown | null>;
-  insert(record: unknown): Promise<{ id: number | string }>;
-  update(filter: unknown, patch: unknown): Promise<{ updated: number }>;
-  delete(filter: unknown): Promise<{ deleted: number }>;
-}
-```
+## Error handling
 
-**Phase 4 will define** the filter semantics, the namespace isolation rules (per `project_vision.md:48`), and the error shapes. Extensions that call `finance.db.table()` in Phase 3 should treat the result as "empty for now" — Phase 4 changes the data, not the contract.
+- Manifest validation failures are skipped at the discovery boundary with a console warning; the shell stays alive.
+- Activation failures increment the registry's `crash_count` and auto-disable at `AUTO_DISABLE_CRASH_THRESHOLD = 3`.
+- Command execution returns `{ executed: false, reason }` on transport failures; the renderer surfaces the reason in the status bar.
 
-### 3.3 `finance.ai.registerTool(tool)` **(stub in Phase 3)**
+## Security model
 
-Stores a tool definition so the future AI Assistant panel (Phase 6) can resolve it. Phase 3 logs the registration and stores it in-memory; Phase 6 adds execution and the LLM provider plumbing.
+- Extensions run in an isolated `utilityProcess` (no shared in-process module graph with Main or Renderer).
+- All cross-extension traffic routes through Main via `finance.commands.execute()` and returns `null` on missing target.
+- Direct database writes across extension boundaries are structurally impossible (DAO namespace enforcement).
+- **Phase 5 hardening:** a per-extension command allowlist on the Main side (see `project_vision.md:46` and Self-Review §7).
 
-```typescript
-interface ToolDefinition {
-  name: string;         // unique tool id
-  description: string;  // human-readable for the LLM prompt
-  parameters: unknown;  // JSON Schema for the tool's args
-  handler: (args: unknown) => Promise<unknown> | unknown;
-}
-```
+## Working example
 
----
+See [`extensions/salary-history/`](../extensions/salary-history/) — the Phase 3 mock extension declares one view (`salary-history`), two commands (`salary.showPayHistory`, `salary.showDeductions`), and activates on `onView:salary-history`. Phase 4 replaces the stub handlers with real payslip form logic.
 
-## 4. Lifecycle hooks
+## Phase 4+ migration notes
 
-Every extension exports two functions: `activate` (required) and `deactivate` (optional).
-
-```typescript
-export async function activate(finance: FinanceApi): Promise<void> {
-  // One-time setup: register commands, register tools, initialise state.
-}
-
-export function deactivate(): void {
-  // Cleanup: dispose of listeners, abort in-flight requests, flush buffers.
-  // Called when the Extension Host receives a `host.shutdown` notification
-  // (graceful app quit) or — in Phase 5+ — an `extension.deactivate`
-  // notification (runtime disable from the Extension Manager UI).
-}
-```
-
-**Activation is idempotent.** Calling `activate` twice for the same extension is a no-op (the second call short-circuits in `ExtensionHost.activateExtension`).
-
-**Deactivation is best-effort.** If `deactivate` throws, the error is logged and other extensions still get their `deactivate` calls. The Host then exits.
-
----
-
-## 5. Loading mechanism
-
-Extensions are **bundled at build time** (Decision 10 + ADR-0004). The build pipeline produces `dist/extensions/<id>.js` from `extensions/<id>/src/main.ts`. The Extension Host loads each extension via dynamic `import()`:
-
-```typescript
-// In src/extension-host/host.ts (Phase 3)
-const extensionsBundleRoot = path.resolve(
-  path.dirname(url.fileURLToPath(import.meta.url)),
-  '..',
-  'extensions'
-);
-const entryPath = path.join(extensionsBundleRoot, `${extensionId}.js`);
-const extModule = await import(url.pathToFileURL(entryPath).href);
-await extModule.activate(finance);
-```
-
-**Phase 3 contract:** extensions receive `finance` as a parameter to `activate()`. They do not `import 'finance'` themselves. The rationale is documented in the Phase 3 plan's Decision 9 and the handoff doc's "Decision 9 reframing".
-
-**Phase 4+ migration target:** When a real multi-file extension is built, decide between (a) implementing `import * as finance from 'finance'` via a Node loader hook in the Host, or (b) publishing `finance.d.ts` as a typed SDK package that extensions import for types while still receiving the API as an `activate(finance)` parameter.
-
----
-
-## 6. Error handling
-
-| Failure mode                         | Behaviour                                                |
-| ------------------------------------ | -------------------------------------------------------- |
-| Missing manifest                     | Extension skipped at discovery; warning logged           |
-| Invalid manifest (Zod failure)       | Extension skipped; other errors listed in warning        |
-| `main` file missing or fails to load | `activateExtension` returns `false`; extension stays `active: false` |
-| `activate` throws                    | Error logged; extension stays `active: false`; **crash count incremented** |
-| `registerCommand` called with duplicate id | Throws synchronously inside `activate`              |
-| `commands.execute(unknownId)`        | Returns `null`; never throws                             |
-| Host process crashes                 | Main detects via `utilityProcess` 'exit' event; re-spawns on next interaction |
-
-**Crash diagnostics (Phase 3+):** Activation failures increment `extension_registry.crash_count` and persist the error message in `last_error`. After `AUTO_DISABLE_CRASH_THRESHOLD = 3` consecutive crashes, the extension is auto-disabled (`enabled = 0`) and the renderer receives an `extensions:host-status` notification with `status: 'extension-auto-disabled'`. A successful activation calls `clearCrashes()` and resets the count.
-
-This means **a flaky extension that recovers** (one good activation) does not stay on the brink of auto-disable — only persistent failure counts.
-
----
-
-## 7. Security model
-
-**Phase 3 posture (permissive):**
-
-- Extensions run in a sandboxed `utilityProcess` child of Electron Main. They cannot read/write the host filesystem, cannot open network sockets, and cannot import `node:fs` / `node:net` directly (the Host bundle externalises only safe `node:*` built-ins).
-- The renderer can call `financeShell.extensions.executeCommand(commandId, ...args)` for any command registered by any active extension. There is **no per-extension command allowlist** in Phase 3.
-- Disabling an extension (`enabled = 0`) in the database removes its contributions on the next startup but does NOT unload an already-active extension until restart.
-
-**Why permissive in Phase 3:**
-
-- All extensions are developer-installed (no marketplace yet).
-- The renderer is sandboxed from Node APIs via `contextBridge` (vision's `nodeIntegration: false` rule).
-- Phase 8 ships the marketplace; Phase 5 ships the security hardening.
-
-**Phase 5 hardening (deferred, documented in `docs/superpowers/plans/2026-06-30-phase3-extension-host-ipc.md` Self-Review §7):**
-
-- The Main-side `extensions:execute-command` handler validates the command against `extensionRegistry.commands()` and rejects commands whose extension is disabled or auto-disabled.
-- The renderer can only invoke commands on the Main-side allowlist. Extensions opt-in to renderer-callable commands via a manifest field (proposal: `contributes.commands[].rendererCallable: boolean`).
-- Runtime `setEnabled(false)` sends an `extension.deactivate` notification to the Host so the extension's `deactivate()` hook runs immediately, not on next startup.
-
----
-
-## 8. Working example: `salary-history`
-
-The Phase 3 mock extension at `extensions/salary-history/` proves the full pipeline. It is also the cleanest reference implementation:
-
-```typescript
-// extensions/salary-history/src/main.ts
-import type { FinanceApi } from '../../src/types/finance';
-
-export async function activate(finance: FinanceApi): Promise<void> {
-  finance.commands.registerCommand('salary.showPayHistory', 'View: Pay History', () => {
-    console.log('[salary-history] Pay History view requested');
-    return { executed: true };
-  });
-
-  finance.commands.registerCommand('salary.showDeductions', 'View: Deductions', () => {
-    console.log('[salary-history] Deductions view requested');
-    return { executed: true };
-  });
-}
-
-export function deactivate(): void {
-  // Phase 4 will dispose of any listeners or active forms here.
-}
-```
-
-```json
-// extensions/salary-history/package.json
-{
-  "name": "salary-history",
-  "version": "0.1.0",
-  "main": "src/main.ts",
-  "financeExtension": {
-    "id": "salary-history",
-    "displayName": "Salary History",
-    "version": "0.1.0",
-    "activationEvents": ["onView:salary-history"],
-    "contributes": {
-      "views": [{ "id": "salary-history", "name": "Salary", "icon": "P" }],
-      "commands": [
-        { "id": "salary.showPayHistory", "title": "View: Pay History" },
-        { "id": "salary.showDeductions", "title": "View: Deductions" }
-      ]
-    }
-  }
-}
-```
-
-After `npm run build:extensions`, the bundler produces `dist/extensions/salary-history.js`. The Host loads it on `onView:salary-history` activation.
-
----
-
-## 9. Phase 4+ migration notes
-
-| Phase | What changes for extension authors                                       |
-| ----- | ------------------------------------------------------------------------- |
-| 4     | `finance.db.table()` becomes real. `finance.commands.registerCommand` supports an optional `category` for grouping. |
-| 5     | Renderer-callable commands get the allowlist (see §7). Cross-process events. |
-| 6     | `finance.ai.registerTool` becomes real. `finance.ai.invokeTool` exposed for direct calls. |
-| 7     | Keyboard shortcuts via `keybinding` are enforced. Settings UI renderer reads `contributes.configuration`. |
-| 8     | Marketplace flow. Signed extensions. `import * as finance from 'finance'` migration path becomes real (Node loader hook or SDK package). |
-
-Extension authors writing against this Phase 3 surface should expect the **shape** to stay stable but the **behaviour** of `finance.db.*` and `finance.ai.*` to fill in. The `finance.commands` surface is the stable contract across all phases.
+- `import * as finance from 'finance'` becomes available in Phase 4 when a multi-file extension is first built. The `FinanceApi` type contract in `src/types/finance.d.ts` is unchanged.
+- `finance.db.table()` becomes a real DAO in Phase 4 with namespaced access (`finance.extensions.<id>.db.*`).
+- `finance.ai.registerTool()` becomes executable in Phase 6 with tool-call routing through the AI Assistant panel.
