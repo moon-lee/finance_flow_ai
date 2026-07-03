@@ -21,7 +21,9 @@ The vision (`project_vision.md:78`) pins the wire format: *"Desktop Framework �
 
 Use Electron `utilityProcess.fork(modulePath, args, options)` to spawn the Extension Host. Exchange JSON-RPC 2.0 envelopes over the structured-clone MessagePort that `utilityProcess.fork()` exposes.
 
-Hand-roll a ~50-line envelope helper (`src/extension-host/json-rpc.ts`) rather than pull in `@vscode/jsonrpc` or similar. The protocol surface is small and explicit envelopes double as the contract both processes import.
+Hand-roll a ~50-line envelope helper rather than pull in `@vscode/jsonrpc` or similar. The protocol surface is small and explicit envelopes double as the contract both processes import.
+
+> **Path note (2026-07-03, third-pass review fix §5.4):** The envelope helper originally lived at `src/extension-host/json-rpc.ts` when this ADR was written. It was moved to `src/shared/json-rpc.ts` in the second-pass review fix §3.1 because Main, Host, and Vite configs all import from it — the protocol is no longer "owned by" the Extension Host. The folder rename is purely organisational; the envelope shape, error codes, and import semantics are unchanged.
 
 Bundle the Host entry point (`src/extension-host/host.ts`) to `dist/extension-host/host.js` via a fourth Vite config (`vite.extension-host.config.ts`), externalizing `electron`, `node:*` built-ins, and `better-sqlite3`. This keeps the Host's import graph isolated from Main and Renderer.
 
@@ -54,6 +56,6 @@ Reconsider this transport choice when **any** of the following becomes true:
 ## Related
 
 - Plan: `docs/superpowers/plans/2026-06-30-phase3-extension-host-ipc.md` (Decisions 1 and 2)
-- Code: `src/extension-host/host.ts` (process entry), `src/extension-host/json-rpc.ts` (envelope helpers), `src/main/services/extension-ipc.ts` (Main-side transport)
+- Code: `src/extension-host/host.ts` (process entry), `src/shared/json-rpc.ts` (envelope helpers — moved from `src/extension-host/json-rpc.ts` per second-pass review fix §3.1), `src/main/services/extension-ipc.ts` (Main-side transport)
 - Vision: `project_vision.md:78` (transport pinned to JSON-RPC); `project_vision.md:48` (cross-extension rule enforced by this boundary)
 - ADR-0002: Inline Migration Runner (precedent for hand-rolled, minimal-dependency approach)

@@ -1,10 +1,11 @@
 ---
 title: Phase 3 - Extension Host & IPC Scaffolding
 date: 2026-06-30
-status: draft — second review integrated
+status: draft — third review integrated
 reviewed_by: docs/phase3-plan-review.md
 review_date: 2026-07-01
 second_review: 2026-07-03
+third_review: 2026-07-03
 fixes_applied:
   # From docs/phase3-plan-review.md (the 9 review findings)
   - §2.1 Extension Host crash recovery (Task 8 + Test Unit 5)
@@ -36,6 +37,19 @@ fixes_applied:
   - Review fix §4.7 Navigation Panel test expectations rephrased to reflect Phase 3 static behaviour (Tasks 16, 17 Test Unit 3)
   - Review fix §4.8 ExtensionRegistry unit tests added (Task 15)
   - Review fix §4.9 Hot-disable behavior documented (Task 8 + Self-Review §7 deferral note)
+  # Third-pass review findings (2026-07-03). Source: same reviewer document as the
+  # second-pass review, raised after the second-pass fixes were integrated. Items
+  # prefixed [Review fix §5.N] in the plan body for traceability.
+  - Review fix §5.1 Test database helper getTestDatabase() added to database-service.ts + ExtensionRegistry constructor accepts optional Database for DI (Task 7 Steps 0 + 1a)
+  - Review fix §5.2 build:extensions script + wait-on entry moved from Task 1 to Task 9 Step 0a so scripts.build is never broken between Tasks 1 and 9 (Task 1 Step 2, Task 9 Step 0a)
+  - Review fix §5.3 Hot-disable behavioural contract documented across Task 7 setEnabled() JSDoc, Task 8 ExtensionIPC.request() JSDoc, Task 10 extensions:activate-view comment, Self-Review §7 expanded deferral, and Test Unit 6 in-memory steps (Tasks 7, 8, 10, 17)
+  # Fourth-pass review findings (2026-07-03). Source: same reviewer document as the
+  # third-pass review, raised after the third-pass fixes were integrated. Items
+  # prefixed [Review fix §5.N] in the plan body for traceability. The reviewer's
+  # own labels (5.1, 5.3) collided with our third-pass §5.x numbers; we use
+  # continuous §5.4 / §5.5 to preserve the audit trail.
+  - Review fix §5.4 ADR-0003 stale path references updated: line 24 and line 57 now reference src/shared/json-rpc.ts (post-§3.1 move); added post-review note explaining the rename (ADR-0003)
+  - Review fix §5.5 docs/extension-api.md added to Task 2 Files list as Create; Task 2 Step 2b creates/verifies the file against the canonical content (manifest schema, activation events, finance.* surface, lifecycle hooks, loading mechanism, error handling, security model, working example, Phase 4+ migration notes); File Structure diagram's phantom §4.10 reference replaced with §5.5 (Task 2 Step 2b, File Structure diagram)
 ---
 
 # Phase 3 — Extension Host & IPC Scaffolding Implementation Plan
@@ -262,7 +276,7 @@ finance-flow-ai/
 |       |-- extension-host.spec.ts              # MODIFIED: rephrased navigation panel assertion *(per [Review fix §4.7])*
 |       `-- renderer-shell.spec.ts              # Modified: now runs under Electron
 `-- docs/
-    `-- extension-api.md                        # NEW: extension author API reference *(per [Review fix §4.10])*
+    `-- extension-api.md                        # NEW: extension author API reference *(per [Review fix §5.5]; created in Task 2 Step 2b)*
 `-- playwright.electron.config.ts               # NEW: Electron-aware config (optional split)
 ```
 
@@ -288,23 +302,21 @@ npm install --save-dev concurrently wait-on nodemon cross-env
 
 > `concurrently`, `wait-on`, `nodemon`, and `cross-env` are already used by Phase 2's dev script but were never added to `devDependencies` in `package.json` — they were inherited from a global install. The Phase 3 dev orchestration depends on all four, so they must be declared explicitly.
 
-- [ ] **Step 2: Add build scripts for the Extension Host and extension bundles** *(incorporates [Follow-up §3.7] dev script concurrency and [Review fix §4.1] extension bundling and [Review fix §4.5] postinstall)*
+- [ ] **Step 2: Add build scripts for the Extension Host** *(incorporates [Follow-up §3.7] dev script concurrency and [Review fix §4.5] postinstall)*
 
 ```bash
 npm pkg set scripts.build:extension-host="vite build --config vite.extension-host.config.ts"
-npm pkg set scripts.build:extensions="vite build --config vite.extensions.config.ts"
-npm pkg set scripts.build="npm run build:main && npm run build:preload && npm run build:extension-host && npm run build:extensions && npm run build:renderer"
+npm pkg set scripts.build="npm run build:main && npm run build:preload && npm run build:extension-host && npm run build:renderer"
 npm pkg set scripts.dev:extension-host="vite build --config vite.extension-host.config.ts --watch"
-npm pkg set scripts.dev:extensions="vite build --config vite.extensions.config.ts --watch"
-npm pkg set scripts.dev="concurrently -k \"npm:dev:main\" \"npm:dev:preload\" \"npm:dev:extension-host\" \"npm:dev:extensions\" \"npm:dev:renderer\" \"npm:start:dev\""
-npm pkg set scripts.start:dev="wait-on http://127.0.0.1:5173 dist/main/main.js dist/preload/preload.cjs dist/extension-host/host.js dist/extensions/salary-history.js && cross-env ELECTRON_RENDERER_URL=http://127.0.0.1:5173 nodemon --watch dist/main/main.js --watch dist/extension-host/host.js --exec \"electron dist/main/main.js\""
+npm pkg set scripts.dev="concurrently -k \"npm:dev:main\" \"npm:dev:preload\" \"npm:dev:extension-host\" \"npm:dev:renderer\" \"npm:start:dev\""
+npm pkg set scripts.start:dev="wait-on http://127.0.0.1:5173 dist/main/main.js dist/preload/preload.cjs dist/extension-host/host.js && cross-env ELECTRON_RENDERER_URL=http://127.0.0.1:5173 nodemon --watch dist/main/main.js --watch dist/extension-host/host.js --exec \"electron dist/main/main.js\""
 npm pkg set scripts.start="npm run build && electron dist/main/main.js"
 npm pkg set scripts.postinstall="electron-rebuild --force"
 ```
 
-> **Why `electron-rebuild` moved to `postinstall` (per [Review fix §4.5]):** The previous `start` script ran `electron-rebuild --force` on every cold start, adding 30–60 seconds to the dev loop for no benefit — `better-sqlite3` only needs to be rebuilt when Electron or Node versions change. `postinstall` runs once after `npm install` (and re-runs on `npm ci`), which is when the rebuild is actually needed. The Phase 2 plan left this in `start` to work around the `--force` cache issue (see `[0.4.1]` CHANGELOG entry); the workaround is no longer required because the WSL/Windows `--force` issue is documented and `electron-rebuild --force` from `postinstall` is now the canonical install step. The `rebuild` script is kept for manual recovery but no longer chained into `start`.
+> **Why `build:extensions` is NOT added here (per [Review fix §5.2]):** The `vite.extensions.config.ts` file is created in Task 9 Step 0. If Task 1 Step 2 added `build:extensions` here, the `scripts.build` chain would reference a non-existent Vite config and `npm run build` would fail between Tasks 1 and 9 with a confusing Vite error. Instead, `build:extensions`, `dev:extensions`, and the `dist/extensions/salary-history.js` `wait-on` entry are added in Task 9 Step 0 immediately after the config file is created. Task 1's chain therefore bundles Main + Preload + Extension Host + Renderer only — the extension bundles join the chain once the config exists.
 >
-> The `wait-on` list now includes `dist/extensions/salary-history.js` so dev startup waits for the bundled extension before launching Electron.
+> **Why `electron-rebuild` moved to `postinstall` (per [Review fix §4.5]):** The previous `start` script ran `electron-rebuild --force` on every cold start, adding 30–60 seconds to the dev loop for no benefit — `better-sqlite3` only needs to be rebuilt when Electron or Node versions change. `postinstall` runs once after `npm install` (and re-runs on `npm ci`), which is when the rebuild is actually needed. The Phase 2 plan left this in `start` to work around the `--force` cache issue (see `[0.4.1]` CHANGELOG entry); the workaround is no longer required because the WSL/Windows `--force` issue is documented and `electron-rebuild --force` from `postinstall` is now the canonical install step. The `rebuild` script is kept for manual recovery but no longer chained into `start`.
 >
 > The `scripts.start` change (drop `npm run rebuild`) reflects the postinstall move.
 
@@ -503,10 +515,111 @@ export function validateManifest(raw: unknown): ManifestValidationResult {
 
 > **Note:** The `FinanceExtensionManifest` type is imported in `manifest-schema.ts` only for the return cast. To avoid a circular import (types ↔ extension-host), the schema does not reference the type at module scope; the cast happens inside `validateManifest`. If you need the type elsewhere, import from `src/types/finance.d.ts` directly.
 
+- [ ] **Step 2b: Create the extension API reference (`docs/extension-api.md`)** *(per [Review fix §5.5])*
+
+The File Structure diagram lists `docs/extension-api.md` as a Phase 3 deliverable, but no task previously owned its creation. Add the file as Task 2's deliverable so its existence is explicit and tracked.
+
+> **Existing file note:** The file was originally drafted during the second-pass review integration (`git log --follow docs/extension-api.md` shows the initial commit). The executor verifies the existing file matches the canonical content below; if a Section is missing or stale (e.g., it predates a Task 2 type change), the executor updates the file to match before committing this Step.
+
+Create `docs/extension-api.md` with the following canonical structure (each section references the canonical source so the file stays a thin pointer, not a duplicate contract):
+
+```markdown
+# Finance Extension API Reference
+
+> **Status:** Phase 3 skeleton. `finance.db.*` and `finance.ai.*` are stubbed and will fill in during Phase 4 and Phase 6 respectively. Phase 4+ migration notes document the planned API evolution.
+
+## Manifest schema
+
+Every extension declares a `financeExtension` block in its `package.json`. The canonical TypeScript types live in [`src/types/finance.d.ts`](../types/finance.d.ts). Runtime validation is enforced by the Zod schema in [`src/extension-host/manifest-schema.ts`](../extension-host/manifest-schema.ts).
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | `string` | Lowercase alphanumeric/hyphen; must match `package.json#name`. |
+| `displayName` | `string` | Human-readable name shown in the Extension Manager. |
+| `version` | `string` | Semver (e.g. `0.1.0`). |
+| `activationEvents` | `ActivationEvent[]` | At least one. `*` activates on startup; `onView:<id>` and `onCommand:<id>` are lazy. |
+| `contributions` | `ManifestContributions` | `views`, `commands`, `menus`, `configuration`. |
+| `main` | `string` | Path to the bundled ESM entry (relative to package root). |
+
+### `contributes.views`
+
+Each view contributes one Activity Bar button. Phase 3 renders the icon as a single character; the renderer ignores any CSS-class suggestion.
+
+### `contributes.commands`
+
+Each command registers a Palette entry. Phase 3 wires execution end-to-end; the renderer invokes commands via `window.financeShell.extensions.executeCommand(id, ...args)`.
+
+### `contributes.menus` (deferred)
+
+Schema is defined; Electron `Menu` rendering is deferred to Phase 5.
+
+### `contributes.configuration` (deferred)
+
+Schema is defined; the generic settings UI renderer is deferred to Phase 7.
+
+## Activation events
+
+- `*` — load immediately on app start.
+- `onView:<viewId>` — load when the user activates the named view.
+- `onCommand:<commandId>` — load when the named command is invoked.
+
+## `finance.*` API surface
+
+The `finance` global is parameter-injected into the extension's `activate(finance)` function. **Phase 3 does not implement canonical `import * as finance from 'finance'`** — the parameter-injection mechanism is the Phase 3 contract; Phase 4+ adds module-loader support for multi-file extensions without changing this signature.
+
+### `finance.commands.registerCommand(id, title, handler, keybinding?)`
+
+Register a command. Throws if `id` is already registered. `keybinding` is stored but not enforced until Phase 7.
+
+### `finance.commands.execute(id, ...args)`
+
+Execute a command. Returns `null` if the command is missing (graceful degradation per `project_vision.md:46`). Never throws.
+
+### `finance.db.table(name)` (Phase 3 stub)
+
+Returns an empty queryable. Phase 4 wires real access via the Core DAO.
+
+### `finance.ai.registerTool(definition)` (Phase 3 stub)
+
+Stores the tool definition and forwards it to Main. Phase 6 wires execution.
+
+## Lifecycle hooks
+
+- `activate(finance)` — called when an activation event fires. Required export.
+- `deactivate()` — called when the Extension Host shuts down (graceful shutdown only). Optional.
+
+## Loading mechanism
+
+Extension entries are bundled to `dist/extensions/<id>.js` by `vite.extensions.config.ts` (per ADR-0004 and Decision 10). The Extension Host loads the bundle via dynamic `import()`. Extensions are authored in TypeScript but authors do not need to know about the bundler.
+
+## Error handling
+
+- Manifest validation failures are skipped at the discovery boundary with a console warning; the shell stays alive.
+- Activation failures increment the registry's `crash_count` and auto-disable at `AUTO_DISABLE_CRASH_THRESHOLD = 3`.
+- Command execution returns `{ executed: false, reason }` on transport failures; the renderer surfaces the reason in the status bar.
+
+## Security model
+
+- Extensions run in an isolated `utilityProcess` (no shared in-process module graph with Main or Renderer).
+- All cross-extension traffic routes through Main via `finance.commands.execute()` and returns `null` on missing target.
+- Direct database writes across extension boundaries are structurally impossible (DAO namespace enforcement).
+- **Phase 5 hardening:** a per-extension command allowlist on the Main side (see `project_vision.md:46` and Self-Review §7).
+
+## Working example
+
+See [`extensions/salary-history/`](../extensions/salary-history/) — the Phase 3 mock extension declares one view (`salary-history`), two commands (`salary.showPayHistory`, `salary.showDeductions`), and activates on `onView:salary-history`. Phase 4 replaces the stub handlers with real payslip form logic.
+
+## Phase 4+ migration notes
+
+- `import * as finance from 'finance'` becomes available in Phase 4 when a multi-file extension is first built. The `FinanceApi` type contract in `src/types/finance.d.ts` is unchanged.
+- `finance.db.table()` becomes a real DAO in Phase 4 with namespaced access (`finance.extensions.<id>.db.*`).
+- `finance.ai.registerTool()` becomes executable in Phase 6 with tool-call routing through the AI Assistant panel.
+```
+
 - [ ] **Step 3: Commit**
 
 ```bash
-git add src/types/finance.d.ts src/extension-host/manifest-schema.ts
+git add src/types/finance.d.ts src/extension-host/manifest-schema.ts docs/extension-api.md
 git commit -m "feat: define manifest types and Zod validation schema"
 ```
 
@@ -1185,9 +1298,49 @@ git commit -m "feat: add Extension Loader service with manifest discovery and va
 ## Task 7: Create the Extension Registry Service
 
 **Files:**
+- Modify: `src/main/services/database-service.ts` *(per [Review fix §5.1] — add `getTestDatabase()` helper)*
 - Create: `src/main/services/extension-registry.ts`
 
 The registry holds the *in-memory* list of extensions loaded from disk and their contribution sets. It mirrors discovered extensions into the `extension_registry` table created by Phase 2 (so the data survives restart) and exposes query helpers that Main and the Renderer use.
+
+- [ ] **Step 0: Add `getTestDatabase()` fixture to `database-service.ts`** *(per [Review fix §5.1])*
+
+This helper exists because Task 15's planned `tests/unit/services/extension-registry.test.ts` (Self-Review §7 §4.8 deferral) must never touch the production `extension_registry` table. Without this fixture, `new ExtensionRegistry()` resolves the singleton `getDatabase()` and unit tests would write to the user's real `finance.db`. The fixture returns a per-call `:memory:` SQLite with the Phase 2 `001-init-infrastructure` and Phase 3 `002-extension-crash-tracking` migrations applied so tests exercise the exact schema the registry expects.
+
+Append to `src/main/services/database-service.ts` (after the existing `getDatabase()` function):
+
+```typescript
+/**
+ * Test-only database factory. Returns a fresh in-memory SQLite connection
+ * with all migrations applied, so unit tests exercise the exact schema the
+ * production code expects without touching the user's real `finance.db`.
+ *
+ * Each call returns a NEW database — tests that need isolation between
+ * cases should call this once per `describe()` or per `beforeEach()`.
+ * The returned database is the caller's responsibility to close.
+ *
+ * **Prerequisite for Task 15 Step 4:** the executor must verify this helper
+ * exists before running `npm run test:unit`. If absent, add it here
+ * (this step) before any `extensionRegistry` unit test runs. *(per
+ * [Review fix §5.1] — addresses the undocumented prerequisite flagged in
+ * the second-pass review.)*
+ */
+export function getTestDatabase(): BetterSqlite3.Database {
+  const database = new DatabaseCtor(':memory:');
+  database.pragma('journal_mode = MEMORY');
+  database.pragma('foreign_keys = ON');
+  runMigrations(database);
+  return database;
+}
+```
+
+> **Note on `DatabaseCtor`:** The Phase 2 file already exposes the `DatabaseCtor` symbol (via the `_setDatabaseConstructorForTesting` injection point). The test factory reuses it so a test that injects a stub constructor can also exercise `getTestDatabase()`. If `_setDatabaseConstructorForTesting` is set to throw on `new DatabaseCtor(':memory:')`, every test fails fast and clearly — no silent fallback to the production singleton.
+
+- [ ] **Step 1a: Make `ExtensionRegistry` constructor accept an injected `Database`** *(per [Review fix §5.1])*
+
+The current signature `new ExtensionRegistry()` resolves `getDatabase()` internally, which couples the registry to the production singleton and blocks per-test isolation. Switch to dependency injection so tests pass `getTestDatabase()` while production code passes `getDatabase()`.
+
+> **Note:** The constructor declaration shown in Step 1 below already incorporates the DI seam from this step. Tests construct `new ExtensionRegistry(getTestDatabase())`; production callers in `main.ts` continue to use `new ExtensionRegistry()` with the default. *(per [Review fix §5.1] — addresses the undocumented prerequisite flagged in the second-pass review; production call sites are unchanged.)*
 
 - [ ] **Step 1: Create the registry**
 
@@ -1218,8 +1371,15 @@ export class ExtensionRegistry {
   private readonly db: Database.Database;
   private readonly byId = new Map<string, { manifest: FinanceExtensionManifest; activatedAt: string | null }>();
 
-  constructor() {
-    this.db = getDatabase();
+  /**
+   * @param db  The SQLite database to use. In production, omit this argument
+   *            and the Phase 2 singleton (`getDatabase()`) is used. In tests,
+   *            pass `getTestDatabase()` so each suite runs against an isolated
+   *            in-memory database with the full migration history applied.
+   *            *(per [Review fix §5.1] — DI seam for per-suite test isolation.)*
+   */
+  constructor(db: Database.Database = getDatabase()) {
+    this.db = db;
   }
 
   /**
@@ -1321,11 +1481,62 @@ export class ExtensionRegistry {
     return row?.enabled === 1;
   }
 
+  /**
+   * Toggle the enabled flag for `extensionId`. Writes through to the
+   * `extension_registry.enabled` column only; does NOT mutate the in-memory
+   * `byId` cache (the cached manifest stays — only the `enabled` read
+   * changes). See `list()` for the per-call re-filter behaviour.
+   *
+   * **Hot-disable contract (per [Review fix §5.3]):** This is the canonical
+   * "disable" call. The behavioural contract for downstream callers:
+   *
+   *   1. **`ExtensionRegistry.list()` / `views()` / `commands()` — re-filter
+   *      on every call.** Each call invokes `isEnabled()` per entry (a DB
+   *      read), so disabled extensions are excluded immediately. No cache
+   *      invalidation is required.
+   *   2. **`extensions:list` IPC handler** — same: returns the fresh
+   *      `views()` + `commands()` per call, so disabled extensions disappear
+   *      from the next `financeShell.extensions.list()` invocation. Renderer
+   *      must re-fetch to see the change.
+   *   3. **`extensions:activate-view` IPC handler** — finds the owning
+   *      extension via `views().find(...)`, which re-filters via `isEnabled()`.
+   *      Disabled extensions are NOT activatable, even if the renderer has a
+   *      stale Activity Bar cache. The handler returns
+   *      `{ activated: false, reason: 'view not found' }` for disabled views.
+   *   4. **`ExtensionIPC.request()` — does NOT check `isEnabled()` itself.**
+   *      The IPC transport is a generic RPC pipe; per-extension enable/disable
+   *      is the registry's concern, enforced at the IPC-handler level (item 3)
+   *      not at the transport level. `host.shutdown` is the only IPC-level
+   *      termination.
+   *   5. **Activity Bar cache (renderer)** — NOT refreshed. The Activity Bar
+   *      renders once on `DOMContentLoaded` from the contributions list. After
+   *      `setEnabled(false)`, the stale button remains visible until the user
+   *      reloads. Clicks on the stale button flow through `activateView()`,
+   *      which then returns `view not found` (item 3) — the user sees a
+   *      graceful failure rather than a crash.
+   *   6. **Host in-memory activation** — NOT cleared. The Extension Host
+   *      keeps the extension's `activate()` result loaded until `host.shutdown`
+   *      or process exit. Phase 5 ships an `extension.deactivate` notification
+   *      protocol that lets Main tell the Host to unload an active extension
+   *      without restarting.
+   *
+   * Phase 3's interim behaviour: disable takes effect for new IPC calls
+   * (items 1–4) immediately, but the renderer UI cache (item 5) and the Host
+   * in-memory state (item 6) lag until next startup. The Phase 8 Extension
+   * Manager UI is the consumer that drives the end-to-end disable flow.
+   */
   setEnabled(extensionId: string, enabled: boolean): void {
     this.db.prepare('UPDATE extension_registry SET enabled = ? WHERE id = ?')
       .run(enabled ? 1 : 0, extensionId);
   }
 
+  /**
+   * **Hot-disable contract (per [Review fix §5.3]):** Re-filters on every
+   * call — each entry's `isEnabled()` is a fresh DB read, so disabling an
+   * extension via `setEnabled(false)` excludes it from the next `list()`
+   * call without requiring cache invalidation. Same contract applies to
+   * `views()` and `commands()`.
+   */
   list(): FinanceExtensionManifest[] {
     return Array.from(this.byId.values())
       .filter((entry) => this.isEnabled(entry.manifest.id))
@@ -1592,6 +1803,17 @@ export class ExtensionIPC {
     await this.start(this.initialManifests);
   }
 
+  /**
+   * Send an RPC request to the Extension Host. The IPC transport is a
+   * generic RPC pipe — it does NOT enforce per-extension enable/disable.
+   * Main-side IPC handlers are responsible for gating calls on
+   * `extensionRegistry.isEnabled()` (e.g. `extensions:activate-view` does
+   * this via `views().find(...)`; see Task 10). Adding an `isEnabled()`
+   * check here would couple the transport to the registry and break the
+   * Phase 5+ plan to add commands that are not extension-scoped.
+   * *(per [Review fix §5.3] — explicit "transport does not check enable"
+   *  statement in the hot-disable contract.)*
+   */
   async request<T = unknown>(method: string, params?: unknown): Promise<T> {
     await this.ensureRunning();
     if (!this.process) {
@@ -1698,7 +1920,21 @@ git commit -m "feat: add Extension IPC transport over utilityProcess + JSON-RPC"
 - Create: `extensions/salary-history/package.json`
 - Create: `extensions/salary-history/src/main.ts`
 
-- [ ] **Step 0: Create the extensions Vite config** *(per [Review fix §4.1])*
+- [ ] **Step 0a: Add `build:extensions` script and wire it into the build chain** *(per [Review fix §5.2])*
+
+This step adds the extension-bundling script that was deliberately deferred from Task 1 because `vite.extensions.config.ts` did not yet exist. With the config now created (Step 0b), the script additions land here so the build chain never references a missing artifact.
+
+```bash
+npm pkg set scripts.build:extensions="vite build --config vite.extensions.config.ts"
+npm pkg set scripts.dev:extensions="vite build --config vite.extensions.config.ts --watch"
+npm pkg set scripts.build="npm run build:main && npm run build:preload && npm run build:extension-host && npm run build:extensions && npm run build:renderer"
+npm pkg set scripts.dev="concurrently -k \"npm:dev:main\" \"npm:dev:preload\" \"npm:dev:extension-host\" \"npm:dev:extensions\" \"npm:dev:renderer\" \"npm:start:dev\""
+npm pkg set scripts.start:dev="wait-on http://127.0.0.1:5173 dist/main/main.js dist/preload/preload.cjs dist/extension-host/host.js dist/extensions/salary-history.js && cross-env ELECTRON_RENDERER_URL=http://127.0.0.1:5173 nodemon --watch dist/main/main.js --watch dist/extension-host/host.js --exec \"electron dist/main/main.js\""
+```
+
+> **Why these land in Task 9 (per [Review fix §5.2]):** Sequencing — the script `vite build --config vite.extensions.config.ts` requires the config file to exist on disk. Adding the script alongside the config (rather than in Task 1) guarantees `npm run build` is never broken by a missing-Vite-config error between Tasks 1 and 9. The `wait-on` list now includes `dist/extensions/salary-history.js` so dev startup waits for the bundled extension before launching Electron.
+
+- [ ] **Step 0b: Create the extensions Vite config** *(per [Review fix §4.1])*
 
 `vite.extensions.config.ts`:
 
@@ -1970,11 +2206,18 @@ ipcMain.handle('extensions:list', () => {
 // so the registry can auto-disable persistently-crashing extensions after
 // `AUTO_DISABLE_CRASH_THRESHOLD` crashes. The auto-disable status is forwarded
 // to the renderer via `extensions:host-status` so the status bar can surface it.
+// [Review fix §5.3] Hot-disable contract: `views().find(...)` re-filters by
+// `isEnabled()` per call, so a stale Activity Bar button click on a disabled
+// extension returns `{ activated: false, reason: 'view not found' }` here
+// before any IPC traffic to the Host. The Host is therefore unreachable
+// for disabled extensions even with a stale renderer cache.
 ipcMain.handle('extensions:activate-view', async (_event, viewId: string) => {
   if (!extensionIPC || !extensionRegistry) return { activated: false, reason: 'host not running' };
 
   // Find the extension that owns this view BEFORE the try block so the catch
-  // handler has the extension id available for recordCrash().
+  // handler has the extension id available for recordCrash(). The find()
+  // call invokes views() which re-filters by isEnabled() — a disabled
+  // extension's view does not appear here.
   const owning = extensionRegistry.views().find((v) => v.view.id === viewId);
   if (!owning) return { activated: false, reason: 'view not found' };
   const owningExtensionId = owning.extensionId;
@@ -3172,12 +3415,15 @@ Wait for the Electron window to appear. Confirm no console errors (DevTools: `Ct
 
 | Field | Detail |
 |-------|--------|
-| **How to test** | Mark the extension as disabled in the `extension_registry` table and relaunch |
+| **How to test** | Mark the extension as disabled in the `extension_registry` table, then verify both the **restart path** (cold-start consistency) and the **in-memory path** (immediate IPC effect without restart) per the hot-disable contract *(per [Review fix §5.3])* |
 | **Steps** | 1. Launch the app once. DevTools console shows `[main] database path: <absolute path>` *(per [Review fix §3.5] — the resolved `app.getPath('userData')` + `finance.db` is logged on startup so the tester doesn't need to guess platform-specific paths)* |
 | | 2. Open a SQLite browser against that logged path |
 | | 3. Run `UPDATE extension_registry SET enabled = 0 WHERE id = 'salary-history';` |
-| | 4. Restart the app |
-| **Expected result** | The Activity Bar shows no `P` button. The Command Palette shows no salary-history commands. The built-in Settings button remains. |
+| | 4. **Restart path (cold-start):** Restart the app. Activity Bar shows no `P` button. Command Palette shows no salary-history commands. Built-in Settings button remains. *(existing behaviour)* |
+| | 5. **In-memory path — list re-filter:** Without restarting, run in DevTools: `await window.financeShell.extensions.list()`. Result: `{ views: [], commands: [] }`. The extension's view and command contributions are excluded immediately because `views()` / `commands()` re-filter via `isEnabled()` on every call *(per [Review fix §5.3] contract item 2)*. |
+| | 6. **In-memory path — activate-view gating:** Without restarting, click the stale Activity Bar button. Result: `extensions:activate-view` returns `{ activated: false, reason: 'view not found' }` because `views().find(...)` no longer includes the disabled extension's view *(per [Review fix §5.3] contract item 3)*. The Activity Bar button itself remains visible (stale renderer cache) — this is the documented Phase 3 interim behaviour. |
+| | 7. **Host in-memory activation remains:** Without restarting, run `await window.financeShell.extensions.executeCommand('salary.showPayHistory')`. Result: `{ executed: true, result: ... }`. The Host has the extension loaded in memory and continues to accept command execution; the disable flag affects contribution registration and view activation, but does NOT unload already-activated extension code from the Host *(per [Review fix §5.3] contract item 6 — the disable path leaves command execution reachable until `host.shutdown`)*. |
+| **Expected result** | All four paths observed: (a) cold-start hides the extension; (b) hot list returns empty contributions; (c) hot activate-view rejects with `view not found`; (d) hot executeCommand still works because the Host retains the activation. The asymmetry between (c) and (d) is the documented Phase 3 contract. |
 
 | Pass/Fail | Notes |
 |-----------|-------|
@@ -3323,7 +3569,7 @@ These items are acknowledged as part of the vision but are deliberately deferred
 - [ ] **`import * as finance from 'finance'` canonical import pattern** — Phase 3 establishes the parameter-injection loading mechanism (Decision 9). The vision's literal `import * as finance from 'finance'` pseudocode becomes the Phase 4+ migration target when a real multi-file extension is built. The `FinanceApi` type contract in `finance.d.ts` is unchanged across the transition.
 - [ ] **Global event bus (cross-process)** — The vision lists "Event System: Global event bus" as a Core Platform responsibility. Phase 3 does not implement it; the renderer uses DOM `window.dispatchEvent` for view-changed and command-selected events within its own process. A cross-process event bus becomes relevant only when multiple extensions emit events to each other, which lands alongside the NavigationProvider pattern in **Phase 5**.
 - [ ] **Renderer→executeCommand security hardening (per [Review fix §4.6])** — Phase 3 exposes `financeShell.extensions.executeCommand(commandId, ...args)` to the renderer, which means any renderer code can invoke any command registered by any active extension. This is acceptable for Phase 3 because (a) everything runs locally, (b) extensions are developer-installed (no marketplace), and (c) the renderer is sandboxed from Node APIs via `contextBridge`. **Phase 5 hardening** must add a per-extension command allowlist on the Main side so the renderer can only invoke commands explicitly whitelisted by their owning extension. The Main handler `extensions:execute-command` should validate the command against `extensionRegistry.commands()` and reject commands whose extension is disabled or auto-disabled.
-- [ ] **Hot-disable behaviour spec (per [Review fix §4.9])** — Phase 3 specifies that `setEnabled(false)` removes an extension's contributions on next startup. The behaviour for *disabling while the extension is active* is unspecified in Phase 3 and should be documented in the Extension Manager UI work in **Phase 8**. The interim Phase 3 behaviour: (a) calling `setEnabled(false)` from the DB sets the flag but does not unload the already-activated extension until the next startup; (b) calling `setEnabled(false)` from a future Extension Manager UI must also send an `extension.deactivate` notification to the Host so the extension's `deactivate()` hook runs before the next IPC call. Phase 5 ships the protocol; Phase 8 ships the UI.
+- [ ] **Hot-disable behaviour spec (per [Review fix §4.9] and §5.3)** — Phase 3 ships a full behavioural contract for `setEnabled(false)` on an active extension. The contract is documented at the `ExtensionRegistry.setEnabled()` JSDoc (Task 7) and verified by the unit tests added in Task 15 §4.8 deferral. Summary: (1) `list()` / `views()` / `commands()` re-filter on every call via `isEnabled()`, so disabled extensions are excluded from the next registry call without cache invalidation; (2) the `extensions:list` IPC handler returns the fresh aggregations, so `financeShell.extensions.list()` reflects the disable immediately on the next call; (3) `extensions:activate-view` finds the owning extension via `views().find(...)` and returns `{ activated: false, reason: 'view not found' }` for a disabled extension — clicks on a stale Activity Bar button fail gracefully; (4) `ExtensionIPC.request()` does NOT check `isEnabled()` itself — the transport is a generic pipe; per-extension enable/disable is enforced at the IPC-handler level, not the transport level; (5) the renderer's Activity Bar is NOT refreshed automatically; the stale button remains visible until reload; (6) the Extension Host's in-memory activation is NOT cleared; the extension stays loaded until `host.shutdown` or process exit. **Deferred to Phase 5:** an `extension.deactivate` notification protocol that lets Main tell the Host to unload an active extension without restarting. **Deferred to Phase 8:** the Extension Manager UI that drives the end-to-end disable flow. Phase 3's contract is interim but observable and testable end-to-end via Test Unit 6's new in-memory steps.
 - [ ] **Test database isolation helper (per [Review fix §4.3])** — Phase 3's unit tests that exercise `ExtensionRegistry` (Task 15) and any future integration tests must use a per-suite temp DB or `:memory:` SQLite so they never touch the production `extension_registry` table. The fixture layer (a `getTestDatabase()` helper that derives the path from `NODE_ENV=test`) is **not specified in Phase 3** but must exist before Task 15's new unit tests run. Treat this as a prerequisite for the unit-test execution step (Task 15 Step 4); the executor verifies the helper exists and routes test connections before running `npm run test:unit`. If absent, add it as part of Task 7's setup before any `extensionRegistry` unit test runs.
 - [ ] **ESLint/tsconfig scope check (per [Review fix §4.4])** — The new directories `src/shared/`, `src/extension-host/`, `src/main/services/`, and `tests/unit/extension-host/` must be in scope for both `tsc --noEmit` and ESLint. Phase 2's `tsconfig.json` and `eslint.config.js` likely use `src/**/*` and `tests/**/*` globs that already cover these paths, but Test Unit 8 step 1 (`npm run typecheck`) and step 2 (`npm run lint`) are the explicit verification. If either glob misses the new paths, the executor adds them as part of Task 1's setup (before Task 17 verification).
 - [ ] **ExtensionRegistry unit tests (per [Review fix §4.8])** — Task 15 currently includes 23 unit tests but none for `ExtensionRegistry`. The new test file `tests/unit/services/extension-registry.test.ts` should cover: `upsert` inserts new; `upsert` updates existing; `list()` excludes disabled; `markActivated` persists to DB + updates cache; `setEnabled` toggle; `recordCrash` increments and persists; `recordCrash` auto-disables at threshold; `clearCrashes` resets count. Target: 8 tests. These are belt-and-suspenders for the registry's load-bearing behaviour; E2E tests through the IPC path also exercise the registry but with a slower feedback loop.
@@ -3369,6 +3615,16 @@ These checklist items verify the **9 second-pass review fixes**. They are NOT in
 - [ ] **§4.7 — Navigation Panel test expectations match Phase 3 static behaviour.** Task 17 Test Unit 3 step 2 says the Navigation Panel's view context updates to Salary; extension-specific items ("Pay History", "Deductions") are explicitly noted as deferred to Phase 5 NavigationProvider. The E2E test (Task 16) uses the IPC contract, not DOM selectors.
 - [ ] **§4.8 — ExtensionRegistry unit tests exist.** `tests/unit/services/extension-registry.test.ts` has at least 6 tests covering `upsert` (insert + update), `list` (excludes disabled), `markActivated` (persists + cache), `setEnabled`, `recordCrash` (increment + auto-disable at threshold), `clearCrashes` (resets). `npm run test:unit` passes 54 tests (48 prior + 6 new) minimum.
 - [ ] **§4.9 — Hot-disable behaviour is documented.** Self-Review §7 has a hot-disable deferral entry noting that runtime disable does not unload the active extension until next startup in Phase 3, and Phase 5 ships the `extension.deactivate` notification protocol. Task 8's `ExtensionIPC` handles graceful shutdown via `host.shutdown` notification (already present per Follow-up §3.10) but does NOT yet handle runtime disable.
+
+**11. Third-pass review fixes** *(added 2026-07-03; provenance: same reviewer document as the second-pass review)*:
+
+These checklist items verify the **3 third-pass review fixes** raised after the second-pass fixes were integrated. They are NOT in `docs/phase3-plan-review.md` or the second-pass reviewer document. Each maps to a `[Review fix §5.N]` annotation in the relevant task. The executor must tick each box before declaring Phase 3 complete.
+
+- [ ] **§5.1 — Test DB helper exists before Task 15 Step 4 runs.** `src/main/services/database-service.ts` exports `getTestDatabase()` returning a fresh `:memory:` SQLite with all migrations applied. `ExtensionRegistry` constructor accepts an optional `Database` parameter (default `getDatabase()`). `tests/unit/services/extension-registry.test.ts` (Task 15 §4.8 follow-up) constructs the registry with `new ExtensionRegistry(getTestDatabase())`. Verification: a grep for `getTestDatabase` returns hits in `database-service.ts` and the registry test file; a grep for `new ExtensionRegistry(getTestDatabase` in `tests/` returns at least one hit per suite. A grep for `new ExtensionRegistry()` (no args) in `tests/` returns zero hits (tests must use the DI seam, not the production singleton).
+- [ ] **§5.2 — `npm run build` is never broken between Tasks 1 and 9.** `package.json#scripts.build` in Task 1 does NOT include `npm run build:extensions`; that script and the corresponding `dist/extensions/salary-history.js` `wait-on` entry are added in Task 9 Step 0a alongside the `vite.extensions.config.ts` config file (Task 9 Step 0b). Verification: a grep for `build:extensions` in Task 1's `scripts.build` returns no results; a grep for `build:extensions` in Task 9's `scripts.build` returns one hit.
+- [ ] **§5.3 — Hot-disable behavioural contract is documented and tested.** `ExtensionRegistry.setEnabled()` JSDoc (Task 7) lists the six contract items (registry re-filter, IPC list freshness, activate-view gating, transport non-check, Activity Bar staleness, Host in-memory retention). `ExtensionIPC.request()` JSDoc (Task 8) explicitly states the transport does NOT check `isEnabled()`. `extensions:activate-view` IPC handler (Task 10) comments reference the contract items. Self-Review §7 hot-disable deferral entry summarizes the contract with phase targets. Test Unit 6 has in-memory steps (5–7) verifying list re-filter, activate-view gating, and Host retention. Verification: a grep for `Hot-disable contract` in `docs/superpowers/plans/2026-06-30-phase3-extension-host-ipc.md` returns hits in Task 7, Task 8, Task 10, Self-Review §7, and Test Unit 6.
+- [ ] **§5.4 — ADR-0003 reflects the post-§3.1 path move.** `docs/decisions/0003-extension-host-transport.md` references `src/shared/json-rpc.ts` (the new location) instead of `src/extension-host/json-rpc.ts` (the old location). A post-review note documents the move. Verification: a grep for `src/extension-host/json-rpc.ts` in `docs/decisions/0003-extension-host-transport.md` returns zero hits; a grep for `src/shared/json-rpc.ts` returns at least one hit (the Decision section and the Related section). A grep for `§3.1` in the ADR returns at least one hit (the post-review note explaining the move).
+- [ ] **§5.5 — `docs/extension-api.md` is a Task 2 deliverable.** The File Structure diagram references `§5.5` (not the phantom `§4.10`). Task 2's Files list includes `docs/extension-api.md` with `Create` status. Task 2 Step 2b creates or verifies the file against the canonical content (manifest schema, activation events, `finance.*` surface, lifecycle hooks, loading mechanism, error handling, security model, working example, Phase 4+ migration notes). Task 2 Step 3's `git add` includes `docs/extension-api.md`. Verification: a grep for `phantom` or `§4.10` in the File Structure diagram returns zero hits; a grep for `extension-api.md` in the plan returns hits in the File Structure diagram AND Task 2 Files list AND Task 2 Step 2b AND Task 2 Step 3 commit.
 
 ---
 
