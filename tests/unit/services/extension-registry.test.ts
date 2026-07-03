@@ -111,4 +111,105 @@ describe('ExtensionRegistry', () => {
     expect(row.crash_count).toBe(0);
     expect(row.last_error).toBeNull();
   });
+
+  // ─────────────────────────────────────────────────────────────────────
+  // Test Unit 6 (Disabling an Extension Removes Its Contributions)
+  // Hot-disable contract coverage — [Review fix §5.3] contract items 2/3:
+  //   - `views()` / `commands()` re-filter via `isEnabled()` on every call
+  //     so disabling an extension excludes it from the next IPC list()
+  //     call without requiring cache invalidation.
+  //   - `extensions:activate-view` IPC handler gates on
+  //     `views().find(...)` and returns `{ activated: false, reason:
+  //     'view not found' }` for a disabled extension — even if the
+  //     Activity Bar has a stale button.
+  // ─────────────────────────────────────────────────────────────────────
+
+  it('views() excludes disabled extensions (hot-disable contract item 2)', () => {
+    registry.upsert(manifest({ id: 'a' }));
+    registry.upsert(manifest({ id: 'b' }));
+    expect(registry.views().map((v) => v.extensionId)).toEqual(['a', 'b']);
+    registry.setEnabled('b', false);
+    expect(registry.views().map((v) => v.extensionId)).toEqual(['a']);
+    registry.setEnabled('b', true);
+    expect(registry.views().map((v) => v.extensionId)).toEqual(['a', 'b']);
+  });
+
+  it('commands() excludes disabled extensions (hot-disable contract item 2)', () => {
+    registry.upsert(manifest({ id: 'a' }));
+    registry.upsert(manifest({ id: 'b' }));
+    expect(registry.commands().map((c) => c.extensionId)).toEqual(['a', 'b']);
+    registry.setEnabled('b', false);
+    expect(registry.commands().map((c) => c.extensionId)).toEqual(['a']);
+    registry.setEnabled('b', true);
+    expect(registry.commands().map((c) => c.extensionId)).toEqual(['a', 'b']);
+  });
+
+  it('views() returns { extensionId, view } shape with manifest view fields', () => {
+    registry.upsert(manifest());
+    const [entry] = registry.views();
+    expect(entry).toBeDefined();
+    expect(entry!.extensionId).toBe('salary-history');
+    expect(entry!.view).toMatchObject({
+      id: 'salary-history',
+      name: 'Salary',
+      icon: 'P'
+    });
+  });
+
+  it('commands() returns { extensionId, command } shape with manifest command fields', () => {
+    registry.upsert(manifest());
+    const [entry] = registry.commands();
+    expect(entry).toBeDefined();
+    expect(entry!.extensionId).toBe('salary-history');
+    expect(entry!.command).toMatchObject({
+      id: 'salary.show-pay-history',
+      title: 'View: Pay History'
+    });
+  });
+
+  it('views().find(...) gates activate-view for disabled extensions (contract item 3)', () => {
+    // The Main IPC handler `extensions:activate-view` calls
+    // `extensionRegistry.views().find((v) => v.view.id === viewId)` and
+    // returns `{ activated: false, reason: 'view not found' }` if find
+    // returns undefined. This test pins the registry half of that
+    // contract — the IPC handler side is exercised by Test Unit 3's
+    // round-trip.
+    registry.upsert(manifest());
+    expect(registry.views().find((v) => v.view.id === 'salary-history')).toBeDefined();
+    registry.setEnabled('salary-history', false);
+    expect(registry.views().find((v) => v.view.id === 'salary-history')).toBeUndefined();
+  });
+
+  it('commands().find(...) gates command lookup for disabled extensions', () => {
+    registry.upsert(manifest());
+    expect(registry.commands().find((c) => c.command.id === 'salary.show-pay-history')).toBeDefined();
+    registry.setEnabled('salary-history', false);
+    expect(registry.commands().find((c) => c.command.id === 'salary.show-pay-history')).toBeUndefined();
+  });
+
+  it('get(id) returns the cached manifest for an enabled extension', () => {
+    registry.upsert(manifest({ displayName: 'Salary History v1' }));
+    const m = registry.get('salary-history');
+    expect(m).toBeDefined();
+    expect(m!.displayName).toBe('Salary History v1');
+  });
+
+  it('get(id) returns undefined for an unknown extension id', () => {
+    expect(registry.get('does-not-exist')).toBeUndefined();
+  });
+
+  it('get(id) still returns the cached manifest when extension is disabled (hot-disable contract item 6)', () => {
+    // Test Unit 6 step 7: the Host retains the extension's in-memory
+    // activation after disable, so `extensions:executeCommand` still
+    // succeeds. The registry does not unload the cached manifest — the
+    // Host's `finance.commands.execute` lookup operates on its own
+    // command registry, not the ExtensionRegistry's `commands()` output.
+    // This test pins that contract: `get(id)` returns the manifest
+    // regardless of `isEnabled()` state, because the manifest is
+    // metadata the Host already loaded.
+    registry.upsert(manifest());
+    registry.setEnabled('salary-history', false);
+    expect(registry.get('salary-history')).toBeDefined();
+    expect(registry.isEnabled('salary-history')).toBe(false);
+  });
 });
