@@ -24,11 +24,15 @@
    3. **Sync related files when applicable:**
       - `package.json#version` — CHANGELOG is the source of truth; sync `package.json` to it.
       - `docs/file-reference.md` — if files were added, removed, or significantly modified.
-      - `docs/decisions/NNNN-*.md` — write a new ADR if an architectural decision was made.
+      -        `docs/decisions/NNNN-*.md` — write a new ADR if an architectural decision was made.
+
+   **Version authority.** `CHANGELOG.md` is the single source of truth for version numbers. `package.json#version` and any document frontmatter `version` fields are derived values that must be synchronized FROM `CHANGELOG.md`, not independently edited and reconciled afterward.
 
    **Mandatory self-verification.** The agent's final summary of any task that constitutes "completed work" must include a line like `CHANGELOG.md updated: yes` (or `no — reason`). The user uses this to confirm compliance.
 
    **Scope of "notable work":** Includes implementation plans, ADRs, source files, configuration, dependencies, build tooling, and significant doc additions. Excludes purely conversational work, internal agent thinking, and trivial edits that do not change user-visible behavior (e.g., typo fixes in a comment).
+
+   **CHANGELOG scope discipline.** The subsection headings `### Added`, `### Changed`, `### Fixed`, `### Removed`, and `### Security` are reserved for user-visible behavior changes, new runtime capabilities, and altered external interfaces. Planning documents, ADRs, handoff notes, review logs, and other process-only additions belong in an `### Administrative` subsection. This keeps the changelog legible as a release-history artifact rather than a meta-log of agent activity.
 
    **Why this matters.** `CHANGELOG.md` is the project's memory of what changed and when. Skipping it breaks version tracking, makes release notes impossible, and hides regressions behind missing history. The cost of updating CHANGELOG.md is two minutes; the cost of discovering six months later that work was never recorded is hours of archaeology.
 
@@ -44,6 +48,8 @@
 
    **Mandatory self-verification.** In your first response of every session, briefly list the docs you read at session start. If you could not read all of them, say so explicitly and explain why. The user uses this list to verify the protocol was followed.
 
-   **(b) Before writing or modifying implementation code.** Re-read the specific plan, spec, or ADR that authorizes the change. In your work, cite the section number, ADR number, or vision line number that the change aligns with. If the change touches a function, class, or method, identify its blast radius (callers, affected modules, dependency surface) before proceeding.
+       > **Session-context exception (incremental reads):** If you have already completed this full read sequence earlier in the same session, and no new `.md` files have been added to `docs/` or `docs/decisions/` since then, you MAY rely on that earlier read instead of re-reading every file. This exception exists because the session-start protocol is a fixed context cost, and re-reading an unchanged corpus every turn offers no new information.
+
+    **(b) Before writing or modifying implementation code.** Re-read the specific plan, spec, or ADR that authorizes the change. In your work, cite the section number, ADR number, or vision line number that the change aligns with. If the change touches a function, class, or method, identify its blast radius (callers, affected modules, dependency surface) before proceeding.
 
    **Why the breadth is intentional.** Future sessions inherit incomplete context if any doc is skipped. Small handoff docs and ADRs often contain the *why* behind decisions that the plans only summarize; an agent that skips them may re-litigate settled questions or unknowingly violate a documented constraint. The cost of reading a few extra files is far less than the cost of producing work that conflicts with a rule the agent never saw.
