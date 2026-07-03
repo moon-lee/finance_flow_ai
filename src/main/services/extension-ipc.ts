@@ -2,7 +2,6 @@ import { utilityProcess, type UtilityProcess } from 'electron';
 import {
   isRequest,
   makeRequestId,
-  RpcErrorCode,
   type JsonRpcRequest,
   type JsonRpcResponse
 } from '../../shared/json-rpc';

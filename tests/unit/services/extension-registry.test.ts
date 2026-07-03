@@ -1,5 +1,4 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { unlinkSync, existsSync } from 'node:fs';
 import { getTestDatabase } from '../../../src/main/services/database-service';
 import { ExtensionRegistry, AUTO_DISABLE_CRASH_THRESHOLD } from '../../../src/main/services/extension-registry';
 import type { FinanceExtensionManifest } from '../../../src/types/finance';

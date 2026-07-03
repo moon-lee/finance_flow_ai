@@ -29,7 +29,8 @@ describe('validateManifest', () => {
   });
 
   it('rejects missing activationEvents', () => {
-    const { activationEvents, ...rest } = validManifest;
+    const { activationEvents: _removed, ...rest } = validManifest;
+    void _removed;
     const result = validateManifest(rest);
     expect(result.ok).toBe(false);
     if (!result.ok) {

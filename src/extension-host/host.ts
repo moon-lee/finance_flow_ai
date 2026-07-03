@@ -21,7 +21,6 @@ import {
   makeRequestId,
   RpcErrorCode,
   type JsonRpcRequest,
-  type JsonRpcResponse,
   type JsonRpcNotification
 } from '../shared/json-rpc';
 import type { FinanceExtensionManifest } from '../types/finance';
@@ -87,7 +86,6 @@ interface ActiveExtension {
 }
 
 const activeExtensions = new Map<string, ActiveExtension>();
-const pendingRequests = new Map<number, (response: JsonRpcResponse) => void>();
 
 function send(message: unknown): void {
   parentPort!.postMessage(message);
