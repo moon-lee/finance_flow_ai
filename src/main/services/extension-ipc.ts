@@ -171,6 +171,11 @@ export class ExtensionIPC {
     this.pending.clear();
     this.process = null;
     this.crashed = true;
+    // [Fix] Mirror the crash into the main-process terminal so manual
+    // testers can see Test Unit 5 step 6's expected log line without
+    // having DevTools open. The renderer-side `[host status]` line
+    // covers the in-app case; this covers the headless/SSH case.
+    console.error(`[extension-ipc] Extension Host exited unexpectedly (code ${code})`);
     this.emitStatus({ status: 'crashed', exitCode: code });
   }
 
