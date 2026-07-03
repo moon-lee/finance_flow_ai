@@ -5,7 +5,7 @@ import './components/ai-panel';
 import './components/command-palette';
 import type { ActivityView } from './components/activity-bar';
 import type { PaletteCommand } from './components/command-palette';
-import type { HostLogEntry } from '../types/finance-shell';
+import type { HostLogEntry, HostStatus } from '../types/finance-shell';
 
 const app = document.querySelector<HTMLElement>('#app');
 const commandPalette = document.querySelector<HTMLElement & { focusInput(): void; extensionCommands: PaletteCommand[] }>('#command-palette');
@@ -29,6 +29,27 @@ if (window.financeShell?.extensions?.onHostLog) {
     if (entry.level === 'error') console.error(tag, ...entry.args);
     else if (entry.level === 'warn') console.warn(tag, ...entry.args);
     else console.log(tag, ...entry.args);
+  });
+}
+
+// [Fix] Mirror Host lifecycle status into the DevTools console. Test Unit 5
+// step 6 expects the `extensions:host-status` notification to be observable
+// in DevTools after killing the Host (the 'crashed' status). Subscribing
+// here at the top level ensures the crash notification is captured even if
+// it fires before `DOMContentLoaded`. The Phase 4+ status-bar UI will
+// consume the same notification through this bridge.
+if (window.financeShell?.extensions?.onHostStatus) {
+  window.financeShell.extensions.onHostStatus((status: HostStatus) => {
+    const tag = '[host status]';
+    // Use the severity of the status to pick the console method so DevTools
+    // filtering and styling work correctly. `crashed` and `restart-failed`
+    // are operational warnings; `starting`, `ready`, `restarting` are
+    // informational.
+    if (status.status === 'crashed' || status.status === 'restart-failed') {
+      console.error(tag, status);
+    } else {
+      console.log(tag, status);
+    }
   });
 }
 
@@ -78,22 +99,18 @@ window.addEventListener('click', (event) => {
   }
 });
 
-// [Fix] Idempotency guard for duplicate view-changed dispatches.
-// `activity-bar._selectView` is wired via `@click` on each button; Lit 3.x's
-// event-part addEventListener model means a real click event drives the
-// activation. To prevent repeated `extensions:activate-view` IPC calls when
-// the same view is dispatched multiple times in a row (e.g. rapid double-click,
-// repeated `requestUpdate()` cycles during re-render), track the last
-// dispatched view and short-circuit identical re-dispatches. The activity-bar's
-// own `activeView` state still updates so the UI remains in sync.
-let lastDispatchedView: string | null = null;
-
 window.addEventListener('view-changed', (event: Event) => {
   const customEvent = event as CustomEvent<{ view: string; source: string }>;
-  if (customEvent.detail.view === lastDispatchedView) return;
-  lastDispatchedView = customEvent.detail.view;
   if (navigationPanel) navigationPanel.setView(customEvent.detail.view);
   // Ask Main to activate the extension behind this view (no-op for built-in settings view).
+  // Duplicate-click suppression is enforced at the Host layer (see
+  // `src/extension-host/host.ts#activateExtension` — `if (ext.moduleUrl) return true`),
+  // not here: an earlier renderer-side idempotency guard on `lastDispatchedView`
+  // incorrectly blocked the re-spawn path (Test Unit 5: killing the Host and then
+  // clicking the same view did not re-spawn because the guard short-circuited the
+  // call). The Host's module-level guard is the correct layer — it survives renderer
+  // resets and correctly handles the 'Host is dead, needs re-spawn' case via
+  // `ExtensionIPC.ensureRunning()`.
   if (customEvent.detail.view !== '__settings__' && customEvent.detail.source === 'extension') {
     void window.financeShell?.extensions.activateView(customEvent.detail.view);
   }

@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
-import type { HostLogEntry } from '../types/finance-shell';
+import type { HostLogEntry, HostStatus } from '../types/finance-shell';
 
 const shellApi = {
   getVersion: async (): Promise<string> => ipcRenderer.invoke('shell:get-version') as Promise<string>,
@@ -27,6 +27,14 @@ const shellApi = {
       const listener = (_event: IpcRendererEvent, entry: HostLogEntry): void => callback(entry);
       ipcRenderer.on('extensions:host-log', listener);
       return () => { ipcRenderer.off('extensions:host-log', listener); };
+    },
+    // [Fix] Subscribe to Extension Host lifecycle status changes forwarded by
+    // Main (Test Unit 5 step 6 expectation: renderer observes 'crashed' status
+    // after killing the Host). Returns an unsubscribe function.
+    onHostStatus: (callback: (status: HostStatus) => void): (() => void) => {
+      const listener = (_event: IpcRendererEvent, status: HostStatus): void => callback(status);
+      ipcRenderer.on('extensions:host-status', listener);
+      return () => { ipcRenderer.off('extensions:host-status', listener); };
     }
   }
 };

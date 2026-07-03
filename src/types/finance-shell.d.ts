@@ -25,6 +25,12 @@ export interface ExtensionsApi {
   // console so Test Unit 4's expected log output is visible to manual testers.
   // Returns an unsubscribe function.
   onHostLog: (callback: (entry: HostLogEntry) => void) => () => void;
+  // [Fix] Subscribe to Extension Host lifecycle status changes (forwarded
+  // from `extension-ipc.ts` via the `extensions:host-status` IPC channel).
+  // Used to surface crash / restart / ready events in the Renderer DevTools
+  // console (Test Unit 5 step 6 expectation) and is the integration point
+  // for the Phase 4+ status-bar UI. Returns an unsubscribe function.
+  onHostStatus: (callback: (status: HostStatus) => void) => () => void;
 }
 
 /** [Fix] One log entry forwarded from the Extension Host. See
@@ -33,6 +39,18 @@ export interface HostLogEntry {
   level: 'log' | 'error' | 'warn';
   args: string[];
 }
+
+/**
+ * [Fix] Lifecycle status of the Extension Host. Mirrors the producer shape
+ * in `src/main/services/extension-ipc.ts#HostStatus`. The renderer uses the
+ * `status` discriminant to pick a severity-appropriate `console.*` method.
+ */
+export type HostStatus =
+  | { status: 'starting' }
+  | { status: 'ready' }
+  | { status: 'crashed'; exitCode: number | null }
+  | { status: 'restarting' }
+  | { status: 'restart-failed'; error: string };
 
 export interface FinanceShellApi {
   getVersion: () => Promise<string>;
