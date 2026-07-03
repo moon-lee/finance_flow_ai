@@ -27,6 +27,16 @@ export type HostStatus =
   | { status: 'restarting' }
   | { status: 'restart-failed'; error: string };
 
+/**
+ * [Fix] One log entry forwarded from the Host. Mirrors the producer shape
+ * in `src/extension-host/host.ts` (the wrapper there stringifies each arg
+ * before posting, so consumers can rely on `args` being an array of strings).
+ */
+export interface HostLogEntry {
+  level: 'log' | 'error' | 'warn';
+  args: string[];
+}
+
 export interface ExtensionIPCOptions {
   /** Path to the bundled Host entry. Defaults to `resolveHostBundlePath()`. */
   hostPath?: string;
@@ -39,6 +49,14 @@ export class ExtensionIPC {
   private readonly pending = new Map<number, PendingRequest>();
   private readonly listeners = new Set<(msg: unknown) => void>();
   private readonly statusListeners = new Set<(status: HostStatus) => void>();
+  /**
+   * [Fix] Subscribers for `host.log` notifications from the Host. Main
+   * forwards each entry to the Renderer via the `extensions:host-log`
+   * IPC channel so Host logs (including extension `console.log` calls)
+   * appear in the DevTools console with a `[host]` prefix. See
+   * `src/extension-host/host.ts` for the producer side.
+   */
+  private readonly logListeners = new Set<(entry: HostLogEntry) => void>();
   private readonly requestTimeoutMs: number;
   private readonly hostPath: string;
   private initialManifests: FinanceExtensionManifest[] = [];
@@ -67,6 +85,19 @@ export class ExtensionIPC {
       this.process = utilityProcess.fork(this.hostPath, [], {
         serviceName: 'finance-extension-host',
         stdio: 'inherit'
+      });
+
+      // Operational telemetry: one line per spawn, so manual testing can
+      // verify the Host is reused across click sequences (not re-spawned).
+      // Visible in the main-process terminal (not forwarded to Renderer;
+      // the `[host log]` mirror is reserved for Host-side logs).
+      //
+      // Must run in the 'spawn' event handler because Electron populates
+      // `UtilityProcess.pid` asynchronously — the handle is returned
+      // synchronously by `fork()` but `pid` is undefined until the child
+      // actually starts. Logging here would otherwise print `pid=undefined`.
+      this.process.once('spawn', () => {
+        console.log(`[extension-ipc] host spawned, pid=${this.process!.pid}`);
       });
 
       this.process.on('message', (msg: unknown) => this.handleMessage(msg));
@@ -205,6 +236,28 @@ export class ExtensionIPC {
     };
   }
 
+  /**
+   * [Fix] Subscribe to `host.log` notifications forwarded from the Host.
+   * Used by Main to mirror Host stdout into the Renderer DevTools console.
+   * Returns an unsubscribe function.
+   */
+  onHostLog(listener: (entry: HostLogEntry) => void): () => void {
+    this.logListeners.add(listener);
+    return () => {
+      this.logListeners.delete(listener);
+    };
+  }
+
+  private emitLog(entry: HostLogEntry): void {
+    for (const listener of this.logListeners) {
+      try {
+        listener(entry);
+      } catch (err) {
+        console.error('[extension-ipc] log listener threw:', err);
+      }
+    }
+  }
+
   private emitStatus(status: HostStatus): void {
     for (const listener of this.statusListeners) {
       try {
@@ -250,6 +303,17 @@ export class ExtensionIPC {
         pending.reject(new Error(`${response.error.message} (code ${response.error.code})`));
       } else {
         pending.resolve(response.result);
+      }
+      return;
+    }
+    // Notification — route by method.
+    // [Fix] `host.log` is consumed by Main (mirrored to Renderer DevTools) and
+    // is intentionally NOT forwarded to the generic `listeners` Set, which is
+    // reserved for app-level notifications like `extension.activated`.
+    if (typeof msg === 'object' && msg !== null && (msg as { method?: string }).method === 'host.log') {
+      const params = (msg as { params: HostLogEntry }).params;
+      if (params && (params.level === 'log' || params.level === 'error' || params.level === 'warn') && Array.isArray(params.args)) {
+        this.emitLog({ level: params.level, args: params.args });
       }
       return;
     }

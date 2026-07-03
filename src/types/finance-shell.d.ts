@@ -19,6 +19,19 @@ export interface ExtensionsApi {
   // Main IPC channel. Returns `{ executed: boolean; reason?: string; result?: unknown }`
   // mirroring the Main-side handler's response shape.
   executeCommand: (commandId: string, ...args: unknown[]) => Promise<{ executed: boolean; reason?: string; result?: unknown }>;
+  // [Fix] Subscribe to Host log entries (forwarded from `extension-ipc.ts`
+  // via the `extensions:host-log` IPC channel). Used to mirror Host stdout
+  // (including extension `console.log` calls) into the Renderer DevTools
+  // console so Test Unit 4's expected log output is visible to manual testers.
+  // Returns an unsubscribe function.
+  onHostLog: (callback: (entry: HostLogEntry) => void) => () => void;
+}
+
+/** [Fix] One log entry forwarded from the Extension Host. See
+ *  `src/main/services/extension-ipc.ts#HostLogEntry` for the producer side. */
+export interface HostLogEntry {
+  level: 'log' | 'error' | 'warn';
+  args: string[];
 }
 
 export interface FinanceShellApi {

@@ -3370,7 +3370,7 @@ Wait for the Electron window to appear. Confirm no console errors (DevTools: `Ct
 | | 1. Console shows `[host] Extension Host process started (pid <N>)` |
 | | 2. Main process logs no errors about `host.initialize` timeout |
 | | 3. The status bar still renders normally (host crash isolation) |
-| **Expected result** | The Extension Host process is spawned and ready before the window renders its first frame. |
+| **Expected result** | The Extension Host process is spawned and ready before the window renders its first frame. **Note:** if the user clicks (or accidentally clicks) the Activity Bar's `P` button while the window is gaining focus — a real DOM click with `isTrusted: true` — the `salary-history` extension will activate on that first interaction. The `event.isTrusted` gate in `src/renderer/components/activity-bar.ts` blocks only *synthetic* clicks (`element.click()`, `dispatchEvent(new MouseEvent('click'))`), not real user clicks. The idempotency guard in `src/renderer/index.ts` prevents duplicate `extensions:activate-view` IPC calls for the same view. **Phase 8 follow-up:** consider adding a `window`-level pointer/keyboard engagement precondition (e.g. first `pointerdown`/`keydown` after window load sets a flag; view-changed events are ignored until the flag is set) so that a window-focus click that happens to land on the Activity Bar does not activate an extension. Phase 3 ships the current behaviour as correct: any real user click activates. |
 
 | Pass/Fail | Notes |
 |-----------|-------|
@@ -3418,7 +3418,7 @@ Wait for the Electron window to appear. Confirm no console errors (DevTools: `Ct
 | **Steps** | 1. Press `Ctrl+Shift+P` |
 | | 2. Two group labels appear: "Built-in" and "Extensions" |
 | | 3. Under "Extensions", the salary-history commands "View: Pay History" and "View: Deductions" are listed |
-| | 4. Selecting either logs the extension's handler output to the console |
+| | 4. Selecting either logs the extension's handler output to the **DevTools console** as `[host log] [salary-history] Pay History view requested` (or `[host log] [salary-history] Deductions view requested` for the second command). The extension runs in a separate `utilityProcess` child; its `console.*` calls are wrapped in `src/extension-host/host.ts` to also `postMessage` a JSON-RPC `host.log` notification, which Main forwards to Renderer via the `extensions:host-log` IPC channel and the preload-exposed `onHostLog()` callback. The renderer dispatches each entry to `console[level](...)` with a `[host log]` prefix. The same lines also still appear in the main-process terminal (the wrapper preserves the original `console.*` call). |
 | **Expected result** | Commands contributed by extensions appear in a labelled group, distinct from built-in commands. |
 
 | Pass/Fail | Notes |

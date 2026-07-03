@@ -5,11 +5,32 @@ import './components/ai-panel';
 import './components/command-palette';
 import type { ActivityView } from './components/activity-bar';
 import type { PaletteCommand } from './components/command-palette';
+import type { HostLogEntry } from '../types/finance-shell';
 
 const app = document.querySelector<HTMLElement>('#app');
 const commandPalette = document.querySelector<HTMLElement & { focusInput(): void; extensionCommands: PaletteCommand[] }>('#command-palette');
 const navigationPanel = document.querySelector<HTMLElement & { setView(view: string): void }>('#navigation-panel');
 const activityBar = document.querySelector<HTMLElement & { views: ActivityView[]; activeView: string }>('#activity-bar');
+
+// [Fix] Mirror Host stdout (and extension `console.log` calls) into the
+// DevTools console. Without this, extension logs only appear in the main
+// process terminal because the Host runs in a separate utility process.
+// Test Unit 4 expects the extension's handler output to be visible to the
+// manual tester in DevTools. Subscribing here (top-level, not gated on
+// `DOMContentLoaded`) ensures early Host startup logs are captured too.
+if (window.financeShell?.extensions?.onHostLog) {
+  window.financeShell.extensions.onHostLog((entry: HostLogEntry) => {
+    const tag = `[host ${entry.level}]`;
+    // Use the matching console method so severity styling + DevTools
+    // filtering works correctly. `entry.args` are already stringified on
+    // the Host side (see `src/extension-host/host.ts`), so passing them
+    // through as a single spread preserves any spacing the original
+    // `console.log('a', 'b')` call intended.
+    if (entry.level === 'error') console.error(tag, ...entry.args);
+    else if (entry.level === 'warn') console.warn(tag, ...entry.args);
+    else console.log(tag, ...entry.args);
+  });
+}
 
 function setCommandPaletteVisible(visible: boolean): void {
   commandPalette?.classList.toggle('hidden', !visible);
@@ -57,8 +78,20 @@ window.addEventListener('click', (event) => {
   }
 });
 
+// [Fix] Idempotency guard for duplicate view-changed dispatches.
+// `activity-bar._selectView` is wired via `@click` on each button; Lit 3.x's
+// event-part addEventListener model means a real click event drives the
+// activation. To prevent repeated `extensions:activate-view` IPC calls when
+// the same view is dispatched multiple times in a row (e.g. rapid double-click,
+// repeated `requestUpdate()` cycles during re-render), track the last
+// dispatched view and short-circuit identical re-dispatches. The activity-bar's
+// own `activeView` state still updates so the UI remains in sync.
+let lastDispatchedView: string | null = null;
+
 window.addEventListener('view-changed', (event: Event) => {
   const customEvent = event as CustomEvent<{ view: string; source: string }>;
+  if (customEvent.detail.view === lastDispatchedView) return;
+  lastDispatchedView = customEvent.detail.view;
   if (navigationPanel) navigationPanel.setView(customEvent.detail.view);
   // Ask Main to activate the extension behind this view (no-op for built-in settings view).
   if (customEvent.detail.view !== '__settings__' && customEvent.detail.source === 'extension') {

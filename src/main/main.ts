@@ -45,8 +45,13 @@ function resolveDatabasePath(): string {
 }
 
 function resolveExtensionsRoot(): string {
-  // Phase 3: extensions live inside the repo. Phase 8 will add a user-data root.
-  return join(app.getAppPath(), 'extensions');
+  // Phase 3: extensions live inside the repo at the project root, e.g.
+  // `D:\finance_flow_ai\extensions\`. mainDir is `dist/main/` (the directory
+  // of the running bundled main.js), so '..' x2 brings us up to the project
+  // root. Using `app.getAppPath()` here would resolve to `dist/main/extensions`
+  // because Electron's getAppPath() returns the directory of the running
+  // entry point in unpackaged mode. Phase 8 will add a user-data root.
+  return join(mainDir, '..', '..', 'extensions');
 }
 
 function clearWindowStateSaveTimer(): void {
@@ -266,6 +271,12 @@ function shutdownPersistence(): void {
 
 registerMigration(infrastructureMigration);
 registerMigration(extensionCrashTrackingMigration);
+
+// SINGLE POINT OF REGISTRATION. Do not invoke registerIpcHandlers() anywhere
+// else in this file or in any module imported during bootstrap. Duplicate
+// registration throws ERR_DLOPEN_FAILED-style errors from ipcMain.handle.
+// The plan's body accidentally included a second call inside app.whenReady();
+// this comment marks the single legitimate call site. See [Review fix §HOST-5].
 registerIpcHandlers();
 
 app.whenReady().then(() => {
@@ -306,12 +317,17 @@ app.whenReady().then(() => {
       }
     });
 
-    // SINGLE POINT OF REGISTRATION. Do not invoke registerIpcHandlers() anywhere
-    // else in this file or in any module imported during bootstrap. Duplicate
-    // registration would either be a no-op (ipcMain.handle throws on second
-    // call) or, worse, leak stale handlers across HMR reloads. See [Review fix
-    // §HOST-5].
-    registerIpcHandlers();
+    // [Fix] Mirror Host stdout (and extension console.log calls) into the
+    // Renderer DevTools console. See Test Unit 4's expectation that the
+    // extension's handler output is visible in DevTools. The renderer
+    // subscribes via `financeShell.extensions.onHostLog()` exposed in
+    // `src/preload/preload.ts`.
+    extensionIPC.onHostLog((entry) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('extensions:host-log', entry);
+      }
+    });
+
     void createWindow();
   } catch (err) {
     console.error('Fatal error during app initialization:', err);

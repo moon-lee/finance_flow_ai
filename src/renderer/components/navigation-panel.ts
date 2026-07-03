@@ -45,8 +45,26 @@ export class NavigationPanel extends LitElement {
 
   private _currentView = 'Dashboard';
 
+  /**
+   * [Fix] Map extension view `id` (what the activity-bar dispatches in
+   * `view-changed.detail.view`) to the view's display `name` (what this
+   * component's hardcoded render branches check against). Without this,
+   * clicking the `P` button sets `_currentView` to `'salary-history'`
+   * which doesn't match any of the `=== 'Salary'` / `=== 'Budget'` /
+   * `=== 'Tax'` branches and falls through to the generic
+   * "App Preferences / Manage Extensions" section. The proper fix is
+   * the data-driven NavigationProvider pattern deferred to Phase 5
+   * (Self-Review §7); this mapping is the minimum change to make
+   * Phase 3 Test Unit 3's "Navigation Panel updates to reflect the
+   * active view" expectation pass.
+   */
+  private static readonly _VIEW_CONTEXT_MAP: Record<string, string> = {
+    'salary-history': 'Salary',
+    '__settings__': 'Settings',
+  };
+
   setView(view: string) {
-    this._currentView = view;
+    this._currentView = NavigationPanel._VIEW_CONTEXT_MAP[view] ?? view;
     this.requestUpdate();
   }
 

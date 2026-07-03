@@ -41,6 +41,39 @@ if (!parentPort) {
   process.exit(1);
 }
 
+/**
+ * [Fix] Forward all console output (log/error/warn) to Main via the
+ * JSON-RPC channel so it can be mirrored to the Renderer DevTools console.
+ * Electron's `utilityProcess` does not expose `stdout` as a readable
+ * stream (only 'spawn' / 'exit' / 'message' events are available), so
+ * we cannot tail the child's stdout from Main. Wrapping the four console
+ * methods is the equivalent — every log line that the Host (or any
+ * extension it loads) writes ends up in the DevTools console with a
+ * `[host]` prefix.
+ */
+function forwardLog(level: 'log' | 'error' | 'warn', args: unknown[]): void {
+  try {
+    parentPort!.postMessage({
+      jsonrpc: '2.0',
+      method: 'host.log',
+      params: { level, args: args.map((a) => {
+        if (a instanceof Error) return a.stack ?? a.message;
+        if (typeof a === 'string') return a;
+        try { return JSON.stringify(a); } catch { return String(a); }
+      }) }
+    });
+  } catch {
+    // postMessage can fail if the parent disconnected; silently drop.
+  }
+}
+
+const _origLog = console.log.bind(console);
+const _origError = console.error.bind(console);
+const _origWarn = console.warn.bind(console);
+console.log = (...args: unknown[]) => { _origLog(...args); forwardLog('log', args); };
+console.error = (...args: unknown[]) => { _origError(...args); forwardLog('error', args); };
+console.warn = (...args: unknown[]) => { _origWarn(...args); forwardLog('warn', args); };
+
 interface ActiveExtension {
   manifest: FinanceExtensionManifest;
   moduleUrl?: string;
@@ -77,6 +110,7 @@ async function handleRequest(req: JsonRpcRequest): Promise<void> {
     switch (req.method) {
       case 'host.initialize': {
         const manifests = (req.params as { manifests: FinanceExtensionManifest[] }).manifests;
+        console.log(`[host] received host.initialize with ${manifests.length} manifests (id=${req.id})`);
         for (const manifest of manifests) {
           activeExtensions.set(manifest.id, { manifest });
         }
@@ -87,6 +121,7 @@ async function handleRequest(req: JsonRpcRequest): Promise<void> {
           }
         }
         respond(req.id, { accepted: manifests.length });
+        console.log(`[host] responded to host.initialize (id=${req.id})`);
         return;
       }
       case 'extension.activate': {
@@ -213,7 +248,14 @@ async function handleNotification(notification: JsonRpcNotification): Promise<vo
   }
 }
 
-parentPort.on('message', (msg: unknown) => {
+parentPort.on('message', (event: { data: unknown; ports?: unknown[] }) => {
+  // Electron's `process.parentPort.on('message', ...)` delivers a MessageEvent-
+  // like envelope `{ data, ports }`. The actual JSON-RPC payload is at
+  // `event.data`. Main's side (`utilityProcess.on('message', ...)`) receives
+  // the unwrapped message directly — that asymmetry is why `host.ready`
+  // appeared to work but `host.initialize` did not.
+  const msg = event.data;
+  console.log('[host] msg received:', JSON.stringify(msg));
   if (isRequest(msg)) {
     void handleRequest(msg);
   } else if (isNotification(msg)) {

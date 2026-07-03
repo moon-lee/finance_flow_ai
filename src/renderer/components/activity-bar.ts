@@ -89,7 +89,7 @@ export class ActivityBar extends LitElement {
         title="${view.name}"
         aria-label="${view.name}"
         data-view-id="${view.id}"
-        @click="${() => this._selectView(view.id)}"
+        @click="${(e: MouseEvent) => { if (e.isTrusted) this._selectView(view.id); }}"
       >${view.icon}</button>
     `);
     return html`
@@ -99,7 +99,7 @@ export class ActivityBar extends LitElement {
         class="settings ${this.activeView === '__settings__' ? 'active' : ''}"
         title="Settings"
         aria-label="Settings"
-        @click="${() => this._selectView('__settings__')}"
+        @click="${(e: MouseEvent) => { if (e.isTrusted) this._selectView('__settings__'); }}"
       >S</button>
     `;
   }
