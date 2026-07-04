@@ -31,11 +31,41 @@ status: active
 - Settings service: app-wide preferences, window state, theme
 - **Deliverable**: App persisting UI preferences and loading last window state
 
-### Phase 3: Extension Host & IPC Foundation (Est: 5 – 7 Days)
-- Spawn isolated Node.js child process for extensions
-- MessagePortMain/IPC communication channel
-- Manifest parser reading `package.json` contributions
-- **Deliverable**: Extension loader spawning process successfully
+### ✅ Phase 3: Extension Host & IPC Foundation (Complete — 2026-07-04, shipped as 0.6.0)
+- Isolated Node.js child process via Electron `utilityProcess.fork()` (not in-process; per `project_vision.md:48` "Process isolation makes in-process imports *structurally impossible*")
+- JSON-RPC 2.0 over the child's MessagePort: request/response correlation with per-request timeouts, notifications, and standard error codes (`src/shared/json-rpc.ts` — moved from `src/extension-host/` per review fix §3.1 so Main and Host share ownership)
+- Manifest types in `src/types/finance.d.ts` (`FinanceExtensionManifest`, `ActivationEvent`, `ManifestViewContribution/CommandContribution/MenuContribution/ConfigurationContribution`, `PackageJsonFinanceExtension`)
+- Zod schema validation (`src/extension-host/manifest-schema.ts`): strict mode rejects unknown manifest keys; validates semver, enum types, activation-event regexes
+- Extension Loader service (`src/main/services/extension-loader.ts`) scans `<appRoot>/extensions/` for subdirectories with `package.json#financeExtension`; validates each manifest; cross-checks `package.json#name` matches `financeExtension.id`; skips `node_modules/`, `dist/`, and malformed manifests with a `console.log` warning (now visible on stdout after the visibility fix in commit `563ccd3`)
+- Extension Registry service (`src/main/services/extension-registry.ts`) backed by Phase 2's `extension_registry` SQLite table: idempotent `upsert`, `markActivated`, `isEnabled`/`setEnabled`, and aggregation helpers `views()`/`commands()`. Crash diagnostics: `recordCrash()`/`clearCrashes()` methods plus `crash_count`/`last_error` columns added via `002-extension-crash-tracking` migration; auto-disables at `AUTO_DISABLE_CRASH_THRESHOLD = 3`. DI seam: optional `Database` parameter (default `getDatabase()`) so unit tests use `getTestDatabase()` without touching production state.
+- Extension IPC transport (`src/main/services/extension-ipc.ts`): spawns the Host, performs the `host.ready` handshake, exposes typed `request<T>()`/`notify()` API, tracks pending requests with timeouts, restarts on crash detection via `ensureRunning()`. Operational telemetry: `[extension-ipc] host spawned, pid=<N>` line per spawn (in the `'spawn'` event handler — `pid` is async-populated by Electron). Crash log also routed to main-process terminal: `[extension-ipc] Extension Host exited unexpectedly (code <N>)`.
+- `finance.*` API stubs in the Host (`src/extension-host/api/`): functional `commands.registerCommand` and `commands.execute` (graceful `null` on missing); `db.table()` returns empty queryables; `ai.registerTool()` stores tool definitions. Phase 4 replaces DB stubs with real DAO access; Phase 6 replaces AI stubs with tool execution.
+- Renderer Activity Bar rebuilt as contribution-driven Lit component (`src/renderer/components/activity-bar.ts`); removed Phase 1's hardcoded `D/P/B/X` buttons, kept built-in `S` (Settings). Defensive `event.isTrusted` gate on `@click` blocks synthetic clicks but allows real user clicks.
+- Command Palette renders extension commands under an "Extensions" group label with `@input` filter and scroll-into-view selection (`src/renderer/components/command-palette.ts`).
+- Host stdout mirrored to Renderer DevTools console: wraps `console.log`/`error`/`warn` in `src/extension-host/host.ts` to also `postMessage` a JSON-RPC `host.log` notification; `extension-ipc.ts` adds a typed `HostLogEntry` and `onHostLog()` API; `main.ts` forwards via new `extensions:host-log` IPC channel; preload exposes `extensions.onHostLog(callback)` on the `contextBridge`; renderer subscribes and dispatches to `console[level](...)` with a `[host log]` prefix.
+- Host lifecycle status (`onHostStatus`) surfaced to DevTools: `HostStatus` type in `finance-shell.d.ts`; `onHostStatus(callback)` on `ExtensionsApi`; preload exposes `extensions.onHostStatus()`; renderer subscribes and dispatches `crashed`/`restart-failed` to `console.error`.
+- Preload bridge exposes `financeShell.extensions.{list,activateView,executeCommand,onHostLog,onHostStatus}` (`src/preload/preload.ts` + `src/types/finance-shell.d.ts`)
+- Vite build pipeline adds two new configs: `vite.extension-host.config.ts` (bundles `src/extension-host/host.ts` → `dist/extension-host/host.js`) and `vite.extensions.config.ts` (multi-entry bundler producing one ESM file per extension in `dist/extensions/<id>.js`, per ADR-0004 and Decision 10). ESM-compatible via `readFileSync`/`JSON.parse` instead of `require()` (per review fix §HOST-2).
+- `src/shared/extension-constants.ts` exports `HOST_BUNDLE_DIR`, `HOST_BUNDLE_FILENAME`, `EXTENSIONS_BUNDLE_DIR`, `extensionBundleFilename()` — isolates build-time constants from runtime Electron imports so the Vite configs can import them as ESM.
+- `src/shared/extension-paths.ts` uses `import.meta.url` + `fileURLToPath` for ESM-compatible runtime path resolution (no `electron` import).
+- `scripts/rename-extension-bundles.mjs` post-build: renames `main.js` → `<id>.js` per extension; handles Vite's numeric-suffix scheme (main, main2, main3) when multiple extensions share an entry stem.
+- Mock `extensions/salary-history/` placeholder extension: declares a `salary-history` view + two commands (`salary.show-pay-history`, `salary.show-deductions`); activates on `onView:salary-history`. Command ids lowercased from the original `salary.showPayHistory`/`salary.showDeductions` because the Zod regex `^[a-z0-9.-]+$` rejects uppercase.
+- **Test results**: `npm run test:unit` → **65/65 pass** (10 manifest-schema + 7 JSON-RPC envelope + 6 extension-loader + 17 extension-registry hot-disable contract + 25 Phase 2). `npm run typecheck` exit 0. `npm run lint` exit 0. **E2E blocked** by environmental Playwright-electron config issue (`Cannot navigate to invalid URL` on `page.goto('/')`) — pre-existing, not part of Phase 3 verification surface; separately tracked.
+- **Manual test units (1–8)**: All PASS via the running Electron app. Test Unit 1–4 verify the round-trip (Activity Bar click → activate → Command Palette → execute). Test Unit 5 verifies crash isolation (force-kill → re-spawn on next interaction with new PID). Test Unit 6 verifies disable/enable contract via 9 new unit tests. Test Unit 7 verifies malformed-manifest skip. Test Unit 8 verifies typecheck/lint/unit tests.
+- **Plan**: `docs/superpowers/plans/2026-06-30-phase3-extension-host-ipc.md` (2732 lines, 17 tasks, 8 manual test units, Self-Review Checklist with §1–§11 ticked; plan status now `shipped — Phase 3 implementation complete`, `shipped_date: 2026-07-04`).
+- **Self-Review §7 explicit deferrals** (out of scope for Phase 3, scheduled in later milestones — NOT shipped, intentionally):
+  - `contributes.configuration` settings UI renderer → **Phase 7**
+  - Extension Manager UI (install/enable/disable/uninstall/delete data) → **Phase 8**
+  - NavigationProvider pattern (data-driven side panel) → **Phase 5**
+  - Menu bar contribution rendering → **Phase 5**
+  - `import * as finance from 'finance'` canonical import pattern → **Phase 4+**
+  - Global event bus (cross-process) → **Phase 5**
+  - Renderer→executeCommand security hardening (per-extension command allowlist on Main side) → **Phase 5**
+  - Hot-disable behaviour runtime-unload (`extension.deactivate` notification protocol) → **Phase 5**
+  - Test database isolation helper → **Prerequisite satisfied in Phase 3** (`getTestDatabase()` shipped)
+  - ESLint/tsconfig scope check → **Verified in Phase 3** (typecheck and lint both pass)
+  - ExtensionRegistry unit tests → **Prerequisite satisfied in Phase 3** (8 new tests shipped)
+- **Deliverable**: app launches, spawns Extension Host, dynamically reads mock manifest, registers views/commands, executes round-trip IPC for both `activateView` and `executeCommand`. Crash isolation verified. Hot-disable contract verified. All 56+ unit tests pass.
 
 ### Phase 4: Salary History Extension (Vertical Slice) + Domain Services (Est: 4 – 6 Days)
 - Shared Financial Data schemas: Accounts, PaySlips, Deductions
@@ -75,14 +105,21 @@ Based on a single full-time developer or agent working sequentially, the project
 | :--- | :--- | :--- | :--- | :--- |
 | **Phase 1** | Core Shell Prototype | 1.5 – 2 Days | 0.5 Days | Low |
 | **Phase 2** | Database & Settings Backbone | 2 – 3 Days | 1 Day | Medium |
-| **Phase 3** | Extension Host & IPC Foundation | 5 – 7 Days | — | High |
+| **Phase 3** | Extension Host & IPC Foundation | 5 – 7 Days | ~8 Days (incl. 5 review rounds, ESM bundling fix, post-test bug fixes) | High |
 | **Phase 4** | Salary History Extension (Slice) | 4 – 6 Days | — | Medium |
 | **Phase 5** | WebviewPanels & Multi-Extension UI | 4 – 6 Days | — | High |
 | **Phase 6** | AI Assistant (Local-first) | 3 – 5 Days | — | Medium |
 | **Phase 7** | Production Polish & Encryption | 3 – 4 Days | — | Medium |
 | **Phase 8** | Extension Ecosystem & SDK | 3 – 5 Days | — | High |
 | **Buffer** | Integration, build debugging, platform adjustments | 4 – 5 Days | — | - |
-| **Total** | **Sleek Desktop Finance Workspace** | **30 – 43 Days** | **1.5 Days** | **High** |
+| **Total** | **Sleek Desktop Finance Workspace** | **30 – 43 Days** | **~9.5 Days so far** | **High** |
+
+**Phase 3 actual breakdown** (estimate-vs-actual):
+- Initial implementation (17-task plan executed): ~3 Days
+- Review fix integration rounds (original + 2nd + 3rd + 4th + 5th-HOST): ~2 Days
+- Manual testing & bug surfacing (Bug 1 `isTrusted`, Bug 2 idempotency, Issue 1 host.log forwarding, Issue 2 telemetry, Issue 3 nav panel view-id mapping, Test Unit 5 fixes): ~2 Days
+- Lint cleanup + final docs/test wrap-up (Test Unit 3 wording, Test Unit 6 hot-disable contract tests, Test Unit 7 stdout fix, wrap-up commit, design-doc update): ~1 Day
+- Phase 3 overran the 5–7 day estimate by ~1–3 days due to the late-discovered design gaps (renderer-side idempotency guard blocking re-spawn; `console.warn` going to stderr in some terminals; static NavigationPanel labels being misinterpreted as clickable commands). Each gap was a single targeted fix, but the cumulative rework time exceeded the original high-complexity estimate's upper bound.
 
 ### Key Complexity & Risk Drivers
 - **Multi-Process IPC Boundary (Phase 3 & 5)**: Routing JSON-RPC requests across isolated Node process wrappers and sandboxed Webview iframes.
