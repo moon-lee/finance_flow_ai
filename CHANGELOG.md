@@ -1,7 +1,7 @@
 ---
 version: 0.6.0
 created: 2026-06-14
-last_updated: 2026-07-04T17:30:00+10:00
+last_updated: 2026-07-04T18:00:00+10:00
 ---
 
 # Changelog
@@ -11,7 +11,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.6.0] - 2026-07-04
 
 ### Fixed
 - **Phase 3 manual Test Unit 1: defensive `event.isTrusted` gate on Activity Bar `@click` handlers** (`src/renderer/components/activity-bar.ts`). During manual testing, the `salary-history` extension was observed activating at startup before any deliberate user click. Diagnostic instrumentation (added and then reverted per the plan constraint) showed the activation flowed through Lit 3.3.3's bundled event-part `handleEvent`, which means a real DOM click event was firing on the `P` button. Since `isTrusted` was `true` on the offending event (real user click, most plausibly the window-focus click that happens to land on the Activity Bar), the activation is the **correct** response to a real click. The `event.isTrusted` gate (`@click="${(e: MouseEvent) => { if (e.isTrusted) this._selectView(view.id); }}"`) is now in place to rule out **synthetic** clicks (`element.click()`, `dispatchEvent(new MouseEvent('click'))`) — a defensive measure for future code paths. Phase 3 ships the current behaviour; the plan's Test Unit 1 expected-result text is updated to document the window-focus-click activation as correct, with a Phase 8 follow-up for a `window`-level pointer/keyboard engagement precondition so a window-focus click that lands on the Activity Bar does not spuriously activate an extension. No change to host, IPC, or registry code.
