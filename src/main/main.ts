@@ -296,7 +296,12 @@ app.whenReady().then(() => {
       extensionRegistry.upsert(manifest);
     }
     for (const skipped of discovery.skipped) {
-      console.warn(`[extensions] skipped "${skipped.directory}": ${skipped.reason}`);
+      // [Fix] Use console.log (stdout) instead of console.warn (stderr) so
+      // the skip message is visible in all terminal configurations,
+      // including Windows PowerShell where stderr may not be shown by
+      // default. Manual testing of Test Unit 7 surfaced the warning
+      // being emitted but not visible.
+      console.log(`[extensions] skipped "${skipped.directory}": ${skipped.reason}`);
     }
 
     extensionIPC = new ExtensionIPC();
