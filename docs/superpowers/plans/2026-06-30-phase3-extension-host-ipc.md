@@ -3394,16 +3394,17 @@ Wait for the Electron window to appear. Confirm no console errors (DevTools: `Ct
 
 ---
 
-### Test Unit 3: Extension View Activation Round-Trip *(per [Review fix §4.7] — rephrased to match Phase 3 static Navigation Panel behaviour)*
+### Test Unit 3: Extension View Activation Round-Trip *(per [Review fix §4.7] — rephrased to match Phase 3 static Navigation Panel behaviour; further clarified 2026-07-04 after manual tester tried clicking the static Explorer labels as if they were commands)*
 
 | Field | Detail |
 |-------|--------|
-| **How to test** | Click the Salary History button in the Activity Bar |
-| **Steps** | 1. Click the `P` button |
-| | 2. Observe the Navigation Panel's view context updates to reflect the active view. In Phase 3 the NavigationPanel is static (the NavigationProvider pattern that would surface per-extension items like "Pay History" and "Deductions" is deferred to Phase 5 — see Self-Review Checklist §7); the panel shows its built-in Salary view context. |
-| | 3. DevTools console shows `[host] activated "salary-history" via "onView:salary-history"` |
-| | 4. DevTools console shows `[salary-history] Pay History view requested` (from the extension's command handler if you clicked an extension command) |
-| **Expected result** | The view-changed event flows Renderer → Main → Host → extension. Phase 3 verification is the round-trip itself, not the NavigationPanel's per-extension items (those land with NavigationProvider in Phase 5). |
+| **How to test** | Click `P` to activate; then trigger commands via Command Palette (NOT via the Explorer panel — those items are static labels in Phase 3) |
+| **Steps** | 1. Click the `P` button in the Activity Bar |
+| | 2. Observe the Navigation Panel updates to show "Salary" with hardcoded "Pay History" + "Deductions" **labels** — these items are NOT clickable in Phase 3; they display only. See Self-Review Checklist §7 for the data-driven NavigationProvider pattern that lands in Phase 5. |
+| | 3. DevTools console shows `[host log] [host] activated "salary-history" via "onView:salary-history" ...` (and `[host log] [salary-history] module loaded` when the extension's `activate()` runs) |
+| | 4. **Open the Command Palette** with `Ctrl+Shift+P`, then click `View: Pay History` under the "Extensions" group (NOT the static label in the Explorer panel — see step 2 caveat) |
+| | 5. DevTools console shows `[host log] [salary-history] Pay History view requested` |
+| **Expected result** | The full round-trip: Renderer → Main → Host → extension `activate`, then Renderer → Main → Host → extension `executeCommand`. Phase 3 verification is the round-trip itself, not clickable navigation items. |
 
 | Pass/Fail | Notes |
 |-----------|-------|
