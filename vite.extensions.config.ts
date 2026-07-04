@@ -1,6 +1,6 @@
 import { defineConfig } from 'vite';
 import { readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, basename } from 'node:path';
 import {
   EXTENSIONS_BUNDLE_DIR,
   extensionBundleFilename
@@ -14,10 +14,21 @@ import {
  * Extensions are externalised so Node built-ins (`node:*`) and the platform's
  * shared runtime deps (`better-sqlite3`) resolve at runtime rather than being
  * bundled. Each extension's source map is preserved for production debugging.
+ *
+ * Uses `lib` mode (not `rollupOptions.input` alone) because Vite's default
+ * "app" build treats the entry as a side-effect-free bootstrap and drops
+ * named exports — exactly what we DON'T want for an extension entry whose
+ * `activate`/`deactivate` exports ARE the public surface. `lib` mode
+ * preserves them.
+ *
+ * Vite's `lib.fileName` callback (via Rolldown) names each chunk after the
+ * entry's basename (`main.js` for `src/main.ts`), so a post-build step in
+ * `scripts/rename-extension-bundles.mjs` maps each chunk back to its
+ * manifest id via the same discovery logic used here.
  */
-function discoverExtensionEntries(): Record<string, string> {
+function discoverExtensionEntries(): { path: string; outName: string }[] {
   const extRoot = join(process.cwd(), 'extensions');
-  const entries: Record<string, string> = {};
+  const entries: { path: string; outName: string }[] = [];
   for (const name of readdirSync(extRoot)) {
     const dir = join(extRoot, name);
     let pkg: { name?: string; financeExtension?: { id?: string; main?: string } };
@@ -32,24 +43,25 @@ function discoverExtensionEntries(): Record<string, string> {
       console.warn(`[vite.extensions] skipping ${dir}: ${err instanceof Error ? err.message : String(err)}`);
       continue;
     }
-    if (pkg.financeExtension) {
-      // Key the bundle output by the manifest's canonical id, NOT the directory
-      // name, so a future divergence between folder name and `financeExtension.id`
-      // cannot silently break activation. See [Review fix §HOST-3].
-      const id = pkg.financeExtension.id ?? pkg.name;
-      if (!id) {
-        console.warn(`[vite.extensions] skipping ${dir}: package.json has neither financeExtension.id nor name`);
-        continue;
-      }
-      if (name !== id) {
-        console.warn(
-          `[vite.extensions] extension folder "${name}" declares id "${id}" — ` +
-          `bundling under id, but extension-loader validation may reject this. ` +
-          `Rename folder to "${id}" or update financeExtension.id to match.`
-        );
-      }
-      entries[extensionBundleFilename(id).replace(/\.js$/, '')] = join(dir, pkg.financeExtension.main ?? 'src/main.ts');
+    if (!pkg.financeExtension) continue;
+
+    // Key the bundle output by the manifest's canonical id, NOT the directory
+    // name, so a future divergence between folder name and `financeExtension.id`
+    // cannot silently break activation. See [Review fix §HOST-3].
+    const id = pkg.financeExtension.id ?? pkg.name;
+    if (!id) {
+      console.warn(`[vite.extensions] skipping ${dir}: package.json has neither financeExtension.id nor name`);
+      continue;
     }
+    if (name !== id) {
+      console.warn(
+        `[vite.extensions] extension folder "${name}" declares id "${id}" — ` +
+        `bundling under id, but extension-loader validation may reject this. ` +
+        `Rename folder to "${id}" or update financeExtension.id to match.`
+      );
+    }
+    const entryPath = join(dir, pkg.financeExtension.main ?? 'src/main.ts');
+    entries.push({ path: entryPath, outName: basename(extensionBundleFilename(id), '.js') });
   }
   return entries;
 }
@@ -59,12 +71,11 @@ export default defineConfig({
     outDir: EXTENSIONS_BUNDLE_DIR,
     emptyOutDir: true,
     sourcemap: true,
+    lib: {
+      entry: discoverExtensionEntries().map((e) => e.path),
+      formats: ['es']
+    },
     rollupOptions: {
-      input: discoverExtensionEntries(),
-      output: {
-        entryFileNames: (chunkInfo) => `${chunkInfo.name}.js`,
-        format: 'es'
-      },
       external: [
         'electron',
         'node:path',

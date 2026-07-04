@@ -10,7 +10,7 @@
     "version": "0.1.0",
     "description": "Payslip entry and salary history tracking.",
     "activationEvents": ["onView:salary-history"],
-    "contributes": {
+    "contributions": {
       "views": [
         {
           "id": "salary-history",
@@ -28,6 +28,7 @@
           "title": "View: Deductions"
         }
       ]
-    }
+    },
+    "main": "src/main.ts"
   }
 }

@@ -3,6 +3,8 @@
  * with the finance.commands API. Phase 4 replaces this body with payslip
  * forms, validation, and persistence.
  */
+console.log('[salary-history] module loaded');
+
 export async function activate(finance: {
   commands: {
     registerCommand(id: string, title: string, handler: (...args: unknown[]) => unknown, keybinding?: string): void;
