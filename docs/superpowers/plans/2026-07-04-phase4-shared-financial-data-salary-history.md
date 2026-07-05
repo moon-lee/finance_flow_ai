@@ -18,12 +18,12 @@ carries_forward_from_phase3:
   - deferral: "finance.db.table() stub → real DAO with namespaced access"
   - deferral: "Canonical import pattern for multi-file extensions (Decision 9 of Phase 3)"
   # Phase 3 manual tests whose behaviour this phase depends on.
-  depends_on_test_units:
-    - phase3 TU1 — Activity Bar activates extension on click
-    - phase3 TU3 — Navigation Panel view-id mapping (uses static stop-gap map; see Decision 11)
-    - phase3 TU4 — Extension Host stdout mirrored to Renderer DevTools
-    - phase3 TU5 — Crash isolation and re-spawn on next interaction
-    - phase3 TU6 — Hot-disable contract (registry excludes disabled; Host retains activation)
+depends_on_test_units:
+  - phase3 TU1 — Activity Bar activates extension on click
+  - phase3 TU3 — Navigation Panel view-id mapping (uses static stop-gap map; see Decision 11)
+  - phase3 TU4 — Extension Host stdout mirrored to Renderer DevTools
+  - phase3 TU5 — Crash isolation and re-spawn on next interaction
+  - phase3 TU6 — Hot-disable contract (registry excludes disabled; Host retains activation)
 prerequisite_decisions:
   - ADR-0002 (inline migrations) — revisit in Decision 8 (migration count crosses 3)
   - ADR-0003 (utilityProcess + JSON-RPC 2.0) — protocol expanded in Decision 6
