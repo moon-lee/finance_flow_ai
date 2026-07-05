@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>accounts-seed — Salary History MVP</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #1e1e1e;
+      color: #d4d4d4;
+      margin: 0;
+      padding: 0;
+      line-height: 1.5;
+      font-size: 14px;
+      min-height: 100vh;
+    }
+    .page-bg {
+      position: fixed;
+      inset: 0;
+      background: #1e1e1e;
+      opacity: 0.55;
+      pointer-events: none;
+      z-index: 1;
+      padding: 60px 20px;
+    }
+    .page-bg .section-fake {
+      background: #252526;
+      border: 1px solid #3e3e3e;
+      border-radius: 6px;
+      max-width: 760px;
+      margin: 0 auto 12px;
+      height: 60px;
+    }
+    .backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.55);
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal {
+      position: relative;
+      z-index: 200;
+      background: #252526;
+      border: 1px solid #3e3e3e;
+      border-radius: 8px;
+      width: 520px;
+      max-width: 92vw;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+      overflow: hidden;
+    }
+    .modal-header {
+      padding: 20px 20px 12px;
+      border-bottom: 1px solid #3e3e3e;
+    }
+    .modal-icon-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .modal-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: #007acc;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+    .modal-title { font-size: 16px; font-weight: 600; color: #ffffff; margin: 0; }
+    .modal-body { padding: 16px 20px; }
+    .intro-text {
+      font-size: 13px;
+      color: #d4d4d4;
+      margin: 0 0 16px;
+      line-height: 1.6;
+    }
+    .intro-text strong { color: #4ec9b0; }
+    .field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
+    .field label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; color: #858585; }
+    .field .label-sub { font-size: 10px; color: #707070; text-transform: none; letter-spacing: 0; font-weight: 400; margin-top: 2px; }
+    .field input { background: #3c3c3c; color: #d4d4d4; border: 1px solid #3e3e3e; border-radius: 3px; padding: 8px 10px; font-size: 13px; font-family: inherit; outline: none; }
+    .field input:focus { border-color: #007acc; }
+    .modal-footer {
+      padding: 14px 20px;
+      border-top: 1px solid #3e3e3e;
+      background: #2a2a2a;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+    .btn { padding: 8px 20px; border-radius: 3px; font-size: 13px; cursor: pointer; font-family: inherit; border: 1px solid transparent; }
+    .btn-primary { background: #007acc; color: #ffffff; border-color: #007acc; }
+    .btn-primary:hover { background: #1188dd; }
+    .btn-secondary { background: transparent; color: #858585; border: 1px solid #3e3e3e; }
+    .btn-secondary:hover { color: #d4d4d4; border-color: #4a4a4a; }
+    .help-text {
+      font-size: 11px;
+      color: #858585;
+      margin-top: 4px;
+      padding: 10px 12px;
+      background: #1e1e1e;
+      border-radius: 3px;
+      line-height: 1.6;
+    }
+    .help-text strong { color: #d4d4d4; }
+    .help-text code {
+      background: #252526;
+      padding: 1px 4px;
+      border-radius: 2px;
+      font-family: "SF Mono", Consolas, monospace;
+      font-size: 10px;
+      color: #4ec9b0;
+    }
+    .info-banner {
+      background: #1e3a2e;
+      border: 1px solid #4ec9b0;
+      border-left: 4px solid #4ec9b0;
+      border-radius: 4px;
+      padding: 10px 12px;
+      margin-top: 4px;
+      margin-bottom: 12px;
+      font-size: 12px;
+      color: #d4d4d4;
+    }
+    .info-banner strong { color: #4ec9b0; }
+  </style>
+</head>
+<body>
+
+  <!-- Faded page underneath -->
+  <div class="page-bg">
+    <div class="section-fake"></div>
+    <div class="section-fake"></div>
+    <div class="section-fake"></div>
+    <div class="section-fake"></div>
+  </div>
+
+  <!-- Backdrop + modal -->
+  <div class="backdrop">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-icon-row">
+          <div class="modal-icon">$</div>
+          <h2 class="modal-title">Welcome to Salary History</h2>
+        </div>
+      </div>
+
+      <div class="modal-body">
+        <p class="intro-text">
+          Salary History tracks your payslips over time. Before you can record a payslip, you need <strong>at least one account</strong> (e.g. "Primary Salary", "Side Job", etc.). You can always rename or delete it later.
+        </p>
+
+        <div class="info-banner">
+          <strong>First-run only:</strong> this prompt appears once when the <code>accounts</code> table is empty. Skip it and you can create accounts later from the Accounts section.
+        </div>
+
+        <div class="field">
+          <label>Account name <span class="label-sub">(required)</span></label>
+          <input type="text" value="Primary Salary" placeholder="e.g. Primary Salary">
+        </div>
+        <div class="field">
+          <label>Institution <span class="label-sub">(optional · bank, employer, etc.)</span></label>
+          <input type="text" value="" placeholder="e.g. NAB, ANZ, Dart Laser Pty Ltd">
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <span style="font-size: 12px;">
+          <button class="btn btn-secondary">Skip for now</button>
+        </span>
+        <span>
+          <button class="btn btn-secondary">Cancel</button>
+          <button class="btn btn-primary">Create Account</button>
+        </span>
+      </div>
+
+      <p class="help-text" style="margin: 0 20px 16px;">
+        <strong>Skip</strong> lets you start the app without any accounts; the next payslip entry will prompt for account selection. <strong>Cancel</strong> dismisses without saving (you'll see this prompt again on next activation). <strong>Create Account</strong> inserts into the <code>accounts</code> table (Phase 4 Shared Financial Data), writes <code>is_active=true</code>, and shows the payslip form.
+      </p>
+    </div>
+  </div>
+</body>
+</html>

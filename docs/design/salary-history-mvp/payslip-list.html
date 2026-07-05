@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>payslip-list — Salary History MVP</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #1e1e1e;
+      color: #d4d4d4;
+      margin: 0;
+      padding: 0;
+      line-height: 1.5;
+      font-size: 14px;
+    }
+    .topbar { background: #252526; border-bottom: 1px solid #3e3e3e; padding: 10px 20px; display: flex; align-items: center; gap: 12px; }
+    .topbar a { color: #007acc; text-decoration: none; font-size: 13px; }
+    .topbar a:hover { text-decoration: underline; }
+    .topbar .crumb-sep { color: #858585; }
+    .topbar .crumb-current { color: #d4d4d4; font-weight: 500; }
+    .topbar .spacer { flex: 1; }
+    .topbar .filter-btn { background: #3c3c3c; color: #d4d4d4; border: 1px solid #3e3e3e; padding: 5px 12px; border-radius: 3px; font-size: 12px; cursor: pointer; font-family: inherit; }
+    .topbar .filter-btn:hover { border-color: #007acc; }
+    .container { max-width: 960px; margin: 0 auto; padding: 24px 20px 40px; }
+    h1 { font-size: 18px; font-weight: 600; color: #ffffff; margin: 0 0 4px; }
+    .subtitle { color: #858585; font-size: 13px; margin: 0 0 16px; }
+    .summary-bar {
+      display: flex;
+      gap: 24px;
+      background: #252526;
+      border: 1px solid #3e3e3e;
+      border-radius: 6px;
+      padding: 12px 16px;
+      margin-bottom: 12px;
+      font-size: 13px;
+    }
+    .summary-item .summary-label {
+      color: #858585;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      margin-bottom: 2px;
+    }
+    .summary-item .summary-value {
+      font-family: "SF Mono", Consolas, monospace;
+      font-size: 16px;
+      color: #ffffff;
+      font-weight: 600;
+    }
+    .table-wrap {
+      background: #252526;
+      border: 1px solid #3e3e3e;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    thead { background: #2a2a2a; }
+    th {
+      text-align: left;
+      padding: 10px 12px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #858585;
+      border-bottom: 1px solid #3e3e3e;
+    }
+    th.sortable { cursor: pointer; user-select: none; }
+    th.sortable:hover { color: #d4d4d4; }
+    th.sortable::after { content: ' ⇅'; color: #555; font-size: 10px; }
+    th.sorted-desc::after { content: ' ↓'; color: #007acc; }
+    th.sorted-asc::after { content: ' ↑'; color: #007acc; }
+    td {
+      padding: 8px 12px;
+      border-bottom: 1px solid #2a2a2a;
+      color: #d4d4d4;
+    }
+    tbody tr:hover { background: #2a2a2a; }
+    tbody tr:last-child td { border-bottom: none; }
+    td.num { font-family: "SF Mono", Consolas, monospace; text-align: right; }
+    td.fy { font-family: "SF Mono", Consolas, monospace; color: #858585; font-size: 12px; }
+    td.actions { text-align: right; white-space: nowrap; }
+    .btn-link {
+      background: transparent;
+      color: #007acc;
+      border: none;
+      padding: 0 6px;
+      font-size: 12px;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .btn-link:hover { text-decoration: underline; }
+    .btn-link.danger { color: #f48771; }
+    .ytd-footer {
+      background: #1e3a2e;
+      border-top: 2px solid #4ec9b0;
+      padding: 14px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .ytd-footer-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #4ec9b0;
+    }
+    .ytd-footer-values {
+      display: flex;
+      gap: 24px;
+    }
+    .ytd-footer-values .item { font-family: "SF Mono", Consolas, monospace; font-size: 14px; }
+    .ytd-footer-values .item .lbl { color: #858585; font-size: 11px; margin-right: 4px; text-transform: uppercase; letter-spacing: 0.3px; }
+    .ytd-footer-values .item .val { color: #ffffff; font-weight: 600; }
+    .pagination {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 16px;
+      background: #2a2a2a;
+      border-top: 1px solid #3e3e3e;
+      font-size: 12px;
+      color: #858585;
+    }
+    .pagination .pages { display: flex; gap: 4px; }
+    .pagination .page-btn {
+      background: transparent;
+      border: 1px solid #3e3e3e;
+      color: #d4d4d4;
+      padding: 4px 10px;
+      border-radius: 3px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 12px;
+    }
+    .pagination .page-btn:hover { border-color: #007acc; }
+    .pagination .page-btn.current { background: #007acc; border-color: #007acc; color: #ffffff; }
+    .pagination .page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+    .btn { padding: 8px 20px; border-radius: 3px; font-size: 13px; cursor: pointer; font-family: inherit; border: 1px solid transparent; }
+    .btn-primary { background: #007acc; color: #ffffff; border-color: #007acc; }
+    .btn-primary:hover { background: #1188dd; }
+    .info-note { font-size: 12px; color: #858585; font-style: italic; margin-top: 8px; padding: 8px 12px; background: #1e1e1e; border-radius: 3px; }
+    .info-note::before { content: 'ℹ '; color: #4ec9b0; }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <a href="index.html">← All mocks</a>
+    <span class="crumb-sep">/</span>
+    <span class="crumb-current">payslip-list</span>
+    <div class="spacer"></div>
+    <button class="filter-btn">⌕ Filter</button>
+    <a href="payslip-form-collapsed.html" class="filter-btn" style="text-decoration: none;">+ New Payslip</a>
+  </div>
+
+  <div class="container">
+    <h1>Salary History</h1>
+    <p class="subtitle">FY 2025-2026 · Account: Primary Salary · 50 payslips</p>
+
+    <div class="summary-bar">
+      <div class="summary-item">
+        <div class="summary-label">YTD Gross</div>
+        <div class="summary-value">$91,069.09</div>
+      </div>
+      <div class="summary-item">
+        <div class="summary-label">YTD Net</div>
+        <div class="summary-value">$70,749.09</div>
+      </div>
+      <div class="summary-item">
+        <div class="summary-label">Count</div>
+        <div class="summary-value">50</div>
+      </div>
+      <div class="summary-item">
+        <div class="summary-label">Avg / Week</div>
+        <div class="summary-value">$1,821.38</div>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th class="sortable sorted-desc">Pay date</th>
+            <th>Finance Year</th>
+            <th class="sortable">Gross</th>
+            <th class="sortable">Net</th>
+            <th>Account</th>
+            <th class="sortable">Hours</th>
+            <th style="text-align: right;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td class="num">2026-06-12</td><td class="fy">FY2025-2026</td><td class="num">$1,616.90</td><td class="num">$1,275.90</td><td>Primary Salary</td><td class="num">38.00</td><td class="actions"><button class="btn-link">Edit</button><button class="btn-link danger">Delete</button></td></tr>
+          <tr><td class="num">2026-06-05</td><td class="fy">FY2025-2026</td><td class="num">$1,616.90</td><td class="num">$1,275.90</td><td>Primary Salary</td><td class="num">38.00</td><td class="actions"><button class="btn-link">Edit</button><button class="btn-link danger">Delete</button></td></tr>
+          <tr><td class="num">2026-05-29</td><td class="fy">FY2025-2026</td><td class="num">$1,572.50</td><td class="num">$1,245.50</td><td>Primary Salary</td><td class="num">37.00</td><td class="actions"><button class="btn-link">Edit</button><button class="btn-link danger">Delete</button></td></tr>
+          <tr><td class="num">2026-05-22</td><td class="fy">FY2025-2026</td><td class="num">$1,616.90</td><td class="num">$1,275.90</td><td>Primary Salary</td><td class="num">38.00</td><td class="actions"><button class="btn-link">Edit</button><button class="btn-link danger">Delete</button></td></tr>
+          <tr><td class="num">2026-05-15</td><td class="fy">FY2025-2026</td><td class="num">$1,616.90</td><td class="num">$1,275.90</td><td>Primary Salary</td><td class="num">38.00</td><td class="actions"><button class="btn-link">Edit</button><button class="btn-link danger">Delete</button></td></tr>
+          <tr><td class="num">2026-05-08</td><td class="fy">FY2025-2026</td><td class="num">$1,616.90</td><td class="num">$1,275.90</td><td>Primary Salary</td><td class="num">38.00</td><td class="actions"><button class="btn-link">Edit</button><button class="btn-link danger">Delete</button></td></tr>
+          <tr><td class="num">2026-05-01</td><td class="fy">FY2025-2026</td><td class="num">$1,644.65</td><td class="num">$1,294.65</td><td>Primary Salary</td><td class="num">38.00</td><td class="actions"><button class="btn-link">Edit</button><button class="btn-link danger">Delete</button></td></tr>
+          <tr><td class="num">2026-04-24</td><td class="fy">FY2025-2026</td><td class="num">$1,616.90</td><td class="num">$1,275.90</td><td>Primary Salary</td><td class="num">38.00</td><td class="actions"><button class="btn-link">Edit</button><button class="btn-link danger">Delete</button></td></tr>
+          <tr><td class="num">2026-04-17</td><td class="fy">FY2025-2026</td><td class="num">$1,616.90</td><td class="num">$1,275.90</td><td>Primary Salary</td><td class="num">38.00</td><td class="actions"><button class="btn-link">Edit</button><button class="btn-link danger">Delete</button></td></tr>
+          <tr><td class="num">2026-04-10</td><td class="fy">FY2025-2026</td><td class="num">$1,594.70</td><td class="num">$1,260.70</td><td>Primary Salary</td><td class="num">37.00</td><td class="actions"><button class="btn-link">Edit</button><button class="btn-link danger">Delete</button></td></tr>
+          <tr><td class="num">2026-04-03</td><td class="fy">FY2025-2026</td><td class="num">$1,672.40</td><td class="num">$1,313.40</td><td>Primary Salary</td><td class="num">38.00</td><td class="actions"><button class="btn-link">Edit</button><button class="btn-link danger">Delete</button></td></tr>
+          <tr><td class="num">2026-03-27</td><td class="fy">FY2025-2026</td><td class="num">$1,616.90</td><td class="num">$1,275.90</td><td>Primary Salary</td><td class="num">38.00</td><td class="actions"><button class="btn-link">Edit</button><button class="btn-link danger">Delete</button></td></tr>
+          <tr><td class="num">2026-03-20</td><td class="fy">FY2025-2026</td><td class="num">$1,616.90</td><td class="num">$1,275.90</td><td>Primary Salary</td><td class="num">38.00</td><td class="actions"><button class="btn-link">Edit</button><button class="btn-link danger">Delete</button></td></tr>
+          <tr><td class="num">2026-03-13</td><td class="fy">FY2025-2026</td><td class="num">$1,922.15</td><td class="num">$1,483.15</td><td>Primary Salary</td><td class="num">42.50</td><td class="actions"><button class="btn-link">Edit</button><button class="btn-link danger">Delete</button></td></tr>
+          <tr><td class="num">2026-03-06</td><td class="fy">FY2025-2026</td><td class="num">$1,811.15</td><td class="num">$1,408.15</td><td>Primary Salary</td><td class="num">41.50</td><td class="actions"><button class="btn-link">Edit</button><button class="btn-link danger">Delete</button></td></tr>
+        </tbody>
+      </table>
+
+      <div class="ytd-footer">
+        <span class="ytd-footer-label">▾ Year-to-Date Summary (FY2025-2026, 50 payslips)</span>
+        <div class="ytd-footer-values">
+          <div class="item"><span class="lbl">YTD Gross:</span><span class="val">$91,069.09</span></div>
+          <div class="item"><span class="lbl">YTD Net:</span><span class="val">$70,749.09</span></div>
+          <div class="item"><span class="lbl">YTD PAYG:</span><span class="val">$20,320.00</span></div>
+          <div class="item"><span class="lbl">YTD SG:</span><span class="val">$10,928.29</span></div>
+        </div>
+      </div>
+
+      <div class="pagination">
+        <span>Showing 1–15 of 50</span>
+        <div class="pages">
+          <button class="page-btn" disabled>← Prev</button>
+          <button class="page-btn current">1</button>
+          <button class="page-btn">2</button>
+          <button class="page-btn">3</button>
+          <button class="page-btn">4</button>
+          <button class="page-btn">Next →</button>
+        </div>
+      </div>
+    </div>
+
+    <p class="info-note">YTD summary uses <code>PayService.aggregateYearToDate(payslips, financialYearStart)</code> from Decision 5 (extended by Decision 14). Edit populates the payslip form; Delete confirms then dispatches a <code>payslip-delete</code> event. Pagination: 15 rows/page default; filter button exposes FY / account / date-range filtering.</p>
+  </div>
+</body>
+</html>

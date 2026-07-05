@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Salary History MVP — UI Mockups</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: #1e1e1e;
+      color: #d4d4d4;
+      margin: 0;
+      padding: 40px 20px;
+      line-height: 1.5;
+    }
+    .container { max-width: 880px; margin: 0 auto; }
+    h1 { color: #ffffff; font-size: 24px; font-weight: 600; margin: 0 0 8px; }
+    .subtitle { color: #858585; margin: 0 0 32px; font-size: 14px; }
+    .meta { background: #252526; border: 1px solid #3e3e3e; border-radius: 6px; padding: 16px 20px; margin: 0 0 32px; }
+    .meta-row { display: flex; gap: 12px; margin-bottom: 8px; font-size: 13px; }
+    .meta-row:last-child { margin-bottom: 0; }
+    .meta-label { color: #858585; min-width: 120px; }
+    .meta-value { color: #d4d4d4; }
+    code { background: #1e1e1e; padding: 2px 6px; border-radius: 3px; font-family: "SF Mono", Consolas, "Liberation Mono", Menlo, monospace; font-size: 12px; color: #4ec9b0; }
+    .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+    .card {
+      background: #252526;
+      border: 1px solid #3e3e3e;
+      border-radius: 6px;
+      padding: 20px;
+      text-decoration: none;
+      color: #d4d4d4;
+      transition: border-color 0.15s, background 0.15s;
+      display: block;
+    }
+    .card:hover { border-color: #007acc; background: #2a2a2a; }
+    .card-title { font-size: 15px; font-weight: 600; color: #ffffff; margin-bottom: 6px; }
+    .card-desc { font-size: 13px; color: #858585; }
+    .badge {
+      display: inline-block;
+      background: #007acc;
+      color: #ffffff;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 3px;
+      margin-right: 6px;
+    }
+    .badge-warn { background: #cca700; color: #1e1e1e; }
+    .badge-new { background: #4ec9b0; color: #1e1e1e; }
+    .badge-key { background: #c586c0; color: #1e1e1e; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Salary History — UI Mockups</h1>
+    <p class="subtitle">HTML design previews for Phase 4 Task 11. Open any mock below to inspect the design before implementation.</p>
+
+    <div class="meta">
+      <div class="meta-row">
+        <span class="meta-label">Plan</span>
+        <span class="meta-value"><code>docs/superpowers/plans/2026-07-04-phase4-shared-financial-data-salary-history.md</code></span>
+      </div>
+      <div class="meta-row">
+        <span class="meta-label">Amendment</span>
+        <span class="meta-value">3 — Calculation Model + Rate History + Reorderable Form + Second View</span>
+      </div>
+      <div class="meta-row">
+        <span class="meta-label">Styling</span>
+        <span class="meta-value">Inline CSS, Obsidian dark theme, self-contained HTML files</span>
+      </div>
+      <div class="meta-row">
+        <span class="meta-label">Data</span>
+        <span class="meta-value">First payslip from xlsx (2025-07-03, gross $2,019.28, net $1,549.28) for realism</span>
+      </div>
+    </div>
+
+    <div class="grid">
+      <a class="card" href="payslip-form-collapsed.html">
+        <div class="card-title"><span class="badge badge-key">core</span>payslip-form · collapsed</div>
+        <div class="card-desc">Default state. Only Period + Earnings preview + Deductions + Super + Notes visible. The "This week was different" toggle is off; hours default from settings.</div>
+      </a>
+
+      <a class="card" href="payslip-form-expanded.html">
+        <div class="card-title"><span class="badge badge-key">core</span>payslip-form · expanded</div>
+        <div class="card-desc">User toggled "This week was different" on. Six hour fields visible (regular, shift, OT 1.5x, OT 2.0x, holiday, public holiday). Personal leave + accrual also shown.</div>
+      </a>
+
+      <a class="card" href="payslip-form-reconciled.html">
+        <div class="card-title"><span class="badge badge-warn">warning</span>payslip-form · reconciled</div>
+        <div class="card-desc">Same expanded form, but the sum of derived earnings ≠ entered gross. Shows the inline reconciliation warning + the Validate PAYG button + its result.</div>
+      </a>
+
+      <a class="card" href="payslip-list.html">
+        <div class="card-title"><span class="badge">list</span>payslip-list</div>
+        <div class="card-desc">Paginated table of payslips (pay_date, finance_year, gross, net, account) with Edit/Delete actions per row. YTD summary footer at the bottom.</div>
+      </a>
+
+      <a class="card" href="pay-rate-history.html">
+        <div class="card-title"><span class="badge badge-new">new</span>pay-rate-history</div>
+        <div class="card-desc">Rate history list view. Shows effective_from, effective_to, all 7 rate columns, notes. "Current" badge on the active row. [Add New Rate] opens rate-row-form.</div>
+      </a>
+
+      <a class="card" href="rate-row-form.html">
+        <div class="card-title"><span class="badge badge-new">new</span>rate-row-form</div>
+        <div class="card-desc">Add/edit a rate row. Form fields: effective_from, effective_to, 7 rate columns, notes. Validates via PayRateService.validateRateRow.</div>
+      </a>
+
+      <a class="card" href="reorder-sections.html">
+        <div class="card-title"><span class="badge badge-new">new</span>reorder-sections</div>
+        <div class="card-desc">Modal with up/down arrows for the 6 form section IDs. Saves to salary-history.sectionOrder settings key.</div>
+      </a>
+
+      <a class="card" href="accounts-seed.html">
+        <div class="card-title"><span class="badge">setup</span>accounts-seed</div>
+        <div class="card-desc">First-run prompt when accounts table is empty. User can create an account (name, institution) or skip (Phase 5's Accounts extension handles later).</div>
+      </a>
+    </div>
+  </div>
+</body>
+</html>

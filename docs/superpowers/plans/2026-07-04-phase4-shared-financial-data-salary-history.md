@@ -1,8 +1,8 @@
 ---
 title: Phase 4 - Shared Financial Data & The First Extension (Salary History)
 date: 2026-07-04
-amended: 2026-07-05 (Plan Amendment 1 — Remove Deductions; Plan Amendment 2 — Extend Pay Slip Schema; Plan Amendment 3 — Calculation Model, Rate History, Reorderable Form, FY Column, Second View)
-status: draft — Plan Amendments 1, 2 & 3 applied
+amended: 2026-07-05 (Plan Amendment 1 — Remove Deductions; Plan Amendment 2 — Extend Pay Slip Schema; Plan Amendment 3 — Calculation Model, Rate History, Reorderable Form, FY Column, Second View; Plan Amendment 4 — UI Design Finalization)
+status: draft — Plan Amendments 1, 2, 3 & 4 applied
 target_version: 0.7.0
 spec_source: docs/superpowers/specs/2026-06-13-implementation-design.md (Phase 4 section, lines 121–128)
 vision_alignment:
@@ -98,6 +98,44 @@ prerequisite_decisions:
 > - `docs/superpowers/plans/2026-07-04-phase4-shared-financial-data-salary-history.md` — Decision 3 manifest example updated inline; Self-Review §2 updated to reference the breakdown columns
 >
 > **What this amendment does NOT change.** Plan Amendment 1's removals stay in place (`salary_history_deductions` table still removed, `DeductionService` still removed, `salary.show-deductions` command still gone). Phase 4's architecture (DAO, namespace enforcement, JSON-RPC, multi-file extension, etc.) is unchanged. The "lost on import" mapping table from earlier would now show that 7 of the 10 previously-lost columns have a schema home; the 4 forward-tracking columns (Personal Leave, Holiday Pay, Public Holiday, Holiday Leave Accrual) remain "lost on import" since the xlsx doesn't track them, but will be populated going forward via the salary-history form.
+
+---
+
+> ## Plan Amendment 4 (2026-07-05) — UI Design Finalization
+>
+> **Status:** Applied. Plan remains `draft`; not yet implemented.
+>
+> **Summary.** Eight HTML/CSS mockups were built at `docs/design/salary-history-mvp/` to validate the UI design before Task 11 implementation. The mocks surfaced one design correction (gross/net must be user inputs in a dedicated Totals section, not derived) and several layout decisions captured in **Decision 18** below. The mocks are the visual contract for Task 11 implementation; any deviation during implementation must be reviewed against the mock directory.
+>
+> **Mocks delivered:**
+>
+> | File | Purpose | Component |
+> |---|---|---|
+> | `index.html` | Navigation between all 8 mocks | — |
+> | `payslip-form-collapsed.html` | Default state — minimal entry (date + gross + net) | `payslip-form.ts` |
+> | `payslip-form-expanded.html` | "This week was different" toggle on — 6 hour inputs + 2 leave fields visible | `payslip-form.ts` |
+> | `payslip-form-reconciled.html` | Inline amber warning banner when sum-of-earnings ≠ gross; offers "Verify hours", "Add bonus line", "Accept mismatch", "Cancel" actions | `payslip-form.ts` |
+> | `payslip-list.html` | Paginated table + YTD summary footer (YTD Gross, YTD Net, YTD PAYG, YTD SG) | `payslip-list.ts` |
+> | `pay-rate-history.html` | Rate rows list (newest first) with "Current" badge on the row with `effective_to IS NULL`; Edit only on current row, View on history | `pay-rate-history-view.ts` |
+> | `rate-row-form.html` | Add/edit rate row form with confirmation panel ("Adding this rate will close the current rate") | `rate-row-form.ts` |
+> | `reorder-sections.html` | Modal with up/down arrows for the 7 form section IDs (period, totals, earnings, deductions, super, leave, notes); persisted via `salary-history.sectionOrder` | `reorder-sections-modal.ts` |
+> | `accounts-seed.html` | First-run modal: name + optional institution, Create / Skip / Cancel; shows only when `accounts` table is empty | `accounts-seed-modal.ts` |
+>
+> **Design correction surfaced by the mocks:** The initial form mock (payslip-form-collapsed v1) implicitly derived gross/net from the breakdowns. The user's design intent — *"Just user input new record: pay_date, gross, net"* — required a dedicated **Totals** section between Period and Earnings where gross/net are explicit user inputs. All mocks rebuilt with the Totals section. Net effect: the form has 7 visible sections (Period → Totals → Earnings → Deductions → Super → Leave → Notes), not 6. `sectionOrder` default updated accordingly.
+>
+> **Visual review checklist (run before Task 11 implementation):**
+> - [ ] User has approved all 8 mocks (recorded as Plan Amendment 4)
+> - [ ] Section order matches `salary-history.sectionOrder` default: `["period","totals","earnings","deductions","super","leave","notes"]`
+> - [ ] Reconciliation warning threshold = `paygToleranceDollars` setting (default 5.00)
+> - [ ] PAYG validation triggers on user button click (not on every keystroke)
+> - [ ] Dark theme uses inline-CSS-equivalent tokens in shadow DOM (the mocks use `rgb(...)`-equivalent literals; the real Lit components should use CSS custom properties defined in `:host` for consistency)
+>
+> **Cross-doc updates:**
+> - `CHANGELOG.md` — Administrative entry under `[0.6.0]` (no version bump; plan-level work only)
+> - `docs/file-reference.md` — Phase 4 section: add a `docs/design/` subdirectory row pointing to the mock index, with the Plan Amendment 4 banner noting the design has been pre-approved
+> - This plan — Decision 18 added below; Task 11 references the mocks; Self-Review §2 + §5 updated to mention the visual review step
+>
+> **What this amendment does NOT change.** Decisions 1-17 unchanged. Plan Amendment 1's removals, Amendment 2's column additions, and Amendment 3's calculation model all stand. The mocks are a pre-implementation design artifact — no architectural decisions flipped.
 
 ---
 
@@ -881,6 +919,100 @@ Both commands are registered via `financeExtension.contributes.commands`. The Ac
 
 **Trade-off:** Users must know to look in the Command Palette (or hit `Ctrl+Shift+R`) for rate history. Phase 7+ might surface it in a settings menu or a dedicated Activity Bar entry.
 
+### Decision 18: UI Design Finalization — Mocks Pre-Approve the Visual Contract (Plan Amendment 4)
+
+**Choice:** The visual design for all 6 UI components is pre-approved via 8 static HTML/CSS mockups at `docs/design/salary-history-mvp/`. Task 11 implementation must match the mocks; any deviation is a design review. The mocks surfaced one structural correction — gross/net must be **user inputs** in a dedicated Totals section, not derived — and that correction is captured here.
+
+**Form structure (final, 7 sections):**
+
+| # | Section | Always visible? | Inputs | Derived from |
+|---|---|---|---|---|
+| 1 | **Period** | yes | `pay_date`, `finance_year` (dropdown, auto-prefilled), `account` | `pay_period_start/end` auto-derived from `pay_date` |
+| 2 | **Totals** (NEW per Amendment 4) | yes | `gross` ($), `net` ($) | nothing — these are the 2 of the 3 minimal inputs |
+| 3 | **Earnings (derived)** | yes | — | rate row × hours; 7 monetary fields |
+| 4 | **Deductions** | yes | — | `payg_withholding` = gross − net; `[ Validate PAYG ]` button calls `payg-calc.validatePayg` |
+| 5 | **Super** | yes | — | `superannuation_guarantee` = gross × sg_rate |
+| 6 | **Leave** | collapsed by default | toggle "This week was different" reveals 6 hour inputs + 2 leave fields | — |
+| 7 | **Notes** | yes | free text | — |
+
+**Total user inputs:** 7 (pay_date, finance_year, account, gross, net, hours-on-demand, notes) — but only 3 are required: `pay_date`, `gross`, `net`.
+
+**Section order** (`salary-history.sectionOrder` setting, default): `["period","totals","earnings","deductions","super","leave","notes"]`. Updated from Amendment 3's `["period","earnings","deductions","super","leave","notes"]` — the Totals section is now between Period and Earnings.
+
+**Reconciliation warning (inline, non-blocking):**
+- Computed inline as: `sum_earnings = base_hourly + shift_allowance + overtime_1_5x + overtime_2_0x + holiday_pay + holiday_leave_loading + public_holiday`
+- Triggered when `|gross − sum_earnings| > paygToleranceDollars` (default $5.00)
+- Displayed as an **amber callout banner** above the Earnings section, showing the full breakdown + Δ
+- Offers 4 actions: "Verify hours below ↴" (scroll to Leave section), "Add bonus line" (future `other_earnings` column — not in Phase 4), "Accept mismatch" (save as-is), "Cancel"
+- Acknowledged that 3 of 4 actions are stubs in Phase 4 — the **functional** action is "Verify hours" (scroll + let user edit hours). The other three buttons are reserved for future enhancements.
+
+**PAYG validation flow:**
+- User clicks `[ Validate PAYG ]` button (not auto-triggered on every keystroke — explicit action)
+- `payg-calc.validatePayg(gross, net, taxYear, paygToleranceDollars)` returns `{ derivedPayg, atoEstimate, difference, tolerance, withinTolerance, taxYear }`
+- Result displayed inline below the button as a green/red result card
+- Green (`withinTolerance`): "✓ PAYG within tolerance" + Δ detail
+- Red (out of tolerance): "⚠ PAYG differs from ATO estimate" + Δ detail + suggestion to check the entered net
+
+**Rate history view (`pay-rate-history-view.ts`):**
+- List of all rate rows ordered `effective_from DESC`
+- Each row: Status badge ("Current" if `effective_to IS NULL`, else "History"), `effective_from`, `effective_to`, all 7 rate columns, `notes`, Actions
+- Current row has green left border; history rows neutral
+- Actions per row:
+  - **Current row:** `[ Edit ]` only (in-place edit)
+  - **History rows:** `[ View ]` only (read-only)
+- `[ + Add New Rate ]` button in topbar opens `rate-row-form.ts` with a confirmation panel:
+  > "Adding this rate will close the current rate. The current rate (effective from X) will have its effective_to set to Y. Historical payslips keep using the closed rate; new payslips from Y onward use the new rate."
+- Confirmation flow: Confirm & Save | Cancel
+
+**Rate row form (`rate-row-form.ts`):**
+- Form fields: `effective_from`, `effective_to` (optional, leave blank for open-ended current), the 7 rate columns, `notes`
+- Pre-fills from current rate (Amendment 4 adds this UX nicety: the form loads with current rate values, user edits only what changed)
+- Validation via `PayRateService.validateRateRow` (Decision 16):
+  - `effective_from < effective_to` if both set
+  - All 7 rates ≥ 0
+  - `SG ≤ 1` (sanity)
+- Visual cue for changed fields: amber border on the field label
+
+**Reorder sections modal (`reorder-sections-modal.ts`):**
+- Backdrop + centered modal
+- List of 7 section IDs with up/down arrow buttons per row
+- First row: ▲ disabled (already first), ▼ enabled
+- Last row: ▲ enabled, ▼ disabled
+- First row gets green left border; last row gets purple left border
+- "Reset to default" button restores `["period","totals","earnings","deductions","super","leave","notes"]`
+- Save writes JSON-encoded array to `salary-history.sectionOrder` via `finance.settings.set(...)`
+
+**Accounts seed modal (`accounts-seed-modal.ts`):**
+- Triggered on first activation when `accounts` table is empty
+- Modal with welcome icon, title "Welcome to Salary History", intro text, form fields
+- Form fields: `account.name` (required, default "Primary Salary"), `account.institution` (optional)
+- 3 actions:
+  - **Skip for now** — dismiss; user can create accounts later from the Accounts section
+  - **Cancel** — dismiss; modal reappears on next activation (one-shot gate)
+  - **Create Account** — inserts row into `accounts` table with `is_active=true`, then opens the payslip form
+
+**Dark theme consistency:**
+- All mocks use the Obsidian dark palette: page `#1e1e1e`, panel `#252526`, border `#3e3e3e`, text `#d4d4d4`, accent `#007acc`, success `#4ec9b0`, warning `#cca700`, destructive `#f48771`
+- Lit components should use CSS custom properties defined in `:host` to apply the same tokens inside shadow DOM (mocks use literals because they're not shadow-DOM isolated)
+
+**Visual review checklist (run before Task 11 implementation):**
+- [ ] User has approved all 8 mocks (recorded as Plan Amendment 4 — done)
+- [ ] Section order default updated to include `totals`: `["period","totals","earnings","deductions","super","leave","notes"]`
+- [ ] Reconciliation warning threshold = `paygToleranceDollars` setting (default $5.00)
+- [ ] PAYG validation triggers on user button click (not on every keystroke)
+- [ ] All 6 UI components reference the mocks for their visual implementation
+- [ ] Shadow DOM uses CSS custom properties for the dark theme tokens (not hard-coded literals)
+- [ ] Form layout is mobile-friendly at ≥768px width (mockups assume desktop ≥960px; mobile is Phase 7+)
+
+**Alternatives considered:**
+- **Skip the mocks, design during implementation.** Rejected — the user explicitly asked for a "moment to see UI design" before Task 11, which is the right discipline. Catching layout issues in HTML is much cheaper than catching them after Lit components are written.
+- **Single combined HTML page with all views as collapsible sections.** Rejected — separate files per view make them reviewable individually, diffable, and reusable in implementation references.
+- **Use a real component library (Storybook, Histoire).** Deferred to Phase 7+ — Phase 4 just needs static previews; a full component library is over-investment.
+
+**Trade-off:** The mocks are a snapshot at the time of design. If implementation discovers a layout issue that wasn't visible in HTML (e.g. Lit reactivity edge case, browser-specific CSS quirk), the implementation must surface the issue back here rather than silently deviate. The mocks remain the canonical visual contract until Task 11 ships.
+
+> `[Plan Amendment 4]` Decisions 1-17 unchanged. Plan Amendment 1's removals, Amendment 2's column additions, and Amendment 3's calculation model all stand. The mocks are a pre-implementation design artifact — no architectural decisions flipped.
+
 ---
 
 ## File Structure
@@ -1225,30 +1357,75 @@ finance-flow-ai/
 
 ### Task 11: Build the salary-history UI components (Lit)
 
-**Files:** `extensions/salary-history/src/ui/payslip-form.ts` (new), `extensions/salary-history/src/ui/payslip-list.ts` (new), `extensions/salary-history/src/ui/accounts-seed-modal.ts` (new)
+**Files:** `extensions/salary-history/src/ui/payslip-form.ts` (new), `extensions/salary-history/src/ui/payslip-list.ts` (new), `extensions/salary-history/src/ui/accounts-seed-modal.ts` (new), `extensions/salary-history/src/ui/pay-rate-history-view.ts` (new), `extensions/salary-history/src/ui/rate-row-form.ts` (new), `extensions/salary-history/src/ui/reorder-sections-modal.ts` (new). **Visual contract:** `docs/design/salary-history-mvp/` (8 HTML mocks, pre-approved via Plan Amendment 4 / Decision 18). Implementation must match the mocks; any deviation is a design review.
 
 **Steps:**
 
-- [ ] 11.1 `payslip-form.ts`:
-  - Form fields: pay_period_start, pay_period_end, pay_date, gross, net, account (select), notes.
+- [ ] 11.0 **Visual review of mocks** (per Decision 18 checklist): open each mock in `docs/design/salary-history-mvp/`, walk through the flow, confirm all 7 visual-review checks in Decision 18 pass before writing any Lit code.
+- [ ] 11.1 `payslip-form.ts` (rewritten per Decision 14, refined per Decision 18):
+  - 7 sections rendered per `salary-history.sectionOrder` setting (default: `period`, `totals`, `earnings`, `deductions`, `super`, `leave`, `notes`).
+  - **Period section** (always visible): `pay_date`, `finance_year` (dropdown, auto-prefilled from settings), `account`. `pay_period_start/end` auto-derived from `pay_date`.
+  - **Totals section** (always visible, NEW per Amendment 4 — the 2 of the 3 minimal user inputs): `gross` ($), `net` ($).
+  - **Earnings section** (read-only preview, derived): 9 monetary breakdowns + reconciliation warning if sum-of-earnings ≠ gross by > tolerance.
+  - **Deductions section**: `payg_withholding` (derived = gross − net) + `[ Validate PAYG ]` button + result display (inline amber/green callout).
+  - **Super section**: `superannuation_guarantee` (derived = gross × rate).
+  - **Leave section** (collapsed by default): "This week was different" toggle → expands to show 6 hour inputs (`regular_hours`, `shift_hours`, `overtime_1_5_hours`, `overtime_2_0_hours`, `holiday_hours`, `public_holiday_hours`) + 2 leave fields (`personal_leave_hours`, `holiday_leave_accrual_hours`).
+  - **Notes section**: free text (used to record "back-pay from June" or similar reconciliation context).
+  - Visual reference: `docs/design/salary-history-mvp/payslip-form-collapsed.html` (default), `payslip-form-expanded.html` (toggle on), `payslip-form-reconciled.html` (warning state).
   - Submit dispatches a `payslip-create` custom event with the payload.
-  - Inline validation matches `PayService.validatePayslipInput`.
+  - Inline validation matches `PayService.validatePayslipInput` and `validateFinanceYear`.
 - [ ] 11.2 `payslip-list.ts`:
-  - Table of payslips (date, gross, net, account, notes).
-  - Year-to-date summary footer: aggregate of `{ gross, net, count }` from `PayService.aggregateYearToDate()` over the active financial year.
+  - Table of payslips (pay_date, finance_year, gross, net, account, hours).
+  - Sortable by pay_date (default DESC) and gross.
+  - YTD summary footer (green border, always visible): aggregate of `{ gross, net, payg, super, count }` from `PayService.aggregateYearToDate()` over the active financial year.
+  - Top-of-page summary bar (4 KPI tiles): YTD Gross, YTD Net, Count, Avg / Week.
   - Edit button populates the form (parent re-renders).
   - Delete button confirms then dispatches `payslip-delete`.
+  - Pagination: 15 rows/page default; filter button exposes FY / account / date-range filtering.
+  - Visual reference: `docs/design/salary-history-mvp/payslip-list.html`.
 - [ ] 11.3 `accounts-seed-modal.ts`:
   - On first activation, if `accounts` table is empty, prompt the user to create one (name, institution) or skip.
+  - Welcome icon + title "Welcome to Salary History" + intro paragraph + "First-run only" info banner.
+  - 3 actions: Skip (dismiss; user can create accounts later), Cancel (dismiss; modal reappears on next activation), Create Account (insert with `is_active=true`, then opens payslip form).
   - Skip is acceptable — the user can create accounts via Phase 5's Accounts extension.
-- [ ] 11.4 Add 4 unit tests per Lit element (smoke tests: renders without error, fires the right custom event on submit, validates input client-side). For `payslip-list.ts`, the YTD footer test verifies that the aggregate updates when payslips are added/deleted.
+  - Visual reference: `docs/design/salary-history-mvp/accounts-seed.html`.
+- [ ] 11.4 `pay-rate-history-view.ts` (new per Decision 17, refined per Decision 18):
+  - List of all rate rows ordered `effective_from DESC`.
+  - Each row: Status badge ("Current" if `effective_to IS NULL`, else "History"), `effective_from`, `effective_to`, all 7 rate columns, `notes`, Actions.
+  - Current row: green left border; history rows: neutral.
+  - Per-row actions: `[ Edit ]` on current row only (in-place); `[ View ]` on history rows (read-only).
+  - `[ + Add New Rate ]` button in topbar opens `rate-row-form.ts` with confirmation panel.
+  - Visual reference: `docs/design/salary-history-mvp/pay-rate-history.html`.
+- [ ] 11.5 `rate-row-form.ts` (new per Decision 17, refined per Decision 18):
+  - Confirmation panel shown BEFORE the form (inline at top): "Adding this rate will close the current rate" + diff (current vs new) + Confirm/Cancel.
+  - Form fields: `effective_from`, `effective_to` (optional, leave blank for open-ended current), the 7 rate columns, `notes`.
+  - Pre-fills from current rate values; changed fields get amber border.
+  - Validates via `PayRateService.validateRateRow`.
+  - On submit (after Confirm), calls `PayRateService.addNewRate` or `editCurrentRate`.
+  - Visual reference: `docs/design/salary-history-mvp/rate-row-form.html`.
+- [ ] 11.6 `reorder-sections-modal.ts` (new per Decision 15, refined per Decision 18):
+  - Modal listing **7 section IDs** (`period`, `totals`, `earnings`, `deductions`, `super`, `leave`, `notes`) with up/down arrow buttons per row.
+  - First row: ▲ disabled (green left border), ▼ enabled.
+  - Last row: ▲ enabled, ▼ disabled (purple left border).
+  - "Reset to default" button restores `["period","totals","earnings","deductions","super","leave","notes"]`.
+  - On save, writes JSON-encoded array via `finance.settings.set('salary-history.sectionOrder', JSON.stringify(newOrder))`.
+  - Visual reference: `docs/design/salary-history-mvp/reorder-sections.html`.
+- [ ] 11.7 Add unit tests per Lit element:
+  - `payslip-form.ts`: 6 tests (renders 7 sections in order, fires payslip-create on submit, calls calculatePaySlipBreakdown on pay_date/gross/net change, Validate PAYG button click triggers payg-calc, section order from settings, finance_year dropdown changes).
+  - `payslip-list.ts`: 4 tests (renders list, YTD footer updates, edit populates form, delete dispatches event).
+  - `accounts-seed-modal.ts`: 3 tests (renders, creates account, skip dispatches event).
+  - `pay-rate-history-view.ts`: 4 tests (renders rate list, current badge, add/edit/view buttons visible).
+  - `rate-row-form.ts`: 3 tests (renders fields with current rate pre-fill, validates, submit dispatches add/edit event after confirm).
+  - `reorder-sections-modal.ts`: 3 tests (renders 7 section list with up/down, save writes 7-element array to settings).
+- [ ] 11.8 **Visual parity check**: after each component is implemented, take a screenshot (or DOM snapshot) and diff against the corresponding mock in `docs/design/salary-history-mvp/`. Any visible regression must be explained before merging.
 
-**Verification:** `npm run build:extensions` produces `dist/extensions/salary-history.js` containing all 3 UI components. Type-check passes.
+**Verification:** `npm run build:extensions` produces `dist/extensions/salary-history.js` containing all 6 UI components. Type-check passes. `npm run test:unit` shows 23 UI-component tests passing. **Visual parity:** each component's Lit shadow DOM matches the corresponding mock in `docs/design/salary-history-mvp/` (see Decision 18 visual-review checklist).
 
 > `[Plan Amendment 1]` Removed `ui/deductions-view.ts`. `payslip-list.ts` gains a YTD summary footer (see Deliverable item #2). Lit element count: 4 → 3.
 
----
+> `[Plan Amendment 3]` Added 3 new UI components: `pay-rate-history-view.ts`, `rate-row-form.ts`, `reorder-sections-modal.ts`. `payslip-form.ts` rewritten with minimal-entry + collapsible hours + derived breakdown preview + Validate PAYG button. Lit element count: 3 → 6. UI test count: +13 (from 12 to 23).
 
+> `[Plan Amendment 4]` (1) Added **Totals** section to `payslip-form.ts` as a 2nd user-input section (gross + net) — these are the 2 of the 3 minimal inputs. Section count went from 6 → 7. (2) `salary-history.sectionOrder` default updated to `["period","totals","earnings","deductions","super","leave","notes"]`. (3) Reconciliation warning design finalized: amber callout banner with 4 action buttons (Verify hours / Add bonus line / Accept mismatch / Cancel). (4) PAYG validation flow confirmed as user-button-triggered (not auto). (5) Rate history view design finalized: Current badge + green left border on current row; Edit on current row only, View on history rows. (6) Rate row form design finalized: pre-fills from current rate; changed fields get amber border. (7) Reorder sections modal design finalized: 7 section IDs with up/down arrows, first row green border, last row purple border, "Reset to default" button. (8) Accounts seed modal design finalized: 3 actions (Skip / Cancel / Create Account) with skip behavior documented. (9) **Visual parity check** added as step 11.8 — each component must match its corresponding mock in `docs/design/salary-history-mvp/`.
 ### Task 12: Wire the extension entry point
 
 **Files:** `extensions/salary-history/src/main.ts` (rewritten), `extensions/salary-history/package.json` (modified)
@@ -1501,6 +1678,7 @@ These will be unblocked when the Phase 3 Playwright-electron environmental issue
   - PayService ✓ (Decision 5, internal helper for Phase 4; **expanded by Decision 14** with `calculatePaySlipBreakdown`, `validateFinanceYear`, `reconcilePaySlip`)
   - ~~DeductionService~~ — **REMOVED by Plan Amendment 1.**
   - Extension UI: payslip entry form (minimal entry + collapsible hours toggle + derived breakdown preview + `[Validate PAYG]` button per Decision 14), salary history list, YTD summary footer, **rate history view** (Decision 17), accounts-seed-modal ✓
+  - **Plan Amendment 4 — UI Design Finalization:** 8 HTML/CSS mocks pre-approve the visual contract at `docs/design/salary-history-mvp/` (see Decision 18). Implementation in Task 11 must match the mocks; visual parity check is Task 11.8. The mocks surfaced one structural correction: gross/net are user inputs in a dedicated **Totals** section between Period and Earnings (form now has 7 sections, not 6; `salary-history.sectionOrder` default updated accordingly).
   - Deliverable: fully functional salary history UI with persistent storage ✓ + **second view (rate history) reachable via Command Palette** (Decision 17)
 
 ### §3 — Carries-forward from Phase 3 (explicit deferrals resolved)
@@ -1535,6 +1713,7 @@ These will be unblocked when the Phase 3 Playwright-electron environmental issue
 
 - [ ] ~119 new unit tests (all deterministic, fast, isolated via Phase 3's `getTestDatabase()` factory). **+40 from Plan Amendment 3** (4 new test files + extensions to 2 existing files).
 - [ ] 9 manual test units covering the full user journey.
+- [ ] **Plan Amendment 4 — visual review step:** before Task 11 implementation starts, walk through the 8 HTML mocks in `docs/design/salary-history-mvp/` (per Decision 18 visual-review checklist). After each component is implemented, take a DOM snapshot and diff against the corresponding mock — any visible regression must be explained before merging (Task 11.8).
 - [ ] 6 new E2E tests written but gated by Phase 3 environmental blocker (documented).
 
 ### §6 — Code Quality / Production Readiness
