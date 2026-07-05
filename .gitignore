@@ -59,5 +59,6 @@ Thumbs.db
 .cache
 .parcel-cache
 *.xlsx
+*.csv
 .markdownlint.json
 kimch*.html
