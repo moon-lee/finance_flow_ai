@@ -1,6 +1,7 @@
 ---
 title: Finance Flow AI - Implementation Design
 date: 2026-06-13
+last_updated: 2026-07-06T12:46:07+10:00
 status: active
 ---
 
@@ -67,12 +68,16 @@ status: active
   - ExtensionRegistry unit tests → **Prerequisite satisfied in Phase 3** (8 new tests shipped)
 - **Deliverable**: app launches, spawns Extension Host, dynamically reads mock manifest, registers views/commands, executes round-trip IPC for both `activateView` and `executeCommand`. Crash isolation verified. Hot-disable contract verified. All 56+ unit tests pass.
 
-### Phase 4: Salary History Extension (Vertical Slice) + Domain Services (Est: 4 – 6 Days)
-- Shared Financial Data schemas: Accounts, PaySlips, Deductions
-- `finance.db.table()` API for typed table access (no raw SQL)
-- **Domain Services:** PayService for payslip validation/aggregation, DeductionService for work-related expense tracking
-- Extension UI: payslip entry form, salary history list, deduction tracking
-- **Deliverable**: Fully functional salary history UI with persistent storage
+### Phase 4: Salary History Extension (Vertical Slice) + First Extension Domain Logic (Est: 6 – 8 Days)
+
+> *Updated 2026-07-06: aligned with Phase 4 plan Decisions 1, 5, 14, 16, 17 and Plan Amendments 1 & 3. Pay slips are extension-private (not shared); cross-extension `finance.services.*` is deferred to Phase 5; DeductionService removed per Amendment 1.*
+
+- **Shared Financial Data (Phase 4 ships one table):** `accounts` — owned by Core (platform-owned), extensions can read but not write. Per Phase 4 plan Decision 1 and Decision 4. The original "Shared Financial Data schemas: Accounts, PaySlips, Deductions" wording pre-dated `vision_review.md Issue #23` (Shared Financial Data layer) and Phase 4's namespace-isolation enforcement.
+- **Extension-private data (Phase 4 ships two tables under the `salary-history_*` namespace):** `salary_history_pay_slips` (29 columns per Plan Amendment 3 — derivation-first with rate history + PAYG validation) and `salary_history_rate_history` (13 columns per Decision 16 — effective-dated rate rows). Pay slips are NOT shared in Phase 4 because no second consumer exists yet — Phase 5+ can promote them to shared ownership when Dashboard/Cash Flow/Budget need them.
+- `finance.db.table()` API for typed table access with structural namespace enforcement (no raw SQL)
+- **Extension-internal helpers (NOT `finance.services.*`):** PayService for payslip validation/breakdown calculation/aggregation, PayRateService for rate-history CRUD, PAYG validation module. Cross-extension `finance.services.*` is deferred to Phase 5 — the public API gets shaped by Phase 5's consumer call sites, not derived from this internal surface (per Plan Amendment 1 / Phase 4 Decision 5).
+- Extension UI: payslip entry form (minimal entry + derived breakdown preview + PAYG validation), salary history list (with YTD summary footer), pay rate history view (admin via Command Palette), accounts seed modal (first-run), reorder sections modal, rate row form
+- **Deliverable**: Fully functional salary history UI with persistent storage (SQLite via DAO); two views reachable via Activity Bar (pay history) and Command Palette (rate history); derivation-first calculation engine; settings namespace registration (`salary-history.*` keys)
 
 ### Phase 5: WebviewPanels & Multi-Extension UI (Est: 4 – 6 Days)
 - Split-screen support, tab management
@@ -106,7 +111,7 @@ Based on a single full-time developer or agent working sequentially, the project
 | **Phase 1** | Core Shell Prototype | 1.5 – 2 Days | 0.5 Days | Low |
 | **Phase 2** | Database & Settings Backbone | 2 – 3 Days | 1 Day | Medium |
 | **Phase 3** | Extension Host & IPC Foundation | 5 – 7 Days | ~8 Days (incl. 5 review rounds, ESM bundling fix, post-test bug fixes) | High |
-| **Phase 4** | Salary History Extension (Slice) | 4 – 6 Days | — | Medium |
+| **Phase 4** | Salary History Extension (Slice) | 6 – 8 Days | — | Medium |
 | **Phase 5** | WebviewPanels & Multi-Extension UI | 4 – 6 Days | — | High |
 | **Phase 6** | AI Assistant (Local-first) | 3 – 5 Days | — | Medium |
 | **Phase 7** | Production Polish & Encryption | 3 – 4 Days | — | Medium |

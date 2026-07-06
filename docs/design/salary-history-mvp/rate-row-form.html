@@ -153,9 +153,9 @@
 
     <!-- Section: Rate columns (the 7 stored rates) -->
     <div class="section">
-      <div class="section-header"><span class="section-title">Rates</span><span class="section-badge">7 fields</span></div>
+      <div class="section-header"><span class="section-title">Rates</span><span class="section-badge">9 fields</span></div>
       <div class="section-body">
-        <div class="grid-2">
+        <div class="grid-3">
           <div class="field field-changed">
             <label>base_hourly_rate <span class="label-sub">($/hr) — changed from $32.00</span></label>
             <input type="number" value="35.00" step="0.01" min="0">
@@ -180,9 +180,17 @@
             <label>superannuation_rate <span class="label-sub">(ATO mandate; current 12%)</span></label>
             <input type="number" value="0.12" step="0.001" min="0" max="1">
           </div>
-          <div class="field field-full">
+          <div class="field">
             <label>holiday_leave_loading_rate <span class="label-sub">(default 0.175 = 17.5%)</span></label>
             <input type="number" value="0.175" step="0.001" min="0" max="1">
+          </div>
+          <div class="field">
+            <label>accrual_rate_per_week <span class="label-sub">(default 2.92 hours)</span></label>
+            <input type="number" value="2.92" step="0.01" min="0">
+          </div>
+          <div class="field">
+            <label>starting_holiday_leave_balance <span class="label-sub">(default 0 hours)</span></label>
+            <input type="number" value="0" step="0.01" min="0">
           </div>
         </div>
       </div>

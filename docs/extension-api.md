@@ -86,5 +86,5 @@ See [`extensions/salary-history/`](../extensions/salary-history/) — the Phase 
 ## Phase 4+ migration notes
 
 - `import * as finance from 'finance'` becomes available in Phase 4 when a multi-file extension is first built. The `FinanceApi` type contract in `src/types/finance.d.ts` is unchanged.
-- `finance.db.table()` becomes a real DAO in Phase 4 with namespaced access (`finance.extensions.<id>.db.*`).
+- `finance.db.table()` becomes a real DAO in Phase 4 with structural namespace enforcement (`finance.db.table('<extensionId>_<table>')`). No `finance.extensions.<id>.db.*` wrapper — the DAO path itself enforces isolation per Phase 4 Decision 1 (`docs/superpowers/plans/2026-07-04-phase4-shared-financial-data-salary-history.md`).
 - `finance.ai.registerTool()` becomes executable in Phase 6 with tool-call routing through the AI Assistant panel.

@@ -259,7 +259,7 @@
 
         <div class="hours-block">
           <div class="hours-block-title">Hours breakdown <span style="font-weight: normal; text-transform: none; color: #707070;">— drives earnings above via rate row</span></div>
-          <div class="grid-4">
+          <div class="grid-3">
             <div class="field">
               <label>regular_hours</label>
               <input type="number" value="30.75" step="0.25" min="0">
@@ -284,24 +284,25 @@
               <label>public_holiday_hours</label>
               <input type="number" value="0" step="0.25" min="0">
             </div>
-          </div>
-        </div>
-
-        <div class="leave-block">
-          <div class="leave-block-title">Leave tracking</div>
-          <div class="grid-2">
-            <div class="field">
+            <div class="field field-full">
               <label>personal_leave_hours</label>
               <input type="number" value="0" step="0.25" min="0">
-              <span class="label-sub">hours taken this pay</span>
-            </div>
-            <div class="field">
-              <label>holiday_leave_accrual_hours</label>
-              <input type="number" value="342.77" step="0.01" min="0">
-              <span class="label-sub">running balance snapshot</span>
             </div>
           </div>
+          <p class="info-note" style="margin: 8px 0 0;">Default values when toggle is off: regular_hours = 38 (from standard_hours_per_week), all other hours = 0. Public holiday default when applicable: 8.</p>
         </div>
+      </div>
+    </div>
+    
+    <!-- Section: Leave Accrual (always visible, read-only) -->
+    <div class="section">
+      <div class="section-header"><span class="section-title">Leave Accrual</span><span class="section-badge">read-only · auto-derived</span></div>
+      <div class="section-body">
+        <div class="read-only-row"><span class="label">Previous balance</span><span class="value">300.00 h</span></div>
+        <div class="read-only-row"><span class="label">− Personal leave taken</span><span class="value">7.00 h</span></div>
+        <div class="read-only-row"><span class="label">− Holiday leave taken</span><span class="value">0.00 h</span></div>
+        <div class="read-only-row"><span class="label">+ Weekly accrual</span><span class="value">2.92 h</span></div>
+        <div class="read-only-row" style="border-top: 1px solid #3e3e3e; padding-top: 6px; margin-top: 4px;"><span class="label"><strong>New balance</strong></span><span class="value"><strong>295.92 h</strong></span></div>
       </div>
     </div>
 

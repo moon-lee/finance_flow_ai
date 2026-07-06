@@ -1,7 +1,7 @@
 ---
 title: Phase 4 - Shared Financial Data & The First Extension (Salary History)
 date: 2026-07-04
-amended: 2026-07-05 (Plan Amendment 1 — Remove Deductions; Plan Amendment 2 — Extend Pay Slip Schema; Plan Amendment 3 — Calculation Model, Rate History, Reorderable Form, FY Column, Second View; Plan Amendment 4 — UI Design Finalization)
+amended: 2026-07-06 (Plan Amendment 1 — Remove Deductions; Plan Amendment 2 — Extend Pay Slip Schema; Plan Amendment 3 — Calculation Model, Rate History, Reorderable Form, FY Column, Second View; Plan Amendment 4 — UI Design Finalization; Plan Amendment 5 — Holiday Leave Accrual Tracking; Review Integration — Findings 4, 5, 7, 8, 9, 13, 14, 15, 16, 17)
 status: draft — Plan Amendments 1, 2, 3 & 4 applied
 target_version: 0.7.0
 spec_source: docs/superpowers/specs/2026-06-13-implementation-design.md (Phase 4 section, lines 121–128)
@@ -124,11 +124,11 @@ prerequisite_decisions:
 > **Design correction surfaced by the mocks:** The initial form mock (payslip-form-collapsed v1) implicitly derived gross/net from the breakdowns. The user's design intent — *"Just user input new record: pay_date, gross, net"* — required a dedicated **Totals** section between Period and Earnings where gross/net are explicit user inputs. All mocks rebuilt with the Totals section. Net effect: the form has 7 visible sections (Period → Totals → Earnings → Deductions → Super → Leave → Notes), not 6. `sectionOrder` default updated accordingly.
 >
 > **Visual review checklist (run before Task 11 implementation):**
-> - [ ] User has approved all 8 mocks (recorded as Plan Amendment 4)
+> - [ ] User has approved all 8 mocks (recorded as Plan Amendment 4) — **PENDING EXPLICIT CONFIRMATION** per Review Finding 12. Until the user confirms approval in conversation, Task 11.0 (visual review of mocks) remains the gating step before implementation begins.
 > - [ ] Section order matches `salary-history.sectionOrder` default: `["period","totals","earnings","deductions","super","leave","notes"]`
 > - [ ] Reconciliation warning threshold = `paygToleranceDollars` setting (default 5.00)
 > - [ ] PAYG validation triggers on user button click (not on every keystroke)
-> - [ ] Dark theme uses inline-CSS-equivalent tokens in shadow DOM (the mocks use `rgb(...)`-equivalent literals; the real Lit components should use CSS custom properties defined in `:host` for consistency)
+> - [ ] Dark theme tokens flow through CSS custom properties (Review Finding 16): the Lit components use the existing `:root` custom properties defined in `src/renderer/styles/layout.css` (e.g. `--color-bg`, `--color-fg`, `--color-accent`). When a Lit component needs these tokens inside its shadow DOM, it re-declares them in `:host` (Phase 7+ may consolidate via shared adopted-stylesheets). The mocks' literal `rgb(...)` values are placeholders; the implementation must not hard-code RGB values.
 >
 > **Cross-doc updates:**
 > - `CHANGELOG.md` — Administrative entry under `[0.6.0]` (no version bump; plan-level work only)
@@ -136,6 +136,38 @@ prerequisite_decisions:
 > - This plan — Decision 18 added below; Task 11 references the mocks; Self-Review §2 + §5 updated to mention the visual review step
 >
 > **What this amendment does NOT change.** Decisions 1-17 unchanged. Plan Amendment 1's removals, Amendment 2's column additions, and Amendment 3's calculation model all stand. The mocks are a pre-implementation design artifact — no architectural decisions flipped.
+
+> ## Plan Amendment 5 (2026-07-06) — Holiday Leave Accrual Tracking
+>
+> **Status:** Applied. Plan remains `draft`; not yet implemented.
+>
+> **Summary.** The `holiday_leave_accrual_hours` column is re-purposed from a per-payslip delta into a **cumulative running balance**. Each payslip auto-calculates the new balance as `prev_balance − personal_leave_hours − holiday_hours + accrual_rate_per_week` (where `accrual_rate_per_week` defaults to `2.92` from a new rate_history column). The form renders `holiday_leave_accrual_hours` as a read-only auto-derived field. `personal_leave_hours` moves from the Leave section to the Hours breakdown section.
+>
+> **Schema changes:**
+>
+> | Change | Table | Detail |
+> |---|---|---|
+> | +1 column | `salary_history_pay_slips` | `holiday_hours real not null default 0 min 0` — hours of annual/holiday leave TAKEN from the balance this pay period (Plan Amendment 5). Reduces balance via `calculateHolidayLeaveAccrual`. |
+> | semantic flip | `salary_history_pay_slips` | `holiday_leave_accrual_hours` — per-payslip delta → **cumulative running balance** at this payslip |
+> | +1 column | `salary_history_rate_history` | `accrual_rate_per_week real not null default 2.92 min 0` — weekly holiday leave accrual in hours |
+> | +1 column | `salary_history_rate_history` | `starting_holiday_leave_balance real not null default 0 min 0` — initial balance used as `prev_balance` for the first payslip |
+>
+> **Decisions affected:**
+> - Decision 3 schema example: add `holiday_hours` column; update `holiday_leave_accrual_hours` description.
+> - Decision 14: `holiday_pay` and `holiday_leave_loading` derivations STAY — the formula `holiday_hours × base_rate` continues to mean "pay during annual leave at base rate" (correct Australian payroll interpretation). New helper `calculateHolidayLeaveAccrual(prevBalance, personalLeave, holiday, accrualRate)` added.
+> - Decision 16: rate_history table grows from 13 → 15 columns.
+> - Task 11.1: `personal_leave_hours` moves to a new Hours breakdown section (#6); Leave section (#7) shrinks to contain only the auto-calculated `holiday_leave_accrual_hours` display; Notes renumbers to #8.
+> - Task 11.5: rate-row-form gains two new fields with pre-fill from current rate + amber-border-on-change behavior.
+>
+> **Why `holiday_pay` STAYS.** Amendment 3 originally framed `holiday_pay = holiday_hours × base_rate` as "pay for working on a holiday" — that interpretation is wrong. The correct interpretation (per the user's mock review on 2026-07-06): `holiday_hours` represents annual leave TAKEN (like personal leave), and `holiday_pay` is the base-rate pay you receive during that leave — which mathematically equals what you'd earn if you worked. `holiday_leave_loading` (the 17.5% bonus) is the Australian annual-leave-loading convention and also stays. Hours WORKED on a public holiday are tracked separately via `public_holiday_hours` (future Phase may add a 2.0× penalty multiplier; out of scope for Phase 4).
+>
+> **xlsx import (Q3 = NO).** Historical 50 rows import as-captured: `holiday_leave_accrual_hours` (per-row cumulative balance from xlsx) and `personal_leave_hours` (per-row hours taken from xlsx) feed the formula directly. **`holiday_hours` defaults to 0 for all historical rows** because the xlsx does not track hours of holiday leave taken. **Known limitation:** historical `holiday_leave_accrual_hours` values will be overstated by `Σ holiday_hours` for those rows. The accrual becomes accurate starting from the first payslip entered via the new form (where `holiday_hours` is captured properly). Documented in Self-Review §8 as a data-quality caveat for historical backfill; future enhancement could derive `holiday_hours` retroactively from the xlsx's "Holiday Pay" column minus base-rate if that column exists.
+>
+> **Migration impact.** None — Phase 4 hasn't shipped, so the planned migrations `004-salary-history-pay-slips` and `005-salary-history-rate-history` simply grow the column sets directly. If Phase 4 had shipped before this amendment, two `ALTER TABLE` migrations would have been needed.
+>
+> **Q4 confirmed (2026-07-06):** `holiday_leave_loading = holiday_hours × base_rate × 0.175` — 17.5% loading applied to the base-rate portion of holiday pay per standard Australian interpretation under the Fair Work Act. User confirmed this is the intended formula.
+>
+> **Sections amended.** Inline `[Plan Amendment 5]` markers placed at every section that changed (frontmatter, this header, Decisions 3/14/16, Tasks 10/11/12, manifest example).
 
 ---
 
@@ -339,7 +371,8 @@ Every method validates the table name (Decision 1) and the row payload (Zod sche
         { "name": "payg_withholding",            "type": "real",    "nullable": false, "default": 0, "min": 0 },
         { "name": "superannuation_guarantee",    "type": "real",    "nullable": false, "default": 0, "min": 0 },
         { "name": "personal_leave_hours",        "type": "real",    "nullable": false, "default": 0, "min": 0 },
-        { "name": "holiday_leave_accrual_hours", "type": "real",    "nullable": false, "default": 0, "min": 0 },
+        { "name": "holiday_hours",                 "type": "real",    "nullable": false, "default": 0, "min": 0, "description": "Hours of annual/holiday leave TAKEN from the balance this pay period (Plan Amendment 5). Reduces balance via calculateHolidayLeaveAccrual()." },
+        { "name": "holiday_leave_accrual_hours", "type": "real",    "nullable": false, "default": 0, "min": 0, "description": "Cumulative holiday leave balance at this payslip (read-only, auto-derived): prev_balance − personal_leave_hours − holiday_hours + accrual_rate_per_week. Plan Amendment 5." },
         { "name": "notes",                       "type": "text",    "nullable": true },
         { "name": "created_at",                  "type": "datetime","nullable": false, "default": "now" },
         { "name": "updated_at",                  "type": "datetime","nullable": false, "default": "now" }
@@ -701,7 +734,7 @@ This is the renderer→extension writeback channel. The existing `executeCommand
       "salary-history.paygTaxYear": {
         "type": "string",
         "default": "2026-2027",
-        "description": "ATO weekly tax table year; bracketed tables keyed by this value"
+        "description": "ATO weekly tax table year; bracketed tables keyed by this value. Auto-computed from current date at app boot if unset (similar to financeYear). Phase 4 hardcodes FY 2026-2027 brackets in payg-brackets.ts; unknown years cause [ Check Tax Estimate ] (renamed from [ Validate PAYG ] per Review Finding 15) to surface a non-blocking 'Bracket data unavailable for FY X' message instead of throwing. Future FY brackets are added by appending entries to BRACKETS_* constants in payg-brackets.ts."
       },
       "salary-history.financeYear": {
         "type": "string",
@@ -773,15 +806,30 @@ function calculatePaySlipBreakdown(
     superannuation_guarantee: gross * rateRow.superannuation_rate,
   };
 }
+
+// Plan Amendment 5 — holiday leave accrual
+// Computes the new cumulative holiday leave balance after a pay period.
+// `prevBalance` is the previous payslip's holiday_leave_accrual_hours (or the rate row's
+// starting_holiday_leave_balance for the first payslip). `personalLeaveHours` and `holidayHours`
+// are hours TAKEN from the leave balances this period; `accrualRatePerWeek` comes from the active
+// rate row. The result is rounded to 2 decimal places.
+function calculateHolidayLeaveAccrual(
+  prevBalance: number,
+  personalLeaveHours: number,
+  holidayHours: number,
+  accrualRatePerWeek: number,
+): number {
+  const raw = prevBalance - personalLeaveHours - holidayHours + accrualRatePerWeek;
+  return Math.round(raw * 100) / 100;
+}
 ```
 
 **Reconciliation (inline warnings, non-blocking):**
 - Sum of earnings (base + shift + OT1.5 + OT2.0 + holiday_pay + holiday_leave_loading + public_holiday) vs `gross` → warn if `|Δ| > settings.paygToleranceDollars`
-- Derived PAYG vs ATO estimate (via `[ Validate PAYG ]` button) → warn if `|Δ| > settings.paygToleranceDollars`
+- Derived PAYG vs ATO estimate (via `[ Validate PAYG ]` button) → warn if `|Δ| > settings.paygToleranceDollars` (default $5)
+- Public-holiday disambiguation (resolved by Review Finding 4): if `public_holiday_hours > 0`, then `holiday_pay = 0` and `holiday_leave_loading = 0` for those hours (public holiday pay replaces ordinary holiday pay); the `public_holiday` field captures the public-holiday premium instead. Without this rule, `holiday_pay` and `public_holiday` would double-count. Documented in Self-Review §8 as a known limitation if a future user reports under-counting for split public-holiday shifts.
 
-**Override rules:**
-- Each breakdown field can be user-overridden (write directly to the column); the override value is stored as-is and not re-derived on subsequent reads.
-- If user overrides `payg_withholding` or `superannuation_guarantee`, the column stores the override value, not the derived value. This is how the xlsx's historical 50 rows import (their breakdown values are preserved exactly).
+**Override rule (resolved by Review Finding 8):** The form's derived breakdown fields are **read-only preview** per Decision 18 and the mocks at `docs/design/salary-history-mvp/payslip-form-*.html`. There is no in-form override UI. To preserve historical payslips whose breakdown values were user-entered in the source xlsx, the **xlsx import script only** writes breakdown values directly via `finance.db.table('salary_history_pay_slips').update(...)`, bypassing derivation; subsequent reads return the stored values without re-derivation. New payslips entered via the form are always derived from the rate row × hours and never carry an override.
 
 **Reasoning:** This inverts the CRUD-first design toward a derivation-first design. The user's xlsx tracks 50 weekly payslips where the breakdown fields are derived values (rate × hours), not user-entered facts. By making the form minimal (3 inputs), the user enters the facts they actually know (what the payslip shows) and the system derives everything else. This minimizes data-entry error, keeps the breakdown consistent with the rates, and matches the way the user works.
 
@@ -789,6 +837,7 @@ function calculatePaySlipBreakdown(
 - **Full CRUD entry of all 22 fields** — rejected. Too many fields, error-prone, doesn't match the user's mental model.
 - **Hybrid entry with all fields visible** — rejected. Clutters the form.
 - **Auto-calculate `payg_withholding` from `CALCULATE_TAX_WITHHELD_26_27(gross)` instead of `gross − net`** — rejected. PAYG = gross − net is the canonical Australian payroll relationship (assuming no other deductions like salary sacrifice, HELP debt, child support garnishee). The ATO function is used for **validation only**.
+- **Known limitation (resolved by Review Finding 5):** the formula `payg_withholding = max(0, gross − net)` is exact only when there are no other deductions. Users with HELP debt, salary sacrifice, or child support garnishee will see a permanent reconciliation warning because their PAYG ≠ gross − net. This is documented as a Phase 5+ concern (the Phase 5+ Tax extension's "deduction records ledger" per `project_vision.md:526` is the right home for per-payslip other-deduction tracking). A future schema migration adds an `other_deductions real not null default 0` column to `salary_history_pay_slips` and generalises the formula to `payg = gross − net − other_deductions`.
 
 **Trade-off:** The form requires an accurate rate_history row effective at the `pay_date`. If the user enters a back-dated payslip without first creating a rate row for that era, the calculations use the current rate (wrong historical fidelity). Mitigations: (a) user can override individual breakdown fields to fix the row in the short term; (b) user adds a historical rate row in the rate history view (Decision 17) for the long term; (c) the `[ Validate PAYG ]` button flags obvious rate-period mismatches.
 
@@ -843,6 +892,8 @@ function calculatePaySlipBreakdown(
     { "name": "overtime_2_0_multiplier",   "type": "real",    "nullable": false, "default": 2.0 },
     { "name": "superannuation_rate",       "type": "real",    "nullable": false, "default": 0.12 },
     { "name": "holiday_leave_loading_rate","type": "real",    "nullable": false, "default": 0.175 },
+    { "name": "accrual_rate_per_week",     "type": "real",    "nullable": false, "min": 0, "default": 2.92, "description": "Weekly holiday leave accrual in hours (Plan Amendment 5)" },
+    { "name": "starting_holiday_leave_balance", "type": "real", "nullable": false, "min": 0, "default": 0, "description": "Initial balance used as prev_balance for the first payslip (Plan Amendment 5)" },
     { "name": "notes",                     "type": "text",    "nullable": true },
     { "name": "created_at",                "type": "datetime","nullable": false, "default": "now" },
     { "name": "updated_at",                "type": "datetime","nullable": false, "default": "now" }
@@ -859,7 +910,7 @@ function calculatePaySlipBreakdown(
 - `getRateForDate(pay_date)` — returns the rate row effective at that date
 - `getCurrentRate()` — returns the row with `effective_to IS NULL`
 - `listAllRates()` — returns all rate rows ordered by `effective_from DESC` (for the rate history view)
-- `addNewRate(rate)` — atomically closes the previous current row + inserts the new one (single SQLite transaction)
+- `addNewRate(rate)` — atomically closes the previous current row + inserts the new one (single SQLite transaction using `BEGIN IMMEDIATE` for write-locking — prevents two concurrent `addNewRate` calls from both reading "no current row" and inserting duplicate current rows per Review Finding 7)
 - `editCurrentRate(rate)` — updates the current row in place (no effective date change)
 
 **Validation rules (`validateRateRow`):**
@@ -932,8 +983,9 @@ Both commands are registered via `financeExtension.contributes.commands`. The Ac
 | 3 | **Earnings (derived)** | yes | — | rate row × hours; 7 monetary fields |
 | 4 | **Deductions** | yes | — | `payg_withholding` = gross − net; `[ Validate PAYG ]` button calls `payg-calc.validatePayg` |
 | 5 | **Super** | yes | — | `superannuation_guarantee` = gross × sg_rate |
-| 6 | **Leave** | collapsed by default | toggle "This week was different" reveals 6 hour inputs + 2 leave fields | — |
-| 7 | **Notes** | yes | free text | — |
+| 6 | **Hours breakdown** | always visible | 6 hour inputs (`regular_hours`, `shift_hours`, `overtime_1_5_hours`, `overtime_2_0_hours`, `holiday_hours`, `public_holiday_hours`) + `personal_leave_hours` (moved from Leave section per Plan Amendment 5) | — |
+| 7 | **Leave** | collapsed by default | `holiday_leave_accrual_hours` (read-only, auto-calculated via `calculateHolidayLeaveAccrual`; displays formula breakdown: `prev_balance − personal_leave_hours − holiday_hours + accrual_rate_per_week`) | `prev_balance − personal_leave_hours − holiday_hours + accrual_rate_per_week` |
+| 8 | **Notes** | yes | free text | — |
 
 **Total user inputs:** 7 (pay_date, finance_year, account, gross, net, hours-on-demand, notes) — but only 3 are required: `pay_date`, `gross`, `net`.
 
@@ -1012,6 +1064,28 @@ Both commands are registered via `financeExtension.contributes.commands`. The Ac
 **Trade-off:** The mocks are a snapshot at the time of design. If implementation discovers a layout issue that wasn't visible in HTML (e.g. Lit reactivity edge case, browser-specific CSS quirk), the implementation must surface the issue back here rather than silently deviate. The mocks remain the canonical visual contract until Task 11 ships.
 
 > `[Plan Amendment 4]` Decisions 1-17 unchanged. Plan Amendment 1's removals, Amendment 2's column additions, and Amendment 3's calculation model all stand. The mocks are a pre-implementation design artifact — no architectural decisions flipped.
+
+### Decision 19: Renderer-Side Dynamic UI Mount — IPC Fetch + Blob URL + Dynamic Import (Unsafe-Eval Phase 4; Sandboxed WebviewPanel Phase 5)
+
+**Choice:** The renderer process cannot `import()` an extension's bundled JS directly (the bundle lives in `dist/extensions/<id>.js` on the Main side, and the renderer's `webSecurity: true` blocks arbitrary `file://` imports per `project_vision.md`). Phase 4 ships a **pragmatic mechanism** for renderer-side dynamic mount:
+
+1. Extension calls `finance.ui.registerComponent(name, factory)` from `activate()`. The Host forwards to Main via JSON-RPC; Main stores `(extensionId, name, factoryPath)`.
+2. When the renderer needs to mount a component, it calls `financeShell.extensions.onUiMount(callback)`. Main responds via the `extensions:ui-mount` notification with `{ extensionId, name, sourceCode }` — where `sourceCode` is the **text content** of the extension's bundled JS file fetched via a new IPC handler `extension:fetch-ui-bundle(id)`.
+3. The renderer wraps the source in a Blob: `const blob = new Blob([sourceCode], { type: 'application/javascript' }); const url = URL.createObjectURL(blob);` then `await import(url)`.
+4. The imported module calls `customElements.define(name, LitElementClass)`. The Lit element is now a registered custom element the renderer can use like any other HTML tag.
+
+**Security implications:** This requires the renderer's CSP to allow `'unsafe-eval'` for the blob-URL import. Phase 4 accepts this risk because (a) extensions are developer-installed (not user-installed) per `project_vision.md:48`, (b) the marketplace flow (Phase 8) is where signed-bundle + remote-installed extensions land, and (c) Phase 5 will replace this mechanism with a sandboxed `WebviewPanel` iframe that uses `sandbox="allow-scripts"` without `'unsafe-eval'`.
+
+**Why not the alternatives (resolved by Review Finding 14):**
+- **Renderer-side eager import** — every extension's UI module bundled into the renderer; defeats ADR-0004's runtime-bundling goal and bloats the renderer.
+- **Main-process HTML render** — defeats Lit's reactive model; not viable for a multi-tab workspace.
+- **Defer UI to Phase 5 entirely** — too much scope cut; the deliverable explicitly requires the form to render.
+
+**Documentation:** Add a one-paragraph note to `docs/extension-api.md` (next to the existing Phase 4+ migration notes section) so extension authors know what to expect.
+
+**Phase 5 follow-up:** Replace blob-URL dynamic import with a sandboxed `WebviewPanel` (`<iframe sandbox="allow-scripts" src="…">`) that loads the extension's UI HTML + JS bundle in a separate origin. The Lit components themselves port unchanged.
+
+**Alternative waiting for user confirmation:** This is the recommended mechanism (option (b) from the review). The user should confirm before Task 14 implementation begins; if the user prefers one of the other options, the implementation note is straightforward to swap.
 
 ---
 
@@ -1321,7 +1395,7 @@ finance-flow-ai/
   - `getRateForDate(finance, payDate: string): Promise<RateRow | null>` — temporal lookup
   - `getCurrentRate(finance): Promise<RateRow | null>` — the row with `effective_to IS NULL`
   - `listAllRates(finance): Promise<RateRow[]>` — all rows ordered `effective_from DESC`
-  - `addNewRate(finance, rate: RateRowInput): Promise<void>` — atomic transaction: closes previous current row + inserts new one
+  - `addNewRate(finance, rate: RateRowInput): Promise<void>` — atomic transaction using `db.transaction(...).immediate()` (better-sqlite3's `BEGIN IMMEDIATE`): closes previous current row + inserts new one. The IMMEDIATE variant acquires a RESERVED lock at transaction start, preventing two concurrent `addNewRate` calls from racing. See Decision 16 + Review Finding 7.
   - `editCurrentRate(finance, patch: Partial<RateRowInput>): Promise<void>` — in-place update of current row
 - [ ] 10.3 Implement `services/pay-service.ts` (extended per Decision 14):
   - `validatePayslipInput(input): { ok: true } | { ok: false, errors: string[] }` — checks gross ≥ 0, net ≤ gross, dates valid, account exists, breakdown ≥ 0.
@@ -1367,7 +1441,7 @@ finance-flow-ai/
   - **Period section** (always visible): `pay_date`, `finance_year` (dropdown, auto-prefilled from settings), `account`. `pay_period_start/end` auto-derived from `pay_date`.
   - **Totals section** (always visible, NEW per Amendment 4 — the 2 of the 3 minimal user inputs): `gross` ($), `net` ($).
   - **Earnings section** (read-only preview, derived): 9 monetary breakdowns + reconciliation warning if sum-of-earnings ≠ gross by > tolerance.
-  - **Deductions section**: `payg_withholding` (derived = gross − net) + `[ Validate PAYG ]` button + result display (inline amber/green callout).
+  - **Deductions section**: `payg_withholding` (derived = gross − net) + `[ Check Tax Estimate ]` button (renamed from `[ Validate PAYG ]` per Review Finding 15 — the button validates the user's net against the ATO estimate, not the derived PAYG) + result display (inline amber/green callout). If the user has manually changed `finance_year` away from the pay_date-derived default (Review Finding 9), the form shows a non-blocking amber callout with two actions: "Auto-correct to <derived-FY>" (default) and "Keep override". The form does not block submit; it surfaces the discrepancy and lets the user choose.
   - **Super section**: `superannuation_guarantee` (derived = gross × rate).
   - **Leave section** (collapsed by default): "This week was different" toggle → expands to show 6 hour inputs (`regular_hours`, `shift_hours`, `overtime_1_5_hours`, `overtime_2_0_hours`, `holiday_hours`, `public_holiday_hours`) + 2 leave fields (`personal_leave_hours`, `holiday_leave_accrual_hours`).
   - **Notes section**: free text (used to record "back-pay from June" or similar reconciliation context).
@@ -1398,7 +1472,7 @@ finance-flow-ai/
   - Visual reference: `docs/design/salary-history-mvp/pay-rate-history.html`.
 - [ ] 11.5 `rate-row-form.ts` (new per Decision 17, refined per Decision 18):
   - Confirmation panel shown BEFORE the form (inline at top): "Adding this rate will close the current rate" + diff (current vs new) + Confirm/Cancel.
-  - Form fields: `effective_from`, `effective_to` (optional, leave blank for open-ended current), the 7 rate columns, `notes`.
+  - Form fields: `effective_from`, `effective_to` (optional, leave blank for open-ended current), the 7 rate columns, `accrual_rate_per_week` (default 2.92), `starting_holiday_leave_balance` (default 0), `notes` (Plan Amendment 5 adds the two accrual fields).
   - Pre-fills from current rate values; changed fields get amber border.
   - Validates via `PayRateService.validateRateRow`.
   - On submit (after Confirm), calls `PayRateService.addNewRate` or `editCurrentRate`.
@@ -1416,7 +1490,7 @@ finance-flow-ai/
   - `accounts-seed-modal.ts`: 3 tests (renders, creates account, skip dispatches event).
   - `pay-rate-history-view.ts`: 4 tests (renders rate list, current badge, add/edit/view buttons visible).
   - `rate-row-form.ts`: 3 tests (renders fields with current rate pre-fill, validates, submit dispatches add/edit event after confirm).
-  - `reorder-sections-modal.ts`: 3 tests (renders 7 section list with up/down, save writes 7-element array to settings).
+  - `reorder-sections-modal.ts`: 4 tests (renders 7 section list with up/down; save writes 7-element array to settings; **roundtrips section order through settings as a JSON string — no double-encoding, no over-escaping** per Review Finding 6; reset-to-default button restores the canonical 7-section order).
 - [ ] 11.8 **Visual parity check**: after each component is implemented, take a screenshot (or DOM snapshot) and diff against the corresponding mock in `docs/design/salary-history-mvp/`. Any visible regression must be explained before merging.
 
 **Verification:** `npm run build:extensions` produces `dist/extensions/salary-history.js` containing all 6 UI components. Type-check passes. `npm run test:unit` shows 23 UI-component tests passing. **Visual parity:** each component's Lit shadow DOM matches the corresponding mock in `docs/design/salary-history-mvp/` (see Decision 18 visual-review checklist).
@@ -1451,7 +1525,17 @@ finance-flow-ai/
     // 6. Set up subscriptions for ui-event back-channel.
   }
 
-  export function deactivate(): void { /* cleanup */ }
+  export function deactivate(): void {
+    // Phase 4 cleanup contract (per Review Finding 13):
+    // 1. Unsubscribe from any ui-event listeners (Decision 12).
+    // 2. Release the `finance` API reference (let GC reclaim).
+    // 3. NOTE: Seeded data is NOT auto-deleted. The default rate row inserted
+    //    on first activation persists in `salary_history_rate_history`. Data
+    //    cleanup is the user's responsibility via the Phase 8 "Delete Extension
+    //    Data" flow (project_vision.md:50-52 — Disable / Uninstall / Delete Data
+    //    are three separate actions, and Delete Data always requires explicit user
+    //    confirmation).
+  }
   ```
 
 > `[Plan Amendment 1]` Removed `import { addDeduction, ... } from './dao/deductions.js'`. Command list went from 2 to 1: `salary.show-deductions` was dropped.
@@ -1560,9 +1644,9 @@ finance-flow-ai/
 
 **Test Unit 5: Year-to-Date Aggregation** — Open a DevTools console in the Renderer (Phase 3 Test Unit 4 plumbing works). Add 3 more payslips for the same financial year (FY starting 2025-07-01 per default settings). Confirm `pay-service.aggregateYearToDate()` returns `{ gross: <sum>, net: <sum>, count: 4 }` (visible via a temporary debug console.log in the extension, or via a manual SQL query in the SQLite browser). The YTD summary footer in `payslip-list.ts` should also render these aggregates.
 
-**Test Unit 6: Namespace Enforcement (Negative Test)** — In DevTools, evaluate `await window.financeShell.extensions.executeCommand('salary-history', 'debug.tryOtherTable', 'budget_items')` (this requires a small helper extension command for the manual test only). Confirm the response is a `TableAccessDenied` error. Remove the debug command after the test.
+**Test Unit 6: Namespace Enforcement (Negative Test)** — Open a SQLite browser. Insert a row into `extension_registry` with `id='tax-stub'` (simulating a different extension installed). Then from the salary-history Host, evaluate `finance.db.table('tax_deductions').find({})` (the table name has the `tax_` prefix, not `salary-history_`). Confirm the DAO returns `TableAccessDenied` because the prefix doesn't match the calling extension's id. Restore the `extension_registry` row to its original state after the test. (Rewritten per Review Finding 10 — Phase 4 has no Budget extension, so testing against `budget_items` would return `TableNotFound` instead of `TableAccessDenied`. The new test exercises the prefix-rejection branch directly via the registry seam.)
 
-**Test Unit 7: Shared Accounts Read-Only** — In DevTools, attempt `finance.db.table('accounts').insert({ name: 'evil' })` from a temporary extension that has a manifest read of `accounts`. Confirm the response is a `SharedTableReadOnly` error.
+**Test Unit 7: Shared Accounts Read-Only** — In DevTools, from a temporary test extension that calls `finance.db.table('accounts').insert({ name: 'evil' })` directly (no `tables[]` manifest declaration needed for shared reads — `accounts` is in Core's `SHARED_FINANCIAL_DATA_TABLES` allowlist per Decision 4), confirm the response is a `SharedTableReadOnly` error. (Reworded per Review Finding 11 — the original "manifest read of `accounts`" phrasing was misleading because the `tables[]` manifest block is for OWNED tables, not for shared-read declarations.)
 
 **Test Unit 8: TypeScript Strict + Lint + Tests** — Run `npm run typecheck` (exit 0), `npm run lint` (exit 0), `npm run test:unit` (all ~144 tests pass: 65 Phase 3 + ~79 Phase 4).
 
@@ -1668,6 +1752,7 @@ These will be unblocked when the Phase 3 Playwright-electron environmental issue
 - [ ] **Vision Issue #1/#3 (raw SQL prohibited)** — DAO emits parameterised SQL only; raw `query()` method never existed (Phase 3 stub returned empty; Phase 4 implements typed accessors).
 - [ ] **Vision Issue #23 (Shared Financial Data layer)** — `accounts` is the first such table; allowlist is the mechanism.
 - [ ] **Vision Issue #28 (DAO over-engineering for first release)** — `.table('name')` shape; typed DAO generation deferred per `project_vision.md:151` ("Typed, schema-bound DAO generation may be introduced in a future release but is not required for the first production version").
+- [ ] **Cross-doc consistency (review-integrated 2026-07-06)** — `docs/extension-api.md` line 70 now uses the Decision 1 shape `finance.db.table('<extensionId>_<table>')` (Review Finding 1). `docs/superpowers/specs/2026-06-13-implementation-design.md` Phase 4 section now aligns with the plan's architecture (Review Finding 2: pay slips extension-private; `accounts` first shared table; cross-extension `finance.services.*` deferred; DeductionService removed per Amendment 1). Phase 4 timeline estimate updated to 6–8 Days (Review Finding 18).
 
 ### §2 — Spec Coverage
 
@@ -1711,7 +1796,7 @@ These will be unblocked when the Phase 3 Playwright-electron environmental issue
 
 ### §5 — Test Pyramid
 
-- [ ] ~119 new unit tests (all deterministic, fast, isolated via Phase 3's `getTestDatabase()` factory). **+40 from Plan Amendment 3** (4 new test files + extensions to 2 existing files).
+- [ ] ~119 new unit tests (all deterministic, fast, isolated via Phase 3's `getTestDatabase()` factory). **+40 from Plan Amendment 3** (4 new test files + extensions to 2 existing files). Test Unit 6 rewritten (Review Finding 10 — exercises prefix-rejection branch via registry seam instead of non-existent `budget_items`); Test Unit 7 reworded (Review Finding 11 — clarifies that shared reads don't require `tables[]` manifest declaration).
 - [ ] 9 manual test units covering the full user journey.
 - [ ] **Plan Amendment 4 — visual review step:** before Task 11 implementation starts, walk through the 8 HTML mocks in `docs/design/salary-history-mvp/` (per Decision 18 visual-review checklist). After each component is implemented, take a DOM snapshot and diff against the corresponding mock — any visible regression must be explained before merging (Task 11.8).
 - [ ] 6 new E2E tests written but gated by Phase 3 environmental blocker (documented).
@@ -1721,7 +1806,7 @@ These will be unblocked when the Phase 3 Playwright-electron environmental issue
 - [ ] TypeScript strict mode maintained across all new and modified files.
 - [ ] No `any` introduced (Zod-generated types flow end-to-end).
 - [ ] All SQL parameterised (verified by `dao-service.test.ts` injection test).
-- [ ] All cross-process payloads serialisable (verified by `serializeRow` unit tests).
+- [ ] All cross-process payloads serialisable (verified by `serializeRow` unit tests on raw row data; the IPC handlers in `extension-ipc.ts#readTable` / `writeTable` must also call `serializeRow` on the response before returning across the MessagePort — Task 6 should add a lightweight mock test asserting `serializeRow` is invoked, per Review Finding 20).
 - [ ] Error messages user-actionable (e.g. `TableAccessDenied` includes the offending table + caller extension id).
 - [ ] No new runtime dependencies (uses existing `better-sqlite3`, `zod`, `lit`).
 - [ ] No new dev dependencies.
@@ -1738,6 +1823,7 @@ These will be unblocked when the Phase 3 Playwright-electron environmental issue
 - Umzug migration runner → Phase 8 evaluation.
 - Production source map stripping → Phase 7.
 - Marketplace extension packaging/signing → Phase 8.
+- **`extensions:ui-event` per-extension allowlist on Main** (Review Finding 3) — Phase 4 Decision 12 introduces a new writeback IPC channel (`extensions:ui-event`) that bypasses the Phase 3 `executeCommand` path. The Phase 5 hardening list now needs to cover TWO surfaces (commands + ui-events), not one. Phase 5 should add a per-extension ui-event allowlist on Main alongside the existing `executeCommand` allowlist deferred from Phase 3 Self-Review §7.
 
 ### §8 — Risks and Mitigations
 
@@ -1750,10 +1836,12 @@ These will be unblocked when the Phase 3 Playwright-electron environmental issue
 | Multi-file Vite bundling could produce bloated output if circular imports creep in | Build test asserts < 200 KB; manual review of bundle during Task 12 |
 | DAO query operator set is intentionally small — extensions may want `$and`, `$join` | Documented as Phase 5+ enhancement in Decision 2 |
 | Shared table write protection is enforced at DAO level, not SQLite-level | A future bug in DAO code could allow writes; **mitigated by code review + integration test (manual TU 8)** |
+| `addNewRate` "close previous + insert new" sequence is racy without explicit write-locking (Review Finding 21) | Use `db.transaction(...).immediate()` (better-sqlite3's `BEGIN IMMEDIATE`) per Decision 16 + Task 10.2; add a concurrency test in `pay-rate-service.test.ts` that simulates two concurrent `addNewRate` calls |
+| Phase 4's renderer-side dynamic UI mount requires `'unsafe-eval'` CSP for blob-URL dynamic import (Review Finding 22, Decision 19) | Acceptable for Phase 4 (extensions are developer-installed, not marketplace); Phase 5 WebviewPanel replacement removes the requirement. Documented in `docs/extension-api.md` Phase 4+ migration notes |
 
 ### §9 — Questions / Clarifications for Reviewer
 
-1. **Is the Phase 4 spec's "PaySlips as Shared Financial Data" wording a typo, or should they be platform-owned?** Plan interprets it as typo and namespaces them as `salary_history_pay_slips`. If reviewer disagrees, see §10 for the alternative.
+1. **~~Is the Phase 4 spec's "PaySlips as Shared Financial Data" wording a typo, or should they be platform-owned?~~ RESOLVED 2026-07-06 (Review Finding 2):** The spec was stale (pre-`vision_review.md Issue #23` and pre-Decision 1). Updated `docs/superpowers/specs/2026-06-13-implementation-design.md` Phase 4 section to reflect the post-vision-review architecture: pay slips are extension-private under `salary-history_*`; `accounts` is the first shared table; cross-extension `finance.services.*` deferred to Phase 5. If a future phase needs pay slips as shared records (Dashboard/Cash Flow/Budget in Phase 5+), they can be promoted to shared ownership or replicated via read-only APIs.
 
 2. **Should Decision 9's type-only SDK ship `finance.d.ts` as a separate npm package for Phase 8, or stay as an internal types file?** Plan defers to Phase 8. Path mapping is a build-time concern only in Phase 4.
 
