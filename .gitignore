@@ -62,3 +62,4 @@ Thumbs.db
 *.csv
 .markdownlint.json
 kimch*.html
+.kimchi/
