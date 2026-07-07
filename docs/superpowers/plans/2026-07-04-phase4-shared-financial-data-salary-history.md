@@ -1,8 +1,8 @@
 ---
 title: Phase 4 - Shared Financial Data & The First Extension (Salary History)
 date: 2026-07-04
-amended: 2026-07-06 (Plan Amendment 1 — Remove Deductions; Plan Amendment 2 — Extend Pay Slip Schema; Plan Amendment 3 — Calculation Model, Rate History, Reorderable Form, FY Column, Second View; Plan Amendment 4 — UI Design Finalization; Plan Amendment 5 — Holiday Leave Accrual Tracking; Review Integration — Findings 4, 5, 7, 8, 9, 13, 14, 15, 16, 17)
-status: draft — Plan Amendments 1, 2, 3 & 4 applied
+amended: 2026-07-07 (Plan Amendment 1 — Remove Deductions; Plan Amendment 2 — Extend Pay Slip Schema; Plan Amendment 3 — Calculation Model, Rate History, Reorderable Form, FY Column, Second View; Plan Amendment 4 — UI Design Finalization; Plan Amendment 5 — Holiday Leave Accrual Tracking; Plan Amendment 6 — Shift Allowance Hours Rate, Personal Leave Money Derivation, Drop Stored Holiday Hours; Review Integration — Findings 4, 5, 7, 8, 9, 13, 14, 15, 16, 17)
+status: draft — Plan Amendments 1, 2, 3, 4, 5 & 6 applied
 target_version: 0.7.0
 spec_source: docs/superpowers/specs/2026-06-13-implementation-design.md (Phase 4 section, lines 121–128)
 vision_alignment:
@@ -168,6 +168,57 @@ prerequisite_decisions:
 > **Q4 confirmed (2026-07-06):** `holiday_leave_loading = holiday_hours × base_rate × 0.175` — 17.5% loading applied to the base-rate portion of holiday pay per standard Australian interpretation under the Fair Work Act. User confirmed this is the intended formula.
 >
 > **Sections amended.** Inline `[Plan Amendment 5]` markers placed at every section that changed (frontmatter, this header, Decisions 3/14/16, Tasks 10/11/12, manifest example).
+
+---
+
+## Plan Amendment 6 (2026-07-07) — Shift Allowance Hours Rate, Personal Leave Money Derivation, Drop Stored Holiday Hours
+
+**Status:** Applied. Plan remains `draft`; not yet implemented.
+
+**Summary.** Three small adjustments to the salary-history data model after reviewing the calculation flow end-to-end. First, `shift_allowance_hours_per_week` is added to `salary_history_rate_history` as a distinct concept from `standard_hours_per_week` — eligibility for the shift allowance varies by worker / shift pattern, so the rate row carries the canonical default. Second, `personal_leave` (money) joins the derived breakdown columns; `personal_leave_hours` becomes a transient form input only (still typed at submission, no longer persisted). Third, `holiday_hours` joins the same transient-input pattern — it's used by `calculatePaySlipBreakdown` to derive `holiday_pay` / `holiday_leave_loading` and by `calculateHolidayLeaveAccrual` to decrement the cumulative balance, but it's no longer stored. `holiday_pay` and `holiday_leave_loading` derivations STAY (still derived from `h.holiday_hours × base_rate`).
+
+**Schema changes:**
+
+| Change | Table | Detail |
+|---|---|---|
+| +1 column | `salary_history_rate_history` | `shift_allowance_hours_per_week real not null default 38 min 0` — hours per week the shift allowance is paid on. Distinct from `standard_hours_per_week`: some workers get the allowance, some don't, depending on shift pattern. Used as the default for `h.shift_hours` in `calculatePaySlipBreakdown` when the form supplies no per-payslip override. |
+| +1 column | `salary_history_pay_slips` | `personal_leave real not null default 0 min 0` — money paid for personal leave this period. Derived by `calculatePaySlipBreakdown` as `h.personal_leave_hours × rateRow.base_hourly_rate`. |
+| −1 column | `salary_history_pay_slips` | `personal_leave_hours` — was per-payslip input column. Now a transient form input only (still passed in `PaySlipHours` to the calc; no longer persisted). |
+| −1 column | `salary_history_pay_slips` | `holiday_hours` — was per-payslip input column (Amendment 5 re-purposed it to "hours of annual/holiday leave TAKEN"). Now a transient form input only (still feeds `holiday_pay` / `holiday_leave_loading` derivation and `calculateHolidayLeaveAccrual`; no longer persisted). |
+| Column count totals | `salary_history_pay_slips` | 29 (Amendment 3) → **28** |
+| Column count totals | `salary_history_rate_history` | 15 (Amendment 5) → **16** |
+
+**Decisions affected:**
+
+- **Decision 14 (calculation model).** Update `calculatePaySlipBreakdown` defaults: `shift_hours: 0` becomes `shift_hours: rateRow.shift_allowance_hours_per_week` (so the form's "This week was different" toggle for `shift_hours` still overrides when supplied). Add `personal_leave_hours: 0` to defaults. Add new derived output `personal_leave = h.personal_leave_hours × rateRow.base_hourly_rate`. All other derivations unchanged. `PaySlipHours` keeps `shift_hours`, `holiday_hours`, `personal_leave_hours` as transient fields even though `holiday_hours` and `personal_leave_hours` are no longer persisted. `PaySlipBreakdown` adds `personal_leave` to the return type.
+- **Decision 14 (`calculateHolidayLeaveAccrual`).** **Unchanged.** Helper still takes `holidayHours` as a parameter; caller passes `h.holiday_hours` from the transient form payload. Balance tracking continues to work end-to-end.
+- **Decision 16 (rate history as a first-class table).** Rate row grows from 15 → 16 columns.
+- **Decision 18 (visual review).** No change.
+
+**Tasks affected:**
+
+- Task 4 (migration `005-salary-history-rate-history`): add `shift_allowance_hours_per_week` to column list.
+- Task 11.1 (payslip form): no change — form already has `holiday_hours`, `personal_leave_hours`, `shift_hours` as transient hour inputs.
+- Task 11.5 (rate-row form): add `shift_allowance_hours_per_week` field to the **Rates** section; bump section badge from "9 fields" to "10 fields".
+- Task 12.1 (seed default rate): add `shift_allowance_hours_per_week: 38` to the seeded default rate row.
+- Manifest example (Decision 3): update `salary_history_pay_slips` column list (29 → 28).
+
+**Why `holiday_pay` and `holiday_leave_loading` STAY as derivations.** The user's intent (per the originating notes) is to stop *recording* hours of holiday leave while keeping the calculation flow intact. `h.holiday_hours` is still typed by the user in the form's "This week was different" toggle; it just isn't persisted. The derivations `holiday_pay = h.holiday_hours × base_rate` and `holiday_leave_loading = h.holiday_hours × base_rate × 0.175` therefore continue to work — they read from the transient form payload rather than a stored column. `calculateHolidayLeaveAccrual` continues to use `h.holiday_hours` for the balance decrement, same source.
+
+**Why `personal_leave_hours` and `holiday_hours` are transient (not persisted).** Both are inputs to derivations that produce the persisted money columns (`personal_leave`, `holiday_pay`, `holiday_leave_loading`). Persisting both hours and money creates two sources of truth that can drift if the rate changes retroactively. Storing only the derived money keeps the persisted record canonical — the hours live only as long as the form-submit transaction.
+
+**Migration impact.** None — Phase 4 has not shipped, so the planned migration `004-salary-history-pay-slips` and `005-salary-history-rate-history` simply grow / shrink their column sets directly. If Phase 4 had shipped, two `ALTER TABLE` migrations would have been needed.
+
+**xlsx import.** Historical 50 rows import as-captured: `personal_leave_hours` and `holiday_hours` are passed as `0` for all historical rows (the xlsx has no such columns), feeding the derivations and the balance formula with their existing semantics. No change to the existing Amendment 5 known-limitation note in Self-Review §8 ("historical `holiday_leave_accrual_hours` values are overstated by `Σ holiday_hours` for those rows") — that limitation still applies because the xlsx still lacks the per-row holiday-leave-taken data.
+
+**Sections amended.** Inline `[Plan Amendment 6]` markers placed at every section that changed (this header; Decision 14 calc spec; Decision 16 column-count line; Task 4 / 11.5 / 12.1 / manifest example).
+
+**Cross-doc updates.**
+- `CHANGELOG.md` — Administrative entry under `[Unreleased]`; update frontmatter `last_updated` to current ISO timestamp. No version bump — pre-implementation planning, Administrative-only.
+- `docs/file-reference.md` — Plan row description extended; column counts in plan + manifest rows updated.
+- `docs/design/salary-history-mvp/rate-row-form.html` — Section badge "9 fields" → "10 fields"; add `shift_allowance_hours_per_week` field adjacent to `shift_allowance_multiplier`.
+
+**What this amendment does NOT change.** The DAO architecture, namespace enforcement, Zod schema generation, JSON-RPC protocol, multi-file extension structure (Decision 9 / 10), type-only SDK import, Lit workspace-area mount (Decision 11), UI event IPC channel (Decision 12), base settings namespace (Decision 13) all stand as written. Amendments 1–5 stand. The derivation-first design (Amendment 3) stands — only the set of derived outputs grows by one (`personal_leave`). The leave-balance tracking (Amendment 5) stands — only the source of `holiday_hours` moves from "persisted column" to "transient form input."
 
 ---
 
@@ -370,9 +421,8 @@ Every method validates the table name (Decision 1) and the row payload (Zod sche
         { "name": "public_holiday",              "type": "real",    "nullable": false, "default": 0, "min": 0 },
         { "name": "payg_withholding",            "type": "real",    "nullable": false, "default": 0, "min": 0 },
         { "name": "superannuation_guarantee",    "type": "real",    "nullable": false, "default": 0, "min": 0 },
-        { "name": "personal_leave_hours",        "type": "real",    "nullable": false, "default": 0, "min": 0 },
-        { "name": "holiday_hours",                 "type": "real",    "nullable": false, "default": 0, "min": 0, "description": "Hours of annual/holiday leave TAKEN from the balance this pay period (Plan Amendment 5). Reduces balance via calculateHolidayLeaveAccrual()." },
-        { "name": "holiday_leave_accrual_hours", "type": "real",    "nullable": false, "default": 0, "min": 0, "description": "Cumulative holiday leave balance at this payslip (read-only, auto-derived): prev_balance − personal_leave_hours − holiday_hours + accrual_rate_per_week. Plan Amendment 5." },
+        { "name": "personal_leave",             "type": "real",    "nullable": false, "default": 0, "min": 0, "description": "Money paid for personal leave this period. Derived by calculatePaySlipBreakdown as h.personal_leave_hours × rateRow.base_hourly_rate (Plan Amendment 6)." },
+        { "name": "holiday_leave_accrual_hours", "type": "real",    "nullable": false, "default": 0, "min": 0, "description": "Cumulative holiday leave balance at this payslip (read-only, auto-derived): prev_balance − personal_leave_hours − holiday_hours + accrual_rate_per_week. Plan Amendment 5. Note: personal_leave_hours and holiday_hours are transient form inputs as of Plan Amendment 6 — not persisted, but passed by the form to calculateHolidayLeaveAccrual." },
         { "name": "notes",                       "type": "text",    "nullable": true },
         { "name": "created_at",                  "type": "datetime","nullable": false, "default": "now" },
         { "name": "updated_at",                  "type": "datetime","nullable": false, "default": "now" }
@@ -765,6 +815,8 @@ Phase 4 **does not** render the generic settings UI (that is Phase 7 work per Ph
 
 ### Decision 14: Calculation Model — Minimal Inputs, Derived Breakdown (Plan Amendment 3)
 
+> `[Plan Amendment 6]` `calculatePaySlipBreakdown` defaults updated: `shift_hours` defaults from `rateRow.shift_allowance_hours_per_week` (per-payslip input still wins when supplied). New default `personal_leave_hours: 0`. New derived output `personal_leave = h.personal_leave_hours × rateRow.base_hourly_rate`. `PaySlipHours` keeps `shift_hours`, `holiday_hours`, `personal_leave_hours` as transient form-input fields even though the latter two are no longer persisted. `PaySlipBreakdown` adds `personal_leave` to its return type.
+
 **Choice:** Per-payslip inputs are minimal: `pay_date`, `gross`, `net`. All 9 monetary breakdown fields and `payg_withholding` are derived by `PayService.calculatePaySlipBreakdown(pay_date, gross, net, hours?, rateRow, settings)`. PAYG validation is user-triggered via a `[ Validate PAYG ]` button that calls `payg-calc.ts` and displays the result inline.
 
 **Form structure:**
@@ -788,21 +840,23 @@ function calculatePaySlipBreakdown(
 ): PaySlipBreakdown {
   const h = hours ?? {
     regular_hours: rateRow.standard_hours_per_week,
-    shift_hours: 0,
+    shift_hours: rateRow.shift_allowance_hours_per_week,
     overtime_1_5_hours: 0,
     overtime_2_0_hours: 0,
     holiday_hours: 0,
     public_holiday_hours: 0,
+    personal_leave_hours: 0,
   };
   return {
-    base_hourly:           h.regular_hours         * rateRow.base_hourly_rate,
-    shift_allowance:       h.shift_hours           * rateRow.base_hourly_rate * rateRow.shift_allowance_multiplier,
-    overtime_1_5x:         h.overtime_1_5_hours    * rateRow.base_hourly_rate * rateRow.overtime_1_5_multiplier,
-    overtime_2_0x:         h.overtime_2_0_hours    * rateRow.base_hourly_rate * rateRow.overtime_2_0_multiplier,
-    holiday_pay:           h.holiday_hours         * rateRow.base_hourly_rate,
-    holiday_leave_loading: h.holiday_hours         * rateRow.base_hourly_rate * rateRow.holiday_leave_loading_rate,
-    public_holiday:        h.public_holiday_hours  * rateRow.base_hourly_rate,
-    payg_withholding:      Math.max(0, gross - net),
+    base_hourly:              h.regular_hours         * rateRow.base_hourly_rate,
+    shift_allowance:          h.shift_hours           * rateRow.base_hourly_rate * rateRow.shift_allowance_multiplier,
+    overtime_1_5x:            h.overtime_1_5_hours    * rateRow.base_hourly_rate * rateRow.overtime_1_5_multiplier,
+    overtime_2_0x:            h.overtime_2_0_hours    * rateRow.base_hourly_rate * rateRow.overtime_2_0_multiplier,
+    holiday_pay:              h.holiday_hours         * rateRow.base_hourly_rate,
+    holiday_leave_loading:    h.holiday_hours         * rateRow.base_hourly_rate * rateRow.holiday_leave_loading_rate,
+    public_holiday:           h.public_holiday_hours  * rateRow.base_hourly_rate,
+    personal_leave:           h.personal_leave_hours  * rateRow.base_hourly_rate,
+    payg_withholding:         Math.max(0, gross - net),
     superannuation_guarantee: gross * rateRow.superannuation_rate,
   };
 }
@@ -874,9 +928,11 @@ function calculateHolidayLeaveAccrual(
 
 ### Decision 16: Rate History as a First-Class Table (Plan Amendment 3)
 
+> `[Plan Amendment 6]` Rate row grows from 15 → 16 columns with the addition of `shift_allowance_hours_per_week` (real, default 38, min 0). Distinct from `standard_hours_per_week` — captures hours the shift allowance is paid on (eligibility varies by worker/shift pattern). Default source for `h.shift_hours` in `calculatePaySlipBreakdown` when no per-payslip override.
+
 **Choice:** A new `salary_history_rate_history` table holds effective-dated rate rows. Only one row has `effective_to = NULL` at any time (the current rate). The calc engine queries this table via `PayRateService.getRateForDate(pay_date)` to find the rate row effective at a given `pay_date`.
 
-**Schema (13 columns):**
+**Schema (16 columns per Plan Amendments 3 + 5 + 6):**
 
 ```jsonc
 {
@@ -888,6 +944,7 @@ function calculateHolidayLeaveAccrual(
     { "name": "base_hourly_rate",          "type": "real",    "nullable": false, "min": 0 },
     { "name": "standard_hours_per_week",   "type": "real",    "nullable": false, "min": 0, "default": 38 },
     { "name": "shift_allowance_multiplier","type": "real",    "nullable": false, "min": 0, "default": 0.15 },
+    { "name": "shift_allowance_hours_per_week", "type": "real", "nullable": false, "min": 0, "default": 38, "description": "Hours per week the shift allowance is paid on. Distinct from standard_hours_per_week (Plan Amendment 6). Used as the default for h.shift_hours in calculatePaySlipBreakdown." },
     { "name": "overtime_1_5_multiplier",   "type": "real",    "nullable": false, "default": 1.5 },
     { "name": "overtime_2_0_multiplier",   "type": "real",    "nullable": false, "default": 2.0 },
     { "name": "superannuation_rate",       "type": "real",    "nullable": false, "default": 0.12 },
@@ -1129,7 +1186,7 @@ finance-flow-ai/
 |       `-- finance-shell.d.ts                   (modified) — ExtensionsApi.uiEvent / onUiMount; remove phase3 placeholder
 |-- extensions/
 |   `-- salary-history/
-|       |-- package.json                         (modified) — adds tables[] (2 entries: salary_history_pay_slips with 29 columns + salary_history_rate_history with 13 columns), configuration[] (6 keys: defaultCurrency, financialYearStart, paygToleranceDollars, paygTaxYear, financeYear, sectionOrder), commands[] (2 entries: salary.show-pay-history, salary.show-pay-rate-history), financeExtension.main
+|       |-- package.json                         (modified) — adds tables[] (2 entries: salary_history_pay_slips with 28 columns + salary_history_rate_history with 16 columns), configuration[] (6 keys: defaultCurrency, financialYearStart, paygToleranceDollars, paygTaxYear, financeYear, sectionOrder), commands[] (2 entries: salary.show-pay-history, salary.show-pay-rate-history), financeExtension.main
 |       `-- src/
 |           |-- main.ts                          (modified) — real activate() implementation; mounts UI, wires both commands (salary.show-pay-history, salary.show-pay-rate-history)
 |           |-- services/
@@ -1138,8 +1195,8 @@ finance-flow-ai/
 |           |   |-- payg-calc.ts                  (new) — validatePayg(gross, net, taxYear, tolerance) returning PaygValidationResult; wraps CALCULATE_TAX_WITHHELD_26_27 (Decision 14)
 |           |   `-- payg-brackets.ts               (new) — getBracketsForYear(year) returning ATO weekly tax brackets for FY 2026-2027 + future years
 |           |-- dao/
-|           |   |-- pay-slips.ts                 (new) — typed wrapper around finance.db.table('salary_history_pay_slips') with 29 columns
-|           |   `-- pay-rate-history.ts           (new) — typed wrapper around finance.db.table('salary_history_rate_history') with 13 columns
+|           |   |-- pay-slips.ts                 (new) — typed wrapper around finance.db.table('salary_history_pay_slips') with 28 columns (per Plan Amendments 2 + 3 + 6)
+|           |   `-- pay-rate-history.ts           (new) — typed wrapper around finance.db.table('salary_history_rate_history') with 16 columns (per Plan Amendments 3 + 5 + 6)
 |           `-- ui/
 |               |-- payslip-form.ts              (new) — Lit element; minimal entry (date + gross + net) + collapsible hours toggle + derived breakdown preview + [Validate PAYG] button (Decision 14)
 |               |-- payslip-list.ts              (new) — Lit element; paginated table + YTD summary footer
@@ -1260,8 +1317,8 @@ finance-flow-ai/
 
 - [ ] 4.1 Append three new migration bodies to `infrastructure-migration.ts`:
   - `003-shared-accounts` — `CREATE TABLE accounts (...)`.
-  - `004-salary-history-pay-slips` — `CREATE TABLE salary_history_pay_slips (...)` with FK to `accounts.id`. Includes all 29 columns per Decision 14 (4 identity/period + 1 finance_year + 3 totals + 9 monetary breakdowns + 6 hour inputs + 2 leave + notes + 2 timestamps).
-  - `005-salary-history-rate-history` — `CREATE TABLE salary_history_rate_history (...)` with 13 columns per Decision 16.
+  - `004-salary-history-pay-slips` — `CREATE TABLE salary_history_pay_slips (...)` with FK to `accounts.id`. Includes all 28 columns per Decision 14 as amended by Plan Amendment 6 (4 identity/period + 1 finance_year + 3 totals + 9 monetary breakdowns + 4 hour inputs (`regular_hours`, `overtime_1_5_hours`, `overtime_2_0_hours`, `public_holiday_hours`) + 1 derived (`personal_leave`) + 1 leave balance (`holiday_leave_accrual_hours`) + notes + 2 timestamps).
+  - `005-salary-history-rate-history` — `CREATE TABLE salary_history_rate_history (...)` with 16 columns per Decision 16 as amended by Plan Amendment 6 (temporal anchor + 8 rates including `shift_allowance_hours_per_week` + notes + 2 timestamps).
 - [ ] 4.2 Register all three in `database-service.ts`'s migration list (in order, after `002-extension-crash-tracking`).
 - [ ] 4.3 Manual smoke test: delete the user's `finance.db`, boot the app, confirm all 5 migrations apply, open the DB in a SQLite browser and confirm the three new tables exist with the correct columns and indexes.
 
@@ -1390,7 +1447,7 @@ finance-flow-ai/
   - `createPaySlip(finance, input: PaySlipInput): Promise<PaySlip>` (validates via PayService)
   - `updatePaySlip(finance, id: number, patch: Partial<PaySlipInput>): Promise<void>`
   - `deletePaySlip(finance, id: number): Promise<void>`
-  - `PaySlipInput` type includes all 29 columns per Decision 14: id, account_id, pay_period_start, pay_period_end, pay_date, finance_year, gross, net, currency, the 9 monetary breakdowns, the 6 hour inputs, the 2 leave fields, notes.
+  - `PaySlipInput` type includes all 28 columns per Decision 14 as amended by Plan Amendment 6: id, account_id, pay_period_start, pay_period_end, pay_date, finance_year, gross, net, currency, the 9 monetary breakdowns, the 4 stored hour inputs (regular_hours, overtime_1_5_hours, overtime_2_0_hours, public_holiday_hours — Plan Amendment 6 drops shift_hours and holiday_hours from storage; both become transient form inputs), the 1 leave balance field (holiday_leave_accrual_hours), the 1 derived column (personal_leave), notes. Personal_leave_hours, shift_hours, and holiday_hours are transient form inputs as of Plan Amendment 6 — not persisted, passed by the form to calculatePaySlipBreakdown and calculateHolidayLeaveAccrual.
 - [ ] 10.2 Implement `dao/pay-rate-history.ts` (new per Amendment 3, Decision 16):
   - `getRateForDate(finance, payDate: string): Promise<RateRow | null>` — temporal lookup
   - `getCurrentRate(finance): Promise<RateRow | null>` — the row with `effective_to IS NULL`
@@ -1418,7 +1475,7 @@ finance-flow-ai/
   - `pay-rate-service.test.ts` (10 tests): DAO CRUD + temporal logic (addNewRate closes previous current row; getRateForDate temporal lookup).
   - `payg-calc.test.ts` (12 tests): bracket boundaries + tolerance validation + edge cases (zero, negative, mid-bracket).
   - `payg-brackets.test.ts` (4 tests): year lookup; unknown year throws; FY 2026-2027 returns 9 brackets.
-  - `dao/pay-slips.test.ts` (12 tests, +4 from Amendment 3): integration with stubbed `finance` (DAO stub) for 29 columns.
+  - `dao/pay-slips.test.ts` (12 tests, +4 from Amendment 3): integration with stubbed `finance` (DAO stub) for 28 columns (per Plan Amendments 2 + 3 + 6).
   - `dao/pay-rate-history.test.ts` (6 tests): rate_history DAO integration (insert + temporal close + getRateForDate).
 
 **Verification:** `npm run test:unit -- salary-history` → 60 tests pass (was 20 after Amendment 1; +40 from Amendment 3).
@@ -1426,6 +1483,8 @@ finance-flow-ai/
 > `[Plan Amendment 1]` Removed `dao/deductions.ts`, `services/deduction-service.ts`, `deduction-service.test.ts`, and `dao/deductions.test.ts`. Test count: 36 → 20.
 
 > `[Plan Amendment 3]` Added 3 new service modules (`pay-rate-service.ts`, `payg-calc.ts`, `payg-brackets.ts`), 1 new DAO wrapper (`pay-rate-history.ts`), and 3 new test files. PayService gained `calculatePaySlipBreakdown`, `validateFinanceYear`, and `reconcilePaySlip`. PaySlipInput type expanded from 11 → 29 columns. Test count: 20 → 60.
+
+> `[Plan Amendment 6]` `calculatePaySlipBreakdown` defaults updated: `shift_hours` now sources from `rateRow.shift_allowance_hours_per_week` (per-payslip input still wins when supplied); new default `personal_leave_hours: 0`. New derived output `personal_leave = h.personal_leave_hours × rateRow.base_hourly_rate`. PaySlipInput type now 28 columns (29 → 28: drops `personal_leave_hours` and `holiday_hours` from storage — both become transient form inputs; adds derived `personal_leave`). PayService test count will need updates when implementation begins to reflect the new derivation model.
 
 ---
 
@@ -1472,7 +1531,7 @@ finance-flow-ai/
   - Visual reference: `docs/design/salary-history-mvp/pay-rate-history.html`.
 - [ ] 11.5 `rate-row-form.ts` (new per Decision 17, refined per Decision 18):
   - Confirmation panel shown BEFORE the form (inline at top): "Adding this rate will close the current rate" + diff (current vs new) + Confirm/Cancel.
-  - Form fields: `effective_from`, `effective_to` (optional, leave blank for open-ended current), the 7 rate columns, `accrual_rate_per_week` (default 2.92), `starting_holiday_leave_balance` (default 0), `notes` (Plan Amendment 5 adds the two accrual fields).
+  - Form fields: `effective_from`, `effective_to` (optional, leave blank for open-ended current), the 8 rate columns (7 originals + `shift_allowance_hours_per_week`, default 38), `accrual_rate_per_week` (default 2.92), `starting_holiday_leave_balance` (default 0), `notes`. Plan Amendment 5 added the two accrual fields; Plan Amendment 6 added `shift_allowance_hours_per_week` and updated the section badge from "9 fields" to "10 fields".
   - Pre-fills from current rate values; changed fields get amber border.
   - Validates via `PayRateService.validateRateRow`.
   - On submit (after Confirm), calls `PayRateService.addNewRate` or `editCurrentRate`.
@@ -1507,6 +1566,8 @@ finance-flow-ai/
 **Steps:**
 
 - [ ] 12.1 Rewrite `main.ts`:
+
+> `[Plan Amendment 6]` The seeded default rate row must include `shift_allowance_hours_per_week: 38` (alongside the existing `accrual_rate_per_week: 2.92`, `starting_holiday_leave_balance: 0`). See Decision 16 amendment.
   ```ts
   import type { FinanceApi } from 'finance';
   import { listPaySlips, createPaySlip, ... } from './dao/pay-slips.js';
@@ -1542,7 +1603,7 @@ finance-flow-ai/
 
 > `[Plan Amendment 3]` Re-added a second command (`salary.show-pay-rate-history`) and the corresponding `pay-rate-history.js` import. New import for `payg-calc.js` and `pay-rate-service.js`. Activation now also seeds the default rate row and auto-computes the finance_year setting.
 - [ ] 12.2 Update `package.json`:
-  - Add `tables` block with **two** entries: `salary_history_pay_slips` (29 columns) and `salary_history_rate_history` (13 columns) — per Decisions 3 and 16.
+  - Add `tables` block with **two** entries: `salary_history_pay_slips` (28 columns per Plan Amendments 2 + 3 + 6) and `salary_history_rate_history` (16 columns per Plan Amendments 3 + 5 + 6) — per Decisions 3 and 16.
   - Add `commands` block with **two** entries: `salary.show-pay-history` and `salary.show-pay-rate-history` — per Decision 17.
   - Add `configuration` block with all 6 keys: `defaultCurrency`, `financialYearStart`, `paygToleranceDollars`, `paygTaxYear`, `financeYear`, `sectionOrder` — per Decision 13 update.
   - Update `description` to reflect "Phase 4: real implementation with calculation engine, rate history, and second view".
@@ -1713,7 +1774,7 @@ finance-flow-ai/
 | `tests/unit/extensions/salary-history/pay-rate-service.test.ts` | 10 | DAO CRUD + temporal logic for rate_history (Amendment 3) |
 | `tests/unit/extensions/salary-history/payg-calc.test.ts` | 12 | Bracket boundaries + tolerance validation (Amendment 3) |
 | `tests/unit/extensions/salary-history/payg-brackets.test.ts` | 4 | Year lookup (Amendment 3) |
-| `tests/unit/extensions/salary-history/dao/pay-slips.test.ts` | 12 | DAO integration for 29 columns (Amendment 3: +4) |
+| `tests/unit/extensions/salary-history/dao/pay-slips.test.ts` | 12 | DAO integration for 28 columns (Amendment 3: +4; Amendment 6 column-set adjustment when implementation begins) |
 | `tests/unit/extensions/salary-history/dao/pay-rate-history.test.ts` | 6 | Rate_history DAO integration (Amendment 3) |
 | `tests/unit/build/extensions-bundle.test.ts` | 3 | Decision 9 verification (no `from 'finance'`) |
 | **Total** | **~119** | |
@@ -1757,7 +1818,7 @@ These will be unblocked when the Phase 3 Playwright-electron environmental issue
 ### §2 — Spec Coverage
 
 - [ ] **Implementation Design Phase 4 (lines 121-128):**
-  - Shared Financial Data schemas: Accounts ✓. PaySlips ✓ (extension-private, namespaced as `salary_history_pay_slips`). **PaySlips schema expanded by Plan Amendment 2** to include 11 per-payslip breakdown columns (9 monetary, 2 hours) so per-payslip amounts and hours are first-class rather than aggregate-only. **PaySlips schema further expanded by Plan Amendment 3** to include 6 hour-input columns + `finance_year` text column (29 columns total); the rate-history infrastructure for deriving these fields lives in a new `salary_history_rate_history` table (13 columns). See Plan Amendment 2 and Plan Amendment 3 headers for the full column lists and rationale.
+  - Shared Financial Data schemas: Accounts ✓. PaySlips ✓ (extension-private, namespaced as `salary_history_pay_slips`). **PaySlips schema expanded by Plan Amendment 2** to include 11 per-payslip breakdown columns (9 monetary, 2 hours) so per-payslip amounts and hours are first-class rather than aggregate-only. **PaySlips schema further expanded by Plan Amendment 3** to include 6 hour-input columns + `finance_year` text column (22 → 29 columns). **PaySlips schema further adjusted by Plan Amendment 6** to drop `personal_leave_hours` and `holiday_hours` from storage (both become transient form inputs feeding the calc) and to add the derived `personal_leave` column (29 → 28 columns). The rate-history infrastructure for deriving these fields lives in a new `salary_history_rate_history` table (13 columns per Plan Amendment 3, 16 columns per Plan Amendments 3 + 5 + 6 — adds `accrual_rate_per_week`, `starting_holiday_leave_balance`, and `shift_allowance_hours_per_week`). See Plan Amendments 2, 3, 5, and 6 headers for the full column lists and rationale.
   - ~~Deductions~~ — **REMOVED by Plan Amendment 1.** The implementation design spec mentions deductions; Phase 4 reserves that concept for the Phase 5+ Tax extension (which already plans to own a "deduction records ledger" per `project_vision.md:526`). Per-payslip PAYG withholding is captured as the `payg_withholding` column on `salary_history_pay_slips` (Plan Amendment 2) instead. **Plan Amendment 3 adds PAYG validation** via `payg-calc.ts` (wraps user's `CALCULATE_TAX_WITHHELD_26_27`) — the function is invoked via a `[ Validate PAYG ]` button (Decision 14), not auto-applied.
   - `finance.db.table()` API for typed table access (no raw SQL) ✓
   - PayService ✓ (Decision 5, internal helper for Phase 4; **expanded by Decision 14** with `calculatePaySlipBreakdown`, `validateFinanceYear`, `reconcilePaySlip`)
@@ -1791,7 +1852,7 @@ These will be unblocked when the Phase 3 Playwright-electron environmental issue
 - [ ] Decision 13 (settings namespace registered; **6 keys** after Amendment 3: defaultCurrency, financialYearStart, paygToleranceDollars, paygTaxYear, financeYear, sectionOrder) — Task 16.
 - [ ] **Decision 14 (Calculation Model — minimal inputs, derived breakdown; PAYG validation)** — **Plan Amendment 3** — Task 10 (PayService extension) + Task 11 (payslip-form rewrite) + Task 12 (entry point).
 - [ ] **Decision 15 (Reorderable Form Sections — sectionOrder setting + modal)** — **Plan Amendment 3** — Task 11 (reorder-sections-modal) + Task 10 (setting key in Decision 13).
-- [ ] **Decision 16 (Rate History as a First-Class Table — `salary_history_rate_history` 13 columns; temporal pattern)** — **Plan Amendment 3** — Task 4 (migration 005) + Task 10 (pay-rate-service) + Task 11 (rate-row-form) + Task 12 (seed default rate on activation).
+- [ ] **Decision 16 (Rate History as a First-Class Table — `salary_history_rate_history` 16 columns per Plan Amendments 3 + 5 + 6; temporal pattern)** — **Plan Amendment 3** (13 cols baseline) + **Plan Amendment 5** (15 cols: + `accrual_rate_per_week`, `starting_holiday_leave_balance`) + **Plan Amendment 6** (16 cols: + `shift_allowance_hours_per_week`) — Task 4 (migration 005) + Task 10 (pay-rate-service) + Task 11 (rate-row-form) + Task 12 (seed default rate on activation).
 - [ ] **Decision 17 (Two Commands / Two Views — pay-history existing + pay-rate-history new)** — **Plan Amendment 3** — Task 11 (pay-rate-history-view) + Task 12 (register both commands in main.ts).
 
 ### §5 — Test Pyramid
