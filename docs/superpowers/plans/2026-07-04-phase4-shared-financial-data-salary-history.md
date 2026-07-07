@@ -58,14 +58,37 @@ Make the Salary History extension fully functional: users can create a payslip, 
 
 ## Deliverable
 
-A bootable Electron app that, when the user clicks the `P` Activity Bar icon (Salary History view), shows:
+A bootable Electron app. The Salary History extension exposes **one Activity Bar icon** (`P`) and **two Command Palette commands**, and ships **three modals** that open on top of the views. The items below are grouped by how the user reaches them.
 
-1. A **payslip entry form** (Lit component) — fields: pay period start/end, gross pay, pay date, account (dropdown sourced from `accounts`), notes. Submit writes to `salary_history_pay_slips` via `finance.db.table('salary_history_pay_slips').insert({...})`.
-2. A **salary history list** — paginated table of past payslips, sorted by pay_date DESC. Edit and Delete actions per row. Year-to-date gross / net / count summary footer (computed by `PayService.aggregateYearToDate()`).
-3. A **Shared Accounts seed** — on first activation, if the `accounts` table is empty, the extension prompts the user to create one (modal form) or auto-seeds a default "Primary Salary Account". This proves Phase 4's read access to Shared Financial Data.
-4. **Persistence verified** — every write survives an app restart (data round-trips through SQLite → settings → restart → render). Manual Test Unit 4 walks this loop.
+### View reached by clicking `P` (the Activity Bar icon)
 
-Users can also reach the same UI from the Command Palette's `salary.show-pay-history` command.
+Clicking `P` opens the **pay-history view**, which renders two Lit components side-by-side:
+
+1. **Payslip entry form** (Lit component) — fields: pay period, gross/net (Totals section), 6 hour inputs + 2 leave inputs (collapsible "This week was different" toggle), derived breakdown preview, `[ Validate PAYG ]` button. Submit writes to `salary_history_pay_slips` via `finance.db.table('salary_history_pay_slips').insert({...})`.
+2. **Salary history list** (Lit component) — paginated table of past payslips, sorted by pay_date DESC. Edit and Delete actions per row. Year-to-date gross / net / PAYG / SG summary footer (computed by `PayService.aggregateYearToDate()`).
+
+### View reached via Command Palette only (NOT from clicking `P`)
+
+3. **Pay rate history view** (Lit component) — rate rows list (newest first) with "Current" badge on the row whose `effective_to IS NULL`; Edit button on the current row only. Persisted in `salary_history_rate_history`. **Reachable only via the Command Palette command `salary.show-pay-rate-history`** — the rate history is an admin surface (rates change rarely), so per Decision 17 it does NOT get its own Activity Bar button; the Activity Bar stays at one `P` button. The Command Palette is the sole entry point.
+
+### Modals (opened from the views, on top of the current view)
+
+4. **Rate row form modal** — opened by the Edit button in the **pay-rate-history view** (item 3). Fields: `effective_from` / `effective_to`, the 8 rate columns (base + 7 multipliers), 2 accrual fields (`accrual_rate_per_week`, `starting_holiday_leave_balance`), notes. On add, atomically closes the previous current rate row (Decision 16's `addNewRate` uses `BEGIN IMMEDIATE`).
+5. **Reorder sections modal** — opened by a `[ Reorder Sections ]` button in the **payslip entry form** (item 1). Up/down arrows for the 7 form sections (period, totals, earnings, deductions, super, leave, notes). Persists to `salary-history.sectionOrder` setting (item 7).
+6. **Accounts seed modal** — appears automatically on first activation if the `accounts` table is empty (the only modal that opens without user action). User can name + optional institution; actions Create / Skip / Cancel. Proves Phase 4's read access to Shared Financial Data.
+
+### Settings (persisted; no generic settings UI in Phase 4)
+
+7. `salary-history.sectionOrder`, `salary-history.paygToleranceDollars` (default $5), `salary-history.paygTaxYear` (default "2026-2027"), `salary-history.financeYear` (auto-computed from current date + `financialYearStart` at boot). Round-tripped via `finance.settings.get()`. The reorder modal (item 5) is the only settings surface shipped in Phase 4; a generic settings UI is deferred to Phase 7.
+
+### Verification
+
+8. **Persistence verified** — every write survives an app restart (data round-trips through SQLite → settings → restart → render). Manual Test Unit 4 walks this loop.
+
+### Command Palette commands
+
+- `salary.show-pay-history` — opens the pay-history view (equivalent to clicking `P`).
+- `salary.show-pay-rate-history` — opens the pay-rate-history view (item 3). **This is the only way to reach the rate history UI** — there is no Activity Bar button for it.
 
 
 ---
