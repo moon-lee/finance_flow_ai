@@ -1,8 +1,8 @@
 ---
 title: Phase 4 - Shared Financial Data & The First Extension (Salary History)
 date: 2026-07-04
-amended: 2026-07-07 (Plan Amendment 1 — Remove Deductions; Plan Amendment 2 — Extend Pay Slip Schema; Plan Amendment 3 — Calculation Model, Rate History, Reorderable Form, FY Column, Second View; Plan Amendment 4 — UI Design Finalization; Plan Amendment 5 — Holiday Leave Accrual Tracking; Plan Amendment 6 — Shift Allowance Hours Rate, Personal Leave Money Derivation, Drop Stored Holiday Hours; Review Integration — Findings 4, 5, 7, 8, 9, 13, 14, 15, 16, 17)
-status: draft — Plan Amendments 1, 2, 3, 4, 5 & 6 applied
+amended: 2026-07-07
+status: draft — awaiting review; not yet implemented
 target_version: 0.7.0
 spec_source: docs/superpowers/specs/2026-06-13-implementation-design.md (Phase 4 section, lines 121–128)
 vision_alignment:
@@ -32,239 +32,6 @@ prerequisite_decisions:
 
 # Phase 4 — Shared Financial Data & The First Extension (Salary History)
 
-> ## Plan Amendment 1 (2026-07-05) — Remove Deductions
->
-> **Status:** Applied. Plan remains `draft`; not yet implemented.
->
-> **Summary.** The `salary_history_deductions` table, `DeductionService`, deductions UI, related DAO wrapper, and all associated tests are removed from Phase 4. The "deductions" concept is reserved for the future Tax extension (Phase 5+), which already plans to own a "deduction records ledger" per `project_vision.md:526`.
->
-> **Rationale.**
-> - The Phase 4 deliverable in `project_vision.md:559` is *"a functional salary history UI with persistent storage"* — CRUD for payslips. The deductions sub-view was a plan-level expansion beyond the vision's wording.
-> - The implementation design spec describes DeductionService as *"for work-related expense tracking"* (line 73, tax-style). The Phase 4 plan's table semantics (PAYG withholding line items per payslip — "union fees", "income tax", "superannuation contribution") drifted from that framing. Removing deductions returns the concept to clean Tax-extension ownership.
-> - Aggregations (year-to-date gross/net, total PAYG) are the real cross-extension value, not raw deduction rows. PayService covers these as an internal helper; `finance.services.*` is Phase 5 work where the API gets designed from the consumer side (Cash Flow / Dashboard).
-> - Naming: "deductions" is overloaded in the vision (PAYG-withholding line items vs tax-claim expenses). Reserving the word for the Tax extension's claim-tracking table prevents a Phase 5 naming collision.
->
-> **Migration count.** 5 → 4 (drops migration `005-salary-history-deductions`). ADR-0002's threshold evaluation is easier at 4 than at 5 — well below the original "more than three" trigger.
->
-> **Cross-doc updates.**
-> - `CHANGELOG.md` — Administrative entry under `[0.6.0]` (no version bump; plan-level work only)
-> - `docs/file-reference.md` — Phase 4 section: drop 5 planned files; update descriptions of 4 affected files
-> - `docs/decisions/0002-inline-migrations.md` — Phase 4 evaluation addendum updated to reflect 4 migrations
->
-> **Sections amended.** Inline `[Plan Amendment 1]` markers are placed at every section that changed (frontmatter, Goal, Deliverable, Decisions 3 / 5 / 7 / 8 / 10, File Structure, Out-of-Scope table, Self-Review §2 / §4 / §7, Tasks 5.5 / 10 / 11 / 12 / 14 / 15 / 17 / 19, Test Plan, manifest example). Code-level test counts revised from ~95 → ~79 unit tests.
->
-> **What this amendment does NOT change.** The DAO architecture (`DAOService`, `TableSchemaRegistry`, `shared-data-tables.ts`), namespace enforcement, Zod schema generation, JSON-RPC `extension.readTable` / `extension.writeTable` protocol, multi-file extension structure (Decision 9 / 10), type-only SDK import (`import type { FinanceApi } from 'finance'`), Lit workspace-area mount (Decision 11), UI event IPC channel (Decision 12), settings namespace (Decision 13), and the Phase 4 Self-Review Checklist are all unchanged in spirit. Only the deductions-specific deliverables are removed.
-
----
-
-> ## Plan Amendment 2 (2026-07-05) — Extend Pay Slip Schema
->
-> **Status:** Applied. Plan remains `draft`; not yet implemented.
->
-> **Summary.** Eleven new columns are added to the `salary_history_pay_slips` table to capture the per-payslip breakdowns the user's xlsx already tracks. This reverses the "lost on import" gap from Plan Amendment 1 for 7 of the xlsx columns and adds 4 forward-tracking columns.
->
-> **New columns** (all `real`, `nullable: false`, `default: 0`, `min: 0`):
->
-> | Schema column | User's name | Unit | xlsx source |
-> |---|---|---|---|
-> | `shift_allowance` | Shift Allowance | $ per pay | "Shift Allowance" (cumulative → per-payslip delta) |
-> | `base_hourly` | Base hourly | $ per pay | "Base Hourly" (cumulative → per-payslip delta) |
-> | `overtime_1_5x` | Overtime (1.5x) | $ per pay | "OT(1.5)" (cumulative → per-payslip delta) |
-> | `overtime_2_0x` | Overtime (2.0x) | $ per pay | "OT(2)" (cumulative → per-payslip delta) |
-> | `personal_leave_hours` | Personal Leave | hours per pay | (none — future tracking; xlsx has only generic "Leave" balance) |
-> | `holiday_leave_loading` | Holiday Leave Loading | $ per pay | "HLL" (cumulative → per-payslip delta) |
-> | `holiday_pay` | Holiday Pay | $ per pay | (none — future tracking) |
-> | `public_holiday` | Public Holiday | $ per pay | (none — future tracking) |
-> | `payg_withholding` | PAYG Withholding | $ per pay | "Tax" (cumulative → per-payslip delta) |
-> | `holiday_leave_accrual_hours` | Holiday Leave Accrual | hours per pay | (none — future tracking; typo "Accurual" corrected in schema) |
-> | `superannuation_guarantee` | Superannuation Guarantee | $ per pay | "Super" (cumulative → per-payslip delta) |
->
-> **Rationale.**
-> - **Closes the "lost on import" gap** from Plan Amendment 1: PAYG Withholding (was "Tax" in xlsx), Superannuation Guarantee (was "Super"), Holiday Leave Loading (was "HLL"), Shift Allowance, Base hourly, Overtime 1.5x/2.0x are all now first-class columns.
-> - **Adds forward-tracking** for fields the user wants to start capturing but doesn't currently track in the xlsx: Personal Leave, Holiday Pay, Public Holiday, Holiday Leave Accrual. These default to 0 so the import of existing xlsx data works without populating them.
->
-> **Design assumptions (please confirm).**
-> 1. **All amounts are per-payslip deltas**, not cumulative balances. The xlsx stores cumulative values (running totals); the import script converts via `delta_t = cumulative_t − cumulative_{t-1}` (with first row's delta = cumulative value). This is the normalized schema design.
-> 2. **Units:** `personal_leave_hours` and `holiday_leave_accrual_hours` are hours; all others are dollars. Holiday Pay and Public Holiday default to dollars — matches Australian payroll convention (penalty rates, holiday rates paid as $). If you track these as hours instead, say so and I'll flip them.
-> 3. **Typo correction:** Your message spelled "Accurual"; the schema column is `holiday_leave_accrual_hours` (correct spelling).
-> 4. **`payg_withholding` is the column name** for what your xlsx calls "Tax". PAYG (Pay As You Go) is the Australian term for income tax withheld at source. This is per-payslip tax, which is different from year-end tax reconciliation (still the Tax extension's job in Phase 5+).
-> 5. **No validation rule** that `gross = sum(breakdowns + base) + ...` — that's business logic that could go in `PayService.validatePayslipInput` later but isn't required for the schema.
->
-> **Migration impact.** Migration `004-salary-history-pay-slips` grows from 11 columns to 22 columns. No new migration is needed — the table didn't exist before Phase 4 ships, so this is just an expansion of the planned migration. If Phase 4 had shipped before this amendment, a follow-up `006-add-pay-slip-breakdowns` migration would have been needed; that's a non-issue while the plan is still draft.
->
-> **Cross-doc updates.**
-> - `CHANGELOG.md` — Administrative entry under `[0.6.0]` (no version bump; plan-level work only)
-> - `docs/file-reference.md` — Phase 4 section: update the manifest description to mention the 11 breakdown columns
-> - `docs/superpowers/plans/2026-07-04-phase4-shared-financial-data-salary-history.md` — Decision 3 manifest example updated inline; Self-Review §2 updated to reference the breakdown columns
->
-> **What this amendment does NOT change.** Plan Amendment 1's removals stay in place (`salary_history_deductions` table still removed, `DeductionService` still removed, `salary.show-deductions` command still gone). Phase 4's architecture (DAO, namespace enforcement, JSON-RPC, multi-file extension, etc.) is unchanged. The "lost on import" mapping table from earlier would now show that 7 of the 10 previously-lost columns have a schema home; the 4 forward-tracking columns (Personal Leave, Holiday Pay, Public Holiday, Holiday Leave Accrual) remain "lost on import" since the xlsx doesn't track them, but will be populated going forward via the salary-history form.
-
----
-
-> ## Plan Amendment 4 (2026-07-05) — UI Design Finalization
->
-> **Status:** Applied. Plan remains `draft`; not yet implemented.
->
-> **Summary.** Eight HTML/CSS mockups were built at `docs/design/salary-history-mvp/` to validate the UI design before Task 11 implementation. The mocks surfaced one design correction (gross/net must be user inputs in a dedicated Totals section, not derived) and several layout decisions captured in **Decision 18** below. The mocks are the visual contract for Task 11 implementation; any deviation during implementation must be reviewed against the mock directory.
->
-> **Mocks delivered:**
->
-> | File | Purpose | Component |
-> |---|---|---|
-> | `index.html` | Navigation between all 8 mocks | — |
-> | `payslip-form-collapsed.html` | Default state — minimal entry (date + gross + net) | `payslip-form.ts` |
-> | `payslip-form-expanded.html` | "This week was different" toggle on — 6 hour inputs + 2 leave fields visible | `payslip-form.ts` |
-> | `payslip-form-reconciled.html` | Inline amber warning banner when sum-of-earnings ≠ gross; offers "Verify hours", "Add bonus line", "Accept mismatch", "Cancel" actions | `payslip-form.ts` |
-> | `payslip-list.html` | Paginated table + YTD summary footer (YTD Gross, YTD Net, YTD PAYG, YTD SG) | `payslip-list.ts` |
-> | `pay-rate-history.html` | Rate rows list (newest first) with "Current" badge on the row with `effective_to IS NULL`; Edit only on current row, View on history | `pay-rate-history-view.ts` |
-> | `rate-row-form.html` | Add/edit rate row form with confirmation panel ("Adding this rate will close the current rate") | `rate-row-form.ts` |
-> | `reorder-sections.html` | Modal with up/down arrows for the 7 form section IDs (period, totals, earnings, deductions, super, leave, notes); persisted via `salary-history.sectionOrder` | `reorder-sections-modal.ts` |
-> | `accounts-seed.html` | First-run modal: name + optional institution, Create / Skip / Cancel; shows only when `accounts` table is empty | `accounts-seed-modal.ts` |
->
-> **Design correction surfaced by the mocks:** The initial form mock (payslip-form-collapsed v1) implicitly derived gross/net from the breakdowns. The user's design intent — *"Just user input new record: pay_date, gross, net"* — required a dedicated **Totals** section between Period and Earnings where gross/net are explicit user inputs. All mocks rebuilt with the Totals section. Net effect: the form has 7 visible sections (Period → Totals → Earnings → Deductions → Super → Leave → Notes), not 6. `sectionOrder` default updated accordingly.
->
-> **Visual review checklist (run before Task 11 implementation):**
-> - [ ] User has approved all 8 mocks (recorded as Plan Amendment 4) — **PENDING EXPLICIT CONFIRMATION** per Review Finding 12. Until the user confirms approval in conversation, Task 11.0 (visual review of mocks) remains the gating step before implementation begins.
-> - [ ] Section order matches `salary-history.sectionOrder` default: `["period","totals","earnings","deductions","super","leave","notes"]`
-> - [ ] Reconciliation warning threshold = `paygToleranceDollars` setting (default 5.00)
-> - [ ] PAYG validation triggers on user button click (not on every keystroke)
-> - [ ] Dark theme tokens flow through CSS custom properties (Review Finding 16): the Lit components use the existing `:root` custom properties defined in `src/renderer/styles/layout.css` (e.g. `--color-bg`, `--color-fg`, `--color-accent`). When a Lit component needs these tokens inside its shadow DOM, it re-declares them in `:host` (Phase 7+ may consolidate via shared adopted-stylesheets). The mocks' literal `rgb(...)` values are placeholders; the implementation must not hard-code RGB values.
->
-> **Cross-doc updates:**
-> - `CHANGELOG.md` — Administrative entry under `[0.6.0]` (no version bump; plan-level work only)
-> - `docs/file-reference.md` — Phase 4 section: add a `docs/design/` subdirectory row pointing to the mock index, with the Plan Amendment 4 banner noting the design has been pre-approved
-> - This plan — Decision 18 added below; Task 11 references the mocks; Self-Review §2 + §5 updated to mention the visual review step
->
-> **What this amendment does NOT change.** Decisions 1-17 unchanged. Plan Amendment 1's removals, Amendment 2's column additions, and Amendment 3's calculation model all stand. The mocks are a pre-implementation design artifact — no architectural decisions flipped.
-
-> ## Plan Amendment 5 (2026-07-06) — Holiday Leave Accrual Tracking
->
-> **Status:** Applied. Plan remains `draft`; not yet implemented.
->
-> **Summary.** The `holiday_leave_accrual_hours` column is re-purposed from a per-payslip delta into a **cumulative running balance**. Each payslip auto-calculates the new balance as `prev_balance − personal_leave_hours − holiday_hours + accrual_rate_per_week` (where `accrual_rate_per_week` defaults to `2.92` from a new rate_history column). The form renders `holiday_leave_accrual_hours` as a read-only auto-derived field. `personal_leave_hours` moves from the Leave section to the Hours breakdown section.
->
-> **Schema changes:**
->
-> | Change | Table | Detail |
-> |---|---|---|
-> | +1 column | `salary_history_pay_slips` | `holiday_hours real not null default 0 min 0` — hours of annual/holiday leave TAKEN from the balance this pay period (Plan Amendment 5). Reduces balance via `calculateHolidayLeaveAccrual`. |
-> | semantic flip | `salary_history_pay_slips` | `holiday_leave_accrual_hours` — per-payslip delta → **cumulative running balance** at this payslip |
-> | +1 column | `salary_history_rate_history` | `accrual_rate_per_week real not null default 2.92 min 0` — weekly holiday leave accrual in hours |
-> | +1 column | `salary_history_rate_history` | `starting_holiday_leave_balance real not null default 0 min 0` — initial balance used as `prev_balance` for the first payslip |
->
-> **Decisions affected:**
-> - Decision 3 schema example: add `holiday_hours` column; update `holiday_leave_accrual_hours` description.
-> - Decision 14: `holiday_pay` and `holiday_leave_loading` derivations STAY — the formula `holiday_hours × base_rate` continues to mean "pay during annual leave at base rate" (correct Australian payroll interpretation). New helper `calculateHolidayLeaveAccrual(prevBalance, personalLeave, holiday, accrualRate)` added.
-> - Decision 16: rate_history table grows from 13 → 15 columns.
-> - Task 11.1: `personal_leave_hours` moves to a new Hours breakdown section (#6); Leave section (#7) shrinks to contain only the auto-calculated `holiday_leave_accrual_hours` display; Notes renumbers to #8.
-> - Task 11.5: rate-row-form gains two new fields with pre-fill from current rate + amber-border-on-change behavior.
->
-> **Why `holiday_pay` STAYS.** Amendment 3 originally framed `holiday_pay = holiday_hours × base_rate` as "pay for working on a holiday" — that interpretation is wrong. The correct interpretation (per the user's mock review on 2026-07-06): `holiday_hours` represents annual leave TAKEN (like personal leave), and `holiday_pay` is the base-rate pay you receive during that leave — which mathematically equals what you'd earn if you worked. `holiday_leave_loading` (the 17.5% bonus) is the Australian annual-leave-loading convention and also stays. Hours WORKED on a public holiday are tracked separately via `public_holiday_hours` (future Phase may add a 2.0× penalty multiplier; out of scope for Phase 4).
->
-> **xlsx import (Q3 = NO).** Historical 50 rows import as-captured: `holiday_leave_accrual_hours` (per-row cumulative balance from xlsx) and `personal_leave_hours` (per-row hours taken from xlsx) feed the formula directly. **`holiday_hours` defaults to 0 for all historical rows** because the xlsx does not track hours of holiday leave taken. **Known limitation:** historical `holiday_leave_accrual_hours` values will be overstated by `Σ holiday_hours` for those rows. The accrual becomes accurate starting from the first payslip entered via the new form (where `holiday_hours` is captured properly). Documented in Self-Review §8 as a data-quality caveat for historical backfill; future enhancement could derive `holiday_hours` retroactively from the xlsx's "Holiday Pay" column minus base-rate if that column exists.
->
-> **Migration impact.** None — Phase 4 hasn't shipped, so the planned migrations `004-salary-history-pay-slips` and `005-salary-history-rate-history` simply grow the column sets directly. If Phase 4 had shipped before this amendment, two `ALTER TABLE` migrations would have been needed.
->
-> **Q4 confirmed (2026-07-06):** `holiday_leave_loading = holiday_hours × base_rate × 0.175` — 17.5% loading applied to the base-rate portion of holiday pay per standard Australian interpretation under the Fair Work Act. User confirmed this is the intended formula.
->
-> **Sections amended.** Inline `[Plan Amendment 5]` markers placed at every section that changed (frontmatter, this header, Decisions 3/14/16, Tasks 10/11/12, manifest example).
-
----
-
-## Plan Amendment 6 (2026-07-07) — Shift Allowance Hours Rate, Personal Leave Money Derivation, Drop Stored Holiday Hours
-
-**Status:** Applied. Plan remains `draft`; not yet implemented.
-
-**Summary.** Three small adjustments to the salary-history data model after reviewing the calculation flow end-to-end. First, `shift_allowance_hours_per_week` is added to `salary_history_rate_history` as a distinct concept from `standard_hours_per_week` — eligibility for the shift allowance varies by worker / shift pattern, so the rate row carries the canonical default. Second, `personal_leave` (money) joins the derived breakdown columns; `personal_leave_hours` becomes a transient form input only (still typed at submission, no longer persisted). Third, `holiday_hours` joins the same transient-input pattern — it's used by `calculatePaySlipBreakdown` to derive `holiday_pay` / `holiday_leave_loading` and by `calculateHolidayLeaveAccrual` to decrement the cumulative balance, but it's no longer stored. `holiday_pay` and `holiday_leave_loading` derivations STAY (still derived from `h.holiday_hours × base_rate`).
-
-**Schema changes:**
-
-| Change | Table | Detail |
-|---|---|---|
-| +1 column | `salary_history_rate_history` | `shift_allowance_hours_per_week real not null default 38 min 0` — hours per week the shift allowance is paid on. Distinct from `standard_hours_per_week`: some workers get the allowance, some don't, depending on shift pattern. Used as the default for `h.shift_hours` in `calculatePaySlipBreakdown` when the form supplies no per-payslip override. |
-| +1 column | `salary_history_pay_slips` | `personal_leave real not null default 0 min 0` — money paid for personal leave this period. Derived by `calculatePaySlipBreakdown` as `h.personal_leave_hours × rateRow.base_hourly_rate`. |
-| −1 column | `salary_history_pay_slips` | `personal_leave_hours` — was per-payslip input column. Now a transient form input only (still passed in `PaySlipHours` to the calc; no longer persisted). |
-| −1 column | `salary_history_pay_slips` | `holiday_hours` — was per-payslip input column (Amendment 5 re-purposed it to "hours of annual/holiday leave TAKEN"). Now a transient form input only (still feeds `holiday_pay` / `holiday_leave_loading` derivation and `calculateHolidayLeaveAccrual`; no longer persisted). |
-| Column count totals | `salary_history_pay_slips` | 29 (Amendment 3) → **28** |
-| Column count totals | `salary_history_rate_history` | 15 (Amendment 5) → **16** |
-
-**Decisions affected:**
-
-- **Decision 14 (calculation model).** Update `calculatePaySlipBreakdown` defaults: `shift_hours: 0` becomes `shift_hours: rateRow.shift_allowance_hours_per_week` (so the form's "This week was different" toggle for `shift_hours` still overrides when supplied). Add `personal_leave_hours: 0` to defaults. Add new derived output `personal_leave = h.personal_leave_hours × rateRow.base_hourly_rate`. All other derivations unchanged. `PaySlipHours` keeps `shift_hours`, `holiday_hours`, `personal_leave_hours` as transient fields even though `holiday_hours` and `personal_leave_hours` are no longer persisted. `PaySlipBreakdown` adds `personal_leave` to the return type.
-- **Decision 14 (`calculateHolidayLeaveAccrual`).** **Unchanged.** Helper still takes `holidayHours` as a parameter; caller passes `h.holiday_hours` from the transient form payload. Balance tracking continues to work end-to-end.
-- **Decision 16 (rate history as a first-class table).** Rate row grows from 15 → 16 columns.
-- **Decision 18 (visual review).** No change.
-
-**Tasks affected:**
-
-- Task 4 (migration `005-salary-history-rate-history`): add `shift_allowance_hours_per_week` to column list.
-- Task 11.1 (payslip form): no change — form already has `holiday_hours`, `personal_leave_hours`, `shift_hours` as transient hour inputs.
-- Task 11.5 (rate-row form): add `shift_allowance_hours_per_week` field to the **Rates** section; bump section badge from "9 fields" to "10 fields".
-- Task 12.1 (seed default rate): add `shift_allowance_hours_per_week: 38` to the seeded default rate row.
-- Manifest example (Decision 3): update `salary_history_pay_slips` column list (29 → 28).
-
-**Why `holiday_pay` and `holiday_leave_loading` STAY as derivations.** The user's intent (per the originating notes) is to stop *recording* hours of holiday leave while keeping the calculation flow intact. `h.holiday_hours` is still typed by the user in the form's "This week was different" toggle; it just isn't persisted. The derivations `holiday_pay = h.holiday_hours × base_rate` and `holiday_leave_loading = h.holiday_hours × base_rate × 0.175` therefore continue to work — they read from the transient form payload rather than a stored column. `calculateHolidayLeaveAccrual` continues to use `h.holiday_hours` for the balance decrement, same source.
-
-**Why `personal_leave_hours` and `holiday_hours` are transient (not persisted).** Both are inputs to derivations that produce the persisted money columns (`personal_leave`, `holiday_pay`, `holiday_leave_loading`). Persisting both hours and money creates two sources of truth that can drift if the rate changes retroactively. Storing only the derived money keeps the persisted record canonical — the hours live only as long as the form-submit transaction.
-
-**Migration impact.** None — Phase 4 has not shipped, so the planned migration `004-salary-history-pay-slips` and `005-salary-history-rate-history` simply grow / shrink their column sets directly. If Phase 4 had shipped, two `ALTER TABLE` migrations would have been needed.
-
-**xlsx import.** Historical 50 rows import as-captured: `personal_leave_hours` and `holiday_hours` are passed as `0` for all historical rows (the xlsx has no such columns), feeding the derivations and the balance formula with their existing semantics. No change to the existing Amendment 5 known-limitation note in Self-Review §8 ("historical `holiday_leave_accrual_hours` values are overstated by `Σ holiday_hours` for those rows") — that limitation still applies because the xlsx still lacks the per-row holiday-leave-taken data.
-
-**Sections amended.** Inline `[Plan Amendment 6]` markers placed at every section that changed (this header; Decision 14 calc spec; Decision 16 column-count line; Task 4 / 11.5 / 12.1 / manifest example).
-
-**Cross-doc updates.**
-- `CHANGELOG.md` — Administrative entry under `[Unreleased]`; update frontmatter `last_updated` to current ISO timestamp. No version bump — pre-implementation planning, Administrative-only.
-- `docs/file-reference.md` — Plan row description extended; column counts in plan + manifest rows updated.
-- `docs/design/salary-history-mvp/rate-row-form.html` — Section badge "9 fields" → "10 fields"; add `shift_allowance_hours_per_week` field adjacent to `shift_allowance_multiplier`.
-
-**What this amendment does NOT change.** The DAO architecture, namespace enforcement, Zod schema generation, JSON-RPC protocol, multi-file extension structure (Decision 9 / 10), type-only SDK import, Lit workspace-area mount (Decision 11), UI event IPC channel (Decision 12), base settings namespace (Decision 13) all stand as written. Amendments 1–5 stand. The derivation-first design (Amendment 3) stands — only the set of derived outputs grows by one (`personal_leave`). The leave-balance tracking (Amendment 5) stands — only the source of `holiday_hours` moves from "persisted column" to "transient form input."
-
----
-
-> ## Plan Amendment 3 (2026-07-05) — Calculation Model, Rate History, Reorderable Form, FY Column, Second View
->
-> **Status:** Applied. Plan remains `draft`; not yet implemented.
->
-> **Summary.** Phase 4's salary-history extension is extended with: (a) a derivation-first calculation model where per-payslip inputs are minimal (pay_date + gross + net, with optional hours); (b) a new `salary_history_rate_history` table holding effective-dated rate rows; (c) a `payg-calc.ts` validation module that wraps the user's ATO weekly tax function for sanity-checking the derived PAYG; (d) reorderable form sections persisted via the settings table; (e) a `finance_year` column on `salary_history_pay_slips` plus a settings-backed default; (f) a second command and view, `salary.show-pay-rate-history`, for editing rate rows.
->
-> **Decisions added:** Decision 14 (Calculation Model), Decision 15 (Reorderable Form Sections), Decision 16 (Rate History as a First-Class Table), Decision 17 (Two Commands / Two Views).
->
-> **Schema changes:**
->
-> | Change | Table | Detail |
-> |---|---|---|
-> | +1 column | `salary_history_pay_slips` | `finance_year text not null` — stores "FY2025-2026"; defaulting from settings (auto-computed from current date at app boot) |
-> | +6 columns | `salary_history_pay_slips` | `regular_hours`, `shift_hours`, `overtime_1_5_hours`, `overtime_2_0_hours`, `holiday_hours`, `public_holiday_hours` — all `real not null default 0 min 0` |
-> | +1 table | `salary_history_rate_history` | 13 columns: temporal anchor (id, effective_from, effective_to) + 7 rates (base_hourly_rate, standard_hours_per_week, shift_allowance_multiplier, overtime_1_5_multiplier, overtime_2_0_multiplier, superannuation_rate, holiday_leave_loading_rate) + notes + 2 timestamps |
-> | +1 setting | (settings) | `salary-history.financeYear` — text, no hardcoded default; auto-computed from current date + `financialYearStart` at boot |
->
-> **Column count totals:**
-> - `salary_history_pay_slips`: 11 → 22 (Amendment 2) → **29** (Amendment 3)
-> - `salary_history_rate_history`: **NEW**, 13 columns
-> - Phase 4 migrations: 2 → **3** (`003-shared-accounts`, `004-salary-history-pay-slips`, `005-salary-history-rate-history`)
-> - Total Core migrations: 4 → **5** (still well under ADR-0002's revised ~10 threshold)
->
-> **Design rationale (high level):**
->
-> 1. **Calculation Model inverts CRUD-first.** Instead of asking the user to type every breakdown field, the form captures only `pay_date`, `gross`, `net` (plus optional hours for non-standard weeks). All 9 monetary breakdowns are derived from `salary_history_rate_history` rows effective at the payslip's `pay_date`. The user's xlsx confirms this matches reality: the breakdown fields were already computed values, not user-entered facts.
-> 2. **PAYG = gross − net. Always.** No tax-table lookup in the write path. A `[Validate PAYG]` button runs the user's ATO weekly function (`CALCULATE_TAX_WITHHELD_26_27`) and compares to the derived value; mismatch > `paygToleranceDollars` (default $5) shows a warning. This validates both directions: net matches gross AND gross is in a sensible bracket.
-> 3. **Rate history as a first-class table** because rates have effective dates — settings JSON can't represent that cleanly. One row at a time has `effective_to = NULL` (current); adding a new rate row atomically closes the previous one. Past payslips always compute with their era's rates.
-> 4. **Reorderable form sections** let the user put their most-used section first (gross/net users vs leave-heavy users). Persisted via `salary-history.sectionOrder` settings key (array of section IDs).
-> 5. **`finance_year` column** on every payslip row enables FY-scoped aggregation queries without recomputing from `pay_date` every time. Set from `settings.salary-history.financeYear` (auto-computed default) but overridable per row.
-> 6. **Second view / second command** — `salary.show-pay-rate-history` for managing rate rows. Command Palette only (Activity Bar stays at one `P` button); the rate history is an admin surface, not daily-use.
->
-> **Hybrid xlsx import.** The user's existing 50 rows import directly: `pay_date`, `gross`, `net`, the 9 monetary breakdowns, and `personal_leave_hours` + `holiday_leave_accrual_hours` are stored as captured. The 6 new hour fields stay at 0 for historical rows (xlsx didn't have explicit hour counts). New entries use the derivation model.
->
-> **Cross-doc updates.**
-> - `CHANGELOG.md` — Administrative entry under `[0.6.0]` (no version bump; plan-level work only)
-> - `docs/file-reference.md` — Phase 4 inventory: Plan Amendment 3 banner; plan row description extended; new file rows for `pay-rate-service.ts`, `payg-calc.ts`, `payg-brackets.ts`, `pay-rate-history-view.ts`, `rate-row-form.ts`, `reorder-sections-modal.ts` and their tests; `extensions/salary-history/package.json` description updated for new table + commands + settings
-> - `docs/superpowers/plans/2026-07-04-phase4-shared-financial-data-salary-history.md` — Frontmatter + Amendment 3 header (this section); Decisions 14-17 added; Decisions 7 & 8 updated for the new migration count; File Structure diagram updated for new files; Tasks 4 / 10 / 11 / 12 updated for the new work; Test Plan + Self-Review updated
->
-> **What this amendment does NOT change.** Decisions 1-13 from the original plan and Amendment 1 stand as written. The DAO architecture, namespace enforcement, Zod schema generation, JSON-RPC `extension.readTable` / `extension.writeTable` protocol, multi-file extension structure (Decisions 9 / 10), type-only SDK import, Lit workspace-area mount (Decision 11), UI event IPC channel (Decision 12), and base settings namespace (Decision 13) are unchanged. Amendment 1's removals stand. Amendment 2's breakdown columns stay (now treated as derived rather than user-entered).
-
----
-
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Complete this milestone and wait for review before starting Phase 5.
 >
 > **Goal reminder:** Phase 4 ships the **first fully-functional extension** (Salary History) backed by **persistent SQLite storage**. It also turns the Phase 3 `finance.db.table()` *stub* into a real DAO with strict namespace enforcement, and proves the Shared Financial Data / Extension-owned boundary with the Accounts table. Phase 4 does **not** ship WebviewPanels (Phase 5), the AI Assistant (Phase 6), or `finance.services.*` cross-extension Domain Services (Phase 5 — see Decision 5).
@@ -273,7 +40,7 @@ prerequisite_decisions:
 > 1. **Canonical import pattern for multi-file extensions** — Decision 9 of Phase 3 deferred this. Salary History is the first multi-file extension. Resolution in Decision 9 below.
 > 2. **`finance.services.*` Domain Service contract** — the spec lists PayService as a Phase 4 deliverable, but `finance.services.*` is a cross-extension API the platform doesn't support yet. Resolution in Decision 5 (PayService is an internal helper for Phase 4; `finance.services.*` is Phase 5 work where the API gets designed from the consumer side).
 >
-> ~~**Original item 2 (deleted by Plan Amendment 1):** spec places `PayService` / `DeductionService` in Phase 4...~~ DeductionService is removed from Phase 4 entirely (see Plan Amendment 1 above). The deductions concept now belongs to the Phase 5+ Tax extension.
+> ~~**Original item 2:** spec places `PayService` / `DeductionService` in Phase 4...~~ DeductionService is removed from Phase 4 entirely. The deductions concept now belongs to the Phase 5+ Tax extension.
 
 ---
 
@@ -283,11 +50,9 @@ Make the Salary History extension fully functional: users can create a payslip, 
 
 **Architecture:** The Main process remains the sole SQLite owner (per `project_vision.md:99`). The Extension Host gains a new `extension.readTable` / `extension.writeTable` JSON-RPC pair that proxies to a real DAO in Main. The DAO enforces two boundaries structurally: (a) extensions may only access tables whose names match `<extensionId>_*` OR are on an explicit **Shared Financial Data allowlist** (Phase 4 ships `accounts`); (b) raw SQL is impossible — every call goes through typed accessors (`.find`, `.insert`, `.update`, `.delete`, `.findOne`, `.count`) backed by a parameterized SQL builder. The Salary History extension reads `accounts` (shared) and writes `salary_history_pay_slips` (extension-owned). All UI renders inside the workspace area as Lit elements mounted by the renderer (Phase 5 will replace this with proper WebviewPanels — see Decision 11).
 
-> `[Plan Amendment 1]` Original Goal mentioned tracking deductions and writing to `salary_history_deductions`; both removed.
 
 **Tech Stack:** everything Phase 3 ships, plus: Zod (DAO input validation, already a dependency), `better-sqlite3` prepared statements (already a dependency, used more heavily), Lit (renderer components for payslip form / history list / accounts seed modal), Vitest (unit), Playwright Electron (E2E — still gated by the Phase 3 environmental blocker).
 
-> `[Plan Amendment 1]` Lit component list no longer mentions "deduction list".
 
 ---
 
@@ -302,7 +67,6 @@ A bootable Electron app that, when the user clicks the `P` Activity Bar icon (Sa
 
 Users can also reach the same UI from the Command Palette's `salary.show-pay-history` command.
 
-> `[Plan Amendment 1]` Deliverable item #3 (deductions sub-view) removed; renumbered. New item #2 gains a YTD summary footer using `PayService.aggregateYearToDate()`. The Command Palette drops the `salary.show-deductions` command — there is no deductions sub-view to show.
 
 ---
 
@@ -421,8 +185,8 @@ Every method validates the table name (Decision 1) and the row payload (Zod sche
         { "name": "public_holiday",              "type": "real",    "nullable": false, "default": 0, "min": 0 },
         { "name": "payg_withholding",            "type": "real",    "nullable": false, "default": 0, "min": 0 },
         { "name": "superannuation_guarantee",    "type": "real",    "nullable": false, "default": 0, "min": 0 },
-        { "name": "personal_leave",             "type": "real",    "nullable": false, "default": 0, "min": 0, "description": "Money paid for personal leave this period. Derived by calculatePaySlipBreakdown as h.personal_leave_hours × rateRow.base_hourly_rate (Plan Amendment 6)." },
-        { "name": "holiday_leave_accrual_hours", "type": "real",    "nullable": false, "default": 0, "min": 0, "description": "Cumulative holiday leave balance at this payslip (read-only, auto-derived): prev_balance − personal_leave_hours − holiday_hours + accrual_rate_per_week. Plan Amendment 5. Note: personal_leave_hours and holiday_hours are transient form inputs as of Plan Amendment 6 — not persisted, but passed by the form to calculateHolidayLeaveAccrual." },
+        { "name": "personal_leave",             "type": "real",    "nullable": false, "default": 0, "min": 0, "description": "Money paid for personal leave this period. Derived by calculatePaySlipBreakdown as h.personal_leave_hours × rateRow.base_hourly_rate." },
+        { "name": "holiday_leave_accrual_hours", "type": "real",    "nullable": false, "default": 0, "min": 0, "description": "Cumulative holiday leave balance at this payslip (read-only, auto-derived): prev_balance − personal_leave_hours − holiday_hours + accrual_rate_per_week. personal_leave_hours and holiday_hours are transient form inputs — not persisted, but passed by the form to calculateHolidayLeaveAccrual." },
         { "name": "notes",                       "type": "text",    "nullable": true },
         { "name": "created_at",                  "type": "datetime","nullable": false, "default": "now" },
         { "name": "updated_at",                  "type": "datetime","nullable": false, "default": "now" }
@@ -432,11 +196,8 @@ Every method validates the table name (Decision 1) and the row payload (Zod sche
 }
 ```
 
-> `[Plan Amendment 1]` Manifest example no longer includes the `salary_history_deductions` table entry.
 
-> `[Plan Amendment 2]` Manifest example now includes 11 breakdown columns for per-payslip amounts (`shift_allowance`, `base_hourly`, `overtime_1_5x`, `overtime_2_0x`, `holiday_leave_loading`, `holiday_pay`, `public_holiday`, `payg_withholding`, `superannuation_guarantee`) and per-payslip hours (`personal_leave_hours`, `holiday_leave_accrual_hours`). All 11 are `real`, `nullable: false`, `default: 0`, `min: 0`. Total columns: 11 → 22. See Plan Amendment 2 header for full rationale and design assumptions.
 
-> `[Plan Amendment 1]` Manifest example no longer includes the `salary_history_deductions` table entry.
 
 The Zod schema is generated by `buildColumnZodSchema(column)` in `src/shared/dao-schema.ts` (shared by Host and Main). Validators per type:
 
@@ -451,7 +212,7 @@ The Zod schema is generated by `buildColumnZodSchema(column)` in `src/shared/dao
 
 `nullable: true` adds `.nullable()`. `min` / `max` add `.min()` / `.max()`. `default` is applied client-side before SQL (not by SQLite — keeps the DAO layer portable).
 
-**Column design — normalized per-payslip (Plan Amendment 2).** The Phase 4 `salary_history_pay_slips` table captures per-payslip breakdown amounts (`shift_allowance`, `base_hourly`, `overtime_1_5x`, `overtime_2_0x`, `holiday_leave_loading`, `holiday_pay`, `public_holiday`, `payg_withholding`, `superannuation_guarantee`) and per-payslip hours (`personal_leave_hours`, `holiday_leave_accrual_hours`) as first-class columns rather than as a separate deductions table or as cumulative balance columns. The normalized design means each row's earnings breakdowns sum toward its `gross`, and `gross − payg_withholding = net` (with `superannuation_guarantee` paid on top, not deducted from net). Per-period aggregates like YTD gross, total PAYG, total super are computed on demand via `PayService.aggregateYearToDate()` rather than stored — the user's xlsx shows cumulative values, but the import script converts them to per-payslip deltas via `delta_t = cumulative_t − cumulative_{t-1}` before insertion. See Plan Amendment 2 header above for the full column rationale and design assumptions.
+**Column design — normalized per-payslip.** The Phase 4 `salary_history_pay_slips` table captures per-payslip breakdown amounts (`shift_allowance`, `base_hourly`, `overtime_1_5x`, `overtime_2_0x`, `holiday_leave_loading`, `holiday_pay`, `public_holiday`, `payg_withholding`, `superannuation_guarantee`) and per-payslip hours (`personal_leave_hours`, `holiday_leave_accrual_hours`) as first-class columns rather than as a separate deductions table or as cumulative balance columns. The normalized design means each row's earnings breakdowns sum toward its `gross`, and `gross − payg_withholding = net` (with `superannuation_guarantee` paid on top, not deducted from net). Per-period aggregates like YTD gross, total PAYG, total super are computed on demand via `PayService.aggregateYearToDate()` rather than stored — the user's xlsx shows cumulative values, but the import script converts them to per-payslip deltas via `delta_t = cumulative_t − cumulative_{t-1}` before insertion.
 
 **Reasoning:** Validating at the boundary means the SQL builder never has to defensively re-check. The vision mandates Zod for runtime type-safety (`project_vision.md:83`); generating Zod schemas from a declarative table manifest keeps the contract in one place — the manifest.
 
@@ -515,7 +276,6 @@ extensions/salary-history/
     main.ts                    # entry: activate() wires DAO → services → UI → finance.commands.registerCommand
 ```
 
-> `[Plan Amendment 1]` Directory tree no longer includes `deduction-service.ts`, `dao/deductions.ts`, or `ui/deductions-view.ts`.
 
 The `finance.services.*` cross-extension contract **does not exist** in Phase 4 — the spec lists PayService as a Phase 4 deliverable but `finance.services.*` is a Phase 5 architectural decision (introduces the "Core Extensions as Services" pattern from `project_vision.md:107-117`). Phase 4 keeps PayService internal so the extension can demonstrate the use cases (validation, aggregation) without prematurely locking a cross-extension contract.
 
@@ -527,7 +287,7 @@ The `finance.services.*` cross-extension contract **does not exist** in Phase 4 
 - Cash Flow wants `pay.getMonthlySeries(financialYear)` for forecast charts.
 - The interface has stabilised through internal use.
 
-**Phase 5 design note (added by Plan Amendment 1):** The first version of `finance.services.pay.*` will be **designed from the consumer side** — by what Phase 5's Cash Flow / Dashboard / Budget actually need to call — not derived from PayService's current internal surface. PayService's internals are throwaway; the public API gets shaped by Phase 5's call sites. This avoids two failure modes: (a) shipping an internal-shape API that Phase 5 consumers find awkward; (b) over-investing in the current `aggregateYearToDate(payslips, financialYearStart)` signature when Phase 5 consumers will want aggregations at the database layer, not on pre-fetched JS lists.
+**Phase 5 design note:** The first version of `finance.services.pay.*` will be **designed from the consumer side** — by what Phase 5's Cash Flow / Dashboard / Budget actually need to call — not derived from PayService's current internal surface. PayService's internals are throwaway; the public API gets shaped by Phase 5's call sites. This avoids two failure modes: (a) shipping an internal-shape API that Phase 5 consumers find awkward; (b) over-investing in the current `aggregateYearToDate(payslips, financialYearStart)` signature when Phase 5 consumers will want aggregations at the database layer, not on pre-fetched JS lists.
 
 **Alternatives considered:**
 
@@ -537,7 +297,6 @@ The `finance.services.*` cross-extension contract **does not exist** in Phase 4 
 
 **Trade-off:** Salary History has to maintain PayService. That's the correct cost — it's domain logic for the salary-history domain. The risk that the internal surface diverges from what `finance.services.pay.*` eventually becomes is mitigated by the Phase 5 design note above.
 
-> `[Plan Amendment 1]` Originally Decision 5 covered PayService + DeductionService. DeductionService and `salary_history_deductions` are removed entirely; the deductions concept belongs to the Phase 5+ Tax extension per `project_vision.md:526` (*"deduction records ledger"*).
 
 ---
 
@@ -586,7 +345,6 @@ Total: 4 migrations (`001-init-infrastructure`, `002-extension-crash-tracking`, 
 
 **Reasoning:** ADR-0002 says "more than three migrations" is a trigger to revisit the inline runner. With deductions removed, Phase 4 lands at 4 migrations — one over the trigger but well within the "all Core-owned, all simple DDL" sweet spot. Decision 8 evaluates the runner choice and resolves to stay inline.
 
-> `[Plan Amendment 1]` Originally Decision 7 added three migrations including `005-salary-history-deductions`. That migration is removed; total goes 5 → 4.
 
 **Migration runner behaviour:** unchanged from Phase 2 — registered via `registerMigration({ name, up })`, applied in order at `initializeDatabase()` time, recorded in `migration_log`. Each Phase 4 migration declares its table DDL inline (no separate SQL files). The `down` callback remains intentionally absent per ADR-0002.
 
@@ -616,13 +374,11 @@ None of ADR-0002's triggers are *actually* tripped at 5 migrations. The threshol
 
 **Action:** Update ADR-0002's "Revisit triggers" section to reflect Phase 4's evaluation:
 
-> *Phase 4 evaluation (2026-07-05, post-Plan Amendment 3): 5 migrations (2 → 5). All Core-owned, all simple DDL. Re-evaluate at Phase 8 (extension-shipped migrations) per the original "extension needs to ship a migration independent of Core releases" trigger. Threshold language loosened from "more than three" to "more than ~10, OR an extension ships its own migration".*
+> *Phase 4 evaluation (2026-07-05,): 5 migrations (2 → 5). All Core-owned, all simple DDL. Re-evaluate at Phase 8 (extension-shipped migrations) per the original "extension needs to ship a migration independent of Core releases" trigger. Threshold language loosened from "more than three" to "more than ~10, OR an extension ships its own migration".*
 
 This is a minor ADR amendment, not a new ADR. Recorded in `docs/decisions/0002-inline-migrations.md` as an addendum.
 
-> `[Plan Amendment 1]` Originally Decision 8 evaluated 5 migrations ("Document the Threshold Crossing"). With deductions removed by Amendment 1, Phase 4 went to 4 — title softened to "Threshold Softly Crossed".
 
-> `[Plan Amendment 3]` Decision 8 now evaluates 5 migrations again — `005-salary-history-rate-history` adds a third new Phase 4 migration. Total still well under the revised "~10" threshold. No threshold-language change needed.
 
 ---
 
@@ -685,7 +441,6 @@ Implementation:
 
 **Trade-off:** More files to navigate. Offset by clearer ownership boundaries.
 
-> `[Plan Amendment 1]` Originally Decision 10 listed "Three separate extensions (Payslips, Deductions, Accounts)" as a rejected alternative. With deductions removed from Phase 4, the alternative becomes "Two separate extensions (Payslips, Accounts)". The multi-file decision is unchanged.
 
 ---
 
@@ -693,7 +448,6 @@ Implementation:
 
 **Choice:** Phase 4 renders the Salary History UI (payslip form, list) as Lit elements mounted directly into the renderer DOM inside the workspace area. There is **no iframe**, no separate process — the Lit element runs in the same renderer process as the rest of the shell. The renderer's "active view" switch (`src/renderer/index.ts`) mounts/unmounts the salary-history Lit element when the user activates the view.
 
-> `[Plan Amendment 1]` Decision 11 wording no longer mentions deductions UI.
 
 ```ts
 // src/renderer/views/salary-history-view.ts (NEW)
@@ -800,7 +554,6 @@ This is the renderer→extension writeback channel. The existing `executeCommand
 }
 ```
 
-> `[Plan Amendment 3]` `paygToleranceDollars`, `paygTaxYear`, `financeYear`, and `sectionOrder` are added. `defaultCurrency` and `financialYearStart` are unchanged from the original.
 
 Phase 4 **does not** render the generic settings UI (that is Phase 7 work per Phase 3 Self-Review §7). The settings are persisted and retrievable via `finance.settings.get('salary-history.financeYear')` so the extension can read them at activation, but the Settings Activity Bar button still shows the Phase 1 hardcoded "App Preferences / Manage Extensions" placeholder. The payslip form's `[ Reorder Sections ]` button is the only Phase 4 settings UI.
 
@@ -813,9 +566,8 @@ Phase 4 **does not** render the generic settings UI (that is Phase 7 work per Ph
 
 **Trade-off:** Settings are persisted but no UI (except the reorder modal). Acceptable for Phase 4.
 
-### Decision 14: Calculation Model — Minimal Inputs, Derived Breakdown (Plan Amendment 3)
+### Decision 14: Calculation Model — Minimal Inputs, Derived Breakdown
 
-> `[Plan Amendment 6]` `calculatePaySlipBreakdown` defaults updated: `shift_hours` defaults from `rateRow.shift_allowance_hours_per_week` (per-payslip input still wins when supplied). New default `personal_leave_hours: 0`. New derived output `personal_leave = h.personal_leave_hours × rateRow.base_hourly_rate`. `PaySlipHours` keeps `shift_hours`, `holiday_hours`, `personal_leave_hours` as transient form-input fields even though the latter two are no longer persisted. `PaySlipBreakdown` adds `personal_leave` to its return type.
 
 **Choice:** Per-payslip inputs are minimal: `pay_date`, `gross`, `net`. All 9 monetary breakdown fields and `payg_withholding` are derived by `PayService.calculatePaySlipBreakdown(pay_date, gross, net, hours?, rateRow, settings)`. PAYG validation is user-triggered via a `[ Validate PAYG ]` button that calls `payg-calc.ts` and displays the result inline.
 
@@ -861,7 +613,7 @@ function calculatePaySlipBreakdown(
   };
 }
 
-// Plan Amendment 5 — holiday leave accrual
+// holiday leave accrual
 // Computes the new cumulative holiday leave balance after a pay period.
 // `prevBalance` is the previous payslip's holiday_leave_accrual_hours (or the rate row's
 // starting_holiday_leave_balance for the first payslip). `personalLeaveHours` and `holidayHours`
@@ -895,7 +647,7 @@ function calculateHolidayLeaveAccrual(
 
 **Trade-off:** The form requires an accurate rate_history row effective at the `pay_date`. If the user enters a back-dated payslip without first creating a rate row for that era, the calculations use the current rate (wrong historical fidelity). Mitigations: (a) user can override individual breakdown fields to fix the row in the short term; (b) user adds a historical rate row in the rate history view (Decision 17) for the long term; (c) the `[ Validate PAYG ]` button flags obvious rate-period mismatches.
 
-### Decision 15: Reorderable Form Sections (Plan Amendment 3)
+### Decision 15: Reorderable Form Sections
 
 **Choice:** The form sections can be reordered by the user. The order is persisted via the `salary-history.sectionOrder` settings key (JSON array of section IDs). Default order: `["period", "earnings", "deductions", "super", "leave", "notes"]`.
 
@@ -926,9 +678,8 @@ function calculateHolidayLeaveAccrual(
 
 **Trade-off:** Per-user only (settings table is single-user in Phase 4). Multi-user / multi-account ordering is a future enhancement.
 
-### Decision 16: Rate History as a First-Class Table (Plan Amendment 3)
+### Decision 16: Rate History as a First-Class Table
 
-> `[Plan Amendment 6]` Rate row grows from 15 → 16 columns with the addition of `shift_allowance_hours_per_week` (real, default 38, min 0). Distinct from `standard_hours_per_week` — captures hours the shift allowance is paid on (eligibility varies by worker/shift pattern). Default source for `h.shift_hours` in `calculatePaySlipBreakdown` when no per-payslip override.
 
 **Choice:** A new `salary_history_rate_history` table holds effective-dated rate rows. Only one row has `effective_to = NULL` at any time (the current rate). The calc engine queries this table via `PayRateService.getRateForDate(pay_date)` to find the rate row effective at a given `pay_date`.
 
@@ -944,13 +695,13 @@ function calculateHolidayLeaveAccrual(
     { "name": "base_hourly_rate",          "type": "real",    "nullable": false, "min": 0 },
     { "name": "standard_hours_per_week",   "type": "real",    "nullable": false, "min": 0, "default": 38 },
     { "name": "shift_allowance_multiplier","type": "real",    "nullable": false, "min": 0, "default": 0.15 },
-    { "name": "shift_allowance_hours_per_week", "type": "real", "nullable": false, "min": 0, "default": 38, "description": "Hours per week the shift allowance is paid on. Distinct from standard_hours_per_week (Plan Amendment 6). Used as the default for h.shift_hours in calculatePaySlipBreakdown." },
+    { "name": "shift_allowance_hours_per_week", "type": "real", "nullable": false, "min": 0, "default": 38, "description": "Hours per week the shift allowance is paid on. Distinct from standard_hours_per_week. Used as the default for h.shift_hours in calculatePaySlipBreakdown." },
     { "name": "overtime_1_5_multiplier",   "type": "real",    "nullable": false, "default": 1.5 },
     { "name": "overtime_2_0_multiplier",   "type": "real",    "nullable": false, "default": 2.0 },
     { "name": "superannuation_rate",       "type": "real",    "nullable": false, "default": 0.12 },
     { "name": "holiday_leave_loading_rate","type": "real",    "nullable": false, "default": 0.175 },
-    { "name": "accrual_rate_per_week",     "type": "real",    "nullable": false, "min": 0, "default": 2.92, "description": "Weekly holiday leave accrual in hours (Plan Amendment 5)" },
-    { "name": "starting_holiday_leave_balance", "type": "real", "nullable": false, "min": 0, "default": 0, "description": "Initial balance used as prev_balance for the first payslip (Plan Amendment 5)" },
+    { "name": "accrual_rate_per_week",     "type": "real",    "nullable": false, "min": 0, "default": 2.92, "description": "Weekly holiday leave accrual in hours" },
+    { "name": "starting_holiday_leave_balance", "type": "real", "nullable": false, "min": 0, "default": 0, "description": "Initial balance used as prev_balance for the first payslip" },
     { "name": "notes",                     "type": "text",    "nullable": true },
     { "name": "created_at",                "type": "datetime","nullable": false, "default": "now" },
     { "name": "updated_at",                "type": "datetime","nullable": false, "default": "now" }
@@ -985,7 +736,7 @@ function calculateHolidayLeaveAccrual(
 
 **Migration:** `005-salary-history-rate-history` (new). Migration count: 2 → 3 Phase 4 migrations; total Core 4 → 5. ADR-0002 threshold still well under the revised "~10" trigger.
 
-### Decision 17: Two Commands / Two Views (Plan Amendment 3)
+### Decision 17: Two Commands / Two Views
 
 **Choice:** The salary-history extension registers two commands:
 
@@ -1027,7 +778,7 @@ Both commands are registered via `financeExtension.contributes.commands`. The Ac
 
 **Trade-off:** Users must know to look in the Command Palette (or hit `Ctrl+Shift+R`) for rate history. Phase 7+ might surface it in a settings menu or a dedicated Activity Bar entry.
 
-### Decision 18: UI Design Finalization — Mocks Pre-Approve the Visual Contract (Plan Amendment 4)
+### Decision 18: UI Design Finalization — Mocks Pre-Approve the Visual Contract
 
 **Choice:** The visual design for all 6 UI components is pre-approved via 8 static HTML/CSS mockups at `docs/design/salary-history-mvp/`. Task 11 implementation must match the mocks; any deviation is a design review. The mocks surfaced one structural correction — gross/net must be **user inputs** in a dedicated Totals section, not derived — and that correction is captured here.
 
@@ -1040,7 +791,7 @@ Both commands are registered via `financeExtension.contributes.commands`. The Ac
 | 3 | **Earnings (derived)** | yes | — | rate row × hours; 7 monetary fields |
 | 4 | **Deductions** | yes | — | `payg_withholding` = gross − net; `[ Validate PAYG ]` button calls `payg-calc.validatePayg` |
 | 5 | **Super** | yes | — | `superannuation_guarantee` = gross × sg_rate |
-| 6 | **Hours breakdown** | always visible | 6 hour inputs (`regular_hours`, `shift_hours`, `overtime_1_5_hours`, `overtime_2_0_hours`, `holiday_hours`, `public_holiday_hours`) + `personal_leave_hours` (moved from Leave section per Plan Amendment 5) | — |
+| 6 | **Hours breakdown** | always visible | 6 hour inputs (`regular_hours`, `shift_hours`, `overtime_1_5_hours`, `overtime_2_0_hours`, `holiday_hours`, `public_holiday_hours`) + `personal_leave_hours` (moved from Leave section) | — |
 | 7 | **Leave** | collapsed by default | `holiday_leave_accrual_hours` (read-only, auto-calculated via `calculateHolidayLeaveAccrual`; displays formula breakdown: `prev_balance − personal_leave_hours − holiday_hours + accrual_rate_per_week`) | `prev_balance − personal_leave_hours − holiday_hours + accrual_rate_per_week` |
 | 8 | **Notes** | yes | free text | — |
 
@@ -1105,7 +856,7 @@ Both commands are registered via `financeExtension.contributes.commands`. The Ac
 - Lit components should use CSS custom properties defined in `:host` to apply the same tokens inside shadow DOM (mocks use literals because they're not shadow-DOM isolated)
 
 **Visual review checklist (run before Task 11 implementation):**
-- [ ] User has approved all 8 mocks (recorded as Plan Amendment 4 — done)
+- [ ] User has approved all 8 mocks (per Decision 18 visual-review checklist)
 - [ ] Section order default updated to include `totals`: `["period","totals","earnings","deductions","super","leave","notes"]`
 - [ ] Reconciliation warning threshold = `paygToleranceDollars` setting (default $5.00)
 - [ ] PAYG validation triggers on user button click (not on every keystroke)
@@ -1120,7 +871,6 @@ Both commands are registered via `financeExtension.contributes.commands`. The Ac
 
 **Trade-off:** The mocks are a snapshot at the time of design. If implementation discovers a layout issue that wasn't visible in HTML (e.g. Lit reactivity edge case, browser-specific CSS quirk), the implementation must surface the issue back here rather than silently deviate. The mocks remain the canonical visual contract until Task 11 ships.
 
-> `[Plan Amendment 4]` Decisions 1-17 unchanged. Plan Amendment 1's removals, Amendment 2's column additions, and Amendment 3's calculation model all stand. The mocks are a pre-implementation design artifact — no architectural decisions flipped.
 
 ### Decision 19: Renderer-Side Dynamic UI Mount — IPC Fetch + Blob URL + Dynamic Import (Unsafe-Eval Phase 4; Sandboxed WebviewPanel Phase 5)
 
@@ -1236,13 +986,9 @@ finance-flow-ai/
 
 **Net new runtime code:** ~1,900 lines (DAO + registry + PayService + PayRateService + PAYG validation + 6 UI components; +500 from Amendment 3). **Net new test code:** ~750 lines (~119 new unit tests; +40 from Amendment 3, ~16 removed from the original ~95 total). **Modified code:** ~300 lines across existing files (IPC expansion, migration registration, type contract expansion, multi-file extension setup).
 
-> `[Plan Amendment 1]` Removed files: `extensions/salary-history/src/services/deduction-service.ts`, `extensions/salary-history/src/dao/deductions.ts`, `extensions/salary-history/src/ui/deductions-view.ts`, `tests/unit/extensions/salary-history/deduction-service.test.ts`, and (a pre-existing inconsistency in the original File Structure diagram now resolved) the implied `tests/unit/extensions/salary-history/dao/deductions.test.ts` from the Test Plan table. Migration count updates: 003/004/005 → 003/004 (see Decision 7). Extension `main.ts` no longer wires the `salary.show-deductions` command (see Deliverable). Extension `package.json` `tables[]` block has a single entry instead of two. `payslip-list.ts` gains a YTD summary footer (replaces the deductions sub-view in the Deliverable's user-visible surface).
 
-> `[Plan Amendment 2]` `salary_history_pay_slips` columns: 11 → 22 (11 monetary breakdown columns added). The original Phase 4 plan's column count of 11 is preserved; the 11 added are the breakdown columns from the user's xlsx.
 
-> `[Plan Amendment 3]` Added 6 files: `extensions/salary-history/src/services/pay-rate-service.ts`, `extensions/salary-history/src/services/payg-calc.ts`, `extensions/salary-history/src/services/payg-brackets.ts`, `extensions/salary-history/src/ui/pay-rate-history-view.ts`, `extensions/salary-history/src/ui/rate-row-form.ts`, `extensions/salary-history/src/ui/reorder-sections-modal.ts` (plus matching test files for each new service). Added 1 DAO wrapper: `extensions/salary-history/src/dao/pay-rate-history.ts` (matching `pay-slips.ts` pattern for the new rate_history table). Added 1 migration body `005-salary-history-rate-history`. Migration count: 003/004 → 003/004/005 (see Decision 7). `salary_history_pay_slips` columns: 22 → 29 (+6 hour columns + `finance_year`). `salary_history_rate_history`: NEW table with 13 columns (Decision 16). Two commands: `salary.show-pay-history` (existing) + `salary.show-pay-rate-history` (new, Decision 17). Settings: 4 new keys added (Decision 13 update): `paygToleranceDollars`, `paygTaxYear`, `financeYear`, `sectionOrder`. The Activity Bar stays at one `P` button; the rate history view is reached via Command Palette (`Ctrl+Shift+R`).
 
-> `[Plan Amendment 1]` Removed files: `extensions/salary-history/src/services/deduction-service.ts`, `extensions/salary-history/src/dao/deductions.ts`, `extensions/salary-history/src/ui/deductions-view.ts`, `tests/unit/extensions/salary-history/deduction-service.test.ts`, and (a pre-existing inconsistency in the original File Structure diagram now resolved) the implied `tests/unit/extensions/salary-history/dao/deductions.test.ts` from the Test Plan table. Migration count updates: 003/004/005 → 003/004 (see Decision 7). Extension `main.ts` no longer wires the `salary.show-deductions` command (see Deliverable). Extension `package.json` `tables[]` block has a single entry instead of two. `payslip-list.ts` gains a YTD summary footer (replaces the deductions sub-view in the Deliverable's user-visible surface).
 
 ---
 
@@ -1317,8 +1063,8 @@ finance-flow-ai/
 
 - [ ] 4.1 Append three new migration bodies to `infrastructure-migration.ts`:
   - `003-shared-accounts` — `CREATE TABLE accounts (...)`.
-  - `004-salary-history-pay-slips` — `CREATE TABLE salary_history_pay_slips (...)` with FK to `accounts.id`. Includes all 28 columns per Decision 14 as amended by Plan Amendment 6 (4 identity/period + 1 finance_year + 3 totals + 9 monetary breakdowns + 4 hour inputs (`regular_hours`, `overtime_1_5_hours`, `overtime_2_0_hours`, `public_holiday_hours`) + 1 derived (`personal_leave`) + 1 leave balance (`holiday_leave_accrual_hours`) + notes + 2 timestamps).
-  - `005-salary-history-rate-history` — `CREATE TABLE salary_history_rate_history (...)` with 16 columns per Decision 16 as amended by Plan Amendment 6 (temporal anchor + 8 rates including `shift_allowance_hours_per_week` + notes + 2 timestamps).
+  - `004-salary-history-pay-slips` — `CREATE TABLE salary_history_pay_slips (...)` with FK to `accounts.id`. Includes all 28 columns per Decision 14 (4 identity/period + 1 finance_year + 3 totals + 9 monetary breakdowns + 4 hour inputs (`regular_hours`, `overtime_1_5_hours`, `overtime_2_0_hours`, `public_holiday_hours`) + 1 derived (`personal_leave`) + 1 leave balance (`holiday_leave_accrual_hours`) + notes + 2 timestamps).
+  - `005-salary-history-rate-history` — `CREATE TABLE salary_history_rate_history (...)` with 16 columns per Decision 16 (temporal anchor + 8 rates including `shift_allowance_hours_per_week` + notes + 2 timestamps).
 - [ ] 4.2 Register all three in `database-service.ts`'s migration list (in order, after `002-extension-crash-tracking`).
 - [ ] 4.3 Manual smoke test: delete the user's `finance.db`, boot the app, confirm all 5 migrations apply, open the DB in a SQLite browser and confirm the three new tables exist with the correct columns and indexes.
 
@@ -1447,7 +1193,7 @@ finance-flow-ai/
   - `createPaySlip(finance, input: PaySlipInput): Promise<PaySlip>` (validates via PayService)
   - `updatePaySlip(finance, id: number, patch: Partial<PaySlipInput>): Promise<void>`
   - `deletePaySlip(finance, id: number): Promise<void>`
-  - `PaySlipInput` type includes all 28 columns per Decision 14 as amended by Plan Amendment 6: id, account_id, pay_period_start, pay_period_end, pay_date, finance_year, gross, net, currency, the 9 monetary breakdowns, the 4 stored hour inputs (regular_hours, overtime_1_5_hours, overtime_2_0_hours, public_holiday_hours — Plan Amendment 6 drops shift_hours and holiday_hours from storage; both become transient form inputs), the 1 leave balance field (holiday_leave_accrual_hours), the 1 derived column (personal_leave), notes. Personal_leave_hours, shift_hours, and holiday_hours are transient form inputs as of Plan Amendment 6 — not persisted, passed by the form to calculatePaySlipBreakdown and calculateHolidayLeaveAccrual.
+  - `PaySlipInput` type includes all 28 columns per Decision 14: id, account_id, pay_period_start, pay_period_end, pay_date, finance_year, gross, net, currency, the 9 monetary breakdowns, the 4 stored hour inputs (regular_hours, overtime_1_5_hours, overtime_2_0_hours, public_holiday_hours), the 1 leave balance field (holiday_leave_accrual_hours), the 1 derived column (personal_leave), notes. Personal_leave_hours, shift_hours, and holiday_hours are transient form inputs — not persisted, passed by the form to calculatePaySlipBreakdown and calculateHolidayLeaveAccrual.
 - [ ] 10.2 Implement `dao/pay-rate-history.ts` (new per Amendment 3, Decision 16):
   - `getRateForDate(finance, payDate: string): Promise<RateRow | null>` — temporal lookup
   - `getCurrentRate(finance): Promise<RateRow | null>` — the row with `effective_to IS NULL`
@@ -1480,17 +1226,14 @@ finance-flow-ai/
 
 **Verification:** `npm run test:unit -- salary-history` → 60 tests pass (was 20 after Amendment 1; +40 from Amendment 3).
 
-> `[Plan Amendment 1]` Removed `dao/deductions.ts`, `services/deduction-service.ts`, `deduction-service.test.ts`, and `dao/deductions.test.ts`. Test count: 36 → 20.
 
-> `[Plan Amendment 3]` Added 3 new service modules (`pay-rate-service.ts`, `payg-calc.ts`, `payg-brackets.ts`), 1 new DAO wrapper (`pay-rate-history.ts`), and 3 new test files. PayService gained `calculatePaySlipBreakdown`, `validateFinanceYear`, and `reconcilePaySlip`. PaySlipInput type expanded from 11 → 29 columns. Test count: 20 → 60.
 
-> `[Plan Amendment 6]` `calculatePaySlipBreakdown` defaults updated: `shift_hours` now sources from `rateRow.shift_allowance_hours_per_week` (per-payslip input still wins when supplied); new default `personal_leave_hours: 0`. New derived output `personal_leave = h.personal_leave_hours × rateRow.base_hourly_rate`. PaySlipInput type now 28 columns (29 → 28: drops `personal_leave_hours` and `holiday_hours` from storage — both become transient form inputs; adds derived `personal_leave`). PayService test count will need updates when implementation begins to reflect the new derivation model.
 
 ---
 
 ### Task 11: Build the salary-history UI components (Lit)
 
-**Files:** `extensions/salary-history/src/ui/payslip-form.ts` (new), `extensions/salary-history/src/ui/payslip-list.ts` (new), `extensions/salary-history/src/ui/accounts-seed-modal.ts` (new), `extensions/salary-history/src/ui/pay-rate-history-view.ts` (new), `extensions/salary-history/src/ui/rate-row-form.ts` (new), `extensions/salary-history/src/ui/reorder-sections-modal.ts` (new). **Visual contract:** `docs/design/salary-history-mvp/` (8 HTML mocks, pre-approved via Plan Amendment 4 / Decision 18). Implementation must match the mocks; any deviation is a design review.
+**Files:** `extensions/salary-history/src/ui/payslip-form.ts` (new), `extensions/salary-history/src/ui/payslip-list.ts` (new), `extensions/salary-history/src/ui/accounts-seed-modal.ts` (new), `extensions/salary-history/src/ui/pay-rate-history-view.ts` (new), `extensions/salary-history/src/ui/rate-row-form.ts` (new), `extensions/salary-history/src/ui/reorder-sections-modal.ts` (new). **Visual contract:** `docs/design/salary-history-mvp/` (8 HTML mocks, pre-approved per Decision 18). Implementation must match the mocks; any deviation is a design review.
 
 **Steps:**
 
@@ -1531,7 +1274,7 @@ finance-flow-ai/
   - Visual reference: `docs/design/salary-history-mvp/pay-rate-history.html`.
 - [ ] 11.5 `rate-row-form.ts` (new per Decision 17, refined per Decision 18):
   - Confirmation panel shown BEFORE the form (inline at top): "Adding this rate will close the current rate" + diff (current vs new) + Confirm/Cancel.
-  - Form fields: `effective_from`, `effective_to` (optional, leave blank for open-ended current), the 8 rate columns (7 originals + `shift_allowance_hours_per_week`, default 38), `accrual_rate_per_week` (default 2.92), `starting_holiday_leave_balance` (default 0), `notes`. Plan Amendment 5 added the two accrual fields; Plan Amendment 6 added `shift_allowance_hours_per_week` and updated the section badge from "9 fields" to "10 fields".
+  - Form fields: `effective_from`, `effective_to` (optional, leave blank for open-ended current), the 8 rate columns (7 originals + `shift_allowance_hours_per_week`, default 38), `accrual_rate_per_week` (default 2.92), `starting_holiday_leave_balance` (default 0), `notes`. The form has 10 rate-row fields (the 8 rate columns + the 2 accrual fields).
   - Pre-fills from current rate values; changed fields get amber border.
   - Validates via `PayRateService.validateRateRow`.
   - On submit (after Confirm), calls `PayRateService.addNewRate` or `editCurrentRate`.
@@ -1554,11 +1297,8 @@ finance-flow-ai/
 
 **Verification:** `npm run build:extensions` produces `dist/extensions/salary-history.js` containing all 6 UI components. Type-check passes. `npm run test:unit` shows 23 UI-component tests passing. **Visual parity:** each component's Lit shadow DOM matches the corresponding mock in `docs/design/salary-history-mvp/` (see Decision 18 visual-review checklist).
 
-> `[Plan Amendment 1]` Removed `ui/deductions-view.ts`. `payslip-list.ts` gains a YTD summary footer (see Deliverable item #2). Lit element count: 4 → 3.
 
-> `[Plan Amendment 3]` Added 3 new UI components: `pay-rate-history-view.ts`, `rate-row-form.ts`, `reorder-sections-modal.ts`. `payslip-form.ts` rewritten with minimal-entry + collapsible hours + derived breakdown preview + Validate PAYG button. Lit element count: 3 → 6. UI test count: +13 (from 12 to 23).
 
-> `[Plan Amendment 4]` (1) Added **Totals** section to `payslip-form.ts` as a 2nd user-input section (gross + net) — these are the 2 of the 3 minimal inputs. Section count went from 6 → 7. (2) `salary-history.sectionOrder` default updated to `["period","totals","earnings","deductions","super","leave","notes"]`. (3) Reconciliation warning design finalized: amber callout banner with 4 action buttons (Verify hours / Add bonus line / Accept mismatch / Cancel). (4) PAYG validation flow confirmed as user-button-triggered (not auto). (5) Rate history view design finalized: Current badge + green left border on current row; Edit on current row only, View on history rows. (6) Rate row form design finalized: pre-fills from current rate; changed fields get amber border. (7) Reorder sections modal design finalized: 7 section IDs with up/down arrows, first row green border, last row purple border, "Reset to default" button. (8) Accounts seed modal design finalized: 3 actions (Skip / Cancel / Create Account) with skip behavior documented. (9) **Visual parity check** added as step 11.8 — each component must match its corresponding mock in `docs/design/salary-history-mvp/`.
 ### Task 12: Wire the extension entry point
 
 **Files:** `extensions/salary-history/src/main.ts` (rewritten), `extensions/salary-history/package.json` (modified)
@@ -1567,7 +1307,6 @@ finance-flow-ai/
 
 - [ ] 12.1 Rewrite `main.ts`:
 
-> `[Plan Amendment 6]` The seeded default rate row must include `shift_allowance_hours_per_week: 38` (alongside the existing `accrual_rate_per_week: 2.92`, `starting_holiday_leave_balance: 0`). See Decision 16 amendment.
   ```ts
   import type { FinanceApi } from 'finance';
   import { listPaySlips, createPaySlip, ... } from './dao/pay-slips.js';
@@ -1599,9 +1338,7 @@ finance-flow-ai/
   }
   ```
 
-> `[Plan Amendment 1]` Removed `import { addDeduction, ... } from './dao/deductions.js'`. Command list went from 2 to 1: `salary.show-deductions` was dropped.
 
-> `[Plan Amendment 3]` Re-added a second command (`salary.show-pay-rate-history`) and the corresponding `pay-rate-history.js` import. New import for `payg-calc.js` and `pay-rate-service.js`. Activation now also seeds the default rate row and auto-computes the finance_year setting.
 - [ ] 12.2 Update `package.json`:
   - Add `tables` block with **two** entries: `salary_history_pay_slips` (28 columns per Plan Amendments 2 + 3 + 6) and `salary_history_rate_history` (16 columns per Plan Amendments 3 + 5 + 6) — per Decisions 3 and 16.
   - Add `commands` block with **two** entries: `salary.show-pay-history` and `salary.show-pay-rate-history` — per Decision 17.
@@ -1675,7 +1412,6 @@ finance-flow-ai/
 
 **Verification:** Manual test passes; existing E2E test (when unblocked) still passes.
 
-> `[Plan Amendment 1]` Removed `salary.show-deductions` from the command list. The Phase 3 mock extension contributed two commands; Phase 4 ships one.
 
 ---
 
@@ -1713,7 +1449,6 @@ finance-flow-ai/
 
 **Test Unit 9: Multi-File Build Verification** — Run `npm run build:extensions`. Confirm `dist/extensions/salary-history.js` exists. Run `grep "from 'finance'" dist/extensions/salary-history.js` → exit code 1 (no matches). Confirm bundle size < 200 KB.
 
-> `[Plan Amendment 1]` Test Unit 5 (Deduction Tracking) removed; subsequent units renumbered TU6→TU5, TU7→TU6, TU8→TU7, TU9→TU8, TU10→TU9. Total manual test units: 10 → 9. Test Unit 8's "130+ tests pass" updated to "~144 tests pass" (65 Phase 3 + ~79 Phase 4; old total of 130 was stale; new total reflects 16 deductions-related tests removed).
 
 ---
 
@@ -1737,7 +1472,7 @@ finance-flow-ai/
 
 - [ ] 19.1 In `docs/file-reference.md`, append a new "## Phase 4 — Shared Financial Data & Salary History Extension (Planned; v0.7.0)" section mirroring the file inventory table from this plan's File Structure section. All files marked `(new)` or `(modified, planned)`.
 - [ ] 19.2 In `ADR-0002`, append a Phase 4 evaluation addendum:
-  > **Phase 4 evaluation (2026-07-05, post-Plan Amendment 1):** Total migration count 2 → 4. All Core-owned, all simple DDL, all idempotent. None of the original revisit triggers tripped (one over the original "more than three" but well below the revised "~10" threshold). Threshold language in ADR-0002 loosened from "more than three" to "more than ~10 migrations, OR an extension ships its own migration independent of Core releases". Re-evaluate at Phase 8 (marketplace extensions).
+  > **Phase 4 evaluation (2026-07-05,):** Total migration count 2 → 4. All Core-owned, all simple DDL, all idempotent. None of the original revisit triggers tripped (one over the original "more than three" but well below the revised "~10" threshold). Threshold language in ADR-0002 loosened from "more than three" to "more than ~10 migrations, OR an extension ships its own migration independent of Core releases". Re-evaluate at Phase 8 (marketplace extensions).
 - [ ] 19.3 In `CHANGELOG.md`, add a new `## [0.7.0] - TBD` header with subsections:
   - `### Added` — Phase 4 implementation (after implementation lands). For plan creation only: add `### Administrative` entry citing this plan file.
 
@@ -1779,9 +1514,7 @@ finance-flow-ai/
 | `tests/unit/build/extensions-bundle.test.ts` | 3 | Decision 9 verification (no `from 'finance'`) |
 | **Total** | **~119** | |
 
-> `[Plan Amendment 1]` Removed `deduction-service.test.ts` (10 tests) and `dao/deductions.test.ts` (6 tests). Total new unit tests: ~95 → ~79. Project total (after Phase 4 lands): ~125 → ~144.
 
-> `[Plan Amendment 3]` Added 4 new test files (`pay-rate-service.test.ts`, `payg-calc.test.ts`, `payg-brackets.test.ts`, `dao/pay-rate-history.test.ts`); updated `pay-service.test.ts` (12 → 16, +4 for breakdown calculation + finance_year validation paths) and `dao/pay-slips.test.ts` (8 → 12, +4 for new hour/finance_year columns). Total new unit tests: ~79 → ~119 (+40). Project total (after Phase 4 lands): ~144 → ~184 (+40).
 
 ### Manual Test Units (10) — see Task 17 above
 
@@ -1797,8 +1530,6 @@ finance-flow-ai/
 6. Shared accounts read-only enforcement returns SharedTableReadOnly on write attempt.
 
 These will be unblocked when the Phase 3 Playwright-electron environmental issue is resolved (tracked separately).
-
----
 
 ## Self-Review Checklist
 
@@ -1818,13 +1549,13 @@ These will be unblocked when the Phase 3 Playwright-electron environmental issue
 ### §2 — Spec Coverage
 
 - [ ] **Implementation Design Phase 4 (lines 121-128):**
-  - Shared Financial Data schemas: Accounts ✓. PaySlips ✓ (extension-private, namespaced as `salary_history_pay_slips`). **PaySlips schema expanded by Plan Amendment 2** to include 11 per-payslip breakdown columns (9 monetary, 2 hours) so per-payslip amounts and hours are first-class rather than aggregate-only. **PaySlips schema further expanded by Plan Amendment 3** to include 6 hour-input columns + `finance_year` text column (22 → 29 columns). **PaySlips schema further adjusted by Plan Amendment 6** to drop `personal_leave_hours` and `holiday_hours` from storage (both become transient form inputs feeding the calc) and to add the derived `personal_leave` column (29 → 28 columns). The rate-history infrastructure for deriving these fields lives in a new `salary_history_rate_history` table (13 columns per Plan Amendment 3, 16 columns per Plan Amendments 3 + 5 + 6 — adds `accrual_rate_per_week`, `starting_holiday_leave_balance`, and `shift_allowance_hours_per_week`). See Plan Amendments 2, 3, 5, and 6 headers for the full column lists and rationale.
-  - ~~Deductions~~ — **REMOVED by Plan Amendment 1.** The implementation design spec mentions deductions; Phase 4 reserves that concept for the Phase 5+ Tax extension (which already plans to own a "deduction records ledger" per `project_vision.md:526`). Per-payslip PAYG withholding is captured as the `payg_withholding` column on `salary_history_pay_slips` (Plan Amendment 2) instead. **Plan Amendment 3 adds PAYG validation** via `payg-calc.ts` (wraps user's `CALCULATE_TAX_WITHHELD_26_27`) — the function is invoked via a `[ Validate PAYG ]` button (Decision 14), not auto-applied.
+  - Shared Financial Data schemas: Accounts ✓. PaySlips ✓ (extension-private, namespaced as `salary_history_pay_slips`). **PaySlips schema expanded** to include 11 per-payslip breakdown columns (9 monetary, 2 hours) so per-payslip amounts and hours are first-class rather than aggregate-only. **PaySlips schema further expanded** to include 6 hour-input columns + `finance_year` text column (22 → 29 columns). **PaySlips schema further adjusted** to drop `personal_leave_hours` and `holiday_hours` from storage (both become transient form inputs feeding the calc) and to add the derived `personal_leave` column (29 → 28 columns). The rate-history infrastructure for deriving these fields lives in a new `salary_history_rate_history` table (13 columns, 16 columns per Plan Amendments 3 + 5 + 6 — adds `accrual_rate_per_week`, `starting_holiday_leave_balance`, and `shift_allowance_hours_per_week`). See Plan Amendments 2, 3, 5, and 6 headers for the full column lists and rationale.
+  - ~~Deductions~~ — **REMOVED.** The implementation design spec mentions deductions; Phase 4 reserves that concept for the Phase 5+ Tax extension (which already plans to own a "deduction records ledger" per `project_vision.md:526`). Per-payslip PAYG withholding is captured as the `payg_withholding` column on `salary_history_pay_slips` instead. PAYG validation is available via `payg-calc.ts` (wraps user's `CALCULATE_TAX_WITHHELD_26_27`) — the function is invoked via a `[ Validate PAYG ]` button (Decision 14), not auto-applied.
   - `finance.db.table()` API for typed table access (no raw SQL) ✓
   - PayService ✓ (Decision 5, internal helper for Phase 4; **expanded by Decision 14** with `calculatePaySlipBreakdown`, `validateFinanceYear`, `reconcilePaySlip`)
-  - ~~DeductionService~~ — **REMOVED by Plan Amendment 1.**
+  - ~~DeductionService~~ — **REMOVED.**
   - Extension UI: payslip entry form (minimal entry + collapsible hours toggle + derived breakdown preview + `[Validate PAYG]` button per Decision 14), salary history list, YTD summary footer, **rate history view** (Decision 17), accounts-seed-modal ✓
-  - **Plan Amendment 4 — UI Design Finalization:** 8 HTML/CSS mocks pre-approve the visual contract at `docs/design/salary-history-mvp/` (see Decision 18). Implementation in Task 11 must match the mocks; visual parity check is Task 11.8. The mocks surfaced one structural correction: gross/net are user inputs in a dedicated **Totals** section between Period and Earnings (form now has 7 sections, not 6; `salary-history.sectionOrder` default updated accordingly).
+  - **UI Design Finalization:** 8 HTML/CSS mocks pre-approve the visual contract at `docs/design/salary-history-mvp/` (see Decision 18). Implementation in Task 11 must match the mocks; visual parity check is Task 11.8. The mocks surfaced one structural correction: gross/net are user inputs in a dedicated **Totals** section between Period and Earnings (form now has 7 sections, not 6; `salary-history.sectionOrder` default updated accordingly).
   - Deliverable: fully functional salary history UI with persistent storage ✓ + **second view (rate history) reachable via Command Palette** (Decision 17)
 
 ### §3 — Carries-forward from Phase 3 (explicit deferrals resolved)
@@ -1841,7 +1572,7 @@ These will be unblocked when the Phase 3 Playwright-electron environmental issue
 - [ ] Decision 2 (DAO API shape) — Task 5/7.
 - [ ] Decision 3 (Zod schemas from manifest) — Task 2/3/8.
 - [ ] Decision 4 (Accounts owned by Core) — Task 1/4.
-- [ ] Decision 5 (PayService as internal helper; DeductionService removed per Plan Amendment 1) — Task 10.
+- [ ] Decision 5 (PayService as internal helper; DeductionService removed) — Task 10.
 - [ ] Decision 6 (JSON-RPC method expansion) — Task 6.
 - [ ] Decision 7 (**3** new migrations — Amendment 3 adds 005) — Task 4.
 - [ ] Decision 8 (stay inline; **5 migrations** after Amendment 3, well under revised ~10 threshold) — Decision 8 itself + Task 19 ADR addendum.
@@ -1850,16 +1581,16 @@ These will be unblocked when the Phase 3 Playwright-electron environmental issue
 - [ ] Decision 11 (Lit elements in workspace, not webview) — Task 14.
 - [ ] Decision 12 (UI event IPC channel) — Task 14.
 - [ ] Decision 13 (settings namespace registered; **6 keys** after Amendment 3: defaultCurrency, financialYearStart, paygToleranceDollars, paygTaxYear, financeYear, sectionOrder) — Task 16.
-- [ ] **Decision 14 (Calculation Model — minimal inputs, derived breakdown; PAYG validation)** — **Plan Amendment 3** — Task 10 (PayService extension) + Task 11 (payslip-form rewrite) + Task 12 (entry point).
-- [ ] **Decision 15 (Reorderable Form Sections — sectionOrder setting + modal)** — **Plan Amendment 3** — Task 11 (reorder-sections-modal) + Task 10 (setting key in Decision 13).
-- [ ] **Decision 16 (Rate History as a First-Class Table — `salary_history_rate_history` 16 columns per Plan Amendments 3 + 5 + 6; temporal pattern)** — **Plan Amendment 3** (13 cols baseline) + **Plan Amendment 5** (15 cols: + `accrual_rate_per_week`, `starting_holiday_leave_balance`) + **Plan Amendment 6** (16 cols: + `shift_allowance_hours_per_week`) — Task 4 (migration 005) + Task 10 (pay-rate-service) + Task 11 (rate-row-form) + Task 12 (seed default rate on activation).
-- [ ] **Decision 17 (Two Commands / Two Views — pay-history existing + pay-rate-history new)** — **Plan Amendment 3** — Task 11 (pay-rate-history-view) + Task 12 (register both commands in main.ts).
+- [ ] Decision 14 (Calculation Model — minimal inputs, derived breakdown; PAYG validation) — Task 10 (PayService extension) + Task 11 (payslip-form rewrite) + Task 12 (entry point).
+- [ ] Decision 15 (Reorderable Form Sections — sectionOrder setting + modal) — Task 11 (reorder-sections-modal) + Task 10 (setting key in Decision 13).
+- [ ] Decision 16 (Rate History as a First-Class Table — `salary_history_rate_history` 16 columns; temporal pattern: temporal anchor + 8 rates including `shift_allowance_hours_per_week` + `accrual_rate_per_week` + `starting_holiday_leave_balance` + notes + 2 timestamps) — Task 4 (migration 005) + Task 10 (pay-rate-service) + Task 11 (rate-row-form) + Task 12 (seed default rate on activation).
+- [ ] Decision 17 (Two Commands / Two Views — pay-history existing + pay-rate-history new) — Task 11 (pay-rate-history-view) + Task 12 (register both commands in main.ts).
 
 ### §5 — Test Pyramid
 
-- [ ] ~119 new unit tests (all deterministic, fast, isolated via Phase 3's `getTestDatabase()` factory). **+40 from Plan Amendment 3** (4 new test files + extensions to 2 existing files). Test Unit 6 rewritten (Review Finding 10 — exercises prefix-rejection branch via registry seam instead of non-existent `budget_items`); Test Unit 7 reworded (Review Finding 11 — clarifies that shared reads don't require `tables[]` manifest declaration).
+- [ ] ~119 new unit tests (all deterministic, fast, isolated via Phase 3's `getTestDatabase()` factory). Includes 4 new test files + extensions to 2 existing files. Test Unit 6 rewritten (Review Finding 10 — exercises prefix-rejection branch via registry seam instead of non-existent `budget_items`); Test Unit 7 reworded (Review Finding 11 — clarifies that shared reads don't require `tables[]` manifest declaration).
 - [ ] 9 manual test units covering the full user journey.
-- [ ] **Plan Amendment 4 — visual review step:** before Task 11 implementation starts, walk through the 8 HTML mocks in `docs/design/salary-history-mvp/` (per Decision 18 visual-review checklist). After each component is implemented, take a DOM snapshot and diff against the corresponding mock — any visible regression must be explained before merging (Task 11.8).
+- [ ] **Visual review step (Decision 18):** before Task 11 implementation starts, walk through the 8 HTML mocks in `docs/design/salary-history-mvp/` (per Decision 18 visual-review checklist). After each component is implemented, take a DOM snapshot and diff against the corresponding mock — any visible regression must be explained before merging (Task 11.8).
 - [ ] 6 new E2E tests written but gated by Phase 3 environmental blocker (documented).
 
 ### §6 — Code Quality / Production Readiness
