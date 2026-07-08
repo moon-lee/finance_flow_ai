@@ -64,7 +64,7 @@ A bootable Electron app. The Salary History extension exposes **one Activity Bar
 
 Clicking `P` opens the **pay-history view**, which renders two Lit components side-by-side:
 
-1. **Payslip entry form** (Lit component) — fields: pay period, gross/net (Totals section), 6 hour inputs + 2 leave inputs (collapsible "This week was different" toggle), derived breakdown preview, `[ Validate PAYG ]` button. Submit writes to `salary_history_pay_slips` via `finance.db.table('salary_history_pay_slips').insert({...})`.
+1. **Payslip entry form** (Lit component) — fields: pay period, gross/net (Totals section), 7 hour inputs + 1 leave balance (collapsible "This week was different" toggle), derived breakdown preview, `[ Validate PAYG ]` button. Submit writes to `salary_history_pay_slips` via `finance.db.table('salary_history_pay_slips').insert({...})`.
 2. **Salary history list** (Lit component) — paginated table of past payslips, sorted by pay_date DESC. Edit and Delete actions per row. Year-to-date gross / net / PAYG / SG summary footer (computed by `PayService.aggregateYearToDate()`).
 
 ### View reached via Command Palette only (NOT from clicking `P`)
@@ -216,7 +216,7 @@ Every method validates the table name (Decision 1) and the row payload (Zod sche
         { "name": "payg_withholding",            "type": "real",    "nullable": false, "default": 0, "min": 0 },
         { "name": "superannuation_guarantee",    "type": "real",    "nullable": false, "default": 0, "min": 0 },
         { "name": "personal_leave",             "type": "real",    "nullable": false, "default": 0, "min": 0, "description": "Money paid for personal leave this period. Derived by calculatePaySlipBreakdown as h.personal_leave_hours × rateRow.base_hourly_rate." },
-        { "name": "holiday_leave_accrual_hours", "type": "real",    "nullable": false, "default": 0, "min": 0, "description": "Cumulative holiday leave balance at this payslip (read-only, auto-derived): prev_balance − personal_leave_hours − holiday_hours + accrual_rate_per_week. personal_leave_hours and holiday_hours are transient form inputs — not persisted, but passed by the form to calculateHolidayLeaveAccrual." },
+        { "name": "holiday_leave_accrual_hours", "type": "real",    "nullable": false, "default": 0, "min": 0, "description": "Cumulative annual/holiday leave balance at this payslip (read-only, auto-derived): prev_balance − holiday_hours + accrual_rate_per_week. personal_leave_hours is intentionally excluded because personal leave is a separate entitlement under Australian payroll (Fair Work Act 2009); it does not reduce the annual/holiday leave balance. personal_leave_hours and holiday_hours are transient form inputs — not persisted, but passed by the form to calculateHolidayLeaveAccrual." },
         { "name": "notes",                       "type": "text",    "nullable": true },
         { "name": "created_at",                  "type": "datetime","nullable": false, "default": "now" },
         { "name": "updated_at",                  "type": "datetime","nullable": false, "default": "now" }
@@ -625,7 +625,7 @@ Phase 4 **does not** render the generic settings UI (that is Phase 7 work per Ph
 
 **Form structure:**
 - **Always-visible:** `pay_date`, `finance_year`, `gross`, `net`, `pay_period_start`, `pay_period_end`, `account`, `notes`
-- **Collapsed by default:** "This week was different" toggle → 6 hour fields (`regular_hours`, `shift_hours`, `overtime_1_5_hours`, `overtime_2_0_hours`, `holiday_hours`, `public_holiday_hours`)
+- **Collapsed by default:** "This week was different" toggle → 7 hour fields (`regular_hours`, `shift_hours`, `overtime_1_5_hours`, `overtime_2_0_hours`, `holiday_hours`, `public_holiday_hours`, `personal_leave_hours`)
 - **Read-only preview:** 9 derived monetary breakdowns + reconciliation warnings
 - **Inline:** `payg_withholding` (derived from gross − net), `superannuation_guarantee` (derived from gross × rate)
 - **Button:** `[ Validate PAYG ]` (inline in Deductions section; see Decision 14 rationale below)
@@ -668,16 +668,18 @@ function calculatePaySlipBreakdown(
 // holiday leave accrual
 // Computes the new cumulative holiday leave balance after a pay period.
 // `prevBalance` is the previous payslip's holiday_leave_accrual_hours (or the rate row's
-// starting_holiday_leave_balance for the first payslip). `personalLeaveHours` and `holidayHours`
-// are hours TAKEN from the leave balances this period; `accrualRatePerWeek` comes from the active
-// rate row. The result is rounded to 2 decimal places.
+// starting_holiday_leave_balance for the first payslip). `holidayHours` is hours TAKEN
+// from the annual/holiday leave balance this period; `accrualRatePerWeek` comes from the
+// active rate row. `personalLeaveHours` is intentionally NOT a parameter — personal
+// leave is a separate entitlement under Australian payroll (Fair Work Act 2009) and is
+// paid via the derived `personal_leave` monetary column, but does not reduce the annual/
+// holiday leave balance. The result is rounded to 2 decimal places.
 function calculateHolidayLeaveAccrual(
   prevBalance: number,
-  personalLeaveHours: number,
   holidayHours: number,
   accrualRatePerWeek: number,
 ): number {
-  const raw = prevBalance - personalLeaveHours - holidayHours + accrualRatePerWeek;
+  const raw = prevBalance - holidayHours + accrualRatePerWeek;
   return Math.round(raw * 100) / 100;
 }
 ```
@@ -713,7 +715,7 @@ function calculateHolidayLeaveAccrual(
 | `earnings` | (read-only preview) `base_hourly`, `shift_allowance`, `overtime_1_5x`, `overtime_2_0x`, `holiday_pay`, `holiday_leave_loading`, `public_holiday` |
 | `deductions` | (read-only) `payg_withholding` + `[ Validate PAYG ]` button + result display |
 | `super` | (read-only) `superannuation_guarantee` |
-| `leave` | (collapsed by default) 6 hour fields under "this week was different" toggle; `personal_leave_hours`; `holiday_leave_accrual_hours` |
+| `leave` | (collapsed by default) 7 hour fields under "this week was different" toggle (regular_hours, shift_hours, overtime_1_5_hours, overtime_2_0_hours, holiday_hours, public_holiday_hours, personal_leave_hours); `holiday_leave_accrual_hours` (read-only balance) |
 | `notes` | `notes` (free text) |
 
 **Implementation:**
@@ -851,8 +853,8 @@ Both commands are registered via `financeExtension.contributes.commands`. The Ac
 | 3 | **Earnings (derived)** | yes | — | rate row × hours; 7 monetary fields |
 | 4 | **Deductions** | yes | — | `payg_withholding` = gross − net; `[ Validate PAYG ]` button calls `payg-calc.validatePayg` |
 | 5 | **Super** | yes | — | `superannuation_guarantee` = gross × sg_rate |
-| 6 | **Hours breakdown** | always visible | 6 hour inputs (`regular_hours`, `shift_hours`, `overtime_1_5_hours`, `overtime_2_0_hours`, `holiday_hours`, `public_holiday_hours`) + `personal_leave_hours` (moved from Leave section) | — |
-| 7 | **Leave** | collapsed by default | `holiday_leave_accrual_hours` (read-only, auto-calculated via `calculateHolidayLeaveAccrual`; displays formula breakdown: `prev_balance − personal_leave_hours − holiday_hours + accrual_rate_per_week`) | `prev_balance − personal_leave_hours − holiday_hours + accrual_rate_per_week` |
+| 6 | **Hours breakdown** | always visible | 7 hour inputs (`regular_hours`, `shift_hours`, `overtime_1_5_hours`, `overtime_2_0_hours`, `holiday_hours`, `public_holiday_hours`, `personal_leave_hours`) | — |
+| 7 | **Leave** | collapsed by default | `holiday_leave_accrual_hours` (read-only, auto-calculated via `calculateHolidayLeaveAccrual`; displays formula breakdown: `prev_balance − holiday_hours + accrual_rate_per_week`) | `prev_balance − holiday_hours + accrual_rate_per_week` |
 | 8 | **Notes** | yes | free text | — |
 
 **Total user inputs:** 7 (pay_date, finance_year, account, gross, net, hours-on-demand, notes) — but only 3 are required: `pay_date`, `gross`, `net`.
@@ -1307,7 +1309,7 @@ finance-flow-ai/
   - **Earnings section** (read-only preview, derived): 9 monetary breakdowns + reconciliation warning if sum-of-earnings ≠ gross by > tolerance.
   - **Deductions section**: `payg_withholding` (derived = gross − net) + `[ Check Tax Estimate ]` button (renamed from `[ Validate PAYG ]` per Review Finding 15 — the button validates the user's net against the ATO estimate, not the derived PAYG) + result display (inline amber/green callout). If the user has manually changed `finance_year` away from the pay_date-derived default (Review Finding 9), the form shows a non-blocking amber callout with two actions: "Auto-correct to <derived-FY>" (default) and "Keep override". The form does not block submit; it surfaces the discrepancy and lets the user choose.
   - **Super section**: `superannuation_guarantee` (derived = gross × rate).
-  - **Leave section** (collapsed by default): "This week was different" toggle → expands to show 6 hour inputs (`regular_hours`, `shift_hours`, `overtime_1_5_hours`, `overtime_2_0_hours`, `holiday_hours`, `public_holiday_hours`) + 2 leave fields (`personal_leave_hours`, `holiday_leave_accrual_hours`).
+  - **Leave section** (collapsed by default): "This week was different" toggle → expands to show 7 hour inputs (`regular_hours`, `shift_hours`, `overtime_1_5_hours`, `overtime_2_0_hours`, `holiday_hours`, `public_holiday_hours`) + 1 leave balance field (`holiday_leave_accrual_hours`).
   - **Notes section**: free text (used to record "back-pay from June" or similar reconciliation context).
   - Visual reference: `docs/design/salary-history-mvp/payslip-form-collapsed.html` (default), `payslip-form-expanded.html` (toggle on), `payslip-form-reconciled.html` (warning state).
   - Submit dispatches a `payslip-create` custom event with the payload.
