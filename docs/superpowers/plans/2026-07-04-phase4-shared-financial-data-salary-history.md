@@ -202,6 +202,7 @@ Every method validates the table name (Decision 1) and the row payload (Zod sche
         { "name": "pay_period_start",            "type": "date",    "nullable": false },
         { "name": "pay_period_end",              "type": "date",    "nullable": false },
         { "name": "pay_date",                    "type": "date",    "nullable": false, "index": true },
+        { "name": "finance_year",                "type": "text",    "nullable": false, "description": "Australian financial year label (e.g. 'FY2026-2027') auto-computed from pay_date + financialYearStart; format enforced by PayService.validateFinanceYear, not the DAO schema." },
         { "name": "gross",                       "type": "real",    "nullable": false, "min": 0 },
         { "name": "net",                         "type": "real",    "nullable": false, "min": 0 },
         { "name": "currency",                    "type": "text",    "nullable": false, "default": "AUD" },
@@ -997,7 +998,7 @@ finance-flow-ai/
 |       `-- finance-shell.d.ts                   (modified) — ExtensionsApi.uiEvent / onUiMount; remove phase3 placeholder
 |-- extensions/
 |   `-- salary-history/
-|       |-- package.json                         (modified) — adds tables[] (2 entries: salary_history_pay_slips with 28 columns + salary_history_rate_history with 16 columns), configuration[] (6 keys: defaultCurrency, financialYearStart, paygToleranceDollars, paygTaxYear, financeYear, sectionOrder), commands[] (2 entries: salary.show-pay-history, salary.show-pay-rate-history), financeExtension.main
+|       |-- package.json                         (modified) — adds tables[] (2 entries: salary_history_pay_slips with 23 columns per Decision 3 + salary_history_rate_history with 16 columns), configuration[] (6 keys: defaultCurrency, financialYearStart, paygToleranceDollars, paygTaxYear, financeYear, sectionOrder), commands[] (2 entries: salary.show-pay-history, salary.show-pay-rate-history), financeExtension.main
 |       `-- src/
 |           |-- main.ts                          (modified) — real activate() implementation; mounts UI, wires both commands (salary.show-pay-history, salary.show-pay-rate-history)
 |           |-- services/
@@ -1006,7 +1007,7 @@ finance-flow-ai/
 |           |   |-- payg-calc.ts                  (new) — validatePayg(gross, net, taxYear, tolerance) returning PaygValidationResult; wraps CALCULATE_TAX_WITHHELD_26_27 (Decision 14)
 |           |   `-- payg-brackets.ts               (new) — getBracketsForYear(year) returning ATO weekly tax brackets for FY 2026-2027 + future years
 |           |-- dao/
-|           |   |-- pay-slips.ts                 (new) — typed wrapper around finance.db.table('salary_history_pay_slips') with 28 columns (per Plan Amendments 2 + 3 + 6)
+|           |   |-- pay-slips.ts                 (new) — typed wrapper around finance.db.table('salary_history_pay_slips') with 23 columns per Decision 3
 |           |   `-- pay-rate-history.ts           (new) — typed wrapper around finance.db.table('salary_history_rate_history') with 16 columns (per Plan Amendments 3 + 5 + 6)
 |           `-- ui/
 |               |-- payslip-form.ts              (new) — Lit element; minimal entry (date + gross + net) + collapsible hours toggle + derived breakdown preview + [Validate PAYG] button (Decision 14)
@@ -1124,7 +1125,7 @@ finance-flow-ai/
 
 - [ ] 4.1 Append three new migration bodies to `infrastructure-migration.ts`:
   - `003-shared-accounts` — `CREATE TABLE accounts (...)`.
-  - `004-salary-history-pay-slips` — `CREATE TABLE salary_history_pay_slips (...)` with FK to `accounts.id`. Includes all 28 columns per Decision 14 (4 identity/period + 1 finance_year + 3 totals + 9 monetary breakdowns + 4 hour inputs (`regular_hours`, `overtime_1_5_hours`, `overtime_2_0_hours`, `public_holiday_hours`) + 1 derived (`personal_leave`) + 1 leave balance (`holiday_leave_accrual_hours`) + notes + 2 timestamps).
+  - `004-salary-history-pay-slips` — `CREATE TABLE salary_history_pay_slips (...)` with FK to `accounts.id`. Includes all 23 columns per Decision 3 (id, account_id, pay_period_start, pay_period_end, pay_date, finance_year, gross, net, currency, 9 monetary breakdowns [shift_allowance, base_hourly, overtime_1_5x, overtime_2_0x, holiday_leave_loading, holiday_pay, public_holiday, payg_withholding, superannuation_guarantee], personal_leave, holiday_leave_accrual_hours, notes, created_at, updated_at).
   - `005-salary-history-rate-history` — `CREATE TABLE salary_history_rate_history (...)` with 16 columns per Decision 16 (temporal anchor + 8 rates including `shift_allowance_hours_per_week` + notes + 2 timestamps).
 - [ ] 4.2 Register all three in `database-service.ts`'s migration list (in order, after `002-extension-crash-tracking`).
 - [ ] 4.3 Manual smoke test: delete the user's `finance.db`, boot the app, confirm all 5 migrations apply, open the DB in a SQLite browser and confirm the three new tables exist with the correct columns and indexes.
@@ -1254,7 +1255,7 @@ finance-flow-ai/
   - `createPaySlip(finance, input: PaySlipInput): Promise<PaySlip>` (validates via PayService)
   - `updatePaySlip(finance, id: number, patch: Partial<PaySlipInput>): Promise<void>`
   - `deletePaySlip(finance, id: number): Promise<void>`
-  - `PaySlipInput` type includes all 28 columns per Decision 14: id, account_id, pay_period_start, pay_period_end, pay_date, finance_year, gross, net, currency, the 9 monetary breakdowns, the 4 stored hour inputs (regular_hours, overtime_1_5_hours, overtime_2_0_hours, public_holiday_hours), the 1 leave balance field (holiday_leave_accrual_hours), the 1 derived column (personal_leave), notes. Personal_leave_hours, shift_hours, and holiday_hours are transient form inputs — not persisted, passed by the form to calculatePaySlipBreakdown and calculateHolidayLeaveAccrual.
+  - `PaySlipInput` type = 23 columns per Decision 3 manifest. All 7 hour inputs (`regular_hours`, `shift_hours`, `overtime_1_5_hours`, `overtime_2_0_hours`, `holiday_hours`, `public_holiday_hours`, `personal_leave_hours`) are transient form inputs only (not persisted).
 - [ ] 10.2 Implement `dao/pay-rate-history.ts` (new per Amendment 3, Decision 16):
   - `getRateForDate(finance, payDate: string): Promise<RateRow | null>` — temporal lookup
   - `getCurrentRate(finance): Promise<RateRow | null>` — the row with `effective_to IS NULL`
@@ -1282,7 +1283,7 @@ finance-flow-ai/
   - `pay-rate-service.test.ts` (10 tests): DAO CRUD + temporal logic (addNewRate closes previous current row; getRateForDate temporal lookup).
   - `payg-calc.test.ts` (12 tests): bracket boundaries + tolerance validation + edge cases (zero, negative, mid-bracket).
   - `payg-brackets.test.ts` (4 tests): year lookup; unknown year throws; FY 2026-2027 returns 9 brackets.
-  - `dao/pay-slips.test.ts` (12 tests, +4 from Amendment 3): integration with stubbed `finance` (DAO stub) for 28 columns (per Plan Amendments 2 + 3 + 6).
+  - `dao/pay-slips.test.ts` (12 tests): integration with stubbed `finance` (DAO stub) for 23 columns per Decision 3.
   - `dao/pay-rate-history.test.ts` (6 tests): rate_history DAO integration (insert + temporal close + getRateForDate).
 
 **Verification:** `npm run test:unit -- salary-history` → 60 tests pass (was 20 after Amendment 1; +40 from Amendment 3).
@@ -1401,7 +1402,7 @@ finance-flow-ai/
 
 
 - [ ] 12.2 Update `package.json`:
-  - Add `tables` block with **two** entries: `salary_history_pay_slips` (28 columns per Plan Amendments 2 + 3 + 6) and `salary_history_rate_history` (16 columns per Plan Amendments 3 + 5 + 6) — per Decisions 3 and 16.
+  - Add `tables` block with **two** entries: `salary_history_pay_slips` (23 columns per Decision 3) and `salary_history_rate_history` (16 columns per Decision 16) — per Decisions 3 and 16.
   - Add `commands` block with **two** entries: `salary.show-pay-history` and `salary.show-pay-rate-history` — per Decision 17.
   - Add `configuration` block with all 6 keys: `defaultCurrency`, `financialYearStart`, `paygToleranceDollars`, `paygTaxYear`, `financeYear`, `sectionOrder` — per Decision 13 update.
   - Update `description` to reflect "Phase 4: real implementation with calculation engine, rate history, and second view".
@@ -1570,7 +1571,7 @@ finance-flow-ai/
 | `tests/unit/extensions/salary-history/pay-rate-service.test.ts` | 10 | DAO CRUD + temporal logic for rate_history (Amendment 3) |
 | `tests/unit/extensions/salary-history/payg-calc.test.ts` | 12 | Bracket boundaries + tolerance validation (Amendment 3) |
 | `tests/unit/extensions/salary-history/payg-brackets.test.ts` | 4 | Year lookup (Amendment 3) |
-| `tests/unit/extensions/salary-history/dao/pay-slips.test.ts` | 12 | DAO integration for 28 columns (Amendment 3: +4; Amendment 6 column-set adjustment when implementation begins) |
+| `tests/unit/extensions/salary-history/dao/pay-slips.test.ts` | 12 | DAO integration for 23 columns per Decision 3 |
 | `tests/unit/extensions/salary-history/dao/pay-rate-history.test.ts` | 6 | Rate_history DAO integration (Amendment 3) |
 | `tests/unit/build/extensions-bundle.test.ts` | 3 | Decision 9 verification (no `from 'finance'`) |
 | **Total** | **~119** | |
