@@ -74,7 +74,7 @@ Clicking `P` opens the **pay-history view**, which renders two Lit components si
 ### Modals (opened from the views, on top of the current view)
 
 4. **Rate row form modal** — opened by the Edit button in the **pay-rate-history view** (item 3). Fields: `effective_from` / `effective_to`, the 8 rate columns (base + 7 multipliers), 2 accrual fields (`accrual_rate_per_week`, `starting_holiday_leave_balance`), notes. On add, atomically closes the previous current rate row (Decision 16's `addNewRate` uses `BEGIN IMMEDIATE`).
-5. **Reorder sections modal** — opened by a `[ Reorder Sections ]` button in the **payslip entry form** (item 1). Up/down arrows for the 7 form sections (period, totals, earnings, deductions, super, leave, notes). Persists to `salary-history.sectionOrder` setting (item 7).
+5. **Reorder sections modal** — opened by a `[ Reorder Sections ]` button in the **payslip entry form** (item 1). Up/down arrows for the 8 form sections (period, totals, earnings, deductions, super, leave, leave-accrual, notes). Persists to `salary-history.sectionOrder` setting (item 7).
 6. **Accounts seed modal** — appears automatically on first activation if the `accounts` table is empty (the only modal that opens without user action). User can name + optional institution; actions Create / Skip / Cancel. Proves Phase 4's read access to Shared Financial Data.
 
 ### Settings (persisted; no generic settings UI in Phase 4)
@@ -107,6 +107,7 @@ Clicking `P` opens the **pay-history view**, which renders two Lit components si
 | ESM-friendly source maps in production bundles | Phase 7 | Vite emits sourcemaps by default in dev; production minification stripping is Phase 7 |
 | Umzug migration runner adoption | **Phase 4+** (revisit — see Decision 8) | ADR-0002 says "more than 3 migrations" is a trigger; Phase 4 lands at 5 (Decision 7) — two over the trigger but well within the inline runner's sweet spot |
 | Phase 2 deferred E2E suite still gated | unchanged | Playwright-electron environmental blocker (Phase 3 final status); tracked separately |
+| FY format normalization between `salary-history.paygTaxYear` (`"2026-2027"`) and `salary-history.financeYear` (`"FY2026-2027"`) | Phase 5 | Phase 4 has no settings UI to surface cross-setting validation; the two settings coexist in different formats without conversion logic. Phase 5 settings overview will be the natural place to review any divergence between the ATO bracket year and the user's accounting FY, and decide whether a normalization helper is warranted. |
 
 ---
 
@@ -589,7 +590,7 @@ This is the renderer→extension writeback channel. The existing `executeCommand
       "salary-history.paygTaxYear": {
         "type": "string",
         "default": "2026-2027",
-        "description": "ATO weekly tax table year; bracketed tables keyed by this value. Auto-computed from current date at app boot if unset (similar to financeYear). Phase 4 hardcodes FY 2026-2027 brackets in payg-brackets.ts; unknown years cause [ Check Tax Estimate ] (renamed from [ Validate PAYG ] per Review Finding 15) to surface a non-blocking 'Bracket data unavailable for FY X' message instead of throwing. Future FY brackets are added by appending entries to BRACKETS_* constants in payg-brackets.ts."
+        "description": "ATO weekly tax table year; bracketed tables keyed by this value. Auto-computed from current date at app boot if unset (similar to financeYear). Phase 4 hardcodes FY 2026-2027 brackets in payg-brackets.ts; unknown years cause [ Validate PAYG ] to surface a non-blocking 'Bracket data unavailable for FY X' message instead of throwing. Future FY brackets are added by appending entries to BRACKETS_* constants in payg-brackets.ts."
       },
       "salary-history.financeYear": {
         "type": "string",
@@ -597,7 +598,7 @@ This is the renderer→extension writeback channel. The existing `executeCommand
       },
       "salary-history.sectionOrder": {
         "type": "array",
-        "default": ["period", "earnings", "deductions", "super", "leave", "notes"],
+        "default": ["period", "totals", "earnings", "deductions", "super", "leave", "leave-accrual", "notes"],
         "description": "Form section render order; editable via [Reorder Sections] modal (Decision 15)"
       }
     }
@@ -706,17 +707,19 @@ function calculateHolidayLeaveAccrual(
 
 > **In plain English:** Users can rearrange the sections of the payslip form (Period, Earnings, Deductions, etc.) via a "Reorder Sections" button, since different users care about different sections first. The order is saved per-user.
 
-**Choice:** The form sections can be reordered by the user. The order is persisted via the `salary-history.sectionOrder` settings key (JSON array of section IDs). Default order: `["period", "earnings", "deductions", "super", "leave", "notes"]`.
+**Choice:** The form sections can be reordered by the user. The order is persisted via the `salary-history.sectionOrder` settings key (JSON array of section IDs). Default order: `["period", "totals", "earnings", "deductions", "super", "leave", "leave-accrual", "notes"]` (matches the mocks at `docs/design/salary-history-mvp/`).
 
 **Section IDs and contents:**
 
 | Section ID | Fields rendered |
 |---|---|
 | `period` | `pay_date`, `finance_year`, `pay_period_start`, `pay_period_end`, `account` |
+| `totals` | `gross` ($), `net` ($) — the 2 of the 3 minimal user inputs (per Amendment 4) |
 | `earnings` | (read-only preview) `base_hourly`, `shift_allowance`, `overtime_1_5x`, `overtime_2_0x`, `holiday_pay`, `holiday_leave_loading`, `public_holiday` |
 | `deductions` | (read-only) `payg_withholding` + `[ Validate PAYG ]` button + result display |
 | `super` | (read-only) `superannuation_guarantee` |
-| `leave` | (collapsed by default) 7 hour fields under "this week was different" toggle (regular_hours, shift_hours, overtime_1_5_hours, overtime_2_0_hours, holiday_hours, public_holiday_hours, personal_leave_hours); `holiday_leave_accrual_hours` (read-only balance) |
+| `leave` | (collapsed by default) 7 hour fields under "this week was different" toggle (regular_hours, shift_hours, overtime_1_5_hours, overtime_2_0_hours, holiday_hours, public_holiday_hours, personal_leave_hours) |
+| `leave-accrual` | (always visible, read-only) `holiday_leave_accrual_hours` (auto-derived via `calculateHolidayLeaveAccrual`; displays formula breakdown: `prev_balance − holiday_hours + accrual_rate_per_week`) |
 | `notes` | `notes` (free text) |
 
 **Implementation:**
@@ -845,7 +848,7 @@ Both commands are registered via `financeExtension.contributes.commands`. The Ac
 
 **Choice:** The visual design for all 6 UI components is pre-approved via 8 static HTML/CSS mockups at `docs/design/salary-history-mvp/`. Task 11 implementation must match the mocks; any deviation is a design review. The mocks surfaced one structural correction — gross/net must be **user inputs** in a dedicated Totals section, not derived — and that correction is captured here.
 
-**Form structure (final, 7 sections):**
+**Form structure (final, 8 sections):**
 
 | # | Section | Always visible? | Inputs | Derived from |
 |---|---|---|---|---|
@@ -854,13 +857,13 @@ Both commands are registered via `financeExtension.contributes.commands`. The Ac
 | 3 | **Earnings (derived)** | yes | — | rate row × hours; 7 monetary fields |
 | 4 | **Deductions** | yes | — | `payg_withholding` = gross − net; `[ Validate PAYG ]` button calls `payg-calc.validatePayg` |
 | 5 | **Super** | yes | — | `superannuation_guarantee` = gross × sg_rate |
-| 6 | **Hours breakdown** | always visible | 7 hour inputs (`regular_hours`, `shift_hours`, `overtime_1_5_hours`, `overtime_2_0_hours`, `holiday_hours`, `public_holiday_hours`, `personal_leave_hours`) | — |
-| 7 | **Leave** | collapsed by default | `holiday_leave_accrual_hours` (read-only, auto-calculated via `calculateHolidayLeaveAccrual`; displays formula breakdown: `prev_balance − holiday_hours + accrual_rate_per_week`) | `prev_balance − holiday_hours + accrual_rate_per_week` |
+| 6 | **Leave** | collapsed by default | 7 hour inputs under "this week was different" toggle (`regular_hours`, `shift_hours`, `overtime_1_5_hours`, `overtime_2_0_hours`, `holiday_hours`, `public_holiday_hours`, `personal_leave_hours`) | — |
+| 7 | **Leave Accrual** | yes (read-only) | `holiday_leave_accrual_hours` (auto-calculated via `calculateHolidayLeaveAccrual`; displays formula breakdown) | `prev_balance − holiday_hours + accrual_rate_per_week` |
 | 8 | **Notes** | yes | free text | — |
 
 **Total user inputs:** 7 (pay_date, finance_year, account, gross, net, hours-on-demand, notes) — but only 3 are required: `pay_date`, `gross`, `net`.
 
-**Section order** (`salary-history.sectionOrder` setting, default): `["period","totals","earnings","deductions","super","leave","notes"]`. Updated from Amendment 3's `["period","earnings","deductions","super","leave","notes"]` — the Totals section is now between Period and Earnings.
+**Section order** (`salary-history.sectionOrder` setting, default): `["period","totals","earnings","deductions","super","leave","leave-accrual","notes"]`. Updated from Amendment 3's `["period","earnings","deductions","super","leave","notes"]` — the Totals section is now between Period and Earnings, and the Leave Accrual section is between Leave and Notes (per the mocks at `docs/design/salary-history-mvp/`).
 
 **Reconciliation warning (inline, non-blocking):**
 - Computed inline as: `sum_earnings = base_hourly + shift_allowance + overtime_1_5x + overtime_2_0x + holiday_pay + holiday_leave_loading + public_holiday`
@@ -898,11 +901,11 @@ Both commands are registered via `financeExtension.contributes.commands`. The Ac
 
 **Reorder sections modal (`reorder-sections-modal.ts`):**
 - Backdrop + centered modal
-- List of 7 section IDs with up/down arrow buttons per row
+- List of 8 section IDs with up/down arrow buttons per row
 - First row: ▲ disabled (already first), ▼ enabled
 - Last row: ▲ enabled, ▼ disabled
 - First row gets green left border; last row gets purple left border
-- "Reset to default" button restores `["period","totals","earnings","deductions","super","leave","notes"]`
+- "Reset to default" button restores `["period","totals","earnings","deductions","super","leave","leave-accrual","notes"]`
 - Save writes JSON-encoded array to `salary-history.sectionOrder` via `finance.settings.set(...)`
 
 **Accounts seed modal (`accounts-seed-modal.ts`):**
@@ -919,8 +922,8 @@ Both commands are registered via `financeExtension.contributes.commands`. The Ac
 - Lit components should use CSS custom properties defined in `:host` to apply the same tokens inside shadow DOM (mocks use literals because they're not shadow-DOM isolated)
 
 **Visual review checklist (run before Task 11 implementation):**
-- [ ] User has approved all 8 mocks (per Decision 18 visual-review checklist)
-- [ ] Section order default updated to include `totals`: `["period","totals","earnings","deductions","super","leave","notes"]`
+- [x] User has approved all 8 mocks (per Decision 18 visual-review checklist)
+- [ ] Section order default updated to include `totals` and `leave-accrual`: `["period","totals","earnings","deductions","super","leave","leave-accrual","notes"]` (matches mocks at `docs/design/salary-history-mvp/`)
 - [ ] Reconciliation warning threshold = `paygToleranceDollars` setting (default $5.00)
 - [ ] PAYG validation triggers on user button click (not on every keystroke)
 - [ ] All 6 UI components reference the mocks for their visual implementation
@@ -1304,11 +1307,11 @@ finance-flow-ai/
 
 - [ ] 11.0 **Visual review of mocks** (per Decision 18 checklist): open each mock in `docs/design/salary-history-mvp/`, walk through the flow, confirm all 7 visual-review checks in Decision 18 pass before writing any Lit code.
 - [ ] 11.1 `payslip-form.ts` (rewritten per Decision 14, refined per Decision 18):
-  - 7 sections rendered per `salary-history.sectionOrder` setting (default: `period`, `totals`, `earnings`, `deductions`, `super`, `leave`, `notes`).
+  - 8 sections rendered per `salary-history.sectionOrder` setting (default: `period`, `totals`, `earnings`, `deductions`, `super`, `leave`, `leave-accrual`, `notes`).
   - **Period section** (always visible): `pay_date`, `finance_year` (dropdown, auto-prefilled from settings), `account`. `pay_period_start/end` auto-derived from `pay_date`.
   - **Totals section** (always visible, NEW per Amendment 4 — the 2 of the 3 minimal user inputs): `gross` ($), `net` ($).
   - **Earnings section** (read-only preview, derived): 9 monetary breakdowns + reconciliation warning if sum-of-earnings ≠ gross by > tolerance.
-  - **Deductions section**: `payg_withholding` (derived = gross − net) + `[ Check Tax Estimate ]` button (renamed from `[ Validate PAYG ]` per Review Finding 15 — the button validates the user's net against the ATO estimate, not the derived PAYG) + result display (inline amber/green callout). If the user has manually changed `finance_year` away from the pay_date-derived default (Review Finding 9), the form shows a non-blocking amber callout with two actions: "Auto-correct to <derived-FY>" (default) and "Keep override". The form does not block submit; it surfaces the discrepancy and lets the user choose.
+  - **Deductions section**: `payg_withholding` (derived = gross − net) + `[ Validate PAYG ]` button + result display (inline amber/green callout). If the user has manually changed `finance_year` away from the pay_date-derived default (Review Finding 9), the form shows a non-blocking amber callout with two actions: "Auto-correct to <derived-FY>" (default) and "Keep override". The form does not block submit; it surfaces the discrepancy and lets the user choose.
   - **Super section**: `superannuation_guarantee` (derived = gross × rate).
   - **Leave section** (collapsed by default): "This week was different" toggle → expands to show 7 hour inputs (`regular_hours`, `shift_hours`, `overtime_1_5_hours`, `overtime_2_0_hours`, `holiday_hours`, `public_holiday_hours`) + 1 leave balance field (`holiday_leave_accrual_hours`).
   - **Notes section**: free text (used to record "back-pay from June" or similar reconciliation context).
@@ -1345,14 +1348,14 @@ finance-flow-ai/
   - On submit (after Confirm), calls `PayRateService.addNewRate` or `editCurrentRate`.
   - Visual reference: `docs/design/salary-history-mvp/rate-row-form.html`.
 - [ ] 11.6 `reorder-sections-modal.ts` (new per Decision 15, refined per Decision 18):
-  - Modal listing **7 section IDs** (`period`, `totals`, `earnings`, `deductions`, `super`, `leave`, `notes`) with up/down arrow buttons per row.
+  - Modal listing **8 section IDs** (`period`, `totals`, `earnings`, `deductions`, `super`, `leave`, `leave-accrual`, `notes`) with up/down arrow buttons per row.
   - First row: ▲ disabled (green left border), ▼ enabled.
   - Last row: ▲ enabled, ▼ disabled (purple left border).
-  - "Reset to default" button restores `["period","totals","earnings","deductions","super","leave","notes"]`.
+  - "Reset to default" button restores `["period","totals","earnings","deductions","super","leave","leave-accrual","notes"]`.
   - On save, writes JSON-encoded array via `finance.settings.set('salary-history.sectionOrder', JSON.stringify(newOrder))`.
   - Visual reference: `docs/design/salary-history-mvp/reorder-sections.html`.
 - [ ] 11.7 Add unit tests per Lit element:
-  - `payslip-form.ts`: 6 tests (renders 7 sections in order, fires payslip-create on submit, calls calculatePaySlipBreakdown on pay_date/gross/net change, Validate PAYG button click triggers payg-calc, section order from settings, finance_year dropdown changes).
+  - `payslip-form.ts`: 6 tests (renders 8 sections in order, fires payslip-create on submit, calls calculatePaySlipBreakdown on pay_date/gross/net change, Validate PAYG button click triggers payg-calc, section order from settings, finance_year dropdown changes).
   - `payslip-list.ts`: 4 tests (renders list, YTD footer updates, edit populates form, delete dispatches event).
   - `accounts-seed-modal.ts`: 3 tests (renders, creates account, skip dispatches event).
   - `pay-rate-history-view.ts`: 4 tests (renders rate list, current badge, add/edit/view buttons visible).
@@ -1619,8 +1622,8 @@ These will be unblocked when the Phase 3 Playwright-electron environmental issue
   - `finance.db.table()` API for typed table access (no raw SQL) ✓
   - PayService ✓ (Decision 5, internal helper for Phase 4; **expanded by Decision 14** with `calculatePaySlipBreakdown`, `validateFinanceYear`, `reconcilePaySlip`)
   - ~~DeductionService~~ — **REMOVED.**
-  - Extension UI: payslip entry form (minimal entry + collapsible hours toggle + derived breakdown preview + `[Validate PAYG]` button per Decision 14), salary history list, YTD summary footer, **rate history view** (Decision 17), accounts-seed-modal ✓
-  - **UI Design Finalization:** 8 HTML/CSS mocks pre-approve the visual contract at `docs/design/salary-history-mvp/` (see Decision 18). Implementation in Task 11 must match the mocks; visual parity check is Task 11.8. The mocks surfaced one structural correction: gross/net are user inputs in a dedicated **Totals** section between Period and Earnings (form now has 7 sections, not 6; `salary-history.sectionOrder` default updated accordingly).
+  - Extension UI: payslip entry form (minimal entry + collapsible hours toggle + derived breakdown preview + `[ Validate PAYG ]` button per Decision 14), salary history list, YTD summary footer, **rate history view** (Decision 17), accounts-seed-modal ✓
+  - **UI Design Finalization:** 8 HTML/CSS mocks pre-approve the visual contract at `docs/design/salary-history-mvp/` (see Decision 18). Implementation in Task 11 must match the mocks; visual parity check is Task 11.8. The mocks surfaced two structural corrections: (1) gross/net are user inputs in a dedicated **Totals** section between Period and Earnings (Amendment 4); (2) leave accrual is a separate read-only section between Leave and Notes (form now has 8 sections; `salary-history.sectionOrder` default updated accordingly).
   - Deliverable: fully functional salary history UI with persistent storage ✓ + **second view (rate history) reachable via Command Palette** (Decision 17)
 
 ### §3 — Carries-forward from Phase 3 (explicit deferrals resolved)
