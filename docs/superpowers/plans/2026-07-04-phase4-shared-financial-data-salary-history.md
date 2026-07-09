@@ -923,7 +923,7 @@ Both commands are registered via `financeExtension.contributes.commands`. The Ac
 
 **Visual review checklist (run before Task 11 implementation):**
 - [x] User has approved all 8 mocks (per Decision 18 visual-review checklist)
-- [ ] Section order default updated to include `totals` and `leave-accrual`: `["period","totals","earnings","deductions","super","leave","leave-accrual","notes"]` (matches mocks at `docs/design/salary-history-mvp/`)
+- [x] Section order default updated to include `totals` and `leave-accrual`: `["period","totals","earnings","deductions","super","leave","leave-accrual","notes"]` (matches mocks at `docs/design/salary-history-mvp/`)
 - [ ] Reconciliation warning threshold = `paygToleranceDollars` setting (default $5.00)
 - [ ] PAYG validation triggers on user button click (not on every keystroke)
 - [ ] All 6 UI components reference the mocks for their visual implementation
@@ -969,9 +969,21 @@ Both commands are registered via `financeExtension.contributes.commands`. The Ac
 ```
 finance-flow-ai/
 |-- docs/
+|   |-- design/
+|   |   `-- salary-history-mvp/
+|   |       |-- index.html                          (new) — navigation mock (topbar + Activity Bar layout)
+|   |       |-- payslip-form-collapsed.html         (new) — payslip form, default state (Toggle off)
+|   |       |-- payslip-form-expanded.html          (new) — payslip form, "This week was different" toggle on (7 hour inputs visible)
+|   |       |-- payslip-form-reconciled.html        (new) — payslip form, amber reconciliation warning state
+|   |       |-- payslip-list.html                   (new) — payslip history table + YTD summary footer
+|   |       |-- pay-rate-history.html               (new) — rate history list view (current + history rows)
+|   |       |-- rate-row-form.html                  (new) — add/edit a rate row form with confirmation panel
+|   |       `-- reorder-sections.html               (new) — modal with up/down arrows to reorder form sections
 |   `-- superpowers/
-|       `-- plans/
-|           `-- 2026-07-04-phase4-shared-financial-data-salary-history.md   ← this file
+|       |-- plans/
+|       |   `-- 2026-07-04-phase4-shared-financial-data-salary-history.md   ← this file
+|       `-- specs/
+|           `-- 2026-06-13-implementation-design.md  (modified) — Phase 4 section aligned with the plan per Review Finding 2 (pay slips extension-private, accounts first Shared Financial Data, finance.services.* deferred to Phase 5, DeductionService removed)
 |-- src/
 |   |-- main/
 |   |   |-- main.ts                              (modified) — boot migrations 003-005, wire new IPC handlers
@@ -1008,8 +1020,8 @@ finance-flow-ai/
 |       `-- src/
 |           |-- main.ts                          (modified) — real activate() implementation; mounts UI, wires both commands (salary.show-pay-history, salary.show-pay-rate-history)
 |           |-- services/
-|           |   |-- pay-service.ts               (new) — validatePayslipInput, calculatePaySlipBreakdown, aggregateYearToDate, validateFinanceYear (extended per Amendment 3)
-|           |   |-- pay-rate-service.ts           (new) — getRateForDate, getCurrentRate, listAllRates, addNewRate, editCurrentRate; DAO wrapper for salary_history_rate_history (Decision 16)
+|           |   |-- pay-service.ts               (new) — validatePayslipInput, calculatePaySlipBreakdown, aggregateYearToDate, validateFinanceYear, calculateNetFromGross (Phase 6 stub), reconcilePaySlip, calculateHolidayLeaveAccrual (extended per Amendment 3; holiday accrual per Amendment 5 + Fair Work Act 2009 — personalLeaveHours not subtracted from holiday balance)
+|           |   |-- pay-rate-service.ts           (new) — getRateForDate, getCurrentRate, listAllRates, addNewRate (atomic BEGIN IMMEDIATE per Review Finding 7), editCurrentRate, validateRateRow; DAO wrapper for salary_history_rate_history (Decision 16)
 |           |   |-- payg-calc.ts                  (new) — validatePayg(gross, net, taxYear, tolerance) returning PaygValidationResult; wraps CALCULATE_TAX_WITHHELD_26_27 (Decision 14)
 |           |   `-- payg-brackets.ts               (new) — getBracketsForYear(year) returning ATO weekly tax brackets for FY 2026-2027 + future years
 |           |-- dao/
@@ -1041,7 +1053,7 @@ finance-flow-ai/
 |   |   |-- payg-calc.test.ts                    (new) — bracket boundaries + tolerance validation + edge cases (zero, negative, mid-bracket) (12 tests)
 |   |   |-- payg-brackets.test.ts                (new) — year lookup; unknown year throws; FY 2026-2027 returns 9 brackets (4 tests)
 |   |   `-- dao/
-|   |       |-- pay-slips.test.ts                (new) — integration with DAO stub (12 tests; +4 for new hour/finance_year columns)
+|   |       |-- pay-slips.test.ts                (new) — integration with DAO stub (12 tests; +4 covering the finance_year column path and the pending 5 stored hour-input columns)
 |   |       `-- pay-rate-history.test.ts         (new) — rate_history DAO integration (insert + temporal close + getRateForDate) (6 tests)
 |   `-- e2e/
 |       `-- salary-history.spec.ts               (new) — 6 E2E tests under Playwright-electron (still gated by Phase 3 env blocker)
@@ -1052,7 +1064,7 @@ finance-flow-ai/
 `-- package.json                                 (modified) — none (no new runtime deps; Phase 4 uses existing better-sqlite3, zod, lit)
 ```
 
-**Net new runtime code:** ~1,900 lines (DAO + registry + PayService + PayRateService + PAYG validation + 6 UI components; +500 from Amendment 3). **Net new test code:** ~750 lines (~119 new unit tests; +40 from Amendment 3, ~16 removed from the original ~95 total). **Modified code:** ~300 lines across existing files (IPC expansion, migration registration, type contract expansion, multi-file extension setup).
+**Net new runtime code:** ~1,900 lines (DAO + registry + PayService + PayRateService + PAYG validation + 6 UI components; +500 from Amendment 3). **Net new test code:** ~720 lines (~116 new unit tests; +40 from Amendment 3, ~16 removed from the original ~95 total). **Modified code:** ~300 lines across existing files (IPC expansion, migration registration, type contract expansion, multi-file extension setup).
 
 
 
@@ -1513,7 +1525,7 @@ finance-flow-ai/
 
 **Test Unit 7: Shared Accounts Read-Only** — In DevTools, from a temporary test extension that calls `finance.db.table('accounts').insert({ name: 'evil' })` directly (no `tables[]` manifest declaration needed for shared reads — `accounts` is in Core's `SHARED_FINANCIAL_DATA_TABLES` allowlist per Decision 4), confirm the response is a `SharedTableReadOnly` error. (Reworded per Review Finding 11 — the original "manifest read of `accounts`" phrasing was misleading because the `tables[]` manifest block is for OWNED tables, not for shared-read declarations.)
 
-**Test Unit 8: TypeScript Strict + Lint + Tests** — Run `npm run typecheck` (exit 0), `npm run lint` (exit 0), `npm run test:unit` (all ~144 tests pass: 65 Phase 3 + ~79 Phase 4).
+**Test Unit 8: TypeScript Strict + Lint + Tests** — Run `npm run typecheck` (exit 0), `npm run lint` (exit 0), `npm run test:unit` (all ~181 tests pass: 65 Phase 3 + ~116 Phase 4).
 
 **Test Unit 9: Multi-File Build Verification** — Run `npm run build:extensions`. Confirm `dist/extensions/salary-history.js` exists. Run `grep "from 'finance'" dist/extensions/salary-history.js` → exit code 1 (no matches). Confirm bundle size < 200 KB.
 
@@ -1561,7 +1573,7 @@ finance-flow-ai/
 
 ## Test Plan
 
-### Unit tests (~119 new; project total ~184)
+### Unit tests (~116 new; project total ~181)
 
 | File | Tests | Covers |
 |------|-------|--------|
@@ -1580,7 +1592,7 @@ finance-flow-ai/
 | `tests/unit/extensions/salary-history/dao/pay-slips.test.ts` | 12 | DAO integration for 23 columns per Decision 3 |
 | `tests/unit/extensions/salary-history/dao/pay-rate-history.test.ts` | 6 | Rate_history DAO integration (Amendment 3) |
 | `tests/unit/build/extensions-bundle.test.ts` | 3 | Decision 9 verification (no `from 'finance'`) |
-| **Total** | **~119** | |
+| **Total** | **~116** | |
 
 
 
@@ -1656,7 +1668,7 @@ These will be unblocked when the Phase 3 Playwright-electron environmental issue
 
 ### §5 — Test Pyramid
 
-- [ ] ~119 new unit tests (all deterministic, fast, isolated via Phase 3's `getTestDatabase()` factory). Includes 4 new test files + extensions to 2 existing files. Test Unit 6 rewritten (Review Finding 10 — exercises prefix-rejection branch via registry seam instead of non-existent `budget_items`); Test Unit 7 reworded (Review Finding 11 — clarifies that shared reads don't require `tables[]` manifest declaration).
+- [ ] ~116 new unit tests (all deterministic, fast, isolated via Phase 3's `getTestDatabase()` factory). Includes 4 new test files + extensions to 2 existing files. Test Unit 6 rewritten (Review Finding 10 — exercises prefix-rejection branch via registry seam instead of non-existent `budget_items`); Test Unit 7 reworded (Review Finding 11 — clarifies that shared reads don't require `tables[]` manifest declaration).
 - [ ] 9 manual test units covering the full user journey.
 - [ ] **Visual review step (Decision 18):** before Task 11 implementation starts, walk through the 8 HTML mocks in `docs/design/salary-history-mvp/` (per Decision 18 visual-review checklist). After each component is implemented, take a DOM snapshot and diff against the corresponding mock — any visible regression must be explained before merging (Task 11.8).
 - [ ] 6 new E2E tests written but gated by Phase 3 environmental blocker (documented).
