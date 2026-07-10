@@ -62,9 +62,9 @@ Thumbs.db
 *.csv
 .markdownlint.json
 kimch*.html
-.kimchi/
-.claude/skills/gitnexus/*/*.md
+/.kimchi/
+/.claude/
 # Explicit ignore for skill.md files
-.claude/skills/gitnexus/*/skill.md
-.kilo/
+/.claude/skills/gitnexus/*/skill.md
+/.kilo/
 
