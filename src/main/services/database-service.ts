@@ -1,7 +1,13 @@
 import BetterSqlite3 from 'better-sqlite3';
 import { dirname } from 'node:path';
 import { existsSync, mkdirSync, renameSync } from 'node:fs';
-import { infrastructureMigration, extensionCrashTrackingMigration } from './infrastructure-migration';
+import {
+  infrastructureMigration,
+  extensionCrashTrackingMigration,
+  sharedAccountsMigration,
+  salaryHistoryPaySlipsMigration,
+  salaryHistoryRateHistoryMigration,
+} from './infrastructure-migration';
 
 // Phase 2 has no rollback requirement; the `down` callback is
 // intentionally omitted from the interface to keep the surface area
@@ -145,6 +151,9 @@ export function getTestDatabase(): BetterSqlite3.Database {
   database.pragma('foreign_keys = ON');
   registerMigration(infrastructureMigration);
   registerMigration(extensionCrashTrackingMigration);
+  registerMigration(sharedAccountsMigration);
+  registerMigration(salaryHistoryPaySlipsMigration);
+  registerMigration(salaryHistoryRateHistoryMigration);
   runMigrations(database);
   return database;
 }

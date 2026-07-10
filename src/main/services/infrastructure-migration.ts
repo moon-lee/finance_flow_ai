@@ -47,3 +47,114 @@ export const extensionCrashTrackingMigration: Migration = {
     }
   }
 };
+
+/**
+ * [Phase 4, Decision 4] Shared Financial Data — `accounts` table.
+ * The first Platform-owned canonical record. Extensions may READ accounts
+ * via the DAO (allowlisted in SHARED_FINANCIAL_DATA_TABLES) but cannot
+ * write — the DAO enforces this structurally.
+ */
+export const sharedAccountsMigration: Migration = {
+  name: '003-shared-accounts',
+  up: (db) => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS accounts (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        name        TEXT    NOT NULL,
+        institution TEXT,
+        is_active   INTEGER NOT NULL DEFAULT 1,
+        created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+      )
+    `);
+  }
+};
+
+/**
+ * [Phase 4, Decision 3 + Amendments 2/3/6] Extension-owned table
+ * `salary_history_pay_slips` — one row per payslip. 28 columns total.
+ * Per Decision 14 (Calculation Model), gross/net are user inputs and all
+ * monetary breakdown columns are derived at insert time from rate row × hours.
+ */
+export const salaryHistoryPaySlipsMigration: Migration = {
+  name: '004-salary-history-pay-slips',
+  up: (db) => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS salary_history_pay_slips (
+        id                         INTEGER PRIMARY KEY AUTOINCREMENT,
+        account_id                 INTEGER NOT NULL REFERENCES accounts(id),
+        pay_period_start           TEXT    NOT NULL,
+        pay_period_end             TEXT    NOT NULL,
+        pay_date                   TEXT    NOT NULL,
+        finance_year               TEXT    NOT NULL,
+        gross                      REAL    NOT NULL CHECK (gross >= 0),
+        net                        REAL    NOT NULL CHECK (net >= 0),
+        currency                   TEXT    NOT NULL DEFAULT 'AUD',
+        shift_allowance            REAL    NOT NULL DEFAULT 0 CHECK (shift_allowance >= 0),
+        base_hourly                REAL    NOT NULL DEFAULT 0 CHECK (base_hourly >= 0),
+        overtime_1_5x              REAL    NOT NULL DEFAULT 0 CHECK (overtime_1_5x >= 0),
+        overtime_2_0x              REAL    NOT NULL DEFAULT 0 CHECK (overtime_2_0x >= 0),
+        holiday_leave_loading      REAL    NOT NULL DEFAULT 0 CHECK (holiday_leave_loading >= 0),
+        holiday_pay                REAL    NOT NULL DEFAULT 0 CHECK (holiday_pay >= 0),
+        public_holiday             REAL    NOT NULL DEFAULT 0 CHECK (public_holiday >= 0),
+        payg_withholding           REAL    NOT NULL DEFAULT 0 CHECK (payg_withholding >= 0),
+        superannuation_guarantee   REAL    NOT NULL DEFAULT 0 CHECK (superannuation_guarantee >= 0),
+        personal_leave             REAL    NOT NULL DEFAULT 0 CHECK (personal_leave >= 0),
+        holiday_leave_accrual_hours REAL   NOT NULL DEFAULT 0 CHECK (holiday_leave_accrual_hours >= 0),
+        regular_hours              REAL    NOT NULL DEFAULT 0 CHECK (regular_hours >= 0),
+        shift_hours                REAL    NOT NULL DEFAULT 0 CHECK (shift_hours >= 0),
+        overtime_1_5_hours         REAL    NOT NULL DEFAULT 0 CHECK (overtime_1_5_hours >= 0),
+        overtime_2_0_hours         REAL    NOT NULL DEFAULT 0 CHECK (overtime_2_0_hours >= 0),
+        public_holiday_hours       REAL    NOT NULL DEFAULT 0 CHECK (public_holiday_hours >= 0),
+        notes                      TEXT,
+        created_at                 TEXT    NOT NULL DEFAULT (datetime('now')),
+        updated_at                 TEXT    NOT NULL DEFAULT (datetime('now'))
+      )
+    `);
+
+    db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_salary_history_pay_slips_pay_date
+        ON salary_history_pay_slips (pay_date DESC)
+    `);
+
+    db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_salary_history_pay_slips_account_id
+        ON salary_history_pay_slips (account_id)
+    `);
+  }
+};
+
+/**
+ * [Phase 4, Decision 16 + Amendments 3/5/6] Extension-owned table
+ * `salary_history_rate_history` — effective-dated pay rate rows. 16 columns.
+ * Only one row has effective_to IS NULL at any time (the current rate).
+ */
+export const salaryHistoryRateHistoryMigration: Migration = {
+  name: '005-salary-history-rate-history',
+  up: (db) => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS salary_history_rate_history (
+        id                              INTEGER PRIMARY KEY AUTOINCREMENT,
+        effective_from                  TEXT    NOT NULL,
+        effective_to                    TEXT,
+        base_hourly_rate                REAL    NOT NULL CHECK (base_hourly_rate >= 0),
+        standard_hours_per_week         REAL    NOT NULL DEFAULT 38 CHECK (standard_hours_per_week >= 0),
+        shift_allowance_multiplier      REAL    NOT NULL DEFAULT 0.15 CHECK (shift_allowance_multiplier >= 0),
+        shift_allowance_hours_per_week  REAL    NOT NULL DEFAULT 38 CHECK (shift_allowance_hours_per_week >= 0),
+        overtime_1_5_multiplier         REAL    NOT NULL DEFAULT 1.5 CHECK (overtime_1_5_multiplier >= 0),
+        overtime_2_0_multiplier         REAL    NOT NULL DEFAULT 2.0 CHECK (overtime_2_0_multiplier >= 0),
+        superannuation_rate             REAL    NOT NULL DEFAULT 0.12 CHECK (superannuation_rate >= 0 AND superannuation_rate <= 1),
+        holiday_leave_loading_rate      REAL    NOT NULL DEFAULT 0.175 CHECK (holiday_leave_loading_rate >= 0),
+        accrual_rate_per_week           REAL    NOT NULL DEFAULT 2.92 CHECK (accrual_rate_per_week >= 0),
+        starting_holiday_leave_balance  REAL    NOT NULL DEFAULT 0 CHECK (starting_holiday_leave_balance >= 0),
+        notes                           TEXT,
+        created_at                      TEXT    NOT NULL DEFAULT (datetime('now')),
+        updated_at                      TEXT    NOT NULL DEFAULT (datetime('now'))
+      )
+    `);
+
+    db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_salary_history_rate_history_effective_from
+        ON salary_history_rate_history (effective_from DESC)
+    `);
+  }
+};
