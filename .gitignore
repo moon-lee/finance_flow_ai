@@ -63,3 +63,6 @@ Thumbs.db
 .markdownlint.json
 kimch*.html
 .kimchi/
+.claude/skills/gitnexus/*/*.md
+# Explicit ignore for skill.md files
+.claude/skills/gitnexus/*/skill.md
