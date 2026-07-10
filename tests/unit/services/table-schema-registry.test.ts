@@ -161,13 +161,13 @@ describe('TableSchemaRegistry', () => {
     // Second case: extension first, then shared collides
     const fresh = new TableSchemaRegistry();
     const extTable: TableManifest = {
-      name: 'ext_collide',
+      name: 'some_extension_collide',
       columns: [{ name: 'id', type: 'integer', primary: true, autoIncrement: true }],
     };
     fresh.registerExtensionTables('some-extension', [extTable]);
 
     const collidingShared: TableManifest = {
-      name: 'ext_collide',
+      name: 'some_extension_collide',
       columns: [{ name: 'id', type: 'integer', primary: true, autoIncrement: true }],
     };
 

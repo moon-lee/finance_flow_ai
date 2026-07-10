@@ -154,6 +154,9 @@ export function buildColumnZodSchema(column: ColumnManifest): z.ZodTypeAny {
  * The insert schema enforces "user-mutable columns only" — it omits the
  * system-managed columns (`id`, `created_at`, `updated_at`) so callers cannot
  * forge primary keys or timestamps. The DAO fills those in at write time.
+ * A nullable, non-system column is optional in the insert schema: omitting it
+ * is equivalent to inserting `NULL`, which is the whole point of nullability.
+ * Non-nullable columns remain required.
  *
  * The update schema is the partial-patch shape: every user-mutable column is
  * `.optional()` so callers can supply just the fields they want to change.
@@ -179,7 +182,11 @@ export function buildTableZodSchema(table: TableManifest): {
     if (isSystemManagedColumn(column)) continue;
 
     const columnSchema = buildColumnZodSchema(column);
-    insertShape[column.name] = columnSchema;
+    // A nullable column can be omitted on insert (the DAO writes NULL), so
+    // make it optional. Non-nullable columns stay required. Columns with a
+    // `default` are already optional via `.default()` upstream.
+    insertShape[column.name] =
+      column.nullable === true ? columnSchema.optional() : columnSchema;
     updateShape[column.name] = columnSchema.optional();
   }
 
