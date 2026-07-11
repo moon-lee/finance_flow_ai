@@ -1,12 +1,15 @@
 import { app, BrowserWindow, ipcMain, screen, dialog } from 'electron';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { initializeDatabase, registerMigration, closeDatabase } from './services/database-service';
+import { initializeDatabase, registerMigration, closeDatabase, getDatabase } from './services/database-service';
 import { infrastructureMigration, extensionCrashTrackingMigration } from './services/infrastructure-migration';
 import { initializeSettings, closeSettings, getSetting, setSetting } from './services/settings-service';
 import { discoverExtensions } from './services/extension-loader';
 import { ExtensionRegistry } from './services/extension-registry';
 import { ExtensionIPC } from './services/extension-ipc';
+import { TableSchemaRegistry } from './services/table-schema-registry';
+import { DAOService } from './services/dao-service';
+import { SHARED_TABLE_MANIFESTS } from './services/shared-data-tables';
 
 const mainDir = fileURLToPath(new URL('.', import.meta.url));
 const rendererDevUrl = process.env.ELECTRON_RENDERER_URL;
@@ -27,6 +30,8 @@ let windowStateSaveTimer: ReturnType<typeof setTimeout> | null = null;
 let dbClosed = false;
 let extensionRegistry: ExtensionRegistry | null = null;
 let extensionIPC: ExtensionIPC | null = null;
+let tableSchemaRegistry: TableSchemaRegistry | null = null;
+let daoService: DAOService | null = null;
 
 function resolvePreloadPath(): string {
   return join(mainDir, '../preload/preload.cjs');
@@ -265,6 +270,8 @@ function shutdownPersistence(): void {
   clearWindowStateSaveTimer();
   void extensionIPC?.stop().catch((err) => console.error('Extension IPC shutdown failed:', err));
   extensionIPC = null;
+  daoService = null;
+  tableSchemaRegistry = null;
   closeSettings();
   closeDatabase();
 }
@@ -290,8 +297,23 @@ app.whenReady().then(() => {
     initializeSettings();
 
     // Boot extensions BEFORE the window so the renderer can fetch contributions on first paint.
+    // Phase 4 Task 9.2 — instantiate the schema registry and DAO service
+    // before extension discovery so the loader can register extension
+    // tables as soon as each manifest passes validation.
+    tableSchemaRegistry = new TableSchemaRegistry();
+    tableSchemaRegistry.registerSharedTables(SHARED_TABLE_MANIFESTS);
+
+    // The DAO service needs a live SQLite handle. `initializeDatabase` has
+    // already opened (or created) the DB above; `getDatabase()` returns the
+    // module-level handle. The DAO and registry are passed to ExtensionIPC
+    // below so Host-side `extension.readTable` / `extension.writeTable`
+    // requests can be dispatched against real tables.
+    daoService = new DAOService(getDatabase(), tableSchemaRegistry);
+
     extensionRegistry = new ExtensionRegistry();
-    const discovery = discoverExtensions(resolveExtensionsRoot());
+    const discovery = discoverExtensions(resolveExtensionsRoot(), {
+      tableSchemaRegistry
+    });
     for (const { manifest } of discovery.extensions) {
       extensionRegistry.upsert(manifest);
     }
@@ -305,6 +327,14 @@ app.whenReady().then(() => {
     }
 
     extensionIPC = new ExtensionIPC();
+
+    // Phase 4 Task 9.3 — wire the DAO service into ExtensionIPC so the
+    // Host's `extension.readTable` / `extension.writeTable` RPCs are
+    // handled by the DAO service rather than returning a "not wired"
+    // error. This MUST happen before `extensionIPC.start()` so the
+    // message handlers are ready when the Host sends its first request.
+    extensionIPC.setDAOService(daoService);
+
     extensionIPC.start(extensionRegistry.list()).catch((err) => {
       // [Review fix §2.2] Replace fire-and-forget `void` with an explicit
       // .catch() so startup failures (missing bundle, sandbox restrictions,

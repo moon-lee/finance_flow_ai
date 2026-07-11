@@ -2,6 +2,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { validateManifest, type ManifestValidationResult } from '../../extension-host/manifest-schema';
 import type { FinanceExtensionManifest, PackageJsonFinanceExtension } from '../../types/finance';
+import type { TableSchemaRegistry } from './table-schema-registry';
 
 export interface DiscoveredExtension {
   /** Absolute path to the extension's package directory. */
@@ -28,9 +29,22 @@ const SKIP_DIRECTORIES = new Set(['node_modules', '.git', 'dist']);
  * a valid `financeExtension` field. Invalid manifests are skipped with a
  * warning rather than aborting the whole discovery (third-party safety).
  */
+export interface DiscoverExtensionsOptions {
+  logger?: (msg: string) => void;
+  /**
+   * Optional schema registry. When provided, the loader registers each
+   * discovered extension's `tables[]` declarations as soon as the manifest
+   * passes Zod validation. This guarantees that extension-owned tables are
+   * known to the DAO service before the Extension Host can activate the
+   * extension. If registration throws (e.g. namespace prefix violation),
+   * the extension is skipped with the error surfaced as the skip reason.
+   */
+  tableSchemaRegistry?: TableSchemaRegistry;
+}
+
 export function discoverExtensions(
   extensionsRoot: string,
-  options: { logger?: (msg: string) => void } = {}
+  options: DiscoverExtensionsOptions = {}
 ): DiscoveryResult {
   const log = options.logger ?? console.warn;
   const result: DiscoveryResult = { extensions: [], skipped: [] };
@@ -83,6 +97,27 @@ export function discoverExtensions(
     if (!validation.ok) {
       result.skipped.push({ directory, reason: `invalid manifest: ${validation.errors.join('; ')}` });
       continue;
+    }
+
+    // Phase 4 Task 9.1 — register extension-owned tables with the schema
+    // registry immediately after manifest validation succeeds. The DAO
+    // service cannot process reads/writes for a table that has not been
+    // registered, so doing this during discovery (before the Host starts)
+    // removes a race between extension activation and DAO readiness.
+    // If the manifest's tables[] violates registry rules (prefix mismatch,
+    // shared-table claim, duplicate), the extension is skipped rather than
+    // allowed to crash at runtime.
+    if (options.tableSchemaRegistry) {
+      try {
+        options.tableSchemaRegistry.registerExtensionTables(
+          validation.manifest.id,
+          validation.manifest.tables ?? []
+        );
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        result.skipped.push({ directory, reason: `invalid tables[]: ${message}` });
+        continue;
+      }
     }
 
     result.extensions.push({

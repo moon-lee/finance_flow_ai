@@ -3,6 +3,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { discoverExtensions } from '../../../src/main/services/extension-loader';
+import { TableSchemaRegistry } from '../../../src/main/services/table-schema-registry';
 
 describe('discoverExtensions', () => {
   let tmpDir: string;
@@ -114,5 +115,88 @@ describe('discoverExtensions', () => {
     const result = discoverExtensions(join(tmpDir, 'does-not-exist'), { logger: () => {} });
     expect(result.extensions).toHaveLength(0);
     expect(result.skipped).toHaveLength(0);
+  });
+
+  // Phase 4 Task 9.1 — table registration during discovery.
+  describe('with tableSchemaRegistry', () => {
+    let registry: TableSchemaRegistry;
+
+    beforeEach(() => {
+      registry = new TableSchemaRegistry();
+    });
+
+    function writeValidExtensionWithTables(tables: unknown[] = []): void {
+      const extDir = join(tmpDir, 'salary-history');
+      mkdirSync(extDir);
+      writeFileSync(join(extDir, 'package.json'), JSON.stringify({
+        name: 'salary-history',
+        version: '0.1.0',
+        financeExtension: {
+          id: 'salary-history',
+          displayName: 'Salary History',
+          activationEvents: ['onView:salary-history'],
+          contributions: {},
+          tables,
+          main: 'src/main.ts'
+        }
+      }));
+    }
+
+    it('registers extension tables when a registry is provided', () => {
+      writeValidExtensionWithTables([
+        {
+          name: 'salary_history_pay_slips',
+          columns: [
+            { name: 'id', type: 'integer', primary: true, autoIncrement: true },
+            { name: 'gross', type: 'real', nullable: false }
+          ]
+        }
+      ]);
+
+      const result = discoverExtensions(tmpDir, { logger: () => {}, tableSchemaRegistry: registry });
+      expect(result.extensions).toHaveLength(1);
+      expect(result.skipped).toHaveLength(0);
+      expect(registry.listTables()).toContain('salary_history_pay_slips');
+      expect(registry.getOwnerExtension('salary_history_pay_slips')).toBe('salary-history');
+    });
+
+    it('skips extension whose table name lacks the required prefix', () => {
+      writeValidExtensionWithTables([
+        {
+          name: 'pay_slips',
+          columns: [{ name: 'id', type: 'integer', primary: true }]
+        }
+      ]);
+
+      const result = discoverExtensions(tmpDir, { logger: () => {}, tableSchemaRegistry: registry });
+      expect(result.extensions).toHaveLength(0);
+      expect(result.skipped).toHaveLength(1);
+      expect(result.skipped[0].reason).toContain('invalid tables[]');
+      expect(result.skipped[0].reason).toContain("does not match the required prefix");
+    });
+
+    it('skips extension that tries to claim a shared table', () => {
+      writeValidExtensionWithTables([
+        {
+          name: 'accounts',
+          columns: [{ name: 'id', type: 'integer', primary: true }]
+        }
+      ]);
+
+      const result = discoverExtensions(tmpDir, { logger: () => {}, tableSchemaRegistry: registry });
+      expect(result.extensions).toHaveLength(0);
+      expect(result.skipped).toHaveLength(1);
+      expect(result.skipped[0].reason).toContain('invalid tables[]');
+      expect(result.skipped[0].reason).toContain('shared table');
+    });
+
+    it('discovers extension normally when it has no tables[] block', () => {
+      writeValidExtensionWithTables([]);
+
+      const result = discoverExtensions(tmpDir, { logger: () => {}, tableSchemaRegistry: registry });
+      expect(result.extensions).toHaveLength(1);
+      expect(result.skipped).toHaveLength(0);
+      expect(registry.listTables()).toHaveLength(0);
+    });
   });
 });

@@ -97,7 +97,7 @@ export class TableSchemaRegistry {
    * @param tables      The `tables[]` block from the extension's manifest.
    * @throws Error on any of the three violations above.
    */
-  registerExtensionTables(extensionId: string, tables: TableManifest[]): void {
+  registerExtensionTables(extensionId: string, tables: readonly TableManifest[]): void {
     // Extension ids follow the npm convention and use hyphens
     // (e.g. 'salary-history'). Table namespaces follow the SQL convention
     // and use underscores (e.g. 'salary_history_pay_slips'). Convert
