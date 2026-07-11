@@ -9,7 +9,7 @@
     "test": "tests"
   },
   "scripts": {
-    "test": "npm run test:unit",
+    "test": "vitest run",
     "dev": "concurrently -k \"npm:dev:main\" \"npm:dev:preload\" \"npm:dev:extension-host\" \"npm:dev:extensions\" \"npm:dev:renderer\" \"npm:start:dev\"",
     "dev:main": "vite build --config vite.main.config.ts --watch",
     "dev:preload": "vite build --config vite.preload.config.ts --watch",
@@ -28,9 +28,7 @@
     "lint": "eslint .",
     "test:e2e": "playwright test --config playwright.electron.config.ts",
     "rebuild": "electron-rebuild --force",
-    "test:unit": "npm run rebuild:test && vitest run",
     "test:unit:watch": "vitest",
-    "rebuild:test": "npm rebuild better-sqlite3",
     "postinstall": "electron-rebuild --force"
   },
   "keywords": [],
@@ -61,6 +59,6 @@
     "wait-on": "^9.0.10"
   },
   "allowScripts": {
-    "better-sqlite3@12.11.1": true
+    "better-sqlite3": true
   }
 }
