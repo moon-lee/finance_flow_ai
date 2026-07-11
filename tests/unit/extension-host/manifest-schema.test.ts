@@ -96,3 +96,114 @@ describe('validateManifest', () => {
     expect(result.ok).toBe(false);
   });
 });
+
+// Phase 4 Task 8.4 — `tables[]` block validation (Decision 3).
+//
+// These tests pin the contract that the manifest schema validates the
+// shape of an extension's `tables[]` declarations. The schema is
+// intentionally permissive about table NAMES at this layer — the
+// registry enforces the `<extensionId>_*` namespace prefix at
+// registration time, and ownership semantics belong to the registry.
+// What the manifest schema DOES enforce:
+//   - `tables[].name` is a SQL-safe identifier (lowercase snake_case).
+//   - `tables[].columns` has at least one entry.
+//   - Each column's `type` is one of the 6 supported `ColumnType`s.
+//   - Each column's `default` (when present) is type-compatible.
+//   - Each column's `name` follows the same SQL-safe convention.
+//
+// The 5 tests below cover one positive and four negative cases per
+// the plan's verification line.
+describe('validateManifest (tables[] — Phase 4 Task 8)', () => {
+  const validTableManifest = {
+    name: 'salary_history_pay_slips',
+    columns: [
+      { name: 'id', type: 'integer', primary: true, autoIncrement: true },
+      { name: 'account_id', type: 'integer', nullable: false },
+      { name: 'pay_date', type: 'date', nullable: false },
+      { name: 'gross', type: 'real', nullable: false, default: 0, min: 0 },
+      { name: 'net', type: 'real', nullable: false, default: 0, min: 0 },
+      { name: 'is_active', type: 'boolean', nullable: false, default: true },
+      { name: 'created_at', type: 'datetime', nullable: false, default: 'now' }
+    ]
+  };
+
+  it('accepts a valid manifest with a tables[] block', () => {
+    const result = validateManifest({
+      ...validManifest,
+      tables: [validTableManifest]
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.manifest.tables).toHaveLength(1);
+      expect(result.manifest.tables?.[0].name).toBe('salary_history_pay_slips');
+      expect(result.manifest.tables?.[0].columns).toHaveLength(7);
+    }
+  });
+
+  it('rejects a table with no columns (missing required columns)', () => {
+    const result = validateManifest({
+      ...validManifest,
+      tables: [{ name: 'empty_table', columns: [] }]
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.errors.some((e) => e.includes('columns'))).toBe(true);
+    }
+  });
+
+  it('rejects a column with an unsupported type', () => {
+    const result = validateManifest({
+      ...validManifest,
+      tables: [{
+        name: 'bad_type_table',
+        columns: [{ name: 'blob_col', type: 'blob' }]
+      }]
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      // Zod reports invalid_enum_value at the offending path.
+      expect(result.errors.some((e) => /type|blob/i.test(e))).toBe(true);
+    }
+  });
+
+  it('rejects a default value that does not match the column type', () => {
+    // boolean column with a string default is the canonical typo —
+    // the defaultMatchesType refinement must catch it.
+    const result = validateManifest({
+      ...validManifest,
+      tables: [{
+        name: 'bad_default_table',
+        columns: [
+          { name: 'id', type: 'integer', primary: true },
+          { name: 'is_active', type: 'boolean', default: 'true' }
+        ]
+      }]
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.errors.some((e) => /default.*type|type.*default/i.test(e))).toBe(true);
+    }
+  });
+
+  it('rejects an invalid table name (must be lowercase snake_case)', () => {
+    // The plan calls this "no prefix match"; the schema's interpretation
+    // is the SQL-identifier safety check (lowercase letter start,
+    // lowercase alphanumeric + underscore thereafter). Namespace prefix
+    // matching against the extension id is the registry's job, not the
+    // manifest schema's. The schema rejects `SalaryHistoryPaySlips`
+    // because the capital letters violate the snake_case convention
+    // (SQLite is case-insensitive about identifiers, but the casing
+    // would collide with how every other table in the codebase is named).
+    const result = validateManifest({
+      ...validManifest,
+      tables: [{
+        name: 'SalaryHistoryPaySlips',
+        columns: [{ name: 'id', type: 'integer', primary: true }]
+      }]
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.errors.some((e) => e.includes('table name'))).toBe(true);
+    }
+  });
+});

@@ -31,6 +31,15 @@ export interface JsonRpcErrorResponse {
 export type JsonRpcResponse = JsonRpcSuccessResponse | JsonRpcErrorResponse;
 
 // Standard JSON-RPC error codes plus a few platform-specific ones.
+//
+// Phase 4 Decision 6 adds four DAO-related codes. They follow the
+// existing platform-error range (-32000..-32099) so they are visually
+// distinguishable from the spec-defined JSON-RPC codes (-32700..-32603)
+// and from the Phase 3 platform codes (-32001..-32003). The DAO service
+// throws typed error classes (`TableNotFoundError`, `TableAccessDeniedError`,
+// `ValidationFailedError`, `SharedTableReadOnlyError`) whose `code` field
+// matches these constants; the IPC handler in `extension-ipc.ts` reads
+// `err.code` and emits the matching `RpcErrorCode` over the wire.
 export const RpcErrorCode = {
   ParseError: -32700,
   InvalidRequest: -32600,
@@ -39,7 +48,12 @@ export const RpcErrorCode = {
   InternalError: -32603,
   ExtensionNotFound: -32001,
   ExtensionAlreadyActivated: -32002,
-  ActivationEventUnknown: -32003
+  ActivationEventUnknown: -32003,
+  // Phase 4 additions — see Decision 6 and src/main/services/dao-service.ts.
+  TableNotFound: -32010,
+  TableAccessDenied: -32011,
+  ValidationFailed: -32012,
+  SharedTableReadOnly: -32013
 } as const;
 
 let nextId = 1;

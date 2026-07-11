@@ -14,15 +14,17 @@
  * shell keeps running with extensions disabled.
  */
 
-import { finance } from './api/index';
+import { finance, createFinance } from './api/index';
 import {
   isRequest,
   isNotification,
   makeRequestId,
   RpcErrorCode,
   type JsonRpcRequest,
-  type JsonRpcNotification
+  type JsonRpcNotification,
+  type JsonRpcResponse
 } from '../shared/json-rpc';
+import { RPC_METHOD } from '../shared/json-rpc-methods';
 import type { FinanceExtensionManifest } from '../types/finance';
 
 declare const process: NodeJS.Process & {
@@ -86,6 +88,43 @@ interface ActiveExtension {
 }
 
 const activeExtensions = new Map<string, ActiveExtension>();
+
+/**
+ * Phase 4 Task 6.4 — pending Host→Main RPC requests awaiting a response.
+ *
+ * The Host now sends JSON-RPC *requests* to Main (not just notifications)
+ * for the two Phase 4 DAO methods (`extension.readTable` /
+ * `extension.writeTable`). When extension code calls `finance.db.table(...).find()`
+ * inside the Host, the Host's db accessor (Task 7) calls
+ * `requestMain('extension.readTable', { extensionId, ... })` and waits for
+ * the response. Correlation is by JSON-RPC `id`, exactly as Main's
+ * `ExtensionIPC` correlates its own outgoing requests.
+ *
+ * Mirrors the pending-request map on the Main side (`extension-ipc.ts`).
+ * Errors from Main arrive as JSON-RPC error responses and are surfaced
+ * as `Error` with the original `message` + `code` so callers can
+ * pattern-match the typed DAO error classes (Task 7 will reconstruct
+ * them client-side).
+ */
+const pendingHostRequests = new Map<number, {
+  resolve: (value: unknown) => void;
+  reject: (reason: Error) => void;
+}>();
+
+/**
+ * Phase 4 Task 6.4 — send a JSON-RPC request from the Host to Main and
+ * wait for the matching response. Returns the `result` field on success
+ * or rejects with an `Error` whose message includes the JSON-RPC error
+ * code on failure. This is the Host-side counterpart of
+ * `ExtensionIPC.request()` on Main.
+ */
+function requestMain<T = unknown>(method: string, params?: unknown): Promise<T> {
+  const id = makeRequestId();
+  return new Promise<T>((resolve, reject) => {
+    pendingHostRequests.set(id, { resolve: resolve as (v: unknown) => void, reject });
+    parentPort!.postMessage({ jsonrpc: '2.0', id, method, params });
+  });
+}
 
 function send(message: unknown): void {
   parentPort!.postMessage(message);
@@ -161,6 +200,20 @@ async function handleRequest(req: JsonRpcRequest): Promise<void> {
         respond(req.id, { executed: result !== null, result });
         return;
       }
+      case RPC_METHOD.ExtensionReadTable:
+      case RPC_METHOD.ExtensionWriteTable: {
+        // Phase 4 Task 6.4 — proxy the DAO call to Main. The DB lives in
+        // Main, so any extension → Host DAO call must hop the IPC boundary
+        // to reach the DAOService. The Host forwards the request verbatim;
+        // the response envelope (`{ rows }` / `{ row }` / `{ count }` /
+        // `{ row, affected }` / `{ affected }`) is returned as-is to the
+        // extension. Errors from Main arrive as JSON-RPC error envelopes
+        // and are re-thrown here so the extension's caller sees the typed
+        // DAO error code (Task 7's db accessor reconstructs the class).
+        const result = await requestMain<unknown>(req.method, req.params);
+        respond(req.id, result);
+        return;
+      }
       default:
         respondError(req.id, RpcErrorCode.MethodNotFound, `Unknown method: ${req.method}`);
     }
@@ -210,7 +263,16 @@ async function activateExtension(extensionId: string, reason: string): Promise<b
 
     const extModule = await import(url.pathToFileURL(entryPath).href);
     if (typeof extModule?.activate === 'function') {
-      await extModule.activate(finance);
+      // Phase 4 Task 7 — construct a per-extension FinanceApi so the
+      // extension's `finance.db` accessor carries its own id on every
+      // RPC. The singleton `finance` (imported above) is reserved for
+      // the `extension.executeCommand` proxy handler — it has no
+      // caller-bound db. See `api/index.ts#createFinance`.
+      const perExtensionFinance = createFinance(extensionId, {
+        request: <T>(method: string, params?: unknown): Promise<T> =>
+          requestMain<T>(method, params)
+      });
+      await extModule.activate(perExtensionFinance);
     }
     // Cache both the on-disk path AND the live module reference so the
     // shutdown handler can call deactivate() without re-loading (require() of
@@ -253,6 +315,27 @@ parentPort.on('message', (event: { data: unknown; ports?: unknown[] }) => {
   // the unwrapped message directly — that asymmetry is why `host.ready`
   // appeared to work but `host.initialize` did not.
   const msg = event.data;
+  // Suppress the verbose log for routine Host→Main responses (Phase 4
+  // Task 6.4): the proxy handlers fire `requestMain` for every DAO call,
+  // which would flood the terminal with `[host] msg received: {"id":...}`
+  // entries that don't aid debugging. Requests and notifications still
+  // log normally via the path below.
+  if (typeof msg === 'object' && msg !== null && 'id' in (msg as object) && !('method' in (msg as object))) {
+    const response = msg as JsonRpcResponse;
+    const pending = pendingHostRequests.get(response.id);
+    if (pending) {
+      pendingHostRequests.delete(response.id);
+      if ('error' in response) {
+        const data = response.error.data as { name?: string } | undefined;
+        const err = new Error(`${response.error.message} (code ${response.error.code})`);
+        err.name = data?.name ?? 'Error';
+        pending.reject(err);
+      } else {
+        pending.resolve(response.result);
+      }
+    }
+    return;
+  }
   console.log('[host] msg received:', JSON.stringify(msg));
   if (isRequest(msg)) {
     void handleRequest(msg);

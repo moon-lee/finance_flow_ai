@@ -4,12 +4,29 @@
  * The manifest type is the source of truth for what an extension may declare.
  * Runtime validation lives in `src/extension-host/manifest-schema.ts` (Zod).
  * If you change a type here, mirror the change in the Zod schema.
+ *
+ * Table manifest re-exports (`TableManifest`, `ColumnManifest`) come from
+ * `src/main/services/shared-data-tables.ts` so there is exactly one
+ * definition shared by the registry, DAO, Zod schema, and extension authors.
+ * The import path crosses from `src/types/` into `src/main/services/` —
+ * acceptable because the import is type-only (`export type`) and the types
+ * are pure interfaces with no runtime coupling. If a future refactor moves
+ * these types into a `src/shared/` module, only the import paths below
+ * change; the public contract here stays identical.
  */
 
 export type ActivationEvent =
   | '*'
   | `onView:${string}`
   | `onCommand:${string}`;
+
+// Re-exports of the table manifest types from the Shared Data tables module.
+// Per Phase 4 plan Task 8.1 / Decision 3, extension authors consume these
+// types via the canonical `finance.d.ts` surface rather than reaching into
+// `src/main/services/`. The source-of-truth definitions live in
+// `src/main/services/shared-data-tables.ts` so the registry, DAO, and
+// extension authors all share one schema.
+export type { TableManifest, ColumnManifest, ColumnType } from '../main/services/shared-data-tables';
 
 export interface ManifestViewContribution {
   /** Stable view id used for activation events and Navigation Panel grouping. */
@@ -73,6 +90,16 @@ export interface FinanceExtensionManifest {
    */
   activationEvents: ActivationEvent[];
   contributions: ManifestContributions;
+  /**
+   * Optional list of extension-owned tables this extension declares. Per
+   * Decision 3, each table becomes a row in the schema registry at
+   * activation time; the registry generates a Zod validator from the
+   * column declarations and the DAO service enforces the namespace
+   * prefix (`<extensionId>_*`). The runtime Zod schema
+   * (`financeExtensionManifestSchema` in `manifest-schema.ts`) validates
+   * the shape; the registry enforces ownership.
+   */
+  tables?: readonly TableManifest[];
   /** Path to the extension's CommonJS or ESM entry relative to its package root. */
   main: string;
 }

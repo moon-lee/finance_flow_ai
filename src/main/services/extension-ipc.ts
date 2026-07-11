@@ -2,11 +2,14 @@ import { utilityProcess, type UtilityProcess } from 'electron';
 import {
   isRequest,
   makeRequestId,
+  RpcErrorCode,
   type JsonRpcRequest,
   type JsonRpcResponse
 } from '../../shared/json-rpc';
+import { RPC_METHOD } from '../../shared/json-rpc-methods';
 import { resolveHostBundlePath } from '../../shared/extension-paths';
 import type { FinanceExtensionManifest } from '../../types/finance';
+import type { DAOService, QueryObject } from './dao-service';
 
 interface PendingRequest {
   resolve: (value: unknown) => void;
@@ -62,6 +65,16 @@ export class ExtensionIPC {
   private crashed = false;
   private shuttingDown = false;
   private restartPromise: Promise<void> | null = null;
+  /**
+   * Phase 4 Task 6.3 — the DAO service is injected by Main after
+   * `TableSchemaRegistry` has been populated with shared + extension
+   * tables. The handlers registered in `setDAOService` accept incoming
+   * `extension.readTable` / `extension.writeTable` requests from the
+   * Host and dispatch to the DAO. Until `setDAOService` runs, those
+   * methods return a clear "DAO not wired" error so misconfiguration
+   * surfaces loudly during boot rather than as silent query failures.
+   */
+  private dao: DAOService | null = null;
 
   constructor(options: ExtensionIPCOptions = {}) {
     this.requestTimeoutMs = options.requestTimeoutMs ?? 10_000;
@@ -272,6 +285,175 @@ export class ExtensionIPC {
     }
   }
 
+  /**
+   * Phase 4 Task 6.3 — inject the DAO service so `extension.readTable` /
+   * `extension.writeTable` requests from the Host are dispatched to the
+   * real `DAOService`. Must be called before `start()` if any extension
+   * is expected to access the database. Idempotent: calling twice with
+   * the same DAO is a no-op; calling twice with different DAOs replaces
+   * the binding (used by tests that swap the underlying SQLite handle).
+   */
+  setDAOService(dao: DAOService): void {
+    this.dao = dao;
+  }
+
+  /**
+   * Phase 4 Task 6.3 — handle `extension.readTable` from the Host.
+   *
+   * Payload shape (Decision 6):
+   *   `{ extensionId: string, table: string, op: 'find' | 'findOne' | 'count', query: QueryObject }`
+   *
+   * Response envelope:
+   *   - `find`    → `{ rows: object[] }`
+   *   - `findOne` → `{ row: object | null }`
+   *   - `count`   → `{ count: number }`
+   *
+   * The DAO service already serialises Date → ISO-8601 internally
+   * (see Decision 3 `serializeRow` and the DAOService `find` path), so
+   * the response is safe to send across the MessagePort without further
+   * conversion. Typed DAO errors (`TableAccessDeniedError`,
+   * `TableNotFoundError`, `ValidationFailedError`,
+   * `SharedTableReadOnlyError`) propagate with their `code` field intact
+   * so the Host-side bridge can map them to client-side error types.
+   *
+   * Exposed publicly for unit tests; production callers should send a
+   * JSON-RPC request whose method is `RPC_METHOD.ExtensionReadTable`
+   * and whose payload matches the shape above.
+   */
+  handleReadTable(params: unknown): unknown {
+    if (!this.dao) {
+      throw new Error('ExtensionIPC.handleReadTable: DAOService not wired. Call setDAOService() first.');
+    }
+    const { extensionId, table, op, query } = params as {
+      extensionId: string;
+      table: string;
+      op: 'find' | 'findOne' | 'count';
+      query?: QueryObject;
+    };
+    const safeQuery: QueryObject = query ?? {};
+    switch (op) {
+      case 'find':
+        return { rows: this.dao.find(extensionId, table, safeQuery) };
+      case 'findOne':
+        return { row: this.dao.findOne(extensionId, table, safeQuery) };
+      case 'count':
+        return { count: this.dao.count(extensionId, table, safeQuery) };
+      default:
+        throw new Error(`ExtensionIPC.handleReadTable: unknown op '${op}'`);
+    }
+  }
+
+  /**
+   * Phase 4 Task 6.3 — handle `extension.writeTable` from the Host.
+   *
+   * Payload shape (Decision 6):
+   *   - `insert`: `{ extensionId, table, op: 'insert', payload: object }`
+   *   - `update`: `{ extensionId, table, op: 'update', payload: object, where: object }`
+   *   - `delete`: `{ extensionId, table, op: 'delete', where: object }`
+   *
+   * Response envelope:
+   *   - `insert` → `{ row: object, affected: 1 }`
+   *   - `update` → `{ affected: number }`
+   *   - `delete` → `{ affected: number }`
+   *
+   * Typed DAO errors propagate with their `code` field intact, same as
+   * `handleReadTable`.
+   */
+  handleWriteTable(params: unknown): unknown {
+    if (!this.dao) {
+      throw new Error('ExtensionIPC.handleWriteTable: DAOService not wired. Call setDAOService() first.');
+    }
+    const { extensionId, table, op, payload, where } = params as {
+      extensionId: string;
+      table: string;
+      op: 'insert' | 'update' | 'delete';
+      payload?: Record<string, unknown>;
+      where?: QueryObject;
+    };
+    switch (op) {
+      case 'insert':
+        return {
+          row: this.dao.insert(extensionId, table, payload ?? {}),
+          affected: 1
+        };
+      case 'update':
+        return {
+          affected: this.dao.update(extensionId, table, where ?? {}, payload ?? {})
+        };
+      case 'delete':
+        return {
+          affected: this.dao.delete(extensionId, table, where ?? {})
+        };
+      default:
+        throw new Error(`ExtensionIPC.handleWriteTable: unknown op '${op}'`);
+    }
+  }
+
+  /**
+   * Phase 4 Task 6.3 — dispatch a JSON-RPC request received from the
+   * Host to the appropriate DAO handler. Posts the response (success
+   * envelope `{ result }` or typed-error envelope `{ error }`) back to
+   * the Host over the same MessagePort.
+   *
+   * Error mapping (Decision 6 + Task 6.3 contract):
+   *   - Typed DAO errors (`TableAccessDeniedError` / `TableNotFoundError` /
+   *     `SharedTableReadOnlyError` / `ValidationFailedError`) carry a
+   *     numeric `code` matching one of the JSON-RPC error codes defined
+   *     in `shared/json-rpc.ts`. Forward `code` + `message` + `name`
+   *     (as `data`) so the Host can reconstruct the typed error and
+   *     surface it to extension code as the right class.
+   *   - Unknown method → `MethodNotFound` (-32601).
+   *   - Unhandled error → `InternalError` (-32603).
+   *
+   * Idempotent w.r.t. crashes: the Host re-spawns on next interaction
+   * (see `ensureRunning`), so a request that races a crash returns a
+   * `restart-failed` status notification rather than a response — the
+   * Host's pending-request map rejects with the same error and the
+   * extension sees a thrown rejection from its DAO call.
+   */
+  private async dispatchHostRequest(req: JsonRpcRequest): Promise<void> {
+    if (!this.process) {
+      return; // process gone; nothing to post to
+    }
+    try {
+      let result: unknown;
+      switch (req.method) {
+        case RPC_METHOD.ExtensionReadTable:
+          result = this.handleReadTable(req.params);
+          break;
+        case RPC_METHOD.ExtensionWriteTable:
+          result = this.handleWriteTable(req.params);
+          break;
+        default:
+          this.process.postMessage({
+            jsonrpc: '2.0',
+            id: req.id,
+            error: {
+              code: RpcErrorCode.MethodNotFound,
+              message: `Unknown method from Host: ${req.method}`
+            }
+          });
+          return;
+      }
+      this.process.postMessage({ jsonrpc: '2.0', id: req.id, result });
+    } catch (err) {
+      // Typed DAO errors carry their own `code`; surface it as the JSON-RPC
+      // error code so the Host can reconstruct the typed error class.
+      const code =
+        typeof (err as { code?: unknown }).code === 'number'
+          ? (err as { code: number }).code
+          : RpcErrorCode.InternalError;
+      const message = err instanceof Error ? err.message : String(err);
+      const data =
+        err instanceof Error ? { name: err.name, message } : { message };
+      this.process.postMessage({
+        jsonrpc: '2.0',
+        id: req.id,
+        error: { code, message, data }
+      });
+    }
+  }
+
   async stop(): Promise<void> {
     if (!this.process) return;
     this.shuttingDown = true;
@@ -292,9 +474,15 @@ export class ExtensionIPC {
 
   private handleMessage(msg: unknown): void {
     if (isRequest(msg)) {
-      // Main never receives requests from Host in Phase 3, only responses/notifications.
-      // If we get one, treat it as a protocol violation.
-      console.error('[extension-ipc] unexpected request from Host:', msg);
+      // Phase 4 Task 6.3: Main now receives requests FROM the Host for the
+      // two Phase 4 RPC methods (`extension.readTable` / `extension.writeTable`).
+      // The Host forwards extension DAO calls (origin: finance.db.table(...)
+      // in extension code) to Main because the DB lives in Main. Dispatch
+      // to the registered handler, then post the response (success or
+      // typed-error envelope) back to the Host so the calling extension
+      // receives its result. Any other method is a protocol violation
+      // (Phase 3 had no Host→Main requests at all).
+      void this.dispatchHostRequest(msg);
       return;
     }
     if (typeof msg === 'object' && msg !== null && 'id' in (msg as object)) {

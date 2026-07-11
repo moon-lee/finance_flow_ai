@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { isRequest, isNotification, makeRequestId } from '../../../src/shared/json-rpc';
+import {
+  isRequest,
+  isNotification,
+  makeRequestId,
+  RpcErrorCode
+} from '../../../src/shared/json-rpc';
 
 describe('JSON-RPC envelopes', () => {
   it('isRequest accepts a valid request', () => {
@@ -34,5 +39,35 @@ describe('JSON-RPC envelopes', () => {
     const c = makeRequestId();
     expect(b).toBeGreaterThan(a);
     expect(c).toBeGreaterThan(b);
+  });
+});
+
+// Phase 4 Decision 6: extensions reach the DAO through two new RPC methods
+// (`extension.readTable` / `extension.writeTable`). Four typed errors map to
+// the DAO's error classes (TableNotFoundError / TableAccessDeniedError /
+// ValidationFailedError / SharedTableReadOnlyError) so the Host's finance.db
+// surface can distinguish them in client-side error handling.
+describe('RPC error codes (Phase 4 DAO additions)', () => {
+  it('TableNotFound is -32010', () => {
+    // Maps to `TableNotFoundError` in src/main/services/dao-service.ts.
+    expect(RpcErrorCode.TableNotFound).toBe(-32010);
+  });
+
+  it('TableAccessDenied is -32011', () => {
+    // Maps to `TableAccessDeniedError` (caller extension does not own the
+    // table AND it is not on the Shared Financial Data allowlist).
+    expect(RpcErrorCode.TableAccessDenied).toBe(-32011);
+  });
+
+  it('ValidationFailed is -32012', () => {
+    // Maps to `ValidationFailedError` (Zod rejected the payload against the
+    // table's generated insert/update schema).
+    expect(RpcErrorCode.ValidationFailed).toBe(-32012);
+  });
+
+  it('SharedTableReadOnly is -32013', () => {
+    // Maps to `SharedTableReadOnlyError` (extension tried to write a
+    // platform-owned table on the Shared Financial Data allowlist).
+    expect(RpcErrorCode.SharedTableReadOnly).toBe(-32013);
   });
 });
