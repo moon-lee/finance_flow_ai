@@ -1,7 +1,7 @@
 ---
 title: Phase 4 - Shared Financial Data & The First Extension (Salary History)
 date: 2026-07-04
-amended: 2026-07-07
+amended: 2026-07-12
 status: draft — awaiting review; not yet implemented
 target_version: 0.7.0
 spec_source: docs/superpowers/specs/2026-06-13-implementation-design.md (Phase 4 section, lines 121–128)
@@ -1325,7 +1325,8 @@ finance-flow-ai/
   - **Earnings section** (read-only preview, derived): 9 monetary breakdowns + reconciliation warning if sum-of-earnings ≠ gross by > tolerance.
   - **Deductions section**: `payg_withholding` (derived = gross − net) + `[ Validate PAYG ]` button + result display (inline amber/green callout). If the user has manually changed `finance_year` away from the pay_date-derived default (Review Finding 9), the form shows a non-blocking amber callout with two actions: "Auto-correct to <derived-FY>" (default) and "Keep override". The form does not block submit; it surfaces the discrepancy and lets the user choose.
   - **Super section**: `superannuation_guarantee` (derived = gross × rate).
-  - **Leave section** (collapsed by default): "This week was different" toggle → expands to show 7 hour inputs (`regular_hours`, `shift_hours`, `overtime_1_5_hours`, `overtime_2_0_hours`, `holiday_hours`, `public_holiday_hours`) + 1 leave balance field (`holiday_leave_accrual_hours`).
+  - **Leave section** (collapsed by default): "This week was different" toggle → expands to show 7 hour inputs (`regular_hours`, `shift_hours`, `overtime_1_5_hours`, `overtime_2_0_hours`, `holiday_hours`, `public_holiday_hours`, `personal_leave_hours` — `personal_leave_hours` per Plan Amendment 6 is a transient form input feeding the `personal_leave` derivation; not persisted in `salary_history_pay_slips`). **NB:** `holiday_leave_accrual_hours` is NOT in this section — see the **Leave Accrual** section below.
+  - **Leave Accrual section** (always visible, read-only) **[Plan Amendment 7 — previously omitted from Task 11.1]**: a dedicated section between Leave and Notes per Decision 18's 8-section form structure (and per Plan Amendment 5 which re-purposed `holiday_leave_accrual_hours` as a cumulative running balance). One field: `holiday_leave_accrual_hours`, auto-calculated via `PayService.calculateHolidayLeaveAccrual(prev_balance, holiday_hours, accrualRatePerWeek)`. Displays the formula breakdown inline beneath the value: `prev_balance − holiday_hours + accrual_rate_per_week`. The `prev_balance` source is the previous payslip's `holiday_leave_accrual_hours` (or `rateRow.starting_holiday_leave_balance` for the first payslip). The `accrualRatePerWeek` source is the active rate row's `accrual_rate_per_week` column (default 2.92). The user does not edit this field directly — it recomputes reactively whenever `holiday_hours` or the active rate row changes. The amber border treatment for "this section is auto-calculated" is the same visual pattern as the Earnings section's read-only preview.
   - **Notes section**: free text (used to record "back-pay from June" or similar reconciliation context).
   - Visual reference: `docs/design/salary-history-mvp/payslip-form-collapsed.html` (default), `payslip-form-expanded.html` (toggle on), `payslip-form-reconciled.html` (warning state).
   - Submit dispatches a `payslip-create` custom event with the payload.
@@ -1372,7 +1373,7 @@ finance-flow-ai/
   - `accounts-seed-modal.ts`: 3 tests (renders, creates account, skip dispatches event).
   - `pay-rate-history-view.ts`: 4 tests (renders rate list, current badge, add/edit/view buttons visible).
   - `rate-row-form.ts`: 3 tests (renders fields with current rate pre-fill, validates, submit dispatches add/edit event after confirm).
-  - `reorder-sections-modal.ts`: 4 tests (renders 7 section list with up/down; save writes 7-element array to settings; **roundtrips section order through settings as a JSON string — no double-encoding, no over-escaping** per Review Finding 6; reset-to-default button restores the canonical 7-section order).
+  - `reorder-sections-modal.ts`: 4 tests (renders **8** section list with up/down; save writes **8**-element array to settings; **roundtrips section order through settings as a JSON string — no double-encoding, no over-escaping** per Review Finding 6; reset-to-default button restores the canonical **8**-section order `["period","totals","earnings","deductions","super","leave","leave-accrual","notes"]`). **[Plan Amendment 7]** — test count rises from 7→8 sections to reflect the addition of the `leave-accrual` section to the form per Decision 18 and Plan Amendment 5; the modal must list all 8 IDs and the reset-to-default must restore all 8.
 - [ ] 11.8 **Visual parity check**: after each component is implemented, take a screenshot (or DOM snapshot) and diff against the corresponding mock in `docs/design/salary-history-mvp/`. Any visible regression must be explained before merging.
 
 **Verification:** `npm run build:extensions` produces `dist/extensions/salary-history.js` containing all 6 UI components. Type-check passes. `npm run test:unit` shows 23 UI-component tests passing. **Visual parity:** each component's Lit shadow DOM matches the corresponding mock in `docs/design/salary-history-mvp/` (see Decision 18 visual-review checklist).
