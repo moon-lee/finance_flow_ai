@@ -9,6 +9,7 @@
     "test": "tests"
   },
   "scripts": {
+    "pretest": "node scripts/rebuild-better-sqlite3-node.mjs",
     "test": "vitest run",
     "dev": "concurrently -k \"npm:dev:main\" \"npm:dev:preload\" \"npm:dev:extension-host\" \"npm:dev:extensions\" \"npm:dev:renderer\" \"npm:start:dev\"",
     "dev:main": "vite build --config vite.main.config.ts --watch",
@@ -57,8 +58,5 @@
     "vite": "^8.0.16",
     "vitest": "^4.1.9",
     "wait-on": "^9.0.10"
-  },
-  "allowScripts": {
-    "better-sqlite3": true
   }
 }

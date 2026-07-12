@@ -1,12 +1,18 @@
-# Fix better-sqlite3 native module ABI mismatch on Windows / PowerShell.
+# One-shot better-sqlite3 ABI diagnostic (Windows / PowerShell).
 #
-# Problem: the .node binary was compiled for one Node ABI (e.g. Electron's)
-# but `vitest` runs under the system Node, which expects a different ABI.
-# This script rebuilds better-sqlite3 against the Node version that runs
-# `npm test` / `npx vitest`.
+# Prints the Node ABI that better-sqlite3 was compiled against and the
+# ABIs of the two runtimes it might be loaded under:
+#   1. System Node (drives `npm test` / vitest)
+#   2. Electron's bundled Node (drives `npm start` / the running app)
+#
+# If either ABI matches the binary's (or the binary is N-API), it will
+# load under that runtime. Otherwise run `npm test` for tests, or
+# `npm run rebuild` for the running app — the `pretest` script
+# (`scripts/rebuild-better-sqlite3-node.mjs`) rebuilds better-sqlite3
+# against the system Node ABI automatically.
 #
 # Usage (in PowerShell, from the project root):
-#   .\fix-sqlite-abi.ps1
+#   .\check-sqlite-abi.ps1
 #
 # If execution policy blocks scripts, run first:
 #   Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
@@ -18,58 +24,107 @@ Set-Location $projectRoot
 
 $nodeVersion = (node -v).TrimStart("v")
 $nodeAbi = node -p "process.versions.modules"
+$nodeNapi = node -p "process.versions.napi"
 
-Write-Host "System Node version: $nodeVersion" -ForegroundColor Cyan
-Write-Host "System Node ABI:     $nodeAbi" -ForegroundColor Cyan
+# Electron version -> bundled Node ABI lookup. Stable per Electron major.
+# Source: https://www.electronjs.org/docs/latest/tutorial/electron-timelines
+$electronTable = @{
+    28 = @{ NodeVersion = "18.18.2"; NodeAbi = "108" }
+    29 = @{ NodeVersion = "20.9.0";  NodeAbi = "115" }
+    30 = @{ NodeVersion = "20.9.0";  NodeAbi = "115" }
+    31 = @{ NodeVersion = "20.14.0"; NodeAbi = "115" }
+    32 = @{ NodeVersion = "20.18.0"; NodeAbi = "115" }
+    33 = @{ NodeVersion = "20.18.1"; NodeAbi = "115" }
+    34 = @{ NodeVersion = "20.18.1"; NodeAbi = "115" }
+    35 = @{ NodeVersion = "22.9.0";  NodeAbi = "127" }
+    36 = @{ NodeVersion = "22.14.0"; NodeAbi = "127" }
+    37 = @{ NodeVersion = "22.14.0"; NodeAbi = "127" }
+    38 = @{ NodeVersion = "22.14.0"; NodeAbi = "127" }
+    39 = @{ NodeVersion = "22.14.0"; NodeAbi = "127" }
+    40 = @{ NodeVersion = "22.14.0"; NodeAbi = "127" }
+    41 = @{ NodeVersion = "22.14.0"; NodeAbi = "127" }
+    42 = @{ NodeVersion = "22.14.0"; NodeAbi = "127" }
+    43 = @{ NodeVersion = "22.14.0"; NodeAbi = "127" }
+    44 = @{ NodeVersion = "22.15.0"; NodeAbi = "127" }
+}
 
-$binaryPath = "node_modules\better-sqlite3\build\Release\better_sqlite3.node"
-if (Test-Path $binaryPath) {
-    Write-Host ""
-    Write-Host "Current better-sqlite3 binary ABI:" -ForegroundColor Yellow
-    $bytes = [System.IO.File]::ReadAllBytes($binaryPath)
-    $text = [System.Text.Encoding]::ASCII.GetString($bytes)
-    $matches = [regex]::Matches($text, "NODE_MODULE_VERSION\s*\d+")
-    if ($matches.Count -gt 0) {
-        $matches | ForEach-Object { Write-Host $_.Value }
-    } else {
-        Write-Host "(could not detect from binary)"
+$electronVersion = ""
+$electronNodeAbi = ""
+$electronPkgPath = "node_modules\electron\package.json"
+if (Test-Path $electronPkgPath) {
+    $electronVersion = (Get-Content $electronPkgPath -Raw | ConvertFrom-Json).version
+    $electronMajor = [int]($electronVersion.Split('.')[0])
+    if ($electronTable.ContainsKey($electronMajor)) {
+        $electronNodeAbi = $electronTable[$electronMajor].NodeAbi
     }
 }
 
-Write-Host ""
-Write-Host "Rebuilding better-sqlite3 for system Node $nodeVersion (ABI $nodeAbi)..." -ForegroundColor Green
+$binaryPath = "node_modules\better-sqlite3\build\Release\better_sqlite3.node"
 
-# Clean any stale build artifacts
-$buildPath = "node_modules\better-sqlite3\build"
-if (Test-Path $buildPath) {
-    Remove-Item -Recurse -Force $buildPath
+function Write-Row($label, $value) {
+    Write-Host ("{0,-22} {1}" -f $label, $value)
 }
 
-# Rebuild against the system Node runtime
-npm rebuild better-sqlite3 `
-  --runtime=node `
-  --target=$nodeVersion `
-  --arch=x64 `
-  --dist-url=https://nodejs.org/download/release
+Write-Host ""
+Write-Row "System Node:"     $nodeVersion
+Write-Row "System Node ABI:" $nodeAbi
+Write-Row "System N-API:"    $nodeNapi
+if ($electronVersion) {
+    Write-Row "Electron:"        $electronVersion
+    if ($electronNodeAbi) {
+        Write-Row "Electron Node ABI:" $electronNodeAbi
+    } else {
+        Write-Row "Electron Node ABI:" "<unknown for this version>"
+    }
+}
+
+if (-not (Test-Path $binaryPath)) {
+    Write-Host ""
+    Write-Row "better-sqlite3:" "<binary not found at $binaryPath>"
+    Write-Host ""
+    Write-Host "STATUS: better-sqlite3 binary is missing. Run 'npm install' to trigger" -ForegroundColor Yellow
+    Write-Host "        the 'postinstall' step ('electron-rebuild --force')."
+    exit 0
+}
+
+# Try to extract the legacy NODE_MODULE_VERSION string (older better-sqlite3
+# versions embedded it directly in the .node binary).
+$binaryAbi = $null
+$bytes = [System.IO.File]::ReadAllBytes($binaryPath)
+$text = [System.Text.Encoding]::ASCII.GetString($bytes)
+$match = [regex]::Match($text, "NODE_MODULE_VERSION\s*(\d+)")
+if ($match.Success) {
+    $binaryAbi = $match.Groups[1].Value
+}
+
+$binaryMtime = (Get-Item $binaryPath).LastWriteTime.ToString("yyyy-MM-dd HH:mm:ss")
+
+if ($null -eq $binaryAbi) {
+    Write-Row "better-sqlite3:" "<N-API binary, see mtime>"
+} else {
+    Write-Row "better-sqlite3:" $binaryAbi
+}
+Write-Row "binary built:" $binaryMtime
 
 Write-Host ""
-Write-Host "Verifying ABI match..." -ForegroundColor Green
-try {
-    $test = node -e "console.log(require('better-sqlite3').constructor.name)" 2>&1
-    Write-Host "OK: better-sqlite3 loaded successfully under Node $nodeVersion (ABI $nodeAbi)." -ForegroundColor Green
-    Write-Host ""
-    Write-Host "Run the DB tests with:" -ForegroundColor Cyan
-    Write-Host "  npx vitest run tests/unit/services/database-service.test.ts"
-} catch {
-    Write-Host "ERROR: better-sqlite3 still cannot load." -ForegroundColor Red
-    Write-Host ""
-    Write-Host "Common fixes:" -ForegroundColor Yellow
-    Write-Host "  1. Ensure you have Python and Visual Studio Build Tools / C++ workload installed."
-    Write-Host "  2. Try a full reinstall:"
-    Write-Host "       Remove-Item -Recurse -Force node_modules\better-sqlite3"
-    Write-Host "       npm install better-sqlite3"
-    Write-Host "       .\fix-sqlite-abi.ps1"
-    Write-Host "  3. If using nvm-windows, make sure the same Node version runs rebuild and tests:"
-    Write-Host "       nvm use <version>"
-    exit 1
+if ($null -ne $binaryAbi) {
+    # Legacy binary — strict ABI matching required.
+    $matchesSystem = $false
+    $matchesElectron = $false
+    if ($binaryAbi -eq $nodeAbi) { $matchesSystem = $true }
+    if ($electronNodeAbi -and $binaryAbi -eq $electronNodeAbi) { $matchesElectron = $true }
+
+    if ($matchesSystem -or $matchesElectron) {
+        Write-Host ("STATUS: ABI match (system={0}, electron={1}) -" -f $(if ($matchesSystem) {"YES"} else {"no"}), $(if ($matchesElectron) {"YES"} else {"no"})) -ForegroundColor Green
+        Write-Host "        binary will load under the matching runtime(s)." -ForegroundColor Green
+    } else {
+        Write-Host "STATUS: ABI MISMATCH for both runtimes - run 'npm test' (rebuilds for system" -ForegroundColor Yellow
+        Write-Host "        Node via 'pretest') or 'npm run rebuild' (rebuilds for Electron's Node)." -ForegroundColor Yellow
+    }
+} else {
+    # N-API binary — ABI-agnostic, should work on any Node with a compatible
+    # N-API version. Just check the binary exists.
+    Write-Host "STATUS: N-API build detected - better-sqlite3 v12+ uses a stable N-API" -ForegroundColor Green
+    Write-Host "        ABI that works across Node versions. If 'npm test' fails, run" -ForegroundColor Green
+    Write-Host "        it once to trigger the 'pretest' rebuild against your system Node." -ForegroundColor Green
 }
