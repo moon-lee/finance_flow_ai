@@ -28,6 +28,16 @@ export type ActivationEvent =
 // extension authors all share one schema.
 export type { TableManifest, ColumnManifest, ColumnType } from '../main/services/shared-data-tables';
 
+// Re-export the public per-extension API contract so extension authors can
+// write `import type { FinanceApi } from 'finance'` (Phase 4 Decision 9 — the
+// canonical type-only SDK). This is a type-only re-export; the runtime
+// implementation lives in `src/extension-host/api/index.ts`, but extensions
+// must never import that module directly (it would bundle Core internals into
+// the extension). The `finance` tsconfig `paths` entry + Vite `resolve.alias`
+// map both point here; the build test (Task 13.3) fails the build if any
+// non-type `finance` import slips through.
+export type { FinanceApi } from '../extension-host/api/index';
+
 export interface ManifestViewContribution {
   /** Stable view id used for activation events and Navigation Panel grouping. */
   id: string;

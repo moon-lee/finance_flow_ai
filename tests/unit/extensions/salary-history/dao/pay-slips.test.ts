@@ -8,7 +8,7 @@ import {
   type PaySlip,
   type PaySlipInput,
 } from '../../../../../extensions/salary-history/src/dao/pay-slips';
-import type { FinanceApi } from '../../../../../src/extension-host/api/index';
+import type { FinanceApi } from 'finance';
 
 // ---------------------------------------------------------------------------
 // Stub FinanceApi + table state

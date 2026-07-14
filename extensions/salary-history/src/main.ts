@@ -7,31 +7,31 @@
  *     is empty (Decision 16).
  *  3. Registers the two commands (Decision 17): `salary.show-pay-history`
  *     and `salary.show-pay-rate-history`.
+ *  4. (Task 16.1) Reads namespace-scoped settings with safe defaults.
  *
  * The `finance` API passed to `activate` is the per-extension `FinanceApi`
- * (`db` + `commands` + `ai`). Steps the plan describes as settings
- * auto-fill (`financeYear`) and the UI back-channel (Decision 12
- * subscriptions) depend on host infrastructure delivered in later tasks
- * (a settings API / the Task 14 UI-mount IPC channel) and are deliberately
- * out of scope here — the command handlers emit a `salary-history:open-view`
- * DOM event that the Task 14 mount code will listen for.
+ * (`db` + `commands` + `ai` + optional `ui`/`settings`). The Host process
+ * has no DOM, so the command handlers request a UI mount over IPC
+ * (`finance.ui.requestMount`) — Main forwards it to the Renderer, which
+ * dynamically imports the extension bundle and mounts the named element.
+ * Direct DOM creation here would fail at runtime (Node `utilityProcess`).
  */
 
-import type { FinanceApi } from '../../../src/extension-host/api/index.js';
 import { registerUIComponents } from './ui/index.js';
 import { listAllRates, addNewRate } from './dao/pay-rate-history.js';
 import { buildDefaultRateRow } from './services/pay-rate-service.js';
+import type { FinanceApi } from 'finance';
 
 function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-function openView(tag: string, finance: FinanceApi): void {
-  const el = document.createElement(tag) as HTMLElement & { finance?: FinanceApi | null };
-  el.finance = finance;
-  window.dispatchEvent(
-    new CustomEvent('salary-history:open-view', { detail: { tag, element: el } }),
-  );
+/**
+ * Ask the Renderer to mount one of this extension's custom elements. The
+ * Host cannot render, so this is an IPC request — not a DOM operation.
+ */
+function openView(finance: FinanceApi, tag: string, mountData: Record<string, unknown> = {}): void {
+  void finance.ui?.requestMount(tag, mountData);
 }
 
 export async function activate(finance: FinanceApi): Promise<void> {
@@ -43,16 +43,22 @@ export async function activate(finance: FinanceApi): Promise<void> {
     await addNewRate(finance, buildDefaultRateRow(todayISO()));
   }
 
+  // Task 16.1 — read extension-scoped settings (namespace-enforced by Main),
+  // falling back to defaults when unset. Forwarded as mount data so the
+  // Renderer can surface them (e.g. the currency selector) once the
+  // components consume them.
+  const defaultCurrency =
+    (await finance.settings?.get('salary-history.defaultCurrency')) ?? 'AUD';
+  const financialYearStart =
+    (await finance.settings?.get('salary-history.financialYearStart')) ?? '07-01';
+  const mountData = { defaultCurrency, financialYearStart };
+
   // Decision 17 — two commands, one existing + one new.
-  finance.commands.registerCommand(
-    'salary.show-pay-history',
-    'View: Pay History',
-    () => openView('payslip-list', finance),
+  finance.commands.registerCommand('salary.show-pay-history', 'View: Pay History', () =>
+    openView(finance, 'payslip-list', mountData),
   );
-  finance.commands.registerCommand(
-    'salary.show-pay-rate-history',
-    'View: Pay Rate History',
-    () => openView('pay-rate-history-view', finance),
+  finance.commands.registerCommand('salary.show-pay-rate-history', 'View: Pay Rate History', () =>
+    openView(finance, 'pay-rate-history-view', mountData),
   );
 }
 

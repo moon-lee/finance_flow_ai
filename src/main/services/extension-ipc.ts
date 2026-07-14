@@ -10,6 +10,7 @@ import { RPC_METHOD } from '../../shared/json-rpc-methods';
 import { resolveHostBundlePath } from '../../shared/extension-paths';
 import type { FinanceExtensionManifest } from '../../types/finance';
 import type { DAOService, QueryObject } from './dao-service';
+import { getSetting, setSetting } from './settings-service';
 
 interface PendingRequest {
   resolve: (value: unknown) => void;
@@ -46,6 +47,30 @@ export interface ExtensionIPCOptions {
   requestTimeoutMs?: number;
 }
 
+/**
+ * Phase 4 Task 14 — a request from an extension (running in the Host) to
+ * have the Renderer mount one of its custom elements. `extensionId` is the
+ * calling extension; `componentTag` is the registered custom-element name
+ * (e.g. `payslip-list`); `mountData` is an opaque payload the extension
+ * wants the Renderer to forward to the mounted element (e.g. settings).
+ */
+export interface UiMountRequest {
+  extensionId: string;
+  componentTag: string;
+  mountData?: Record<string, unknown>;
+}
+
+/**
+ * Phase 4 Task 16 — a namespaced settings request from an extension. Main
+ * enforces that `key` begins with `<extensionId>.` before touching the
+ * settings service, so an extension can only read/write its own keys.
+ */
+export interface ExtensionSettingRequest {
+  extensionId: string;
+  key: string;
+  value?: unknown;
+}
+
 export class ExtensionIPC {
   private process: UtilityProcess | null = null;
   private readonly pending = new Map<number, PendingRequest>();
@@ -59,6 +84,12 @@ export class ExtensionIPC {
    * `src/extension-host/host.ts` for the producer side.
    */
   private readonly logListeners = new Set<(entry: HostLogEntry) => void>();
+  /**
+   * Phase 4 Task 14 — callback invoked when an extension requests a UI
+   * mount (`extension.ui-mount`). Main registers this so it can forward the
+   * request to the Renderer over `webContents.send('extensions:ui-mount')`.
+   */
+  private uiHandler: ((extensionId: string, mountRequest: UiMountRequest) => void) | null = null;
   private readonly requestTimeoutMs: number;
   private readonly hostPath: string;
   private initialManifests: FinanceExtensionManifest[] = [];
@@ -298,6 +329,66 @@ export class ExtensionIPC {
   }
 
   /**
+   * Phase 4 Task 14.1 — register the UI-mount handler. Called by Main so
+   * that when an extension requests a mount (`extension.ui-mount`), Main
+   * can forward it to the Renderer. Returns an unsubscribe function.
+   */
+  setUIHandler(handler: (extensionId: string, mountRequest: UiMountRequest) => void): () => void {
+    this.uiHandler = handler;
+    return () => {
+      if (this.uiHandler === handler) this.uiHandler = null;
+    };
+  }
+
+  /**
+   * Phase 4 Task 14 — invoked by `dispatchHostRequest` when the Host
+   * forwards an `extension.ui-mount` request. Calls the registered UI
+   * handler so Main can forward the request to the Renderer.
+   */
+  handleUiMount(params: unknown): void {
+    if (!this.uiHandler) return;
+    const { extensionId, componentTag, mountData } = params as UiMountRequest;
+    this.uiHandler(extensionId, { extensionId, componentTag, mountData });
+  }
+
+  /**
+   * Phase 4 Task 16 — read an extension-scoped setting. Enforces that the
+   * key is namespaced to the calling extension before delegating to the
+   * settings service. Returns `{ value }` (value may be `undefined`).
+   */
+  handleGetSetting(params: unknown): { value: unknown } {
+    const { extensionId, key } = params as ExtensionSettingRequest;
+    this.assertExtensionKey(extensionId, key);
+    return { value: getSetting(key) };
+  }
+
+  /**
+   * Phase 4 Task 16 — write an extension-scoped setting. Enforces the same
+   * namespace rule as `handleGetSetting` so an extension cannot touch
+   * another extension's (or Core's) keys.
+   */
+  handleSetSetting(params: unknown): { ok: true } {
+    const { extensionId, key, value } = params as ExtensionSettingRequest;
+    this.assertExtensionKey(extensionId, key);
+    setSetting(key, value);
+    return { ok: true };
+  }
+
+  /**
+   * Phase 4 Task 16 — namespace guard for extension settings. The settings
+   * service stores keys verbatim; this prevents an extension from reading
+   * or writing a key outside its `<extensionId>.` prefix (e.g. salary-history
+   * cannot set `tax.financialYearStart`). Throws on violation.
+   */
+  private assertExtensionKey(extensionId: string, key: string): void {
+    if (!key.startsWith(`${extensionId}.`)) {
+      throw new Error(
+        `Setting key "${key}" is outside the extension's namespace "${extensionId}."`
+      );
+    }
+  }
+
+  /**
    * Phase 4 Task 6.3 — handle `extension.readTable` from the Host.
    *
    * Payload shape (Decision 6):
@@ -423,6 +514,18 @@ export class ExtensionIPC {
           break;
         case RPC_METHOD.ExtensionWriteTable:
           result = this.handleWriteTable(req.params);
+          break;
+        case RPC_METHOD.ExtensionUiMount:
+          // Phase 4 Task 14 — extension wants the Renderer to mount a
+          // custom element. Forward to Main's UI handler; respond ack.
+          this.handleUiMount(req.params);
+          result = { mounted: true };
+          break;
+        case RPC_METHOD.ExtensionGetSetting:
+          result = this.handleGetSetting(req.params);
+          break;
+        case RPC_METHOD.ExtensionSetSetting:
+          result = this.handleSetSetting(req.params);
           break;
         default:
           this.process.postMessage({

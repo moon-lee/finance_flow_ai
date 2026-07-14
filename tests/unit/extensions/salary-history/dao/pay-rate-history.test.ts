@@ -7,7 +7,7 @@ import {
   getRateForDate,
   type RateRow,
 } from '../../../../../extensions/salary-history/src/dao/pay-rate-history';
-import type { FinanceApi } from '../../../../../src/extension-host/api/index';
+import type { FinanceApi } from 'finance';
 
 // ---------------------------------------------------------------------------
 // Stub FinanceApi — shared with pay-rate-service.test.ts structure.

@@ -50,7 +50,9 @@ export class WorkspacePanel extends LitElement {
         <div class="tab" role="tab" aria-selected="true">Dashboard</div>
       </div>
       <main class="content">
-        <div class="empty-state">Select a view from the Activity Bar</div>
+        <slot>
+          <div class="empty-state">Select a view from the Activity Bar</div>
+        </slot>
       </main>
     `;
   }

@@ -31,7 +31,7 @@
 
 import { LitElement, css, html, type PropertyValues, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import type { FinanceApi } from '../../../../src/extension-host/api/index.js';
+import type { FinanceApi } from 'finance';
 import type { PaySlip, PaySlipInput } from '../dao/pay-slips.js';
 import type { RateRow } from '../dao/pay-rate-history.js';
 import {

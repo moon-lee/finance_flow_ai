@@ -290,6 +290,16 @@ async function activateExtension(extensionId: string, reason: string): Promise<b
 
 // [Follow-up §3.10] Extension Host deactivation hook cleanup
 async function handleNotification(notification: JsonRpcNotification): Promise<void> {
+  if (notification.method === 'extension.ui-event') {
+    // Phase 4 Task 14 (Decision 12) — a mounted extension element (running
+    // in the Renderer) pushed a component-emitted event back to us. The
+    // salary-history extension does not yet subscribe to these (Task 12
+    // has no active ui-event listeners), so for now we observe them. The
+    // `salary-history:open-view` style subscriptions will consume this
+    // channel once the back-channel is wired in a later task.
+    console.log('[host] ui-event received:', JSON.stringify(notification.params));
+    return;
+  }
   if (notification.method === 'host.shutdown') {
     console.log('[host] shutdown request received, deactivating extensions...');
     for (const [id, ext] of activeExtensions) {

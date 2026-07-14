@@ -13,7 +13,7 @@
 
 import { LitElement, css, html, PropertyValues } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import type { FinanceApi } from '../../../../src/extension-host/api/index.js';
+import type { FinanceApi } from 'finance';
 import type { RateRow, RateRowInput } from '../dao/pay-rate-history.js';
 import { validateRateRow } from '../services/pay-rate-service.js';
 

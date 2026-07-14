@@ -12,7 +12,7 @@
 
 import { LitElement, css, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import type { FinanceApi } from '../../../../src/extension-host/api/index.js';
+import type { FinanceApi } from 'finance';
 import type { PaySlip } from '../dao/pay-slips.js';
 import { aggregateYearToDate, type YtdAggregate } from '../services/pay-service.js';
 

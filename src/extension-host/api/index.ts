@@ -20,6 +20,7 @@
 import * as commandsApi from './commands';
 import * as aiApi from './ai';
 import { createDb, type DbAccessor, type DbRpcClient } from './db';
+import { RPC_METHOD } from '../../shared/json-rpc-methods';
 
 // ---------------------------------------------------------------------------
 // Per-extension factory
@@ -47,6 +48,20 @@ export function createFinance(extensionId: string, rpc: DbRpcClient): FinanceApi
     },
     ai: {
       registerTool: aiApi.registerTool
+    },
+    ui: {
+      requestMount: (componentTag: string, mountData?: Record<string, unknown>) =>
+        rpc.request(RPC_METHOD.ExtensionUiMount, { extensionId, componentTag, mountData })
+    },
+    settings: {
+      get: async (key: string) => {
+        const res = (await rpc.request(RPC_METHOD.ExtensionGetSetting, { extensionId, key })) as {
+          value: unknown;
+        };
+        return res.value;
+      },
+      set: (key: string, value: unknown) =>
+        rpc.request(RPC_METHOD.ExtensionSetSetting, { extensionId, key, value })
     }
   };
 }
@@ -97,5 +112,25 @@ export interface FinanceApi {
   };
   ai: {
     registerTool: typeof aiApi.registerTool;
+  };
+  /**
+   * Phase 4 Task 14 — request that the Renderer mount one of this
+   * extension's custom elements. The Host process has no DOM, so the
+   * extension cannot render directly; it asks Main to forward a mount
+   * request to the Renderer, which dynamically imports the extension
+   * bundle and mounts the named element. Optional because legacy/test
+   * `FinanceApi` mocks may not provide it.
+   */
+  ui?: {
+    requestMount: (componentTag: string, mountData?: Record<string, unknown>) => Promise<unknown>;
+  };
+  /**
+   * Phase 4 Task 16 — extension-scoped settings read/write. Keys are
+   * namespace-prefixed by Main (`<extensionId>.`), so an extension can
+   * only touch its own settings. Optional for the same reason as `ui`.
+   */
+  settings?: {
+    get: (key: string) => Promise<unknown>;
+    set: (key: string, value: unknown) => Promise<void>;
   };
 }

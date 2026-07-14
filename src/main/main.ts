@@ -7,6 +7,7 @@ import { initializeSettings, closeSettings, getSetting, setSetting } from './ser
 import { discoverExtensions } from './services/extension-loader';
 import { ExtensionRegistry } from './services/extension-registry';
 import { ExtensionIPC } from './services/extension-ipc';
+import { RPC_METHOD } from '../shared/json-rpc-methods';
 import { TableSchemaRegistry } from './services/table-schema-registry';
 import { DAOService } from './services/dao-service';
 import { SHARED_TABLE_MANIFESTS } from './services/shared-data-tables';
@@ -263,6 +264,26 @@ function registerIpcHandlers(): void {
       }
     }
   );
+
+  // Phase 4 Task 14 — renderer-side DB proxy. The mounted extension UI
+  // (running in the Renderer) reads/writes its tables through these
+  // channels; Main forwards each call to the Host (which relays to the
+  // DAO service), reusing the exact envelope the extension's own code uses.
+  ipcMain.handle('extensions:read-table', async (_event, params) => {
+    if (!extensionIPC) return null;
+    return extensionIPC.request(RPC_METHOD.ExtensionReadTable, params);
+  });
+  ipcMain.handle('extensions:write-table', async (_event, params) => {
+    if (!extensionIPC) return null;
+    return extensionIPC.request(RPC_METHOD.ExtensionWriteTable, params);
+  });
+
+  // Phase 4 Task 14 (Decision 12) — renderer pushes a component event back
+  // to the Host via a notification (no response expected).
+  ipcMain.on('extensions:ui-event', (_event, extensionId: string, eventName: string, detail: unknown) => {
+    if (!extensionIPC) return;
+    extensionIPC.notify(RPC_METHOD.ExtensionUiEvent, { extensionId, eventName, detail });
+  });
 }
 
 function shutdownPersistence(): void {
@@ -334,6 +355,16 @@ app.whenReady().then(() => {
     // error. This MUST happen before `extensionIPC.start()` so the
     // message handlers are ready when the Host sends its first request.
     extensionIPC.setDAOService(daoService);
+
+    // Phase 4 Task 14.1 — forward extension UI-mount requests to the
+    // Renderer so it can dynamically import the bundle and mount the
+    // element. The Host has no DOM, so this Main→Renderer hop is the
+    // only way to realise a UI mount.
+    extensionIPC.setUIHandler((extensionId, mountRequest) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('extensions:ui-mount', mountRequest);
+      }
+    });
 
     extensionIPC.start(extensionRegistry.list()).catch((err) => {
       // [Review fix §2.2] Replace fire-and-forget `void` with an explicit

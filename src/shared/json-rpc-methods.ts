@@ -36,6 +36,22 @@ export const RPC_METHOD = {
   // Phase 4 additions (Decision 6).
   ExtensionReadTable: 'extension.readTable',
   ExtensionWriteTable: 'extension.writeTable',
+
+  // Phase 4 Task 14 — UI mount channel. An extension requests that Main
+  // (which forwards to the Renderer) mount one of its custom elements. The
+  // Host has no DOM, so the mount can only be realised in the Renderer.
+  ExtensionUiMount: 'extension.ui-mount',
+
+  // Phase 4 Task 14 — UI event back-channel (Decision 12). The Renderer
+  // pushes a component-emitted CustomEvent name + detail back to the Host
+  // so the extension can react (e.g. re-render, refresh a list).
+  ExtensionUiEvent: 'extension.ui-event',
+
+  // Phase 4 Task 16 — extension-scoped settings. The settings service lives
+  // in Main (Phase 2), so the extension (running in the Host) reaches it
+  // over the same Host→Main RPC boundary.
+  ExtensionGetSetting: 'extension.getSetting',
+  ExtensionSetSetting: 'extension.setSetting',
 } as const;
 
 export type RpcMethodName = (typeof RPC_METHOD)[keyof typeof RPC_METHOD];

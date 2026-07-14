@@ -8,7 +8,7 @@
  * through this object (writes are dispatched as CustomEvents).
  */
 
-import type { FinanceApi } from '../../../../../src/extension-host/api/index.js';
+import type { FinanceApi } from 'finance';
 
 export interface MockFinanceOptions {
   paySlips?: unknown[];

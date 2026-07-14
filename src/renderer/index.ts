@@ -3,9 +3,11 @@ import './components/navigation-panel';
 import './components/workspace';
 import './components/ai-panel';
 import './components/command-palette';
+import './components/salary-history-view';
 import type { ActivityView } from './components/activity-bar';
 import type { PaletteCommand } from './components/command-palette';
 import type { HostLogEntry, HostStatus } from '../types/finance-shell';
+import type { SalaryHistoryView } from './components/salary-history-view';
 
 const app = document.querySelector<HTMLElement>('#app');
 const commandPalette = document.querySelector<HTMLElement & { focusInput(): void; extensionCommands: PaletteCommand[] }>('#command-palette');
@@ -56,6 +58,24 @@ if (window.financeShell?.extensions?.onHostStatus) {
 function setCommandPaletteVisible(visible: boolean): void {
   commandPalette?.classList.toggle('hidden', !visible);
   if (visible) commandPalette?.focusInput();
+}
+
+// Phase 4 Task 14.5 — mount an extension's UI element into the workspace
+// when Main forwards a UI-mount request. The extension (running in the
+// Host) has no DOM, so the Renderer performs the actual mount here.
+if (window.financeShell?.extensions?.onUiMount) {
+  window.financeShell.extensions.onUiMount((payload) => {
+    const workspace = document.querySelector<HTMLElement>('#workspace');
+    if (!workspace) {
+      console.error('[renderer] no #workspace element to mount extension UI into');
+      return;
+    }
+    const view = document.createElement('salary-history-view') as SalaryHistoryView;
+    view.extensionId = payload.extensionId;
+    view.componentTag = payload.componentTag;
+    view.mountData = payload.mountData ?? {};
+    workspace.replaceChildren(view);
+  });
 }
 
 function toggleAiPanel(): void {

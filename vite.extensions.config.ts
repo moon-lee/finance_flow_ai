@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join, basename } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   EXTENSIONS_BUNDLE_DIR,
   extensionBundleFilename
@@ -67,6 +68,17 @@ function discoverExtensionEntries(): { path: string; outName: string }[] {
 }
 
 export default defineConfig({
+  // Phase 4 Task 13.2 — map the `finance` type-only import to the public
+  // contract declaration for editor tooling. Vite strips `import type`
+  // statements at build time, so this alias is never consulted for runtime
+  // resolution; if a non-type `finance` import ever slips in, Vite will try
+  // to resolve it to a `.d.ts` (no runtime exports) and fail — exactly the
+  // guard the Task 13.3 build test codifies.
+  resolve: {
+    alias: {
+      finance: fileURLToPath(new URL('./src/types/finance.d.ts', import.meta.url))
+    }
+  },
   build: {
     outDir: EXTENSIONS_BUNDLE_DIR,
     emptyOutDir: true,

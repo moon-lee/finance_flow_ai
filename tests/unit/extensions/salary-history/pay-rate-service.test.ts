@@ -7,7 +7,7 @@ import {
   buildDefaultRateRow,
   type RateRow,
 } from '../../../../extensions/salary-history/src/services/pay-rate-service';
-import type { FinanceApi } from '../../../../src/extension-host/api/index';
+import type { FinanceApi } from 'finance';
 
 // ---------------------------------------------------------------------------
 // Stub FinanceApi for DAO wrapper tests

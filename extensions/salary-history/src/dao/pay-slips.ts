@@ -30,7 +30,7 @@
  * manifest), so payload shape is double-checked end-to-end.
  */
 
-import type { FinanceApi } from '../../../../src/extension-host/api/index.js';
+import type { FinanceApi } from 'finance';
 import { validatePayslipInput } from '../services/pay-service.js';
 
 /**

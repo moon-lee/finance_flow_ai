@@ -31,6 +31,19 @@ export interface ExtensionsApi {
   // console (Test Unit 5 step 6 expectation) and is the integration point
   // for the Phase 4+ status-bar UI. Returns an unsubscribe function.
   onHostStatus: (callback: (status: HostStatus) => void) => () => void;
+  // Phase 4 Task 14 — subscribe to UI-mount requests. The callback receives
+  // `{ extensionId, componentTag, mountData }`; the renderer mounts the named
+  // custom element (after dynamically importing the extension bundle).
+  onUiMount: (
+    callback: (payload: { extensionId: string; componentTag: string; mountData?: Record<string, unknown> }) => void
+  ) => () => void;
+  // Phase 4 Task 14 — renderer-side DB proxy (delegates to the DAO service in
+  // Main, the same one the Host uses).
+  readTable: (params: unknown) => Promise<unknown>;
+  writeTable: (params: unknown) => Promise<unknown>;
+  // Phase 4 Task 14 (Decision 12) — push a component-emitted event back to
+  // the Extension Host.
+  uiEvent: (extensionId: string, eventName: string, detail: unknown) => void;
 }
 
 /** [Fix] One log entry forwarded from the Extension Host. See

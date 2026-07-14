@@ -26,7 +26,7 @@
  * single-user desktop app the race window is negligible.
  */
 
-import type { FinanceApi } from '../../../../src/extension-host/api/index.js';
+import type { FinanceApi } from 'finance';
 
 /**
  * A rate row from `salary_history_rate_history`. Matches the column

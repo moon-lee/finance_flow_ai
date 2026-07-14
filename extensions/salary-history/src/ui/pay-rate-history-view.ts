@@ -12,7 +12,7 @@
 
 import { LitElement, css, html } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import type { FinanceApi } from '../../../../src/extension-host/api/index.js';
+import type { FinanceApi } from 'finance';
 import type { RateRow } from '../dao/pay-rate-history.js';
 
 const RATE_COLUMNS: { key: keyof RateRow; label: string }[] = [

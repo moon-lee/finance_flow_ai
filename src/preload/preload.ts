@@ -35,6 +35,31 @@ const shellApi = {
       const listener = (_event: IpcRendererEvent, status: HostStatus): void => callback(status);
       ipcRenderer.on('extensions:host-status', listener);
       return () => { ipcRenderer.off('extensions:host-status', listener); };
+    },
+    // Phase 4 Task 14 — subscribe to UI-mount requests forwarded by Main
+    // (which received them from the Extension Host). The callback receives
+    // `{ extensionId, componentTag, mountData }`; the renderer dynamically
+    // imports the extension bundle and mounts the named element. Returns an
+    // unsubscribe function.
+    onUiMount: (
+      callback: (payload: { extensionId: string; componentTag: string; mountData?: Record<string, unknown> }) => void
+    ): (() => void) => {
+      const listener = (
+        _event: IpcRendererEvent,
+        payload: { extensionId: string; componentTag: string; mountData?: Record<string, unknown> }
+      ): void => callback(payload);
+      ipcRenderer.on('extensions:ui-mount', listener);
+      return () => { ipcRenderer.off('extensions:ui-mount', listener); };
+    },
+    // Phase 4 Task 14 — renderer-side DB proxy. Mounted extension elements
+    // read/write their extension-owned tables through these channels, which
+    // delegate to the same DAO service the Host uses.
+    readTable: (params: unknown): Promise<unknown> => ipcRenderer.invoke('extensions:read-table', params),
+    writeTable: (params: unknown): Promise<unknown> => ipcRenderer.invoke('extensions:write-table', params),
+    // Phase 4 Task 14 (Decision 12) — send a component-emitted CustomEvent
+    // name + detail back to the Host so the extension can react.
+    uiEvent: (extensionId: string, eventName: string, detail: unknown): void => {
+      ipcRenderer.send('extensions:ui-event', extensionId, eventName, detail);
     }
   }
 };
