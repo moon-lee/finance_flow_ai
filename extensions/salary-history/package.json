@@ -1,14 +1,14 @@
 {
   "name": "salary-history",
   "version": "0.1.0",
-  "description": "Salary History extension (Phase 3 stub — registration only).",
+  "description": "Salary History extension (Phase 4: calculation engine, rate history, and second view).",
   "private": true,
   "main": "src/main.ts",
   "financeExtension": {
     "id": "salary-history",
     "displayName": "Salary History",
     "version": "0.1.0",
-    "description": "Payslip entry and salary history tracking.",
+    "description": "Payslip entry, derived breakdown, and effective-dated rate history tracking.",
     "activationEvents": ["onView:salary-history"],
     "contributions": {
       "views": [
@@ -24,9 +24,73 @@
           "title": "View: Pay History"
         },
         {
-          "id": "salary.show-deductions",
-          "title": "View: Deductions"
+          "id": "salary.show-pay-rate-history",
+          "title": "View: Pay Rate History"
         }
+      ],
+      "tables": [
+        {
+          "name": "salary_history_pay_slips",
+          "columns": [
+            { "name": "id", "type": "integer", "primary": true, "autoIncrement": true },
+            { "name": "account_id", "type": "integer", "nullable": false },
+            { "name": "pay_period_start", "type": "date", "nullable": false },
+            { "name": "pay_period_end", "type": "date", "nullable": false },
+            { "name": "pay_date", "type": "date", "nullable": false },
+            { "name": "finance_year", "type": "text", "nullable": false },
+            { "name": "gross", "type": "real", "nullable": false, "default": 0, "min": 0 },
+            { "name": "net", "type": "real", "nullable": false, "default": 0, "min": 0 },
+            { "name": "currency", "type": "text", "nullable": false, "default": "AUD" },
+            { "name": "shift_allowance", "type": "real", "nullable": false, "default": 0, "min": 0 },
+            { "name": "base_hourly", "type": "real", "nullable": false, "default": 0, "min": 0 },
+            { "name": "overtime_1_5x", "type": "real", "nullable": false, "default": 0, "min": 0 },
+            { "name": "overtime_2_0x", "type": "real", "nullable": false, "default": 0, "min": 0 },
+            { "name": "holiday_leave_loading", "type": "real", "nullable": false, "default": 0, "min": 0 },
+            { "name": "holiday_pay", "type": "real", "nullable": false, "default": 0, "min": 0 },
+            { "name": "public_holiday", "type": "real", "nullable": false, "default": 0, "min": 0 },
+            { "name": "payg_withholding", "type": "real", "nullable": false, "default": 0, "min": 0 },
+            { "name": "superannuation_guarantee", "type": "real", "nullable": false, "default": 0, "min": 0 },
+            { "name": "personal_leave", "type": "real", "nullable": false, "default": 0, "min": 0 },
+            { "name": "holiday_leave_accrual_hours", "type": "real", "nullable": false, "default": 0, "min": 0 },
+            { "name": "regular_hours", "type": "real", "nullable": false, "default": 0, "min": 0 },
+            { "name": "shift_hours", "type": "real", "nullable": false, "default": 0, "min": 0 },
+            { "name": "overtime_1_5_hours", "type": "real", "nullable": false, "default": 0, "min": 0 },
+            { "name": "overtime_2_0_hours", "type": "real", "nullable": false, "default": 0, "min": 0 },
+            { "name": "public_holiday_hours", "type": "real", "nullable": false, "default": 0, "min": 0 },
+            { "name": "notes", "type": "text", "nullable": true },
+            { "name": "created_at", "type": "datetime", "nullable": false, "default": "now" },
+            { "name": "updated_at", "type": "datetime", "nullable": false, "default": "now" }
+          ]
+        },
+        {
+          "name": "salary_history_rate_history",
+          "columns": [
+            { "name": "id", "type": "integer", "primary": true, "autoIncrement": true },
+            { "name": "effective_from", "type": "text", "nullable": false },
+            { "name": "effective_to", "type": "text", "nullable": true },
+            { "name": "base_hourly_rate", "type": "real", "nullable": false, "default": 0, "min": 0 },
+            { "name": "standard_hours_per_week", "type": "real", "nullable": false, "default": 38, "min": 0 },
+            { "name": "shift_allowance_multiplier", "type": "real", "nullable": false, "default": 0.15, "min": 0 },
+            { "name": "shift_allowance_hours_per_week", "type": "real", "nullable": false, "default": 38, "min": 0 },
+            { "name": "overtime_1_5_multiplier", "type": "real", "nullable": false, "default": 1.5, "min": 0 },
+            { "name": "overtime_2_0_multiplier", "type": "real", "nullable": false, "default": 2.0, "min": 0 },
+            { "name": "superannuation_rate", "type": "real", "nullable": false, "default": 0.12, "min": 0 },
+            { "name": "holiday_leave_loading_rate", "type": "real", "nullable": false, "default": 0.175, "min": 0 },
+            { "name": "accrual_rate_per_week", "type": "real", "nullable": false, "default": 2.92, "min": 0 },
+            { "name": "starting_holiday_leave_balance", "type": "real", "nullable": false, "default": 0, "min": 0 },
+            { "name": "notes", "type": "text", "nullable": true },
+            { "name": "created_at", "type": "datetime", "nullable": false, "default": "now" },
+            { "name": "updated_at", "type": "datetime", "nullable": false, "default": "now" }
+          ]
+        }
+      ],
+      "configuration": [
+        { "key": "salary-history.defaultCurrency", "type": "string", "label": "Default Currency", "default": "AUD" },
+        { "key": "salary-history.financialYearStart", "type": "string", "label": "Financial Year Start (MM-DD)", "default": "07-01" },
+        { "key": "salary-history.paygToleranceDollars", "type": "number", "label": "PAYG Tolerance ($)", "default": 5.0 },
+        { "key": "salary-history.paygTaxYear", "type": "string", "label": "PAYG Tax Year", "default": "2026-2027" },
+        { "key": "salary-history.financeYear", "type": "string", "label": "Financial Year", "default": "" },
+        { "key": "salary-history.sectionOrder", "type": "object", "label": "Form Section Order", "default": ["period", "totals", "earnings", "deductions", "super", "leave", "leave-accrual", "notes"] }
       ]
     },
     "main": "src/main.ts"
