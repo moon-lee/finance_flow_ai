@@ -32,10 +32,18 @@ export interface ExtensionsApi {
   // for the Phase 4+ status-bar UI. Returns an unsubscribe function.
   onHostStatus: (callback: (status: HostStatus) => void) => () => void;
   // Phase 4 Task 14 — subscribe to UI-mount requests. The callback receives
-  // `{ extensionId, componentTag, mountData }`; the renderer mounts the named
-  // custom element (after dynamically importing the extension bundle).
+  // `{ extensionId, componentTag, mountData, bundleUrl }`; the renderer mounts
+  // the named custom element (after dynamically importing the extension
+  // bundle at `bundleUrl`).
   onUiMount: (
-    callback: (payload: { extensionId: string; componentTag: string; mountData?: Record<string, unknown> }) => void
+    callback: (
+      payload: {
+        extensionId: string;
+        componentTag: string;
+        mountData?: Record<string, unknown>;
+        bundleUrl?: string;
+      }
+    ) => void
   ) => () => void;
   // Phase 4 Task 14 — renderer-side DB proxy (delegates to the DAO service in
   // Main, the same one the Host uses).
@@ -65,10 +73,18 @@ export type HostStatus =
   | { status: 'restarting' }
   | { status: 'restart-failed'; error: string };
 
+export interface AccountsApi {
+  /** Core-owned account creation (the `accounts` table is read-only for
+   * extensions per Decision 4, so the first-run seed modal routes its write
+   * here rather than through `finance.db`). Returns the new row id. */
+  create: (input: { name: string; institution: string | null }) => Promise<{ id: number }>;
+}
+
 export interface FinanceShellApi {
   getVersion: () => Promise<string>;
   settings: SettingsApi;
   extensions: ExtensionsApi;
+  accounts: AccountsApi;
 }
 
 declare global {

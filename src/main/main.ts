@@ -1,9 +1,8 @@
 import { app, BrowserWindow, ipcMain, screen, dialog } from 'electron';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { initializeDatabase, registerMigration, closeDatabase, getDatabase } from './services/database-service';
-import { infrastructureMigration, extensionCrashTrackingMigration } from './services/infrastructure-migration';
-import { initializeSettings, closeSettings, getSetting, setSetting } from './services/settings-service';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { initializeDatabase, registerAllMigrations, closeDatabase, getDatabase } from './services/database-service';
+import { initializeSettings, closeSettings, getSetting, setSetting, registerExtensionNamespace } from './services/settings-service';
 import { discoverExtensions } from './services/extension-loader';
 import { ExtensionRegistry } from './services/extension-registry';
 import { ExtensionIPC } from './services/extension-ipc';
@@ -284,6 +283,23 @@ function registerIpcHandlers(): void {
     if (!extensionIPC) return;
     extensionIPC.notify(RPC_METHOD.ExtensionUiEvent, { extensionId, eventName, detail });
   });
+
+  // Phase 4 Task 17 (Test Unit 1) — Core-owned account creation. The `accounts`
+  // table is Platform-owned and read-only for extensions (Decision 4), so the
+  // first-run seed modal routes its write through this Core path rather than
+  // the extension's own `finance.db`. The DAO service is bypassed deliberately
+  // (it would reject the write as SharedTableReadOnly); this is a trusted,
+  // input-validated Core insert.
+  ipcMain.handle('accounts:create', (_event, input: { name: string; institution: string | null }) => {
+    if (!input || typeof input.name !== 'string' || input.name.trim() === '') {
+      throw new Error('accounts:create requires a non-empty name');
+    }
+    const db = getDatabase();
+    const info = db
+      .prepare('INSERT INTO accounts (name, institution, is_active, created_at) VALUES (?, ?, 1, ?)')
+      .run(input.name.trim(), input.institution ?? null, new Date().toISOString());
+    return { id: Number(info.lastInsertRowid) };
+  });
 }
 
 function shutdownPersistence(): void {
@@ -297,8 +313,7 @@ function shutdownPersistence(): void {
   closeDatabase();
 }
 
-registerMigration(infrastructureMigration);
-registerMigration(extensionCrashTrackingMigration);
+registerAllMigrations();
 
 // SINGLE POINT OF REGISTRATION. Do not invoke registerIpcHandlers() anywhere
 // else in this file or in any module imported during bootstrap. Duplicate
@@ -337,6 +352,11 @@ app.whenReady().then(() => {
     });
     for (const { manifest } of discovery.extensions) {
       extensionRegistry.upsert(manifest);
+      // Register the extension's settings namespace so its `finance.settings`
+      // reads/writes pass Main's namespace guard. Without this, activation
+      // fails with "Settings namespace "<id>" is not registered" the first
+      // time the extension reads an extension-scoped setting.
+      registerExtensionNamespace(manifest.id);
     }
     for (const skipped of discovery.skipped) {
       // [Fix] Use console.log (stdout) instead of console.warn (stderr) so
@@ -362,7 +382,13 @@ app.whenReady().then(() => {
     // only way to realise a UI mount.
     extensionIPC.setUIHandler((extensionId, mountRequest) => {
       if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('extensions:ui-mount', mountRequest);
+        // Resolve the built UI bundle's absolute file:// URL so the Renderer
+        // can import it directly. The renderer page sits in `dist/renderer/`
+        // but the bundle is emitted to `dist/extensions/<id>.js`; a relative
+        // path from the renderer would 404 and the mount would fail silently.
+        const bundleAbs = join(mainDir, '..', 'extensions', `${extensionId}.js`);
+        const bundleUrl = pathToFileURL(bundleAbs).href;
+        mainWindow.webContents.send('extensions:ui-mount', { ...mountRequest, bundleUrl });
       }
     });
 

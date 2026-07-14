@@ -32,10 +32,15 @@ export class WorkspacePanel extends LitElement {
     }
 
     .content {
-      display: grid;
-      place-items: center;
+      display: block;
       min-height: 0;
-      padding: 24px;
+      height: 100%;
+      overflow-y: auto;
+      padding: 0;
+    }
+
+    .content > ::slotted(*) {
+      display: block;
     }
 
     .empty-state {

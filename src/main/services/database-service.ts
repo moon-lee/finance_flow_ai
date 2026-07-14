@@ -145,15 +145,27 @@ export function getDatabase(): BetterSqlite3.Database {
  * check), so calling this helper multiple times — or alongside a production
  * startup that also registers the migrations — is safe.
  */
-export function getTestDatabase(): BetterSqlite3.Database {
-  const database = new DatabaseCtor(':memory:');
-  database.pragma('journal_mode = MEMORY');
-  database.pragma('foreign_keys = ON');
+/**
+ * Register every production migration in the correct apply order. This is the
+ * single source of truth for which migrations exist — both production startup
+ * and the test helper below call it, so they can never drift. (Previously the
+ * salary-history / accounts migrations were registered only inside the test
+ * helper, so they were never created in the real `finance.db` and extension
+ * activation failed with `no such table`.)
+ */
+export function registerAllMigrations(): void {
   registerMigration(infrastructureMigration);
   registerMigration(extensionCrashTrackingMigration);
   registerMigration(sharedAccountsMigration);
   registerMigration(salaryHistoryPaySlipsMigration);
   registerMigration(salaryHistoryRateHistoryMigration);
+}
+
+export function getTestDatabase(): BetterSqlite3.Database {
+  const database = new DatabaseCtor(':memory:');
+  database.pragma('journal_mode = MEMORY');
+  database.pragma('foreign_keys = ON');
+  registerAllMigrations();
   runMigrations(database);
   return database;
 }

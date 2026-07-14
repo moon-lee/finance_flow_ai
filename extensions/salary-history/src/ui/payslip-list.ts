@@ -38,6 +38,11 @@ export class PayslipList extends LitElement {
       gap: 10px;
       margin-bottom: 12px;
     }
+    .toolbar {
+      display: flex;
+      justify-content: flex-end;
+      margin-bottom: 10px;
+    }
     .kpi {
       border: 1px solid #3c3c3c;
       border-radius: 6px;
@@ -204,6 +209,12 @@ export class PayslipList extends LitElement {
     }
   }
 
+  private _onAdd(): void {
+    this.dispatchEvent(
+      new CustomEvent('payslip-add-request', { bubbles: true, composed: true }),
+    );
+  }
+
   render(): unknown {
     const ytd = this._ytd();
     const pages = Math.max(1, Math.ceil(this.payslips.length / PAGE_SIZE));
@@ -211,7 +222,10 @@ export class PayslipList extends LitElement {
     const rows = this.payslips.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
 
     return html`
-      <div class="kpis" data-testid="kpis">
+       <div class="toolbar" data-testid="toolbar">
+         <button class="action" data-testid="add-payslip" @click="${() => this._onAdd()}">+ Add Payslip</button>
+       </div>
+       <div class="kpis" data-testid="kpis">
         <div class="kpi"><div class="label">YTD Gross</div><div class="value" data-testid="kpi-gross">${ytd.gross.toFixed(2)}</div></div>
         <div class="kpi"><div class="label">YTD Net</div><div class="value" data-testid="kpi-net">${ytd.net.toFixed(2)}</div></div>
         <div class="kpi"><div class="label">Count</div><div class="value" data-testid="kpi-count">${ytd.count}</div></div>

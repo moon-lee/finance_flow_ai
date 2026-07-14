@@ -17,13 +17,26 @@
  * Direct DOM creation here would fail at runtime (Node `utilityProcess`).
  */
 
-import { registerUIComponents } from './ui/index.js';
 import { listAllRates, addNewRate } from './dao/pay-rate-history.js';
 import { buildDefaultRateRow } from './services/pay-rate-service.js';
 import type { FinanceApi } from 'finance';
 
 function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+/**
+ * Register the extension's custom elements. The Extension Host runs in a
+ * Node `utilityProcess` with no DOM, so the UI components (which extend
+ * `HTMLElement` / `LitElement`) MUST NOT be loaded there — importing `lit`
+ * in Node throws `ReferenceError: HTMLElement is not defined`. The Renderer
+ * (browser) calls this once per mount and awaits it before creating an
+ * element; the Host never calls it, keeping the host bundle DOM-free. See
+ * the activation crash fix in Task 17 R2.
+ */
+export async function registerUIComponents(): Promise<void> {
+  if (typeof HTMLElement === 'undefined') return;
+  await import('./ui/index.js');
 }
 
 /**
@@ -34,9 +47,27 @@ function openView(finance: FinanceApi, tag: string, mountData: Record<string, un
   void finance.ui?.requestMount(tag, mountData);
 }
 
-export async function activate(finance: FinanceApi): Promise<void> {
-  registerUIComponents();
+/**
+ * Open the primary Pay History view. On first run (empty `accounts` table,
+ * which is Core-owned per Decision 4) this mounts the account seed modal so
+ * the user creates their first account before the payslip form appears
+ * (Task 17 TU1). Otherwise it mounts the payslip list.
+ */
+async function openPayHistory(
+  finance: FinanceApi,
+  mountData: Record<string, unknown>
+): Promise<void> {
+  const accounts = (await finance.db.table('accounts').find({ is_active: true })) as Array<{
+    id: number;
+  }>;
+  if (accounts.length === 0) {
+    openView(finance, 'accounts-seed-modal', mountData);
+  } else {
+    openView(finance, 'payslip-list', mountData);
+  }
+}
 
+export async function activate(finance: FinanceApi): Promise<void> {
   // Decision 16 — seed a default current rate row if none exists.
   const rates = await listAllRates(finance);
   if (rates.length === 0) {
@@ -55,10 +86,19 @@ export async function activate(finance: FinanceApi): Promise<void> {
 
   // Decision 17 — two commands, one existing + one new.
   finance.commands.registerCommand('salary.show-pay-history', 'View: Pay History', () =>
-    openView(finance, 'payslip-list', mountData),
+    openPayHistory(finance, mountData).catch((e) =>
+      console.error('[salary-history] openPayHistory failed', e),
+    ),
   );
   finance.commands.registerCommand('salary.show-pay-rate-history', 'View: Pay Rate History', () =>
     openView(finance, 'pay-rate-history-view', mountData),
+  );
+
+  // Activating the extension via its activity-bar view ("P") should open the
+  // primary view, not just register commands. Mount it on activation so the
+  // "P" icon is immediately usable.
+  openPayHistory(finance, mountData).catch((e) =>
+    console.error('[salary-history] openPayHistory (activation) failed', e),
   );
 }
 

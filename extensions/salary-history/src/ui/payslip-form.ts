@@ -118,111 +118,105 @@ export class PayslipForm extends LitElement {
     :host {
       display: block;
       color: #d4d4d4;
-      font: 13px/1.5 system-ui, sans-serif;
-    }
-    h3 {
-      margin: 0 0 8px;
-      font-size: 13px;
-      text-transform: uppercase;
-      color: #a8a8a8;
-    }
-    .section {
-      border: 1px solid #3c3c3c;
-      border-radius: 6px;
-      padding: 10px 12px;
-      margin-bottom: 10px;
-      background: #252526;
-    }
-    .section.readonly {
-      border-color: #5a4a1a;
-    }
-    .section.accrual {
-      border-color: #c2913a;
-    }
-    .row {
-      display: flex;
-      gap: 12px;
-      flex-wrap: wrap;
-    }
-    label {
-      display: flex;
-      flex-direction: column;
-      gap: 3px;
-      font-size: 12px;
-      color: #b9b9b9;
-    }
-    input, select, textarea {
+      font: 14px/1.5 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       background: #1e1e1e;
-      border: 1px solid #3c3c3c;
-      color: #d4d4d4;
-      border-radius: 4px;
-      padding: 4px 6px;
-      font: inherit;
     }
-    .preview {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 4px 16px;
-      font-size: 12px;
-    }
-    .preview .amt {
-      text-align: right;
-      font-variant-numeric: tabular-nums;
-    }
-    .amber {
-      background: #4a3c00;
-      border: 1px solid #cca700;
-      color: #e8d28a;
-      border-radius: 4px;
-      padding: 8px 10px;
-      margin: 8px 0;
-      font-size: 12px;
-    }
-    .green {
-      background: #0d2e26;
-      border: 1px solid #4ec9b0;
-      color: #9fe6d6;
-      border-radius: 4px;
-      padding: 8px 10px;
-      margin: 8px 0;
-      font-size: 12px;
-    }
-    .red {
-      background: #3a1414;
-      border: 1px solid #f48771;
-      color: #f3b3a6;
-      border-radius: 4px;
-      padding: 8px 10px;
-      margin: 8px 0;
-      font-size: 12px;
-    }
-    .actions {
+    * { box-sizing: border-box; }
+    .topbar {
+      background: #252526;
+      border-bottom: 1px solid #3e3e3e;
+      padding: 10px 20px;
       display: flex;
-      gap: 8px;
-      margin-top: 12px;
+      align-items: center;
+      gap: 12px;
     }
-    button.primary {
-      background: #007acc;
-      color: #fff;
-      border: 0;
-      border-radius: 4px;
-      padding: 6px 14px;
-      cursor: pointer;
-    }
-    .errors {
-      color: #f48771;
+    .crumb-link { color: #007acc; text-decoration: none; font-size: 13px; cursor: pointer; }
+    .crumb-link:hover { text-decoration: underline; }
+    .crumb-sep { color: #858585; }
+    .crumb-current { color: #d4d4d4; font-weight: 500; }
+    .spacer { flex: 1; }
+    .reorder-btn {
+      background: transparent;
+      color: #858585;
+      border: 1px solid #3e3e3e;
+      padding: 4px 10px;
+      border-radius: 3px;
       font-size: 12px;
-      margin: 8px 0;
-    }
-    .formula {
-      color: #8a8a8a;
-      font-size: 11px;
-      margin-top: 4px;
-    }
-    .toggle {
       cursor: pointer;
-      color: #6da3d6;
+      font-family: inherit;
     }
+    .reorder-btn:hover { border-color: #007acc; color: #d4d4d4; }
+    .container { max-width: 760px; margin: 0 auto; padding: 24px 20px 40px; }
+    h1 { font-size: 18px; font-weight: 600; color: #ffffff; margin: 0 0 4px; }
+    .subtitle { color: #858585; font-size: 13px; margin: 0 0 24px; }
+    .section { background: #252526; border: 1px solid #3e3e3e; border-radius: 6px; margin-bottom: 12px; overflow: hidden; }
+    .section.readonly { border-color: #5a4a1a; }
+    .section.accrual { border-color: #c2913a; }
+    .section-header {
+      background: #2a2a2a;
+      padding: 8px 16px;
+      border-bottom: 1px solid #3e3e3e;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    h3 { margin: 0; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #cccccc; }
+    .section-badge {
+      background: #3e3e3e;
+      color: #858585;
+      font-size: 10px;
+      font-weight: 600;
+      padding: 2px 6px;
+      border-radius: 2px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    .section-body { padding: 16px; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px 16px; }
+    .field { display: flex; flex-direction: column; gap: 4px; }
+    .field-full { grid-column: 1 / -1; }
+    .field label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; color: #858585; }
+    .field .label-sub { font-size: 10px; color: #707070; text-transform: none; letter-spacing: 0; font-weight: 400; }
+    input, select, textarea {
+      background: #3c3c3c;
+      color: #d4d4d4;
+      border: 1px solid #3e3e3e;
+      border-radius: 3px;
+      padding: 6px 10px;
+      font-size: 13px;
+      font-family: inherit;
+      outline: none;
+    }
+    input:focus, select:focus, textarea:focus { border-color: #007acc; }
+    input[readonly], input:disabled { background: #2a2a2a; color: #858585; font-style: italic; }
+    input[type='number'] { font-family: 'SF Mono', Consolas, monospace; }
+    .read-only-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px; }
+    .read-only-row .label { color: #858585; font-family: 'SF Mono', Consolas, monospace; font-size: 12px; }
+    .read-only-row .value { color: #d4d4d4; font-family: 'SF Mono', Consolas, monospace; }
+    .toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; }
+    .toggle { cursor: pointer; color: #6da3d6; }
+    .hours-block { background: #1e1e1e; border: 1px solid #3e3e3e; border-radius: 4px; padding: 12px; margin-top: 12px; }
+    .hours-block-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; color: #858585; margin-bottom: 8px; }
+    .footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+    .btn { padding: 8px 20px; border-radius: 3px; font-size: 13px; cursor: pointer; font-family: inherit; border: 1px solid transparent; }
+    .btn-primary { background: #007acc; color: #ffffff; border-color: #007acc; }
+    .btn-primary:hover { background: #1188dd; }
+    .btn-secondary { background: #3c3c3c; color: #d4d4d4; border-color: #3e3e3e; }
+    .btn-secondary:hover { background: #4a4a4a; }
+    .amber { background: #4a3c00; border: 1px solid #cca700; color: #e8d28a; border-radius: 4px; padding: 8px 10px; margin: 8px 0; font-size: 12px; }
+    .amber button { margin-left: 6px; }
+    .green { background: #0d2e26; border: 1px solid #4ec9b0; color: #9fe6d6; border-radius: 4px; padding: 8px 10px; margin: 8px 0; font-size: 12px; }
+    .red { background: #3a1414; border: 1px solid #f48771; color: #f3b3a6; border-radius: 4px; padding: 8px 10px; margin: 8px 0; font-size: 12px; }
+    .errors { color: #f48771; font-size: 12px; margin: 8px 0; }
+    .formula { color: #8a8a8a; font-size: 11px; margin-top: 8px; font-family: 'SF Mono', Consolas, monospace; }
+    .btn-validate { background: #2a2a2a; color: #007acc; border: 1px solid #007acc; padding: 5px 12px; border-radius: 3px; font-size: 12px; cursor: pointer; font-family: inherit; }
+    .btn-validate:hover { background: #003a66; }
+    .payg-btn-row { display: flex; align-items: center; gap: 12px; margin-top: 8px; flex-wrap: wrap; }
+    .payg-result { margin-top: 12px; padding: 10px 12px; background: #1e3a2e; border-left: 3px solid #4ec9b0; border-radius: 3px; font-size: 12px; color: #d4d4d4; }
+    .payg-result-icon { color: #4ec9b0; font-weight: 700; margin-right: 6px; }
+    .payg-detail { color: #858585; margin-top: 4px; font-family: 'SF Mono', Consolas, monospace; font-size: 11px; }
+    .info-note { font-size: 11px; color: #858585; font-style: italic; margin: 0 0 8px; }
   `;
 
   /** Per-extension `finance` API (db accessor bound to this extension). */
@@ -474,6 +468,12 @@ export class PayslipForm extends LitElement {
     };
   }
 
+  private _onCancel(): void {
+    this.dispatchEvent(
+      new CustomEvent('payslip-cancel', { bubbles: true, composed: true }),
+    );
+  }
+
   private _onSubmit(e: Event): void {
     e.preventDefault();
     const input = this._buildInput();
@@ -507,11 +507,16 @@ export class PayslipForm extends LitElement {
     field: keyof FormValues,
     label: string,
     type: string,
+    sub?: string,
+    full?: boolean,
   ): unknown {
+    const labelHtml = sub
+      ? html`${label} <span class="label-sub">${sub}</span>`
+      : html`${label}`;
     if (type === 'select') {
       return html`
-        <label data-testid="field-${field}">
-          ${label}
+        <div class="field ${full ? 'field-full' : ''}" data-testid="field-${field}">
+          <label>${labelHtml}</label>
           <select
             data-testid="input-${field}"
             @change="${(e: Event) => this._onAccountChange(e)}"
@@ -521,41 +526,41 @@ export class PayslipForm extends LitElement {
               (a) => html`<option value="${a.id}" ?selected="${a.id === this._values.account_id}">${a.name}</option>`,
             )}
           </select>
-        </label>
+        </div>
       `;
     }
     return html`
-      <label data-testid="field-${field}">
-        ${label}
+      <div class="field ${full ? 'field-full' : ''}" data-testid="field-${field}">
+        <label>${labelHtml}</label>
         <input
           data-testid="input-${field}"
           type="${type}"
           .value="${this._values[field]}"
           @input="${(e: Event) => this._onInput(field, e)}"
         />
-      </label>
+      </div>
     `;
   }
 
   private _renderEarningsPreview(): unknown {
     const bd = this._breakdown;
-    if (!bd) return html`<span class="formula">Enter pay date, gross and net to preview the breakdown.</span>`;
+    if (!bd)
+      return html`<p class="info-note">Enter pay date, gross and net to preview the breakdown.</p>`;
     const rows: [string, number][] = [
-      ['Base hourly', bd.base_hourly],
-      ['Shift allowance', bd.shift_allowance],
-      ['Overtime 1.5x', bd.overtime_1_5x],
-      ['Overtime 2.0x', bd.overtime_2_0x],
-      ['Holiday pay', bd.holiday_pay],
-      ['Holiday leave loading', bd.holiday_leave_loading],
-      ['Public holiday', bd.public_holiday],
-      ['Personal leave', bd.personal_leave],
+      ['base_hourly', bd.base_hourly],
+      ['shift_allowance', bd.shift_allowance],
+      ['overtime_1_5x', bd.overtime_1_5x],
+      ['overtime_2_0x', bd.overtime_2_0x],
+      ['holiday_pay', bd.holiday_pay],
+      ['holiday_leave_loading', bd.holiday_leave_loading],
+      ['public_holiday', bd.public_holiday],
+      ['personal_leave', bd.personal_leave],
     ];
     return html`
-      <div class="preview">
-        ${rows.map(
-          ([label, amt]) => html`<span>${label}</span><span class="amt">${amt.toFixed(2)}</span>`,
-        )}
-      </div>
+      <p class="info-note">Derived from rate row effective at pay_date × hours entered below. Toggle "This week was different" to override the hours used in the calculation.</p>
+      ${rows.map(
+        ([label, amt]) => html`<div class="read-only-row"><span class="label">${label}</span><span class="value">$${amt.toFixed(2)}</span></div>`,
+      )}
       ${this._reconcile && !this._reconcile.withinTolerance
         ? html`<div class="amber" data-testid="reconcile-warning">${this._reconcile.warning}</div>`
         : nothing}
@@ -564,17 +569,21 @@ export class PayslipForm extends LitElement {
 
   private _renderPayg(): unknown {
     const payg = this._payg;
+    const derived = this._breakdown ? this._breakdown.payg_withholding : null;
     return html`
-      <label data-testid="field-payg">
-        PAYG withholding (derived = gross − net)
-        <input data-testid="input-payg_withholding" type="text" disabled .value="${this._breakdown ? this._breakdown.payg_withholding.toFixed(2) : ''}" />
-      </label>
-      <button type="button" data-testid="validate-payg" @click="${() => this._onValidatePayg()}">✓ Validate PAYG</button>
+      <div class="read-only-row">
+        <span class="label">payg_withholding <span style="color:#858585;font-style:normal;">(gross − net)</span></span>
+        <span class="value">${derived !== null ? `$${derived.toFixed(2)}` : '—'}</span>
+      </div>
+      <div class="payg-btn-row">
+        <button type="button" class="btn-validate" data-testid="validate-payg" @click="${() => this._onValidatePayg()}">✓ Validate PAYG</button>
+        <span style="font-size:12px;color:#858585;">Compares derived PAYG to ATO weekly tax estimate</span>
+      </div>
       ${payg
         ? payg.bracketError
           ? html`<div class="amber" data-testid="payg-result">Bracket data unavailable for ${payg.taxYear}</div>`
           : payg.withinTolerance
-            ? html`<div class="green" data-testid="payg-result">PAYG within tolerance (Δ ${payg.difference.toFixed(2)})</div>`
+            ? html`<div class="payg-result" data-testid="payg-result"><span class="payg-result-icon">✓</span>PAYG within tolerance<div class="payg-detail">Δ ${payg.difference.toFixed(2)} (tolerance: $${payg.tolerance.toFixed(2)})</div></div>`
             : html`<div class="red" data-testid="payg-result">PAYG differs from ATO estimate by ${payg.difference.toFixed(2)}</div>`
         : nothing}
     `;
@@ -583,27 +592,30 @@ export class PayslipForm extends LitElement {
   private _renderSuper(): unknown {
     const sg = this._breakdown?.superannuation_guarantee ?? 0;
     return html`
-      <label data-testid="field-super">
-        Superannuation guarantee (derived = gross × rate)
-        <input data-testid="input-super" type="text" disabled .value="${sg.toFixed(2)}" />
-      </label>
+      <div class="read-only-row">
+        <span class="label">superannuation_guarantee <span style="color:#858585;font-style:normal;">(gross × sg_rate, default 12%)</span></span>
+        <span class="value">$${sg.toFixed(2)}</span>
+      </div>
     `;
   }
 
   private _renderHours(): unknown {
     if (!this._showHours) {
-      return html`<span class="toggle" data-testid="toggle-hours" @click="${() => this._toggleHours()}">▸ This week was different</span>`;
+      return html`<div class="toggle-row"><span class="label">This week was different (hours)</span><span class="toggle" data-testid="toggle-hours" @click="${() => this._toggleHours()}">▸</span></div>`;
     }
     return html`
-      <span class="toggle" data-testid="toggle-hours" @click="${() => this._toggleHours()}">▾ This week was different</span>
-      <div class="row" data-testid="hours-fields">
-        ${this._renderInput('leave', 'regular_hours', 'Regular hours', 'number')}
-        ${this._renderInput('leave', 'shift_hours', 'Shift hours', 'number')}
-        ${this._renderInput('leave', 'overtime_1_5_hours', 'OT 1.5x hours', 'number')}
-        ${this._renderInput('leave', 'overtime_2_0_hours', 'OT 2.0x hours', 'number')}
-        ${this._renderInput('leave', 'holiday_hours', 'Holiday hours taken', 'number')}
-        ${this._renderInput('leave', 'public_holiday_hours', 'Public holiday hours', 'number')}
-        ${this._renderInput('leave', 'personal_leave_hours', 'Personal leave hours', 'number')}
+      <div class="toggle-row"><span class="label">This week was different (hours)</span><span class="toggle" data-testid="toggle-hours" @click="${() => this._toggleHours()}">▾</span></div>
+      <div class="hours-block" data-testid="hours-fields">
+        <div class="hours-block-title">Hours breakdown — drives earnings above via rate row</div>
+        <div class="grid-3">
+          ${this._renderInput('leave', 'regular_hours', 'regular_hours', 'number')}
+          ${this._renderInput('leave', 'shift_hours', 'shift_hours', 'number')}
+          ${this._renderInput('leave', 'overtime_1_5_hours', 'overtime_1_5_hours', 'number')}
+          ${this._renderInput('leave', 'overtime_2_0_hours', 'overtime_2_0_hours', 'number')}
+          ${this._renderInput('leave', 'holiday_hours', 'holiday_hours', 'number')}
+          ${this._renderInput('leave', 'public_holiday_hours', 'public_holiday_hours', 'number')}
+          ${this._renderInput('leave', 'personal_leave_hours', 'personal_leave_hours', 'number')}
+        </div>
       </div>
     `;
   }
@@ -614,15 +626,31 @@ export class PayslipForm extends LitElement {
     const holidayHours = num(this._values.holiday_hours);
     const rate = this._rate?.accrual_rate_per_week ?? 2.92;
     return html`
-      <label data-testid="field-accrual">
-        Holiday leave accrual balance (auto-calculated)
-        <input data-testid="input-accrual" type="text" disabled .value="${newBalance.toFixed(2)}" />
-      </label>
-      <div class="formula" data-testid="accrual-breakdown">
-        <div>Previous balance: <span data-testid="accrual-prev">${prev}</span></div>
-        <div>− Holiday hours taken: <span data-testid="accrual-taken">${holidayHours}</span></div>
-        <div>+ Accrual rate/week: <span data-testid="accrual-rate">${rate}</span></div>
-        <div>= New balance: <span data-testid="accrual-new">${newBalance.toFixed(2)}</span></div>
+      <div class="read-only-row"><span class="label">Previous balance</span><span class="value">${prev} h</span></div>
+      <div class="read-only-row"><span class="label">− Holiday leave taken</span><span class="value">${holidayHours.toFixed(2)} h</span></div>
+      <div class="read-only-row"><span class="label">+ Weekly accrual</span><span class="value">${rate} h</span></div>
+      <div class="read-only-row" style="border-top:1px solid #3e3e3e;padding-top:6px;margin-top:4px;"><span class="label"><strong>New balance</strong></span><span class="value"><strong data-testid="accrual-new">${newBalance.toFixed(2)} h</strong></span></div>
+    `;
+  }
+
+  private _section(
+    id: string,
+    title: string,
+    badge: string | null,
+    body: unknown,
+    extraClass = '',
+  ): unknown {
+    const cls =
+      id === 'earnings' || id === 'deductions' || id === 'super'
+        ? `section readonly ${extraClass}`.trim()
+        : `section ${extraClass}`.trim();
+    return html`
+      <div class="${cls}" data-testid="section-${id}">
+        <div class="section-header">
+          <h3>${title}</h3>
+          ${badge ? html`<span class="section-badge">${badge}</span>` : nothing}
+        </div>
+        <div class="section-body">${body}</div>
       </div>
     `;
   }
@@ -630,80 +658,107 @@ export class PayslipForm extends LitElement {
   private _renderSection(id: string): unknown {
     switch (id) {
       case 'period':
-        return html`<div class="section" data-testid="section-period">
-          <h3>Period</h3>
-          ${this._renderInput('period', 'pay_date', 'Pay date', 'date')}
-          ${this._renderInput('period', 'finance_year', 'Financial year', 'text')}
-          ${this._renderInput('period', 'account_id', 'Account', 'select')}
-          ${this._fyWarning
-            ? html`<div class="amber" data-testid="fy-warning">
-                ${this._fyWarning}
-                <button type="button" data-testid="fy-autocorrect" @click="${() => this._autoCorrectFy()}">Auto-correct</button>
-                <button type="button" data-testid="fy-keep" @click="${() => this._keepFyOverride()}">Keep override</button>
-              </div>`
-            : nothing}
-        </div>`;
+        return this._section(
+          'period',
+          'Period',
+          'always visible',
+          html`
+            <div class="grid-2">
+              ${this._renderInput('period', 'pay_date', 'Pay date', 'date')}
+              ${this._renderInput('period', 'finance_year', 'Financial year', 'text')}
+              ${this._renderInput('period', 'account_id', 'Account', 'select', undefined, true)}
+            </div>
+            ${this._fyWarning
+              ? html`<div class="amber" data-testid="fy-warning">
+                  ${this._fyWarning}
+                  <button type="button" data-testid="fy-autocorrect" @click="${() => this._autoCorrectFy()}">Auto-correct</button>
+                  <button type="button" data-testid="fy-keep" @click="${() => this._keepFyOverride()}">Keep override</button>
+                </div>`
+              : nothing}
+          `,
+        );
       case 'totals':
-        return html`<div class="section" data-testid="section-totals">
-          <h3>Totals</h3>
-          ${this._renderInput('totals', 'gross', 'Gross ($)', 'number')}
-          ${this._renderInput('totals', 'net', 'Net ($)', 'number')}
-        </div>`;
+        return this._section(
+          'totals',
+          'Totals',
+          'always visible · user input',
+          html`
+            <div class="grid-2">
+              ${this._renderInput('totals', 'gross', 'Gross', 'number', '($)')}
+              ${this._renderInput('totals', 'net', 'Net', 'number', '($)')}
+            </div>
+            <p class="info-note" style="margin-top:8px;">Pay date, gross, and net are the only required inputs. Everything else is derived from the rate row effective at pay_date × hours, plus PAYG = gross − net and SG = gross × sg_rate.</p>
+          `,
+        );
       case 'earnings':
-        return html`<div class="section readonly" data-testid="section-earnings">
-          <h3>Earnings (derived)</h3>
-          ${this._renderEarningsPreview()}
-        </div>`;
+        return this._section('earnings', 'Earnings (derived)', 'read-only', this._renderEarningsPreview());
       case 'deductions':
-        return html`<div class="section readonly" data-testid="section-deductions">
-          <h3>Deductions</h3>
-          ${this._renderPayg()}
-        </div>`;
+        return this._section('deductions', 'Deductions', 'derived', this._renderPayg());
       case 'super':
-        return html`<div class="section readonly" data-testid="section-super">
-          <h3>Super</h3>
-          ${this._renderSuper()}
-        </div>`;
+        return this._section('super', 'Super', 'derived', this._renderSuper());
       case 'leave':
-        return html`<div class="section" data-testid="section-leave">
-          <h3>Leave</h3>
-          ${this._renderHours()}
-        </div>`;
+        return this._section('leave', 'Leave', 'user input', this._renderHours());
       case 'leave-accrual':
-        return html`<div class="section accrual" data-testid="section-leave-accrual">
-          <h3>Leave Accrual</h3>
-          ${this._renderAccrual()}
-        </div>`;
-        case 'notes':
-          return html`<div class="section" data-testid="section-notes">
-            <h3>Notes</h3>
-            <label data-testid="field-notes">
-              Notes
+        return this._section('leave-accrual', 'Leave Accrual', 'read-only · auto-derived', this._renderAccrual(), 'accrual');
+      case 'notes':
+        return this._section(
+          'notes',
+          'Notes',
+          null,
+          html`
+            <div class="field field-full" data-testid="field-notes">
+              <label>Notes</label>
               <textarea
                 data-testid="input-notes"
                 .value="${this._values.notes}"
                 @input="${(e: Event) => this._onInput('notes', e)}"
               ></textarea>
-            </label>
-          </div>`;
+            </div>
+          `,
+        );
       default:
         return nothing;
     }
   }
 
+  private _subtitle(): string {
+    const account = this.accounts.find((a) => a.id === this._values.account_id) ?? this.accounts[0];
+    const fy = this._values.finance_year || '—';
+    const name = account?.name ?? '—';
+    return `FY ${fy} · Account: ${name}`;
+  }
+
+  private _onReorder(): void {
+    this.dispatchEvent(
+      new CustomEvent('reorder-sections', { bubbles: true, composed: true }),
+    );
+  }
+
   render(): unknown {
     return html`
-      <form data-testid="payslip-form" @submit="${(e: Event) => this._onSubmit(e)}">
-        ${this.sectionOrder.map((id) => this._renderSection(id))}
-        ${this._errors.length > 0
-          ? html`<div class="errors" data-testid="form-errors">${this._errors.map((e) => html`<div>${e}</div>`)}</div>`
-          : nothing}
-        <div class="actions">
-          <button type="submit" class="primary" data-testid="submit">
-            ${this.editPaySlip ? 'Save changes' : 'Create payslip'}
-          </button>
-        </div>
-      </form>
+      <div class="topbar">
+        <span class="crumb-link" data-testid="back-link" @click="${() => this._onCancel()}">← Salary History</span>
+        <span class="crumb-sep">/</span>
+        <span class="crumb-current">${this.editPaySlip ? 'Edit Payslip' : 'New Payslip'}</span>
+        <div class="spacer"></div>
+        <button class="reorder-btn" data-testid="reorder-sections" @click="${() => this._onReorder()}">⇅ Reorder Sections</button>
+      </div>
+      <div class="container">
+        <h1 data-testid="form-title">${this.editPaySlip ? 'Edit Payslip' : 'New Payslip'}</h1>
+        <p class="subtitle" data-testid="form-subtitle">${this._subtitle()}</p>
+        <form data-testid="payslip-form" @submit="${(e: Event) => this._onSubmit(e)}">
+          ${this.sectionOrder.map((id) => this._renderSection(id))}
+          ${this._errors.length > 0
+            ? html`<div class="errors" data-testid="form-errors">${this._errors.map((e) => html`<div>${e}</div>`)}</div>`
+            : nothing}
+          <div class="footer">
+            <button type="button" class="btn btn-secondary" data-testid="cancel" @click="${() => this._onCancel()}">Cancel</button>
+            <button type="submit" class="btn btn-primary" data-testid="submit">
+              ${this.editPaySlip ? 'Save changes' : 'Create payslip'}
+            </button>
+          </div>
+        </form>
+      </div>
     `;
   }
 }

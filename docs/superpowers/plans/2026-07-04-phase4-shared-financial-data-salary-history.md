@@ -1514,6 +1514,21 @@ finance-flow-ai/
 
 **Test Unit 1: First-Run Account Seed** — Open the app fresh (delete `finance.db`), click the `P` Activity Bar icon, confirm the accounts-seed modal appears. Create an account named "Primary Salary". Confirm the modal closes and the payslip form renders with the account in the dropdown.
 
+Detailed manual procedure (requires the Electron GUI — cannot be automated):
+
+- [ ] 1.1 Fully close the app. Delete `%APPDATA%\Electron\finance.db` (and its `-wal` / `-shm` siblings) to force a fresh first run (empty `accounts` table).
+- [ ] 1.2 Run `npm run rebuild && npm start`. The main process logs the resolved DB path on launch (`[main] database path: ...`) — note it for step 1.8.
+- [ ] 1.3 Press **P** (the Salary Activity Bar icon) → the `pay-history` command mounts.
+- [ ] 1.4 **Expected:** the **Account Seed Modal** (`accounts-seed-modal`) appears, because the `accounts` table is empty on first run.
+- [ ] 1.5 Enter **Name = `Primary Salary`**, **Institution = `CBA`** → click **Create Account**.
+- [ ] 1.6 **Expected:** the orchestrator calls `financeShell.accounts.create` (Core-owned `accounts:create` IPC), then navigates to the **payslip form**; the **Account** dropdown shows `Primary Salary (CBA)`.
+- [ ] 1.7 Fill **Pay Date**, **Gross = 5000**, **Net = 4000**, **Currency = AUD**, **period** → click **Create**.
+- [ ] 1.8 **Expected:** navigates to **payslip-list** showing the new row. In the DB (at the path from 1.2), verify:
+  ```sql
+  SELECT * FROM accounts;                 -- → 1 row ("Primary Salary", "CBA")
+  SELECT * FROM salary_history_pay_slips; -- → 1 row (gross=5000, net=4000, currency='AUD', account_id matches)
+  ```
+
 **Test Unit 2: Create a Payslip** — Fill the form (period 2026-01-01 → 2026-01-15, pay date 2026-01-20, gross 5000, net 3800, account "Primary Salary"). Submit. Confirm the row appears in the list. Open a SQLite browser; confirm the row exists in `salary_history_pay_slips` with the correct `account_id` foreign key.
 
 **Test Unit 3: Edit a Payslip** — Click the Edit button on the row, change gross to 5200, save. Confirm the list re-renders. Verify the SQLite row's `gross` column updated and `updated_at` is newer than `created_at`.

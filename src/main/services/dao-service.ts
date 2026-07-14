@@ -97,6 +97,20 @@ export type QueryValue =
   | QueryObject;
 
 // ---------------------------------------------------------------------------
+/**
+ * Coerce a JS value into one better-sqlite3 can bind.
+ *
+ * better-sqlite3 rejects booleans (`true`/`false`); SQLite stores booleans as
+ * integers (1/0). Callers naturally write `is_active: true`, so we coerce
+ * booleans to integers here centrally rather than forcing every caller to
+ * remember the quirk.
+ */
+function coerceParam(value: unknown): unknown {
+  if (value === true) return 1;
+  if (value === false) return 0;
+  return value;
+}
+
 // compileQuery — pure function that turns a QueryObject into SQL + params
 // ---------------------------------------------------------------------------
 
@@ -155,7 +169,7 @@ export function compileQuery(query: QueryObject): { sql: string; params: unknown
 
   return {
     sql: fragments.length === 0 ? '1 = 1' : fragments.join(' AND '),
-    params,
+    params: params.map(coerceParam),
   };
 }
 
@@ -339,7 +353,7 @@ export class DAOService {
     const resolved = this.resolveDefaults(parsed.data as Record<string, unknown>);
     const columns = Object.keys(resolved);
     const placeholders = columns.map(() => '?').join(', ');
-    const values = columns.map((c) => resolved[c]);
+    const values = columns.map((c) => coerceParam(resolved[c]));
 
     const sql = `INSERT INTO ${table} (${columns.join(', ')}) VALUES (${placeholders})`;
     const stmt = this.db.prepare(sql);
@@ -384,7 +398,7 @@ export class DAOService {
     const { sql: whereSql, params: whereParams } = compileQuery(where);
     const sql = `UPDATE ${table} SET ${setClause} WHERE ${whereSql}`;
     const stmt = this.db.prepare(sql);
-    const result = stmt.run(...patchColumns.map((c) => resolved[c]), ...whereParams);
+    const result = stmt.run(...patchColumns.map((c) => coerceParam(resolved[c])), ...whereParams);
     return result.changes;
   }
 

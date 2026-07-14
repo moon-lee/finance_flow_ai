@@ -74,6 +74,7 @@ if (window.financeShell?.extensions?.onUiMount) {
     view.extensionId = payload.extensionId;
     view.componentTag = payload.componentTag;
     view.mountData = payload.mountData ?? {};
+    view.bundleUrl = payload.bundleUrl ?? '';
     workspace.replaceChildren(view);
   });
 }

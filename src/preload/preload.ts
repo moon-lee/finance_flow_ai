@@ -2,10 +2,17 @@ import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
 import type { HostLogEntry, HostStatus } from '../types/finance-shell';
 
 const shellApi = {
-  getVersion: async (): Promise<string> => ipcRenderer.invoke('shell:get-version') as Promise<string>,
+    getVersion: async (): Promise<string> => ipcRenderer.invoke('shell:get-version') as Promise<string>,
   settings: {
     get: async (key: string): Promise<unknown> => ipcRenderer.invoke('settings:get', key),
     set: async (key: string, value: unknown): Promise<void> => { await ipcRenderer.invoke('settings:set', key, value); }
+  },
+  // Core-owned account creation (the `accounts` table is read-only for
+  // extensions per Decision 4). The first-run seed modal calls this instead
+  // of `finance.db.table('accounts').insert(...)`.
+  accounts: {
+    create: async (input: { name: string; institution: string | null }): Promise<{ id: number }> =>
+      ipcRenderer.invoke('accounts:create', input) as Promise<{ id: number }>
   },
   extensions: {
     list: async (): Promise<{
@@ -38,15 +45,27 @@ const shellApi = {
     },
     // Phase 4 Task 14 — subscribe to UI-mount requests forwarded by Main
     // (which received them from the Extension Host). The callback receives
-    // `{ extensionId, componentTag, mountData }`; the renderer dynamically
-    // imports the extension bundle and mounts the named element. Returns an
-    // unsubscribe function.
+    // `{ extensionId, componentTag, mountData, bundleUrl }`; the renderer
+    // dynamically imports the extension bundle (at `bundleUrl`) and mounts
+    // the named element. Returns an unsubscribe function.
     onUiMount: (
-      callback: (payload: { extensionId: string; componentTag: string; mountData?: Record<string, unknown> }) => void
+      callback: (
+        payload: {
+          extensionId: string;
+          componentTag: string;
+          mountData?: Record<string, unknown>;
+          bundleUrl?: string;
+        }
+      ) => void
     ): (() => void) => {
       const listener = (
         _event: IpcRendererEvent,
-        payload: { extensionId: string; componentTag: string; mountData?: Record<string, unknown> }
+        payload: {
+          extensionId: string;
+          componentTag: string;
+          mountData?: Record<string, unknown>;
+          bundleUrl?: string;
+        }
       ): void => callback(payload);
       ipcRenderer.on('extensions:ui-mount', listener);
       return () => { ipcRenderer.off('extensions:ui-mount', listener); };

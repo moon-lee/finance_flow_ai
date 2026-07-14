@@ -58,6 +58,13 @@ export interface UiMountRequest {
   extensionId: string;
   componentTag: string;
   mountData?: Record<string, unknown>;
+  /**
+   * Absolute `file://` URL of the extension's built UI bundle, computed by
+   * Main. The Renderer imports this directly so it does not have to guess
+   * the bundle location (the renderer page lives in `dist/renderer/` while
+   * the bundle lives in `dist/extensions/`, so a relative path would 404).
+   */
+  bundleUrl?: string;
 }
 
 /**
