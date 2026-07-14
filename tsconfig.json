@@ -15,6 +15,6 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "types": ["node"]
   },
-  "include": ["src/**/*", "tests/**/*", "*.config.ts", "eslint.config.js"],
+  "include": ["src/**/*", "extensions/**/*", "tests/**/*", "*.config.ts", "eslint.config.js"],
   "exclude": ["dist", "node_modules"]
 }
