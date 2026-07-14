@@ -42,10 +42,13 @@ export class SalaryHistoryView extends LitElement {
       await import(/* @vite-ignore */ bundleUrl);
 
       const child = document.createElement(this.componentTag);
-      (child as unknown as { finance: unknown }).finance = createFinance(this.extensionId);
-      if (this.mountData && (child as unknown as { mountData?: unknown }).mountData !== undefined) {
-        (child as unknown as { mountData: unknown }).mountData = this.mountData;
-      }
+      const childEl = child as unknown as Record<string, unknown>;
+      childEl.finance = createFinance(this.extensionId);
+      // Forward host-provided mount data (e.g. `salary-history.defaultCurrency`
+      // / `financialYearStart` read by the extension in `activate`) onto the
+      // child element's reactive properties, so the extension can surface
+      // settings-derived values. (Task 16.3 manual test depends on this.)
+      if (this.mountData) Object.assign(childEl, this.mountData);
 
       const existing = this.querySelector('[data-ext-root]');
       if (existing) existing.remove();
