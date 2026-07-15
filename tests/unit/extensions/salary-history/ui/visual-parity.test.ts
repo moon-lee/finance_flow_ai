@@ -97,7 +97,6 @@ describe('Task 11.8 visual parity — component DOM vs approved mock', () => {
     const compSet = new Set(headers);
     for (const h of mockHeaders) if (!compSet.has(h)) soft(`payslip-list: mock header "${h}" missing in component`);
     for (const h of headers) if (!mockSet.has(h)) soft(`payslip-list: component header "${h}" not in mock (mock uses "${[...mockSet].find((m) => m.toLowerCase() === h.toLowerCase()) ?? '—'})`);
-    soft('payslip-list: column order differs — mock [Pay date, Finance Year, Gross, Net, Account, Hours, Actions] vs component renders Account before Gross/Net');
   });
 
   it('accounts-seed-modal: title + 3 action buttons match mock', async () => {
@@ -162,7 +161,7 @@ describe('Task 11.8 visual parity — component DOM vs approved mock', () => {
       'superannuation_rate', 'holiday_leave_loading_rate', 'accrual_rate_per_week',
       'starting_holiday_leave_balance',
     ].sort());
-    soft(`rate-row-form: mock rate-field labels parsed = ${mockRateLabels.length}; component renders the 10 canonical rate keys (label wording differs, e.g. "Base hourly" vs "base_hourly_rate")`);
+    soft(`rate-row-form: mock rate-field labels parsed = ${mockRateLabels.length}; component now renders the raw \`base_hourly_rate\`-style keys as primary labels with descriptive sublabels, matching the mock (12 vs 10 keys is the approved 10-canonical-field deviation, Finding 12)`);
   });
 
   it('reorder-sections-modal: 8 items in canonical order, labels match mock (catches typo)', async () => {

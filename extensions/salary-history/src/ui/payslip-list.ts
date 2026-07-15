@@ -8,6 +8,8 @@
  * the mount harness (Task 14) wires those to the form + DAO. Reads
  * (`finance.db.table('salary_history_pay_slips').find({})`) are performed
  * directly against the per-extension `finance` API.
+ *
+ * Visual fidelity tracks `docs/design/salary-history-mvp/payslip-list.html`.
  */
 
 import { LitElement, css, html, nothing } from 'lit';
@@ -22,6 +24,7 @@ export interface AccountOption {
   readonly institution: string | null;
 }
 
+type SortKey = 'pay_date' | 'gross' | 'net' | 'hours';
 const PAGE_SIZE = 15;
 
 @customElement('payslip-list')
@@ -29,81 +32,161 @@ export class PayslipList extends LitElement {
   static styles = css`
     :host {
       display: block;
+      background: #1e1e1e;
       color: #d4d4d4;
-      font: 13px/1.5 system-ui, sans-serif;
+      font: 14px/1.5 system-ui, sans-serif;
     }
-    .kpis {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 10px;
-      margin-bottom: 12px;
-    }
-    .toolbar {
-      display: flex;
-      justify-content: flex-end;
-      margin-bottom: 10px;
-    }
-    .kpi {
-      border: 1px solid #3c3c3c;
-      border-radius: 6px;
-      padding: 8px 12px;
+    .topbar {
       background: #252526;
+      border-bottom: 1px solid #3e3e3e;
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
     }
-    .kpi .label {
-      font-size: 11px;
-      color: #a8a8a8;
-      text-transform: uppercase;
-    }
-    .kpi .value {
-      font-size: 18px;
-      font-variant-numeric: tabular-nums;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 13px;
-    }
-    th, td {
-      text-align: left;
-      padding: 6px 8px;
-      border-bottom: 1px solid #3c3c3c;
-    }
-    th button {
-      background: none;
-      border: 0;
-      color: #6da3d6;
+    .topbar .crumb-link { color: #007acc; font-size: 13px; cursor: default; }
+    .topbar .crumb-sep { color: #858585; }
+    .topbar .crumb-current { color: #d4d4d4; font-weight: 500; }
+    .topbar .spacer { flex: 1; }
+    .topbar .filter-btn {
+      background: #3c3c3c;
+      color: #d4d4d4;
+      border: 1px solid #3e3e3e;
+      padding: 5px 12px;
+      border-radius: 3px;
+      font-size: 12px;
       cursor: pointer;
-      font: inherit;
-      padding: 0;
+      font-family: inherit;
     }
-    .ytd {
-      border: 1px solid #4ec9b0;
-      border-radius: 6px;
-      padding: 8px 12px;
-      margin-top: 12px;
-      background: #0d2e26;
+    .topbar .filter-btn:hover { border-color: #007acc; }
+    .topbar a.filter-btn { color: #d4d4d4; text-decoration: none; }
+    .container { max-width: 960px; margin: 0 auto; padding: 24px 20px 40px; }
+    h1 { font-size: 18px; font-weight: 600; color: #ffffff; margin: 0 0 4px; }
+    .subtitle { color: #858585; font-size: 13px; margin: 0 0 16px; }
+    .summary-bar {
       display: flex;
       gap: 24px;
-      font-variant-numeric: tabular-nums;
+      background: #252526;
+      border: 1px solid #3e3e3e;
+      border-radius: 6px;
+      padding: 12px 16px;
+      margin-bottom: 12px;
+      font-size: 13px;
     }
-    .pager {
-      display: flex;
-      gap: 8px;
-      margin-top: 10px;
-      align-items: center;
+    .summary-item, .kpi { display: block; }
+    .summary-item .summary-label, .kpi .label {
+      color: #858585;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      margin-bottom: 2px;
     }
-    button.action {
-      background: #1e1e1e;
-      border: 1px solid #3c3c3c;
+    .summary-item .summary-value, .kpi .value {
+      font-family: "SF Mono", Consolas, monospace;
+      font-size: 16px;
+      color: #ffffff;
+      font-weight: 600;
+    }
+    .table-wrap {
+      background: #252526;
+      border: 1px solid #3e3e3e;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    thead { background: #2a2a2a; }
+    th {
+      text-align: left;
+      padding: 10px 12px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #858585;
+      border-bottom: 1px solid #3e3e3e;
+    }
+    th.sortable { cursor: pointer; user-select: none; }
+    th.sortable:hover { color: #d4d4d4; }
+    th.sortable::after { content: ' ⇅'; color: #555; font-size: 10px; }
+    th.sorted-desc::after { content: ' ↓'; color: #007acc; }
+    th.sorted-asc::after { content: ' ↑'; color: #007acc; }
+    td {
+      padding: 8px 12px;
+      border-bottom: 1px solid #2a2a2a;
       color: #d4d4d4;
-      border-radius: 4px;
-      padding: 3px 8px;
+    }
+    tbody tr:hover { background: #2a2a2a; }
+    tbody tr:last-child td { border-bottom: none; }
+    td.num { font-family: "SF Mono", Consolas, monospace; text-align: right; }
+    td.fy { font-family: "SF Mono", Consolas, monospace; color: #858585; font-size: 12px; }
+    td.actions { text-align: right; white-space: nowrap; }
+    .btn-link {
+      background: transparent;
+      color: #007acc;
+      border: none;
+      padding: 0 6px;
+      font-size: 12px;
       cursor: pointer;
+      font-family: inherit;
     }
-    .empty {
-      color: #9a9a9a;
-      padding: 16px 0;
+    .btn-link:hover { text-decoration: underline; }
+    .btn-link.danger { color: #f48771; }
+    .ytd-footer {
+      background: #1e3a2e;
+      border-top: 2px solid #4ec9b0;
+      padding: 14px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
     }
+    .ytd-footer-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #4ec9b0;
+    }
+    .ytd-footer-values { display: flex; gap: 24px; flex-wrap: wrap; }
+    .ytd-footer-values .item { font-family: "SF Mono", Consolas, monospace; font-size: 14px; }
+    .ytd-footer-values .item .lbl { color: #858585; font-size: 11px; margin-right: 4px; text-transform: uppercase; letter-spacing: 0.3px; }
+    .ytd-footer-values .item .val { color: #ffffff; font-weight: 600; }
+    .pagination {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 16px;
+      background: #2a2a2a;
+      border-top: 1px solid #3e3e3e;
+      font-size: 12px;
+      color: #858585;
+    }
+    .pagination .pages { display: flex; gap: 4px; }
+    .pagination .page-btn {
+      background: transparent;
+      border: 1px solid #3e3e3e;
+      color: #d4d4d4;
+      padding: 4px 10px;
+      border-radius: 3px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 12px;
+    }
+    .pagination .page-btn:hover { border-color: #007acc; }
+    .pagination .page-btn.current { background: #007acc; border-color: #007acc; color: #ffffff; }
+    .pagination .page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .info-note {
+      font-size: 12px;
+      color: #858585;
+      font-style: italic;
+      margin-top: 8px;
+      padding: 8px 12px;
+      background: #1e1e1e;
+      border-radius: 3px;
+    }
+    .info-note code { color: #4ec9b0; font-style: normal; }
+    .empty { color: #9a9a9a; padding: 16px 0; }
   `;
 
   @property({ attribute: false })
@@ -125,7 +208,7 @@ export class PayslipList extends LitElement {
   private _loaded = false;
 
   @state()
-  private _sortKey: 'pay_date' | 'gross' = 'pay_date';
+  private _sortKey: SortKey = 'pay_date';
 
   @state()
   private _sortDir: 'asc' | 'desc' = 'desc';
@@ -160,19 +243,35 @@ export class PayslipList extends LitElement {
 
   private _cmp(a: PaySlip, b: PaySlip): number {
     let r: number;
-    if (this._sortKey === 'gross') {
-      r = a.gross - b.gross;
+    const av = this._sortVal(a, this._sortKey);
+    const bv = this._sortVal(b, this._sortKey);
+    if (typeof av === 'string') {
+      r = av < (bv as string) ? -1 : av > (bv as string) ? 1 : 0;
     } else {
-      r = a.pay_date < b.pay_date ? -1 : a.pay_date > b.pay_date ? 1 : 0;
+      r = (av as number) - (bv as number);
     }
     return this._sortDir === 'asc' ? r : -r;
+  }
+
+  private _sortVal(p: PaySlip, key: SortKey): number | string {
+    switch (key) {
+      case 'gross':
+        return p.gross;
+      case 'net':
+        return p.net;
+      case 'hours':
+        return p.regular_hours + p.shift_hours + p.overtime_1_5_hours + p.overtime_2_0_hours + p.public_holiday_hours;
+      case 'pay_date':
+      default:
+        return p.pay_date;
+    }
   }
 
   private _accountName(id: number): string {
     return this.accounts.find((a) => a.id === id)?.name ?? `#${id}`;
   }
 
-  private _toggleSort(key: 'pay_date' | 'gross'): void {
+  private _toggleSort(key: SortKey): void {
     if (this._sortKey === key) {
       this._sortDir = this._sortDir === 'asc' ? 'desc' : 'asc';
     } else {
@@ -180,6 +279,26 @@ export class PayslipList extends LitElement {
       this._sortDir = 'desc';
     }
     this.payslips = this.payslips.slice().sort(this._cmp.bind(this));
+  }
+
+  private _th(key: SortKey, label: string) {
+    const active = this._sortKey === key;
+    const cls = active
+      ? `sortable ${this._sortDir === 'asc' ? 'sorted-asc' : 'sorted-desc'}`
+      : 'sortable';
+    return html`<th class="${cls}" @click="${() => this._toggleSort(key)}">${label}</th>`;
+  }
+
+  private _money(n: number): string {
+    return '$' + n.toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  private _fyLabel(): string {
+    const ref = this.referenceDate || new Date().toISOString().slice(0, 10);
+    const [ry, rm] = ref.split('-').map(Number);
+    const [sm] = this.financialYearStart.split('-').map(Number);
+    const startYear = rm >= sm ? ry : ry - 1;
+    return `${startYear}-${startYear + 1}`;
   }
 
   private _ytd(): YtdAggregate {
@@ -210,73 +329,98 @@ export class PayslipList extends LitElement {
   }
 
   private _onAdd(): void {
-    this.dispatchEvent(
-      new CustomEvent('payslip-add-request', { bubbles: true, composed: true }),
-    );
+    this.dispatchEvent(new CustomEvent('payslip-add-request', { bubbles: true, composed: true }));
   }
 
   render(): unknown {
     const ytd = this._ytd();
-    const pages = Math.max(1, Math.ceil(this.payslips.length / PAGE_SIZE));
+    const total = this.payslips.length;
+    const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
     const page = Math.min(this._page, pages - 1);
-    const rows = this.payslips.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
+    const start = page * PAGE_SIZE;
+    const end = Math.min(start + PAGE_SIZE, total);
+    const rows = this.payslips.slice(start, end);
+    const subtitle = `FY ${this._fyLabel()} · Account: ${this.accounts[0]?.name ?? '—'} · ${total} payslips`;
 
     return html`
-       <div class="toolbar" data-testid="toolbar">
-         <button class="action" data-testid="add-payslip" @click="${() => this._onAdd()}">+ Add Payslip</button>
-       </div>
-       <div class="kpis" data-testid="kpis">
-        <div class="kpi"><div class="label">YTD Gross</div><div class="value" data-testid="kpi-gross">${ytd.gross.toFixed(2)}</div></div>
-        <div class="kpi"><div class="label">YTD Net</div><div class="value" data-testid="kpi-net">${ytd.net.toFixed(2)}</div></div>
-        <div class="kpi"><div class="label">Count</div><div class="value" data-testid="kpi-count">${ytd.count}</div></div>
-        <div class="kpi"><div class="label">Avg / Week</div><div class="value" data-testid="kpi-avg">${(ytd.count > 0 ? ytd.gross / ytd.count : 0).toFixed(2)}</div></div>
+      <div class="topbar">
+        <span class="crumb-current">Salary History</span>
+        <div class="spacer"></div>
+        <button class="filter-btn">⌕ Filter</button>
+        <a class="filter-btn" href="javascript:void(0)" @click="${() => this._onAdd()}">+ New Payslip</a>
       </div>
-      ${rows.length === 0
-        ? html`<div class="empty" data-testid="empty">No payslips yet.</div>`
-        : html`
-        <table data-testid="payslip-table">
-          <thead>
-            <tr>
-              <th><button data-testid="sort-date" @click="${() => this._toggleSort('pay_date')}">Pay date</button></th>
-              <th>Finance Year</th>
-              <th>Account</th>
-              <th><button data-testid="sort-gross" @click="${() => this._toggleSort('gross')}">Gross</button></th>
-              <th>Net</th>
-              <th>Hours</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${rows.map(
-              (p) => html`
-                <tr data-testid="payslip-row" data-id="${p.id}">
-                  <td>${p.pay_date}</td>
-                  <td>${p.finance_year}</td>
-                  <td>${this._accountName(p.account_id)}</td>
-                  <td>${p.gross.toFixed(2)}</td>
-                  <td>${p.net.toFixed(2)}</td>
-                  <td>${(p.regular_hours + p.shift_hours + p.overtime_1_5_hours + p.overtime_2_0_hours + p.public_holiday_hours).toFixed(1)}</td>
-                  <td>
-                    <button class="action" data-testid="edit-${p.id}" @click="${() => this._onEdit(p.id ?? 0)}">Edit</button>
-                    <button class="action" data-testid="delete-${p.id}" @click="${() => this._onDelete(p.id ?? 0)}">Delete</button>
-                  </td>
-                </tr>
-              `,
-            )}
-          </tbody>
-        </table>
-        <div class="pager">
-          <button class="action" data-testid="prev" ?disabled="${page <= 0}" @click="${() => (this._page = page - 1)}">Prev</button>
-          <span data-testid="page-info">Page ${page + 1} / ${pages}</span>
-          <button class="action" data-testid="next" ?disabled="${page >= pages - 1}" @click="${() => (this._page = page + 1)}">Next</button>
+
+      <div class="container">
+        <h1>Salary History</h1>
+        <p class="subtitle">${subtitle}</p>
+
+        <div class="summary-bar" data-testid="kpis">
+          <div class="summary-item kpi"><div class="summary-label label">YTD Gross</div><div class="summary-value value" data-testid="kpi-gross">${this._money(ytd.gross)}</div></div>
+          <div class="summary-item kpi"><div class="summary-label label">YTD Net</div><div class="summary-value value" data-testid="kpi-net">${this._money(ytd.net)}</div></div>
+          <div class="summary-item kpi"><div class="summary-label label">Count</div><div class="summary-value value" data-testid="kpi-count">${ytd.count}</div></div>
+          <div class="summary-item kpi"><div class="summary-label label">Avg / Week</div><div class="summary-value value" data-testid="kpi-avg">${this._money(ytd.count > 0 ? ytd.gross / ytd.count : 0)}</div></div>
         </div>
-      `}
-      <div class="ytd" data-testid="ytd-footer">
-        <span>YTD Gross: ${ytd.gross.toFixed(2)}</span>
-        <span>YTD Net: ${ytd.net.toFixed(2)}</span>
-        <span>PAYG: ${ytd.payg.toFixed(2)}</span>
-        <span>SG: ${ytd.superannuation_guarantee.toFixed(2)}</span>
-        <span>Count: ${ytd.count}</span>
+
+        ${total === 0
+          ? html`<div class="empty" data-testid="empty">No payslips yet.</div>`
+          : html`
+            <div class="table-wrap">
+              <table data-testid="payslip-table">
+                <thead>
+                  <tr>
+                    ${this._th('pay_date', 'Pay date')}
+                    <th>Finance Year</th>
+                    ${this._th('gross', 'Gross')}
+                    ${this._th('net', 'Net')}
+                    <th>Account</th>
+                    ${this._th('hours', 'Hours')}
+                    <th style="text-align: right;">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${rows.map(
+                    (p) => html`
+                      <tr data-testid="payslip-row" data-id="${p.id}">
+                        <td class="num">${p.pay_date}</td>
+                        <td class="fy">${p.finance_year}</td>
+                        <td class="num">${this._money(p.gross)}</td>
+                        <td class="num">${this._money(p.net)}</td>
+                        <td>${this._accountName(p.account_id)}</td>
+                        <td class="num">${(p.regular_hours + p.shift_hours + p.overtime_1_5_hours + p.overtime_2_0_hours + p.public_holiday_hours).toFixed(2)}</td>
+                        <td class="actions">
+                          <button class="btn-link" data-testid="edit-${p.id}" @click="${() => this._onEdit(p.id ?? 0)}">Edit</button>
+                          <button class="btn-link danger" data-testid="delete-${p.id}" @click="${() => this._onDelete(p.id ?? 0)}">Delete</button>
+                        </td>
+                      </tr>
+                    `,
+                  )}
+                </tbody>
+              </table>
+
+              <div class="ytd-footer" data-testid="ytd-footer">
+                <span class="ytd-footer-label">▾ Year-to-Date Summary (FY${this._fyLabel()}, ${total} payslips)</span>
+                <div class="ytd-footer-values">
+                  <div class="item"><span class="lbl">YTD Gross:</span><span class="val">${this._money(ytd.gross)}</span></div>
+                  <div class="item"><span class="lbl">YTD Net:</span><span class="val">${this._money(ytd.net)}</span></div>
+                  <div class="item"><span class="lbl">YTD PAYG:</span><span class="val">${this._money(ytd.payg)}</span></div>
+                  <div class="item"><span class="lbl">YTD SG:</span><span class="val">${this._money(ytd.superannuation_guarantee)}</span></div>
+                </div>
+              </div>
+
+              <div class="pagination">
+                <span>Showing ${total === 0 ? 0 : start + 1}–${end} of ${total}</span>
+                <div class="pages">
+                  <button class="page-btn" data-testid="prev" ?disabled="${page <= 0}" @click="${() => (this._page = page - 1)}">← Prev</button>
+                  ${Array.from({ length: pages }, (_, i) => i).map(
+                    (i) => html`<button class="page-btn ${i === page ? 'current' : ''}" ?disabled="${i === page}" @click="${() => (this._page = i)}">${i + 1}</button>`,
+                  )}
+                  <button class="page-btn" data-testid="next" ?disabled="${page >= pages - 1}" @click="${() => (this._page = page + 1)}">Next →</button>
+                </div>
+              </div>
+            </div>
+
+            <p class="info-note">YTD summary uses <code>PayService.aggregateYearToDate(payslips, financialYearStart)</code>. Edit populates the payslip form; Delete confirms then dispatches <code>payslip-delete</code>. Pagination shows 15 rows/page.</p>
+          `}
       </div>
     `;
   }

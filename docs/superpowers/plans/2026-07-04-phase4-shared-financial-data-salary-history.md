@@ -609,6 +609,25 @@ This is the renderer→extension writeback channel. The existing `executeCommand
 
 Phase 4 **does not** render the generic settings UI (that is Phase 7 work per Phase 3 Self-Review §7). The settings are persisted and retrievable via `finance.settings.get('salary-history.financeYear')` so the extension can read them at activation, but the Settings Activity Bar button still shows the Phase 1 hardcoded "App Preferences / Manage Extensions" placeholder. The payslip form's `[ Reorder Sections ]` button is the only Phase 4 settings UI.
 
+**Interim settings delivery — `mountData` (Phase 4 only; superseded by the Phase 7 UI):** Because there is no settings UI to edit these keys in Phase 4, `activate()` reads the namespace settings it needs at boot and bundles them into a `mountData` object that the renderer orchestrator forwards to the mounted UI element. This is the interim channel that surfaces persisted settings in the form (e.g. the currency selector shows the stored `salary-history.defaultCurrency`) without a settings screen.
+
+```ts
+// extensions/salary-history/src/main.ts — activate()
+const defaultCurrency =
+  (await finance.settings?.get('salary-history.defaultCurrency')) ?? 'AUD';
+const financialYearStart =
+  (await finance.settings?.get('salary-history.financialYearStart')) ?? '07-01';
+const mountData = { defaultCurrency, financialYearStart };
+// forwarded by the renderer orchestrator to <payslip-form> as its `mountData` prop
+```
+
+Coverage of the 6 keys via `mountData` vs live reads:
+- **`defaultCurrency`, `financialYearStart`** — delivered via `mountData` at mount (the only values the form needs before any user interaction).
+- **`sectionOrder`** — read live by the renderer orchestrator (`finance.settings.get`) and persisted on reorder (`finance.settings.set`); not part of `mountData`.
+- **`paygToleranceDollars`, `paygTaxYear`, `financeYear`** — declared in the manifest (`package.json` `configuration` block) with defaults but **NOT currently read live**. The form uses hardcoded literals (`payslip-form.ts: paygToleranceDollars = 5`, `paygTaxYear = '2026-2027'`), and `finance_year` is auto-derived from `pay_date` + `financialYearStart` rather than the `financeYear` setting. They become live reads once Phase 7 ships the settings UI, or if `activate()` is extended to read them and add them to `mountData`.
+
+When Phase 7 ships the generic settings UI, the form can read these keys directly via `finance.settings.get` and `mountData` becomes an optional boot-snapshot rather than the primary delivery path.
+
 **Reasoning:** Proves the settings-namespacing mechanism (`project_vision.md:46` — settings keys prefixed with extension id) works end-to-end with a real extension. Phase 7 will add the UI on top.
 
 **Alternatives considered:**

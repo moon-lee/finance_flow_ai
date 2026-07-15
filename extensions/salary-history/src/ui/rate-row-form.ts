@@ -1,48 +1,57 @@
 /**
- * Phase 4 Task 11.5 — Add/edit rate row form (Lit element).
+ * Phase 4 Task 11.5 — Rate row form (add/edit a single pay-rate row).
  *
- * A confirmation panel is shown BEFORE the form (inline at the top):
- * "Adding this rate will close the current rate" plus a diff of the
- * current vs new values, with Confirm/Cancel. After confirm, the form
- * renders 10 rate-row fields (pre-filled from the current rate for an
- * edit), validates via `PayRateService.validateRateRow`, and on submit
- * dispatches a `rate-create` (new) / `rate-edit` (current) CustomEvent
- * with the `RateRowInput` payload. The mount harness routes the
- * event to `addNewRate` / `editCurrentRate`.
+ * Decision 11: confirm panel FIRST (no destructive editing before the user
+ * accepts the semantics). Decision 17: read-only view of history rows is
+ * handled by `pay-rate-history-view`; this form is only used for the current
+ * row (edit) or a brand-new row (add).
+ *
+ * On submit it emits `rate-create` (new) or `rate-edit` (existing) so the
+ * orchestrator can route to `finance.db.table('salary_history_rate_history')`
+ * and (for add) call `PayRateService.closeCurrentRate()` + insert.
+ *
+ * Visual fidelity tracks `docs/design/salary-history-mvp/rate-row-form.html`
+ * (topbar + breadcrumb, sectioned card layout, green confirm dialog,
+ * change-highlighted fields, footer actions).
  */
 
-import { LitElement, css, html, PropertyValues } from 'lit';
+import { LitElement, css, html } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import type { FinanceApi } from 'finance';
-import type { RateRow, RateRowInput } from '../dao/pay-rate-history.js';
-import { validateRateRow } from '../services/pay-rate-service.js';
+import type { RateRow } from '../dao/pay-rate-history.js';
 
-type RateFieldKey =
-  | 'base_hourly_rate'
-  | 'standard_hours_per_week'
-  | 'shift_allowance_multiplier'
-  | 'shift_allowance_hours_per_week'
-  | 'overtime_1_5_multiplier'
-  | 'overtime_2_0_multiplier'
-  | 'superannuation_rate'
-  | 'holiday_leave_loading_rate'
-  | 'accrual_rate_per_week'
-  | 'starting_holiday_leave_balance';
+interface RateFieldDef {
+  key: keyof RateRow;
+  label: string;
+}
 
-const RATE_FIELDS: { key: RateFieldKey; label: string }[] = [
-  { key: 'base_hourly_rate', label: 'Base $/hr' },
-  { key: 'standard_hours_per_week', label: 'Standard hrs/wk' },
-  { key: 'shift_allowance_multiplier', label: 'Shift allowance mult' },
-  { key: 'shift_allowance_hours_per_week', label: 'Shift allowance hrs/wk' },
-  { key: 'overtime_1_5_multiplier', label: 'Overtime 1.5x mult' },
-  { key: 'overtime_2_0_multiplier', label: 'Overtime 2.0x mult' },
+const RATE_FIELDS: RateFieldDef[] = [
+  { key: 'base_hourly_rate', label: 'Base hourly rate' },
+  { key: 'standard_hours_per_week', label: 'Standard hours / week' },
+  { key: 'shift_allowance_multiplier', label: 'Shift allowance multiplier' },
+  { key: 'shift_allowance_hours_per_week', label: 'Shift allowance hours / week' },
+  { key: 'overtime_1_5_multiplier', label: 'Overtime 1.5× multiplier' },
+  { key: 'overtime_2_0_multiplier', label: 'Overtime 2.0× multiplier' },
   { key: 'superannuation_rate', label: 'Superannuation rate' },
-  { key: 'holiday_leave_loading_rate', label: 'Holiday leave loading' },
-  { key: 'accrual_rate_per_week', label: 'Accrual rate/wk' },
-  { key: 'starting_holiday_leave_balance', label: 'Starting leave balance' },
+  { key: 'holiday_leave_loading_rate', label: 'Holiday leave loading rate' },
+  { key: 'accrual_rate_per_week', label: 'Accrual rate / week' },
+  { key: 'starting_holiday_leave_balance', label: 'Starting holiday leave balance' },
 ];
 
-const DEFAULTS: Record<RateFieldKey, number> = {
+/** Mock-faithful descriptive sublabels (rate-row-form.html). */
+const RATE_FIELD_HINTS: Record<string, string> = {
+  base_hourly_rate: '($/hr)',
+  standard_hours_per_week: '',
+  shift_allowance_multiplier: '(default 0.15)',
+  shift_allowance_hours_per_week: '(default 38; hours the shift allowance is paid on)',
+  overtime_1_5_multiplier: '(default 1.5)',
+  overtime_2_0_multiplier: '(default 2.0)',
+  superannuation_rate: '(ATO mandate; current 12%)',
+  holiday_leave_loading_rate: '(default 0.175 = 17.5%)',
+  accrual_rate_per_week: '(default 2.92 hours)',
+  starting_holiday_leave_balance: '(default 0 hours)',
+};
+
+const DEFAULTS: Partial<Record<keyof RateRow, number | string | null>> = {
   base_hourly_rate: 0,
   standard_hours_per_week: 38,
   shift_allowance_multiplier: 0.15,
@@ -53,141 +62,274 @@ const DEFAULTS: Record<RateFieldKey, number> = {
   holiday_leave_loading_rate: 0.175,
   accrual_rate_per_week: 2.92,
   starting_holiday_leave_balance: 0,
+  notes: '',
 };
-
-interface RateFormValues {
-  effective_from: string;
-  effective_to: string;
-  notes: string;
-  fields: Record<RateFieldKey, string>;
-}
-
-function num(v: string): number {
-  if (v.trim() === '') return NaN;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : NaN;
-}
 
 @customElement('rate-row-form')
 export class RateRowForm extends LitElement {
   static styles = css`
     :host {
       display: block;
-      color: #d4d4d4;
-      font: 13px/1.5 system-ui, sans-serif;
-    }
-    .confirm {
-      border: 1px solid #cca700;
-      background: #4a3c00;
-      color: #e8d28a;
-      border-radius: 6px;
-      padding: 12px;
-      margin-bottom: 12px;
-    }
-    .confirm pre {
-      white-space: pre-wrap;
-      font-size: 12px;
-      margin: 8px 0;
-    }
-    .actions {
-      display: flex;
-      gap: 8px;
-      margin-top: 12px;
-    }
-    label {
-      display: flex;
-      flex-direction: column;
-      gap: 3px;
-      font-size: 12px;
-      color: #b9b9b9;
-      margin-bottom: 8px;
-    }
-    input {
       background: #1e1e1e;
-      border: 1px solid #3c3c3c;
       color: #d4d4d4;
+      font: 14px/1.5 system-ui, sans-serif;
+    }
+    .topbar {
+      background: #252526;
+      border-bottom: 1px solid #3e3e3e;
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .topbar .crumb-link { color: #007acc; text-decoration: none; font-size: 13px; }
+    .topbar .crumb-link:hover { text-decoration: underline; }
+    .topbar .crumb-sep { color: #858585; }
+    .topbar .crumb-current { color: #d4d4d4; font-weight: 500; }
+    .container { max-width: 760px; margin: 0 auto; padding: 24px 20px 40px; }
+    h1 { font-size: 18px; font-weight: 600; color: #fff; margin: 0 0 4px; }
+    .subtitle { color: #858585; font-size: 13px; margin: 0 0 24px; }
+
+    .confirm-panel {
+      background: #1e2a1e;
+      border: 1px solid #4ec9b0;
+      border-left: 4px solid #4ec9b0;
       border-radius: 4px;
-      padding: 4px 6px;
-      font: inherit;
+      padding: 14px 16px;
+      margin-bottom: 16px;
     }
-    input.changed {
-      border-color: #c2913a;
+    .confirm-panel h3 {
+      margin: 0 0 8px;
+      font-size: 14px;
+      font-weight: 700;
+      color: #4ec9b0;
     }
-    .row {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 4px 16px;
-    }
-    .errors {
-      color: #f48771;
-      font-size: 12px;
+    .confirm-panel-body { margin: 0 0 12px; font-size: 13px; color: #d4d4d4; line-height: 1.6; }
+    .confirm-panel-body code { color: #4ec9b0; }
+    .confirm-panel-body strong { color: #fff; }
+    .confirm-panel-detail {
+      background: #1e1e1e;
+      border: 1px solid #3e3e3e;
+      border-radius: 3px;
+      padding: 10px 12px;
       margin: 8px 0;
+      font-family: "SF Mono", Consolas, monospace;
+      font-size: 12px;
     }
-    button.primary {
-      background: #007acc;
-      color: #fff;
-      border: 0;
+    .confirm-panel-detail ul { margin: 0; padding-left: 18px; }
+    .confirm-panel-detail li { margin: 2px 0; }
+    .confirm-panel-detail code { color: #9cdc9c; }
+    .confirm-panel-actions { display: flex; gap: 8px; margin-top: 10px; }
+
+    .section {
+      background: #252526;
+      border: 1px solid #3e3e3e;
+      border-radius: 6px;
+      margin-bottom: 12px;
+      overflow: hidden;
+    }
+    .section-header {
+      background: #2a2a2a;
+      padding: 8px 16px;
+      border-bottom: 1px solid #3e3e3e;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .section-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #cccccc; margin: 0; }
+    .section-badge {
+      background: #3e3e3e;
+      color: #858585;
+      font-size: 10px;
+      font-weight: 600;
+      padding: 2px 6px;
+      border-radius: 2px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    .section-badge.muted { background: #3e3e3e; color: #858585; }
+    .section-body { padding: 16px; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; }
+
+    .field { display: flex; flex-direction: column; gap: 4px; }
+    .field label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; color: #858585; }
+    .field .label-sub { font-size: 10px; color: #707070; text-transform: none; letter-spacing: 0; font-weight: 400; }
+    .field input,
+    .field textarea {
+      background: #3c3c3c;
+      color: #d4d4d4;
+      border: 1px solid #3e3e3e;
+      border-radius: 3px;
+      padding: 6px 10px;
+      font-size: 13px;
+      font-family: inherit;
+      outline: none;
+    }
+    .field input:focus,
+    .field textarea:focus { border-color: #007acc; }
+    .field input[type="number"] { font-family: "SF Mono", Consolas, monospace; }
+    .field.textarea { grid-column: 1 / -1; }
+    .field textarea { resize: vertical; min-height: 60px; font-family: inherit; }
+    .field-changed input { border-color: #cca700; background: #3a2e0a; }
+    .field-changed .label-sub { color: #ffd866; }
+    .field-error { font-size: 11px; color: #f48771; margin-top: 2px; }
+
+    .errors {
+      background: #2e1b1b;
+      border: 1px solid #5a2a2a;
       border-radius: 4px;
-      padding: 6px 14px;
-      cursor: pointer;
+      padding: 8px 12px;
+      margin-bottom: 16px;
+      font-size: 12px;
+      color: #f48771;
     }
-    button.ghost {
-      background: transparent;
-      border: 1px solid #3c3c3c;
-      color: #94a3b8;
-      border-radius: 4px;
-      padding: 6px 14px;
+
+    .footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+    .btn {
+      padding: 8px 20px;
+      border-radius: 3px;
+      font-size: 13px;
       cursor: pointer;
+      font-family: inherit;
+      border: 1px solid transparent;
     }
+    .btn-primary { background: #007acc; color: #fff; border-color: #007acc; }
+    .btn-primary:hover { background: #1188dd; }
+    .btn-secondary { background: #3c3c3c; color: #d4d4d4; border-color: #3e3e3e; }
+    .btn-secondary:hover { background: #4a4a4a; }
+    .btn-action { background: #4ec9b0; color: #1e1e1e; border: 1px solid #4ec9b0; padding: 6px 14px; border-radius: 3px; font-size: 12px; cursor: pointer; font-family: inherit; font-weight: 600; }
+    .btn-action:hover { background: #6fdec0; }
+    .btn-action.muted { background: transparent; color: #858585; border-color: #3e3e3e; }
+    .btn-action.muted:hover { background: #3c3c3c; color: #d4d4d4; }
+
+    .info-note { font-size: 12px; color: #858585; font-style: italic; margin-top: 8px; padding: 8px 12px; background: #1e1e1e; border-radius: 3px; }
+    .info-note::before { content: 'ℹ '; color: #4ec9b0; }
+    .info-note code { color: #4ec9b0; }
   `;
 
-  @property({ attribute: false })
-  finance: FinanceApi | null = null;
+  private _rate: RateRow | null = null;
 
-  /** The current rate row (for pre-fill + edit-mode), or null for a fresh add. */
   @property({ attribute: false })
-  rate: RateRow | null = null;
+  set rate(v: RateRow | null) {
+    const old = this._rate;
+    this._rate = v;
+    if (old !== v && !this._confirmed) {
+      this._values = { fields: this._buildDefaults() };
+      this._errors = [];
+    }
+    this.requestUpdate('rate', old);
+  }
+  get rate(): RateRow | null {
+    return this._rate;
+  }
+
+  @property({ type: Boolean })
+  readOnly = false;
 
   @state()
   private _confirmed = false;
 
   @state()
-  private _values: RateFormValues = this._buildDefaults();
+  private _values: { fields: Record<string, string> } = { fields: {} };
 
   @state()
-  private _initial: RateFormValues = this._buildDefaults();
-
-  @state()
-  private _errors: readonly string[] = [];
-
-  private _buildDefaults(): RateFormValues {
-    const r = this.rate;
-    const fields = {} as Record<RateFieldKey, string>;
-    for (const f of RATE_FIELDS) {
-      fields[f.key] = r ? String(r[f.key]) : String(DEFAULTS[f.key]);
-    }
-    return {
-      effective_from: r ? r.effective_from : '',
-      effective_to: r && r.effective_to ? r.effective_to : '',
-      notes: r && r.notes ? r.notes : '',
-      fields,
-    };
-  }
+  private _errors: string[] = [];
 
   connectedCallback(): void {
     super.connectedCallback();
-    this._values = this._buildDefaults();
-    this._initial = this._buildDefaults();
+    this._values = { fields: this._buildDefaults() };
+    this._errors = [];
   }
 
-  willUpdate(changed: PropertyValues): void {
-    super.willUpdate(changed);
-    // Rebuild pre-filled defaults whenever the current rate changes, but
-    // only before the user has confirmed the panel (so we never clobber
-    // in-progress edits in the form).
-    if (changed.has('rate') && !this._confirmed) {
-      this._values = this._buildDefaults();
-      this._initial = this._buildDefaults();
+  private _buildDefaults(): Record<string, string> {
+    const out: Record<string, string> = {};
+    const src = this.rate ?? DEFAULTS;
+    for (const f of RATE_FIELDS) {
+      const v = src[f.key];
+      out[f.key] = v == null ? '' : String(v);
+    }
+    out.effective_from = this.rate?.effective_from ?? '';
+    out.effective_to = this.rate?.effective_to ?? '';
+    out.notes = this.rate?.notes ?? '';
+    return out;
+  }
+
+  private _onField(key: keyof RateRow): void {
+    const input = this.renderRoot.querySelector<HTMLInputElement>(`#input-${key}`);
+    if (input) this._values.fields[key] = input.value;
+  }
+
+  private _onNotes(): void {
+    const t = this.renderRoot.querySelector<HTMLTextAreaElement>('#input-notes');
+    if (t) this._values.fields.notes = t.value;
+  }
+
+  private _isChanged(key: keyof RateRow): boolean {
+    const initial = this.rate ? this.rate[key] : DEFAULTS[key];
+    const initStr = initial == null ? '' : String(initial);
+    const cur = this._values.fields[key] ?? '';
+    return initStr !== cur;
+  }
+
+  private _buildInput(f: RateFieldDef, disabled = false): unknown {
+    const key = f.key as string;
+    const changed = this._isChanged(f.key);
+    const err = this._errors.find((e) => e.startsWith(f.label)) ?? '';
+    const original = String(this.rate?.[f.key] ?? DEFAULTS[f.key] ?? '');
+    const hint = RATE_FIELD_HINTS[key] ?? '';
+    const sublabel = changed && hint ? `${hint} — changed from ${original}` : hint;
+    return html`
+      <div class="field ${changed ? 'field-changed' : ''}" data-testid="field-${key}">
+        <label for="input-${key}">
+          <span class="label-main">${key}</span>
+          ${sublabel ? html`<span class="label-sub">${sublabel}</span>` : ''}
+        </label>
+        <input id="input-${key}" data-testid="input-${key}" type="number" step="any" min="0"
+          ?disabled="${disabled}" .value="${this._values.fields[key] ?? ''}" @input="${() => this._onField(f.key)}" />
+        ${err ? html`<div class="field-error">${err}</div>` : ''}
+      </div>
+    `;
+  }
+
+  private _money(n: number): string {
+    return '$' + n.toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  private _parse(): { ok: true; value: Record<string, number | string | null> } | { ok: false; errors: string[] } {
+    const out: Record<string, number | string | null> = {};
+    const errors: string[] = [];
+    for (const f of RATE_FIELDS) {
+      const raw = (this._values.fields[f.key] ?? '').trim();
+      if (raw === '') {
+        errors.push(`Missing value for ${f.label}`);
+        continue;
+      }
+      const n = Number(raw);
+      if (!Number.isFinite(n) || n < 0) {
+        errors.push(`Invalid number for ${f.label}`);
+        continue;
+      }
+      out[f.key] = n;
+    }
+    out.effective_from = (this._values.fields.effective_from ?? '').trim();
+    out.effective_to = (this._values.fields.effective_to ?? '').trim() || null;
+    out.notes = (this._values.fields.notes ?? '').trim() || null;
+    return errors.length ? { ok: false, errors } : { ok: true, value: out };
+  }
+
+  private _onSubmit(e: Event): void {
+    e.preventDefault();
+    const parsed = this._parse();
+    if (!parsed.ok) {
+      this._errors = parsed.errors;
+      return;
+    }
+    const input = parsed.value;
+    const detail = this.rate ? { id: this.rate.id, input } : { input };
+    if (detail && 'id' in detail && detail.id != null) {
+      this.dispatchEvent(new CustomEvent('rate-edit', { detail, bubbles: true, composed: true }));
+    } else {
+      this.dispatchEvent(new CustomEvent('rate-create', { detail, bubbles: true, composed: true }));
     }
   }
 
@@ -196,137 +338,113 @@ export class RateRowForm extends LitElement {
   }
 
   private _onCancel(): void {
-    this.dispatchEvent(
-      new CustomEvent('rate-form-cancel', { bubbles: true, composed: true }),
-    );
+    this.dispatchEvent(new CustomEvent('rate-form-cancel', { bubbles: true, composed: true }));
   }
 
-  private _onField(key: RateFieldKey, e: Event): void {
-    const v = (e.target as HTMLInputElement).value;
-    this._values = { ...this._values, fields: { ...this._values.fields, [key]: v } };
-  }
-
-  private _onText(field: 'effective_from' | 'effective_to' | 'notes', e: Event): void {
-    const v = (e.target as HTMLInputElement).value;
-    this._values = { ...this._values, [field]: v };
-  }
-
-  private _isChanged(key: RateFieldKey): boolean {
-    return this._values.fields[key] !== this._initial.fields[key];
-  }
-
-  private _buildInput(): RateRowInput {
-    const fields = {} as Record<RateFieldKey, number>;
-    for (const f of RATE_FIELDS) fields[f.key] = num(this._values.fields[f.key]);
-    return {
-      effective_from: this._values.effective_from,
-      effective_to: this._values.effective_to.trim() === '' ? null : this._values.effective_to,
-      notes: this._values.notes.trim() === '' ? null : this._values.notes,
-      base_hourly_rate: fields.base_hourly_rate,
-      standard_hours_per_week: fields.standard_hours_per_week,
-      shift_allowance_multiplier: fields.shift_allowance_multiplier,
-      shift_allowance_hours_per_week: fields.shift_allowance_hours_per_week,
-      overtime_1_5_multiplier: fields.overtime_1_5_multiplier,
-      overtime_2_0_multiplier: fields.overtime_2_0_multiplier,
-      superannuation_rate: fields.superannuation_rate,
-      holiday_leave_loading_rate: fields.holiday_leave_loading_rate,
-      accrual_rate_per_week: fields.accrual_rate_per_week,
-      starting_holiday_leave_balance: fields.starting_holiday_leave_balance,
-    };
-  }
-
-  private _onSubmit(e: Event): void {
-    e.preventDefault();
-    const payload = this._buildInput();
-    const check = validateRateRow(payload);
-    if (!check.ok) {
-      this._errors = check.errors;
-      return;
-    }
-    this._errors = [];
-    if (this.rate?.id !== undefined) {
-      this.dispatchEvent(
-        new CustomEvent('rate-edit', {
-          detail: { id: this.rate.id, input: payload },
-          bubbles: true,
-          composed: true,
-        }),
-      );
-    } else {
-      this.dispatchEvent(
-        new CustomEvent('rate-create', {
-          detail: { input: payload },
-          bubbles: true,
-          composed: true,
-        }),
-      );
-    }
-  }
-
-  private _renderConfirm(): unknown {
-    const current = this.rate;
-    const diff = current
-      ? RATE_FIELDS.map((f) => {
-          const oldV = (current[f.key] as number).toFixed(3);
-          const newV = this._values.fields[f.key];
-          return `${f.label}: ${oldV} → ${newV}`;
-        }).join('\n')
-      : '(no current rate — this becomes the first)';
+  private _renderConfirmPanel(): unknown {
+    const cur = this.rate;
+    const changedCount = RATE_FIELDS.filter((f) => this._isChanged(f.key)).length;
     return html`
-      <div class="confirm" data-testid="confirm-panel">
-        <strong>Adding this rate will close the current rate</strong>
-        <pre>${diff}</pre>
-        <div class="actions">
-          <button class="primary" data-testid="confirm-add" @click="${this._onConfirm}">Confirm &amp; Save</button>
-          <button class="ghost" data-testid="confirm-cancel" @click="${this._onCancel}">Cancel</button>
+      <div class="confirm-panel" data-testid="confirm-panel">
+        <h3>⚠ Confirm rate change</h3>
+        ${cur
+          ? html`<p class="confirm-panel-body">Adding this rate will <strong>close the current rate</strong>. The current rate (effective from <code>${cur.effective_from}</code>) will have its <code>effective_to</code> set to the new rate's start date. Historical payslips keep using the closed rate; new payslips from that date use the new rate.</p>`
+          : html`<p class="confirm-panel-body">This creates the <strong>first pay-rate row</strong> — there is no current rate to close yet.</p>`}
+        <div class="confirm-panel-detail">
+          <div>Current rate · base <code>${cur ? this._money(cur.base_hourly_rate as number) : '—'}</code> · std <code>${cur?.standard_hours_per_week ?? '—'}h</code> · SG <code>${cur?.superannuation_rate ?? '—'}</code></div>
+          ${changedCount > 0
+            ? html`<ul>${RATE_FIELDS.filter((f) => this._isChanged(f.key)).map(
+                (f) => html`<li><code>${f.key}</code> ${String(cur?.[f.key] ?? DEFAULTS[f.key] ?? '')} → <strong>${this._values.fields[f.key]}</strong></li>`,
+              )}</ul>`
+            : html`<p>No values changed yet — editing the fields above will show the diff here.</p>`}
+        </div>
+        <div class="confirm-panel-actions">
+          <button class="btn-action" data-testid="confirm-add" @click="${this._onConfirm}">✓ Confirm &amp; Save</button>
+          <button class="btn-action muted" data-testid="confirm-cancel" @click="${this._onCancel}">Cancel</button>
         </div>
       </div>
     `;
   }
 
   render(): unknown {
-    if (!this._confirmed) {
-      return this._renderConfirm();
-    }
+    if (this.readOnly) return this._renderForm(true);
+    return this._renderForm(false);
+  }
+
+  private _renderForm(readOnly: boolean): unknown {
     return html`
-      <form data-testid="rate-form" @submit="${(e: Event) => this._onSubmit(e)}">
-        <label data-testid="field-effective_from">
-          Effective from
-          <input data-testid="input-effective_from" type="date" .value="${this._values.effective_from}" @input="${(e: Event) => this._onText('effective_from', e)}" />
-        </label>
-        <label data-testid="field-effective_to">
-          Effective to (blank = current)
-          <input data-testid="input-effective_to" type="date" .value="${this._values.effective_to}" @input="${(e: Event) => this._onText('effective_to', e)}" />
-        </label>
-        <div class="row" data-testid="rate-fields">
-          ${RATE_FIELDS.map(
-            (f) => html`
-              <label class="${this._isChanged(f.key) ? 'changed' : ''}" data-testid="field-${f.key}">
-                ${f.label}
-                <input
-                  class="${this._isChanged(f.key) ? 'changed' : ''}"
-                  data-testid="input-${f.key}"
-                  type="number"
-                  step="any"
-                  .value="${this._values.fields[f.key]}"
-                  @input="${(e: Event) => this._onField(f.key, e)}"
-                />
-              </label>
-            `,
-          )}
-        </div>
-        <label data-testid="field-notes">
-          Notes
-          <input data-testid="input-notes" type="text" .value="${this._values.notes}" @input="${(e: Event) => this._onText('notes', e)}" />
-        </label>
-        ${this._errors.length > 0
-          ? html`<div class="errors" data-testid="rate-errors">${this._errors.map((er) => html`<div>${er}</div>`)}</div>`
+      <div class="topbar">
+        <span class="crumb-link" data-testid="back-link" @click="${() => this._onCancel()}">← Pay Rate History</span>
+        <span class="crumb-sep">/</span>
+        <span class="crumb-current">${readOnly ? 'View Rate' : this.rate ? 'Edit Rate' : 'Add New Rate'}</span>
+      </div>
+      <div class="container">
+        <h1 data-testid="rate-form-title">${readOnly ? 'View Rate' : this.rate ? 'Edit Rate' : 'Add New Rate'}</h1>
+        <p class="subtitle">${readOnly
+          ? 'Read-only view of a historical rate row.'
+          : this.rate
+            ? 'Pre-filled from current rate. Edit fields you want to change; leave the rest as-is.'
+            : 'Enter the new rate details. Saving will close the current rate.'}</p>
+
+        ${!readOnly && !this._confirmed ? this._renderConfirmPanel() : ''}
+
+        ${!readOnly && this._errors.length
+          ? html`<div class="errors" data-testid="rate-errors">${this._errors.map((e) => html`<div>${e}</div>`)}</div>`
           : ''}
-        <div class="actions">
-          <button type="button" class="ghost" data-testid="rate-cancel" @click="${this._onCancel}">Cancel</button>
-          <button type="submit" class="primary" data-testid="rate-submit">Save</button>
-        </div>
-      </form>
+
+        <form class="rate-form" data-testid="rate-form" @submit="${this._onSubmit}">
+          <section class="section">
+            <div class="section-header">
+              <h2 class="section-title">Effective dates</h2>
+              <span class="section-badge">required</span>
+            </div>
+            <div class="section-body grid-2">
+              <div class="field ${this._isChanged('effective_from') ? 'field-changed' : ''}" data-testid="field-effective_from">
+                <label for="input-effective_from"><span class="label-main">Effective from</span><span class="label-sub">(date this rate becomes active)</span></label>
+                <input id="input-effective_from" data-testid="input-effective_from" type="date"
+                  ?disabled="${readOnly}" .value="${this._values.fields.effective_from ?? ''}" @input="${() => this._onField('effective_from')}" />
+              </div>
+              <div class="field ${this._isChanged('effective_to') ? 'field-changed' : ''}" data-testid="field-effective_to">
+                <label for="input-effective_to"><span class="label-main">Effective to</span><span class="label-sub">(leave blank for current/open-ended)</span></label>
+                <input id="input-effective_to" data-testid="input-effective_to" type="date"
+                  ?disabled="${readOnly}" .value="${this._values.fields.effective_to ?? ''}" @input="${() => this._onField('effective_to')}" />
+              </div>
+            </div>
+          </section>
+
+          <section class="section">
+            <div class="section-header">
+              <h2 class="section-title">Rates</h2>
+              <span class="section-badge">10 fields</span>
+            </div>
+            <div class="section-body grid-2" data-testid="rate-fields">
+              ${RATE_FIELDS.map((f) => this._buildInput(f, readOnly))}
+            </div>
+          </section>
+
+          <section class="section">
+            <div class="section-header">
+              <h2 class="section-title">Notes</h2>
+            </div>
+            <div class="section-body">
+              <div class="field textarea" data-testid="field-notes">
+                <label for="input-notes"><span class="label-main">Notes</span><span class="label-sub">notes</span></label>
+                <textarea id="input-notes" data-testid="input-notes" rows="3"
+                  ?disabled="${readOnly}" .value="${this._values.fields.notes ?? ''}" @input="${this._onNotes}"></textarea>
+              </div>
+            </div>
+          </section>
+
+          <div class="footer">
+            ${readOnly
+              ? html`<button class="btn btn-secondary" type="button" data-testid="rate-cancel" @click="${this._onCancel}">Back</button>`
+              : html`
+                <button class="btn btn-secondary" type="button" data-testid="rate-cancel" @click="${this._onCancel}">Cancel</button>
+                <button class="btn btn-primary" type="submit" data-testid="rate-submit">Save rate</button>`}
+          </div>
+        </form>
+        <p class="info-note">Validated by <code>PayRateService.validateRateRow</code>: <code>effective_from &lt; effective_to</code> if both set; all rates ≥ 0; <code>SG ≤ 1</code>. The Confirm &amp; Save button calls <code>PayRateService.addNewRate</code> in a single SQLite transaction (atomic close + insert).</p>
+      </div>
     `;
   }
 }

@@ -44,8 +44,14 @@ export class SalaryHistoryView extends LitElement {
   /** Optional absolute `file://` URL of the extension bundle (set by Main). */
   bundleUrl = '';
 
-  /** Pre-fetched row to hand to the form in edit mode. */
+  /** Pre-fetched row to hand to the payslip form in edit mode. */
   private _editPaySlip: Record<string, unknown> | null = null;
+
+  /** Pre-fetched rate row to hand to the rate form (add = null). */
+  private _rateData: Record<string, unknown> | null = null;
+
+  /** When true the rate form renders read-only (history "View"). */
+  private _rateReadOnly = false;
 
   /** Current form-section render order (Decision 18 + Plan Amendment 7). */
   private _sectionOrder: string[] = [
@@ -69,6 +75,13 @@ export class SalaryHistoryView extends LitElement {
     this.addEventListener('reorder-sections', this._onReorderRequest as EventListener);
     this.addEventListener('section-order-change', this._onSectionOrderChange as EventListener);
     this.addEventListener('section-order-cancel', this._onReorderCancel as EventListener);
+    // Rate-history navigation (Decision 16 + 17).
+    this.addEventListener('rate-add-request', this._onAddRate as EventListener);
+    this.addEventListener('rate-edit-request', this._onRateEditRequest as EventListener);
+    this.addEventListener('rate-view-request', this._onRateViewRequest as EventListener);
+    this.addEventListener('rate-create', this._onRateCreate as EventListener);
+    this.addEventListener('rate-edit', this._onRateEdit as EventListener);
+    this.addEventListener('rate-form-cancel', this._onRateCancel as EventListener);
   }
 
   disconnectedCallback(): void {
@@ -85,6 +98,12 @@ export class SalaryHistoryView extends LitElement {
     this.removeEventListener('reorder-sections', this._onReorderRequest as EventListener);
     this.removeEventListener('section-order-change', this._onSectionOrderChange as EventListener);
     this.removeEventListener('section-order-cancel', this._onReorderCancel as EventListener);
+    this.removeEventListener('rate-add-request', this._onAddRate as EventListener);
+    this.removeEventListener('rate-edit-request', this._onRateEditRequest as EventListener);
+    this.removeEventListener('rate-view-request', this._onRateViewRequest as EventListener);
+    this.removeEventListener('rate-create', this._onRateCreate as EventListener);
+    this.removeEventListener('rate-edit', this._onRateEdit as EventListener);
+    this.removeEventListener('rate-form-cancel', this._onRateCancel as EventListener);
   }
 
   updated(changed: Map<string, unknown>): void {
@@ -149,6 +168,12 @@ export class SalaryHistoryView extends LitElement {
       if (this.mountData) Object.assign(childEl, this.mountData);
       if (this._editPaySlip) childEl.editPaySlip = this._editPaySlip;
       this._editPaySlip = null;
+      if (this.componentTag === 'rate-row-form') {
+        childEl.rate = this._rateData;
+        childEl.readOnly = this._rateReadOnly;
+        this._rateData = null;
+        this._rateReadOnly = false;
+      }
 
       const existing = this.querySelector('[data-ext-root]');
       if (existing) existing.remove();
@@ -249,6 +274,71 @@ export class SalaryHistoryView extends LitElement {
 
   private _onReorderCancel = (): void => {
     this.navigate('payslip-form', this.mountData);
+  };
+
+  // ----- Rate-history navigation (Decision 16 + 17) -----
+
+  private _onAddRate = (): void => {
+    this._editPaySlip = null;
+    this._rateData = null;
+    this._rateReadOnly = false;
+    this.navigate('rate-row-form', this.mountData);
+  };
+
+  private _onRateEditRequest = async (e: Event): Promise<void> => {
+    const { id } = (e as CustomEvent).detail as { id: number };
+    if (!this._finance) return;
+    const row = (await this._finance.db
+      .table('salary_history_rate_history')
+      .findOne({ id })) as Record<string, unknown> | undefined;
+    this._editPaySlip = null;
+    this._rateData = row ?? null;
+    this._rateReadOnly = false;
+    this.navigate('rate-row-form', this.mountData);
+  };
+
+  private _onRateViewRequest = async (e: Event): Promise<void> => {
+    const { id } = (e as CustomEvent).detail as { id: number };
+    if (!this._finance) return;
+    const row = (await this._finance.db
+      .table('salary_history_rate_history')
+      .findOne({ id })) as Record<string, unknown> | undefined;
+    this._editPaySlip = null;
+    if (!row) {
+      this.navigate('pay-rate-history-view', this.mountData);
+      return;
+    }
+    this._rateData = row;
+    this._rateReadOnly = true;
+    this.navigate('rate-row-form', this.mountData);
+  };
+
+  private _onRateCreate = async (e: Event): Promise<void> => {
+    const { input } = (e as CustomEvent).detail as { input: Record<string, unknown> };
+    if (!this._finance) return;
+    try {
+      await this._finance.db.table('salary_history_rate_history').insert(input);
+    } catch (err) {
+      console.error('[renderer] rate create failed:', err);
+      return;
+    }
+    this.navigate('pay-rate-history-view', this.mountData);
+  };
+
+  private _onRateEdit = async (e: Event): Promise<void> => {
+    const { id, input } = (e as CustomEvent).detail as { id: number; input: Record<string, unknown> };
+    if (!this._finance) return;
+    try {
+      await this._finance.db.table('salary_history_rate_history').update(input, { id });
+    } catch (err) {
+      console.error('[renderer] rate update failed:', err);
+      return;
+    }
+    this.navigate('pay-rate-history-view', this.mountData);
+  };
+
+  private _onRateCancel = (): void => {
+    this.navigate('pay-rate-history-view', this.mountData);
   };
 
   render() {

@@ -41,9 +41,15 @@ export class NavigationPanel extends LitElement {
     .nav-item:hover {
       background: rgba(255, 255, 255, 0.08);
     }
+
+    .nav-item.active {
+      background: rgba(0, 122, 204, 0.18);
+      color: #fff;
+    }
   `;
 
   private _currentView = 'Dashboard';
+  private _activeCmd = '';
 
   /**
    * [Fix] Map extension view `id` (what the activity-bar dispatches in
@@ -68,6 +74,38 @@ export class NavigationPanel extends LitElement {
     this.requestUpdate();
   }
 
+  /**
+   * Navigate by running an extension command, exactly like the Command
+   * Palette does. The Salary extension contributes `salary.show-pay-history`
+   * (mounts the payslip list) and `salary.show-pay-rate-history` (mounts the
+   * rate-history view); both are reachable from the Explorer's "Salary"
+   * section. `command-selected` is handled in `src/renderer/index.ts`, which
+   * forwards it to `extensions.executeCommand`.
+   */
+  private _onNav(cmd: string) {
+    if (!cmd) return;
+    this._activeCmd = cmd;
+    this.requestUpdate();
+    // Highlight the Activity Bar's launcher button for the active extension
+    // view while navigating within it from the Explorer. `activateView` is
+    // idempotent (Host guard), so re-firing it here is a no-op for mounting.
+    this.dispatchEvent(new CustomEvent('view-changed', {
+      detail: { view: 'salary-history', source: 'extension' },
+      bubbles: true,
+      composed: true,
+    }));
+    this.dispatchEvent(new CustomEvent('command-selected', {
+      detail: { command: cmd, extensionCommand: true },
+      bubbles: true,
+      composed: true,
+    }));
+  }
+
+  private _navItem(label: string, cmd: string, testid: string): unknown {
+    const active = this._activeCmd === cmd ? 'active' : '';
+    return html`<div class="nav-item ${active}" data-testid="${testid}" @click="${() => this._onNav(cmd)}">${label}</div>`;
+  }
+
   render() {
     return html`
       <h2>Explorer</h2>
@@ -77,8 +115,8 @@ export class NavigationPanel extends LitElement {
           <div class="nav-item">Net Worth</div>
           <div class="nav-item">Monthly Overview</div>
         ` : this._currentView === 'Salary' ? html`
-          <div class="nav-item">Pay History</div>
-          <div class="nav-item">Deductions</div>
+          ${this._navItem('Pay History', 'salary.show-pay-history', 'nav-pay-history')}
+          ${this._navItem('Pay Rate History', 'salary.show-pay-rate-history', 'nav-pay-rate-history')}
         ` : this._currentView === 'Budget' ? html`
           <div class="nav-item">Monthly Targets</div>
           <div class="nav-item">Spending Envelopes</div>

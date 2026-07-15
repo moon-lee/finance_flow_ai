@@ -124,7 +124,7 @@ describe('PayslipForm (Task 11.1)', () => {
 
     expect(el._breakdown).toBeTruthy();
     const baseText = el.shadowRoot.querySelector('[data-testid="section-earnings"]').textContent;
-    expect(baseText).toContain('Base hourly');
+    expect(baseText).toContain('base_hourly');
   });
 
   it('Validate PAYG button renders a result card', async () => {

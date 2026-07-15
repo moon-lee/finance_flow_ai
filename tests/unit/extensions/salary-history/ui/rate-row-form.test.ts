@@ -43,13 +43,19 @@ const CURRENT: RateRow = {
 };
 
 describe('RateRowForm (Task 11.5)', () => {
-  it('shows a confirm panel before the form fields', async () => {
+  it('shows the confirm panel above the form fields (mock layout)', async () => {
     const el = makeEl();
     el.rate = CURRENT;
     await el.updateComplete;
-    expect(el.shadowRoot.querySelector('[data-testid="confirm-add"]')).toBeTruthy();
-    expect(el.shadowRoot.querySelector('[data-testid="rate-submit"]')).toBeFalsy();
+    expect(el.shadowRoot.querySelector('[data-testid="confirm-panel"]')).toBeTruthy();
+    // Form is visible immediately (header / inputs / footer), matching the mock.
+    expect(el.shadowRoot.querySelector('[data-testid="rate-submit"]')).toBeTruthy();
     expect(el.shadowRoot.querySelector('[data-testid="confirm-panel"]').textContent).toContain('40');
+    // Confirm & Save dismisses the warning panel but keeps the form.
+    el.shadowRoot.querySelector('[data-testid="confirm-add"]').click();
+    await el.updateComplete;
+    expect(el.shadowRoot.querySelector('[data-testid="confirm-panel"]')).toBeFalsy();
+    expect(el.shadowRoot.querySelector('[data-testid="rate-submit"]')).toBeTruthy();
   });
 
   it('invalid input surfaces validation errors and blocks dispatch', async () => {

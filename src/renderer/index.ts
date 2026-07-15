@@ -122,6 +122,9 @@ window.addEventListener('click', (event) => {
 
 window.addEventListener('view-changed', (event: Event) => {
   const customEvent = event as CustomEvent<{ view: string; source: string }>;
+  // Keep the Activity Bar launcher button highlighted for the active view,
+  // whether the view was opened from the bar itself or from the Explorer.
+  if (activityBar) activityBar.activeView = customEvent.detail.view;
   if (navigationPanel) navigationPanel.setView(customEvent.detail.view);
   // Ask Main to activate the extension behind this view (no-op for built-in settings view).
   // Duplicate-click suppression is enforced at the Host layer (see

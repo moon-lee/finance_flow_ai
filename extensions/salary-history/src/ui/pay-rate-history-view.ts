@@ -3,11 +3,17 @@
  *
  * Renders all rate rows ordered `effective_from DESC` (newest first) with
  * a "Current" badge on the row whose `effective_to IS NULL`, and a
- * green left border on the current row (history rows neutral). Per
- * Decision 17 the current row shows an `[ Edit ]` button; history rows
- * show `[ View ]` (read-only). The `[ + Add New Rate ]` button
- * dispatches an `rate-add-request` CustomEvent the mount harness uses
- * to open the rate-row form (Decision 11 + 17).
+ * green left border + green row tint on the current row (history rows
+ * neutral). Per Decision 17 the current row shows an `[ Edit ]` button;
+ * history rows show `[ View ]` (read-only). The `[ + Add New Rate ]`
+ * button dispatches an `rate-add-request` CustomEvent the mount harness
+ * uses to open the rate-row form (Decision 11 + 17).
+ *
+ * Visual fidelity tracks `docs/design/salary-history-mvp/pay-rate-history.html`
+ * (topbar + breadcrumb, info-banner, card-wrapped table, monospace numerics,
+ * green current row). The 8-column layout (Status / Effective From / Effective
+ * To / Base Hourly / Std Hrs/wk / SG Rate / Notes / Action) is the
+ * user-approved deviation from the 12-column mock (per visual-parity note).
  */
 
 import { LitElement, css, html } from 'lit';
@@ -15,10 +21,10 @@ import { customElement, property, state } from 'lit/decorators.js';
 import type { FinanceApi } from 'finance';
 import type { RateRow } from '../dao/pay-rate-history.js';
 
-const RATE_COLUMNS: { key: keyof RateRow; label: string }[] = [
-  { key: 'base_hourly_rate', label: 'Base Hourly' },
-  { key: 'standard_hours_per_week', label: 'Std Hrs/wk' },
-  { key: 'superannuation_rate', label: 'SG Rate' },
+const RATE_COLUMNS: { key: keyof RateRow; label: string; kind: 'money' | 'int' | 'rate' }[] = [
+  { key: 'base_hourly_rate', label: 'Base Hourly', kind: 'money' },
+  { key: 'standard_hours_per_week', label: 'Std Hrs/wk', kind: 'int' },
+  { key: 'superannuation_rate', label: 'SG Rate', kind: 'rate' },
 ];
 
 @customElement('pay-rate-history-view')
@@ -26,79 +32,113 @@ export class PayRateHistoryView extends LitElement {
   static styles = css`
     :host {
       display: block;
+      background: #1e1e1e;
       color: #d4d4d4;
-      font: 13px/1.5 system-ui, sans-serif;
+      font: 14px/1.5 system-ui, sans-serif;
     }
     .topbar {
+      background: #252526;
+      border-bottom: 1px solid #3e3e3e;
+      padding: 10px 20px;
       display: flex;
-      justify-content: space-between;
       align-items: center;
-      margin-bottom: 12px;
+      gap: 12px;
     }
-    h2 {
-      margin: 0;
-      font-size: 15px;
-    }
-    button.primary {
-      background: #007acc;
-      color: #fff;
-      border: 0;
-      border-radius: 4px;
-      padding: 6px 14px;
-      cursor: pointer;
-    }
-    .rates-table {
-      width: 100%;
-      border-collapse: collapse;
+    .topbar .crumb-link { color: #007acc; font-size: 13px; cursor: default; }
+    .topbar .crumb-sep { color: #858585; }
+    .topbar .crumb-current { color: #d4d4d4; font-weight: 500; }
+    .topbar .spacer { flex: 1; }
+    .topbar .filter-btn {
+      background: #3c3c3c;
+      color: #d4d4d4;
+      border: 1px solid #3e3e3e;
+      padding: 5px 12px;
+      border-radius: 3px;
       font-size: 12px;
+      cursor: pointer;
+      font-family: inherit;
     }
-    .rates-table th,
-    .rates-table td {
-      border: 1px solid #3c3c3c;
-      padding: 4px 8px;
+    .topbar .filter-btn:hover { border-color: #007acc; }
+    .topbar a.filter-btn { color: #d4d4d4; text-decoration: none; }
+    .container { max-width: 1080px; margin: 0 auto; padding: 24px 20px 40px; }
+    h1 { font-size: 18px; font-weight: 600; color: #fff; margin: 0 0 4px; }
+    .subtitle { color: #858585; font-size: 13px; margin: 0 0 16px; }
+    .info-banner {
+      background: #2a2a2a;
+      border: 1px solid #3e3e3e;
+      border-radius: 6px;
+      padding: 12px 16px;
+      margin-bottom: 16px;
+      font-size: 13px;
+      color: #d4d4d4;
+    }
+    .info-banner strong { color: #4ec9b0; }
+    .table-wrap {
+      background: #252526;
+      border: 1px solid #3e3e3e;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    thead { background: #2a2a2a; }
+    th {
       text-align: left;
+      padding: 8px 10px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      color: #858585;
+      border-bottom: 1px solid #3e3e3e;
       white-space: nowrap;
     }
-    .rates-table th {
-      background: #1e1e1e;
-      color: #cfcfcf;
+    td {
+      padding: 10px;
+      border-bottom: 1px solid #2a2a2a;
+      color: #d4d4d4;
+      font-family: "SF Mono", Consolas, monospace;
     }
-    .rates-table tr.current td:first-child {
-      border-left: 4px solid #4ec9b0;
-    }
+    tr.current { background: #1e2a1e; }
+    tr.current:hover { background: #233023; }
+    tr:hover { background: #2a2a2a; }
+    tbody tr:last-child td { border-bottom: none; }
+    td.num { text-align: right; }
+    td.actions { text-align: right; white-space: nowrap; }
     .badge {
       display: inline-block;
-      font-size: 11px;
-      padding: 1px 8px;
-      border-radius: 10px;
-      margin-left: 8px;
+      background: #4ec9b0;
+      color: #1e1e1e;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 3px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      vertical-align: middle;
     }
-    .badge.current {
-      background: #0d2e26;
-      color: #4ec9b0;
-      border: 1px solid #4ec9b0;
-    }
-    .badge.history {
-      background: #1e1e1e;
-      color: #9a9a9a;
-      border: 1px solid #3c3c3c;
-    }
-    .actions {
-      display: flex;
-      gap: 8px;
-    }
-    button.action {
-      background: #1e1e1e;
-      border: 1px solid #3c3c3c;
-      color: #d4d4d4;
-      border-radius: 4px;
-      padding: 3px 10px;
+    .badge-history { background: #3e3e3e; color: #858585; }
+    .btn-link {
+      background: transparent;
+      color: #007acc;
+      border: none;
+      padding: 0 6px;
+      font-size: 12px;
       cursor: pointer;
+      font-family: inherit;
     }
-    .empty {
-      color: #9a9a9a;
-      padding: 16px 0;
+    .btn-link:hover { text-decoration: underline; }
+    .empty-effective_to { color: #4ec9b0; font-weight: 700; }
+    .info-note {
+      font-size: 12px;
+      color: #858585;
+      font-style: italic;
+      margin-top: 8px;
+      padding: 8px 12px;
+      background: #1e1e1e;
+      border-radius: 3px;
     }
+    .info-note code { color: #4ec9b0; font-style: normal; }
+    .empty { color: #9a9a9a; padding: 16px 0; }
   `;
 
   @property({ attribute: false })
@@ -130,6 +170,16 @@ export class PayRateHistoryView extends LitElement {
     return r.effective_to === null;
   }
 
+  private _money(n: number): string {
+    return '$' + n.toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  private _fmt(c: { kind: 'money' | 'int' | 'rate' }, v: number): string {
+    if (c.kind === 'money') return this._money(v);
+    if (c.kind === 'int') return String(Math.round(v));
+    return v.toFixed(2);
+  }
+
   private _onAdd(): void {
     this.dispatchEvent(
       new CustomEvent('rate-add-request', { bubbles: true, composed: true }),
@@ -157,7 +207,7 @@ export class PayRateHistoryView extends LitElement {
           <th>Effective To</th>
           ${RATE_COLUMNS.map((c) => html`<th>${c.label}</th>`)}
           <th>Notes</th>
-          <th>Action</th>
+          <th style="text-align: right;">Actions</th>
         </tr>
       </thead>
     `;
@@ -168,18 +218,18 @@ export class PayRateHistoryView extends LitElement {
     return html`
       <tr class="${current ? 'current' : ''}" data-testid="rate-row" data-id="${r.id}">
         <td>
-          <span class="badge ${current ? 'current' : 'history'}" data-testid="rate-badge">${current ? 'Current' : 'History'}</span>
+          <span class="badge ${current ? '' : 'badge-history'}" data-testid="rate-badge">${current ? 'Current' : 'History'}</span>
         </td>
         <td data-testid="rate-effective_from">${r.effective_from}</td>
-        <td data-testid="rate-effective_to">${r.effective_to ?? ''}</td>
+        <td class="${r.effective_to === null ? 'empty-effective_to' : ''}" data-testid="rate-effective_to">${r.effective_to ?? '— (open)'}</td>
         ${RATE_COLUMNS.map(
-          (c) => html`<td data-testid="rate-${c.key}">${(r[c.key] as number).toFixed(3)}</td>`,
+          (c) => html`<td class="num" data-testid="rate-${c.key}">${this._fmt(c, r[c.key] as number)}</td>`,
         )}
         <td data-testid="rate-notes">${r.notes ?? ''}</td>
         <td class="actions">
           ${current
-            ? html`<button class="action" data-testid="rate-edit" @click="${() => this._onEdit(r.id ?? 0)}">Edit</button>`
-            : html`<button class="action" data-testid="rate-view" @click="${() => this._onView(r.id ?? 0)}">View</button>`}
+            ? html`<button class="btn-link" data-testid="rate-edit" @click="${() => this._onEdit(r.id ?? 0)}">Edit</button>`
+            : html`<button class="btn-link" data-testid="rate-view" @click="${() => this._onView(r.id ?? 0)}">View</button>`}
         </td>
       </tr>
     `;
@@ -188,17 +238,32 @@ export class PayRateHistoryView extends LitElement {
   render(): unknown {
     return html`
       <div class="topbar">
-        <h2 data-testid="rate-history-title">Pay Rate History</h2>
-        <button class="primary" data-testid="add-rate" @click="${this._onAdd}">+ Add New Rate</button>
+        <span class="crumb-current">Pay Rate History</span>
+        <div class="spacer"></div>
+        <button class="filter-btn" data-testid="add-rate" @click="${this._onAdd}">+ New Rate</button>
       </div>
-      ${this.rates.length === 0
-        ? html`<div class="empty" data-testid="rate-empty">No rate rows yet.</div>`
-        : html`<table class="rates-table" data-testid="rates-table">
-            ${this._renderHeader()}
-            <tbody>
-              ${this.rates.map((r) => this._renderRow(r))}
-            </tbody>
-          </table>`}
+
+      <div class="container">
+        <h1 data-testid="rate-history-title">Pay Rate History</h1>
+        <p class="subtitle">Effective-dated rate rows · used by <code>PayService.calculatePaySlipBreakdown</code> via <code>PayRateService.getRateForDate(pay_date)</code></p>
+
+        <div class="info-banner">
+          <strong>One rate row has <code>effective_to = NULL</code></strong> at any time — that's the current rate. Adding a new rate row automatically closes the previous current row. Historical payslips always compute with their era's rates.
+        </div>
+
+        ${this.rates.length === 0
+          ? html`<div class="empty" data-testid="rate-empty">No rate rows yet.</div>`
+          : html`<div class="table-wrap">
+              <table class="rates-table" data-testid="rates-table">
+                ${this._renderHeader()}
+                <tbody>
+                  ${this.rates.map((r) => this._renderRow(r))}
+                </tbody>
+              </table>
+            </div>`}
+
+        <p class="info-note">"Edit" is only available on the current row (the one with <code>effective_to = NULL</code>); historical rows are read-only "View". Adding a new rate row opens <code>rate-row-form</code> and confirms with a dialog.</p>
+      </div>
     `;
   }
 }
