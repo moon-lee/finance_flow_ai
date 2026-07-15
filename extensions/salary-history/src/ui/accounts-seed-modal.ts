@@ -13,89 +13,59 @@
 
 import { LitElement, css, html } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
+import { sharedStyles, modalStyles } from './shared-styles.js';
 
 @customElement('accounts-seed-modal')
 export class AccountsSeedModal extends LitElement {
-  static styles = css`
-    :host {
-      display: block;
-      color: #d4d4d4;
-      font: 13px/1.5 system-ui, sans-serif;
-    }
-    .backdrop {
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.6);
-      display: grid;
-      place-items: center;
-      z-index: 50;
-    }
-    .modal {
-      width: 360px;
-      background: #252526;
-      border: 1px solid #3c3c3c;
-      border-radius: 8px;
-      padding: 20px;
-    }
-    h2 {
-      margin: 0 0 4px;
-      font-size: 16px;
-    }
-    .welcome {
-      font-size: 28px;
-    }
-    p {
-      color: #b9b9b9;
-      font-size: 13px;
-      margin: 8px 0 16px;
-    }
-    .banner {
-      background: #4a3c00;
-      border: 1px solid #cca700;
-      color: #e8d28a;
-      border-radius: 4px;
-      padding: 6px 10px;
-      font-size: 11px;
-      margin-bottom: 12px;
-    }
-    label {
-      display: flex;
-      flex-direction: column;
-      gap: 3px;
-      font-size: 12px;
-      color: #b9b9b9;
-      margin-bottom: 10px;
-    }
-    input {
-      background: #1e1e1e;
-      border: 1px solid #3c3c3c;
-      color: #d4d4d4;
-      border-radius: 4px;
-      padding: 4px 6px;
-      font: inherit;
-    }
-    .actions {
-      display: flex;
-      gap: 8px;
-      justify-content: flex-end;
-    }
-    button {
-      border: 0;
-      border-radius: 4px;
-      padding: 6px 14px;
-      cursor: pointer;
-      font: inherit;
-    }
-    .primary {
-      background: #007acc;
-      color: #fff;
-    }
-    .ghost {
-      background: transparent;
-      color: #94a3b8;
-      border: 1px solid #3c3c3c;
-    }
-  `;
+  static styles = [
+    sharedStyles,
+    modalStyles,
+    css`
+      :host {
+        font: 13px/1.5 system-ui, sans-serif;
+      }
+      h2 {
+        margin: 0 0 4px;
+        font-size: 16px;
+      }
+      .welcome {
+        font-size: 28px;
+      }
+      p {
+        color: #b9b9b9;
+        font-size: 13px;
+        margin: 8px 0 16px;
+      }
+      .banner {
+        background: #4a3c00;
+        border: 1px solid #cca700;
+        color: #e8d28a;
+        border-radius: 4px;
+        padding: 6px 10px;
+        font-size: 11px;
+        margin-bottom: 12px;
+      }
+      label {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        font-size: 12px;
+        color: #b9b9b9;
+        margin-bottom: 10px;
+      }
+      input {
+        background: #1e1e1e;
+        border: 1px solid #3c3c3c;
+        color: #d4d4d4;
+        border-radius: 4px;
+        padding: 4px 6px;
+        font: inherit;
+      }
+      button {
+        padding: 6px 14px;
+      }
+    `,
+  ];
 
   /** Dismissed state — parent removes the element on dismiss. */
   @property({ type: Boolean })

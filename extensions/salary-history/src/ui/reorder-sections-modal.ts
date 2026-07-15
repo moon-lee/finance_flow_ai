@@ -14,6 +14,7 @@
 import { LitElement, css, html } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { CANONICAL_SECTION_ORDER } from './payslip-form.js';
+import { sharedStyles, modalStyles } from './shared-styles.js';
 
 const SECTION_LABELS: Record<string, string> = {
   period: 'Period',
@@ -28,87 +29,55 @@ const SECTION_LABELS: Record<string, string> = {
 
 @customElement('reorder-sections-modal')
 export class ReorderSectionsModal extends LitElement {
-  static styles = css`
-    :host {
-      display: block;
-    }
-    .backdrop {
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.6);
-      display: grid;
-      place-items: center;
-      z-index: 50;
-    }
-    .modal {
-      width: 320px;
-      background: #252526;
-      border: 1px solid #3c3c3c;
-      border-radius: 8px;
-      padding: 20px;
-      color: #d4d4d4;
-      font: 13px/1.5 system-ui, sans-serif;
-    }
-    h2 {
-      margin: 0 0 12px;
-      font-size: 15px;
-    }
-    .item {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      padding: 6px 10px;
-      border: 1px solid #3c3c3c;
-      border-left: 4px solid #3c3c3c;
-      border-radius: 4px;
-      margin-bottom: 6px;
-      background: #1e1e1e;
-    }
-    .item.first {
-      border-left-color: #4ec9b0;
-    }
-    .item.last {
-      border-left-color: #c586c0;
-    }
-    .item .label {
-      flex: 1;
-    }
-    button {
-      border: 0;
-      border-radius: 4px;
-      padding: 3px 9px;
-      cursor: pointer;
-      font: inherit;
-    }
-    button:disabled {
-      opacity: 0.35;
-      cursor: default;
-    }
-    .up {
-      background: #007acc;
-      color: #fff;
-    }
-    .down {
-      background: #6da3d6;
-      color: #fff;
-    }
-    .actions {
-      display: flex;
-      gap: 8px;
-      justify-content: flex-end;
-      margin-top: 12px;
-    }
-    .ghost {
-      background: transparent;
-      border: 1px solid #3c3c3c;
-      color: #94a3b8;
-    }
-    .primary {
-      background: #007acc;
-      color: #fff;
-    }
-  `;
+  static styles = [
+    sharedStyles,
+    modalStyles,
+    css`
+      .modal {
+        width: 320px;
+      }
+      h2 {
+        margin: 0 0 12px;
+        font-size: 15px;
+      }
+      .item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 6px 10px;
+        border: 1px solid #3c3c3c;
+        border-left: 4px solid #3c3c3c;
+        border-radius: 4px;
+        margin-bottom: 6px;
+        background: #1e1e1e;
+      }
+      .item.first {
+        border-left-color: #4ec9b0;
+      }
+      .item.last {
+        border-left-color: #c586c0;
+      }
+      .item .label {
+        flex: 1;
+      }
+      button {
+        padding: 3px 9px;
+      }
+      button:disabled {
+        opacity: 0.35;
+        cursor: default;
+      }
+      .up {
+        background: #007acc;
+        color: #fff;
+      }
+      .down {
+        background: #6da3d6;
+        color: #fff;
+      }
+    `,
+  ];
 
   @property({ type: Array })
   sectionOrder: string[] = [...CANONICAL_SECTION_ORDER];

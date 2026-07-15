@@ -16,10 +16,11 @@
  * elsewhere silently fell back to browser defaults. Defining them once here
  * removes that class of bug.
  *
- * The two modals (accounts-seed, reorder-sections) keep their own styles:
- * their chrome (fixed backdrop, dialog, `.primary`/`.ghost` buttons) is not
- * shared anywhere else in the extension, so pulling it in would add churn
- * without removing duplication.
+ * The two modals (accounts-seed, reorder-sections) share `modalStyles`:
+ * they use the identical dialog pattern (fixed backdrop + card + `.primary`/
+ * `.ghost` action buttons + action row), so that chrome is consolidated here
+ * too. Each modal keeps only its unique selectors (welcome banner, list items,
+ * up/down arrows, inputs).
  */
 import { css } from 'lit';
 
@@ -182,4 +183,39 @@ export const listStyles = css`
   .btn-link:hover { text-decoration: underline; }
   .btn-link.danger { color: #f48771; }
   .empty { color: #9a9a9a; padding: 16px 0; }
+`;
+
+/** Shared modal primitives: fixed backdrop, dialog card, primary/ghost buttons. */
+export const modalStyles = css`
+  .backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: grid;
+    place-items: center;
+    z-index: 50;
+  }
+  .modal {
+    width: 360px;
+    background: var(--ff-bg-panel);
+    border: 1px solid var(--ff-border);
+    border-radius: 8px;
+    padding: 20px;
+    color: var(--ff-text);
+    font: 13px/1.5 system-ui, sans-serif;
+  }
+  button {
+    border: 0;
+    border-radius: 4px;
+    cursor: pointer;
+    font: inherit;
+  }
+  .actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    margin-top: 12px;
+  }
+  .primary { background: var(--ff-accent); color: var(--ff-text-strong); }
+  .ghost { background: transparent; color: #94a3b8; border: 1px solid var(--ff-border); }
 `;
