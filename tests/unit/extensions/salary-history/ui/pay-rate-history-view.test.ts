@@ -129,4 +129,28 @@ describe('PayRateHistoryView (Task 11.4)', () => {
     (currentRow.querySelector('[data-testid="rate-delete"]') as HTMLElement).click();
     expect(deleteId).toBe(2);
   });
+
+  it('current row exposes a Replace link dispatching rate-replace-request', async () => {
+    const el = makeEl();
+    el.rates = RATES;
+    await el.updateComplete;
+    const currentRow = el.shadowRoot.querySelector('[data-id="2"]') as HTMLElement;
+    const replaceBtn = currentRow.querySelector('[data-testid="rate-replace"]') as HTMLElement;
+    expect(replaceBtn).toBeTruthy();
+
+    let replaceId: unknown = null;
+    el.addEventListener('rate-replace-request', (e: Event) => {
+      replaceId = (e as CustomEvent).detail.id;
+    });
+    replaceBtn.click();
+    expect(replaceId).toBe(2);
+  });
+
+  it('history row does NOT expose a Replace link', async () => {
+    const el = makeEl();
+    el.rates = RATES;
+    await el.updateComplete;
+    const historyRow = el.shadowRoot.querySelector('[data-id="1"]') as HTMLElement;
+    expect(historyRow.querySelector('[data-testid="rate-replace"]')).toBeFalsy();
+  });
 });

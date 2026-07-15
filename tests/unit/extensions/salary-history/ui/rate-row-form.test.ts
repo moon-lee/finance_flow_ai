@@ -15,6 +15,7 @@ import type { UiEl } from './test-types';
 interface RateFormEl extends UiEl {
   rate: RateRow | null;
   confirmDelete: boolean;
+  replaceMode: boolean;
   rateError: string | null;
   _values: { fields: Record<string, string> };
   _errors: readonly string[];
@@ -146,5 +147,36 @@ describe('RateRowForm (Task 11.5)', () => {
     expect(banner).toBeTruthy();
     expect(banner.textContent).toContain('already exists');
     expect(banner.textContent).toContain('Only one current rate is allowed');
+  });
+
+  it('replace mode shows "Replace Current Rate" title and defaults effective_from to today', async () => {
+    const el = makeEl();
+    el.rate = CURRENT;
+    el.replaceMode = true;
+    await el.updateComplete;
+    expect(el.shadowRoot.querySelector('[data-testid="rate-form-title"]').textContent).toBe('Replace Current Rate');
+    // Replace starts from today, not the old rate's effective_from.
+    expect(el._values.fields.effective_from).toBe(todayISO());
+    expect(el._values.fields.effective_to).toBe('');
+    // Rate numbers are pre-filled from the current row.
+    expect(el._values.fields.base_hourly_rate).toBe('40');
+  });
+
+  it('replace mode submit dispatches rate-replace with the old row id', async () => {
+    const el = makeEl();
+    el.rate = CURRENT;
+    el.replaceMode = true;
+    await el.updateComplete;
+
+    let captured: unknown = null;
+    el.addEventListener('rate-replace', (e: Event) => {
+      captured = (e as CustomEvent).detail;
+    });
+    el._onSubmit(new Event('submit'));
+    await el.updateComplete;
+    expect(captured).toBeTruthy();
+    const detail = captured as { id: number; input: { base_hourly_rate: number } };
+    expect(detail.id).toBe(2);
+    expect(detail.input.base_hourly_rate).toBe(40);
   });
 });

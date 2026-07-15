@@ -145,6 +145,12 @@ export class RateRowForm extends LitElement {
   @property({ type: String })
   rateError: string | null = null;
 
+  /** When true the form is replacing the current rate: pre-filled from the
+   * current row but `effective_from` defaults to today and `effective_to` to
+   * open, and submitting dispatches `rate-replace` (close old + insert new). */
+  @property({ type: Boolean })
+  replaceMode = false;
+
   @state()
   private _values: { fields: Record<string, string> } = { fields: {} };
 
@@ -165,6 +171,12 @@ export class RateRowForm extends LitElement {
     if (changed.has('confirmDelete')) {
       this._deleteMode = this.confirmDelete;
     }
+    // Replace mode changes which defaults apply (effective_from → today,
+    // effective_to → open); the orchestrator sets `replaceMode` after `rate`,
+    // so rebuild the field defaults when it flips on.
+    if (changed.has('replaceMode') && this.replaceMode) {
+      this._values = { fields: this._buildDefaults() };
+    }
   }
 
   private _buildDefaults(): Record<string, string> {
@@ -175,8 +187,15 @@ export class RateRowForm extends LitElement {
       out[f.key] = v == null ? '' : String(v);
     }
     // New rates default effective_from to today; existing rows keep their value.
-    out.effective_from = this.rate?.effective_from ?? todayISO();
-    out.effective_to = this.rate?.effective_to ?? '';
+    // Replace mode keeps the current row's rate numbers but starts the new
+    // rate from today (open-ended), since it supersedes the current rate.
+    if (this.replaceMode) {
+      out.effective_from = todayISO();
+      out.effective_to = '';
+    } else {
+      out.effective_from = this.rate?.effective_from ?? todayISO();
+      out.effective_to = this.rate?.effective_to ?? '';
+    }
     out.notes = this.rate?.notes ?? '';
     return out;
   }
@@ -251,6 +270,13 @@ export class RateRowForm extends LitElement {
     }
     const input = parsed.value;
     const detail = this.rate ? { id: this.rate.id, input } : { input };
+    if (this.replaceMode) {
+      // Replacing the current rate: close the old current row (the one we
+      // were pre-filled from) at the new effective_from, then insert the new
+      // open-ended rate. The orchestrator performs both steps atomically.
+      this.dispatchEvent(new CustomEvent('rate-replace', { detail, bubbles: true, composed: true }));
+      return;
+    }
     if (detail && 'id' in detail && detail.id != null) {
       this.dispatchEvent(new CustomEvent('rate-edit', { detail, bubbles: true, composed: true }));
     } else {
@@ -319,12 +345,14 @@ export class RateRowForm extends LitElement {
         <span class="crumb-current">${readOnly ? 'View Rate' : this.rate ? 'Update Rate' : 'Add New Rate'}</span>
       </div>
       <div class="container">
-        <h1 data-testid="rate-form-title">${readOnly ? 'View Rate' : this.rate ? 'Update Rate' : 'Add New Rate'}</h1>
+        <h1 data-testid="rate-form-title">${readOnly ? 'View Rate' : this.replaceMode ? 'Replace Current Rate' : this.rate ? 'Update Rate' : 'Add New Rate'}</h1>
         <p class="subtitle">${readOnly
           ? 'Read-only view of a historical rate row.'
-          : this.rate
-            ? 'Pre-filled from current rate. Edit fields you want to change; leave the rest as-is.'
-            : 'Enter the new rate details. Saving will close the current rate.'}</p>
+          : this.replaceMode
+            ? 'Pre-filled from the current rate, starting today. Saving closes the old current rate and opens this new one.'
+            : this.rate
+              ? 'Pre-filled from current rate. Edit fields you want to change; leave the rest as-is.'
+              : 'Enter the new rate details. Saving will close the current rate.'}</p>
 
         ${!readOnly && this._errors.length
           ? html`<div class="errors" data-testid="rate-errors">${this._errors.map((e) => html`<div>${e}</div>`)}</div>`

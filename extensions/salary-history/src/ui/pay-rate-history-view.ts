@@ -159,6 +159,12 @@ export class PayRateHistoryView extends LitElement {
     );
   }
 
+  private _onReplace(id: number): void {
+    this.dispatchEvent(
+      new CustomEvent('rate-replace-request', { detail: { id }, bubbles: true, composed: true }),
+    );
+  }
+
   private _renderHeader(): unknown {
     return html`
       <thead>
@@ -189,7 +195,9 @@ export class PayRateHistoryView extends LitElement {
         <td data-testid="rate-notes">${r.notes ?? ''}</td>
         <td class="actions">
           ${current
-            ? html`<button class="btn-link" data-testid="rate-edit" @click="${() => this._onEdit(r.id ?? 0)}">Edit</button>`
+            ? html`
+              <button class="btn-link" data-testid="rate-edit" @click="${() => this._onEdit(r.id ?? 0)}">Edit</button>
+              <button class="btn-link" data-testid="rate-replace" @click="${() => this._onReplace(r.id ?? 0)}">Replace</button>`
             : html`<button class="btn-link" data-testid="rate-view" @click="${() => this._onView(r.id ?? 0)}">View</button>`}
           <button class="btn-link btn-danger-link" data-testid="rate-delete" @click="${() => this._onDelete(r.id ?? 0)}">Delete</button>
         </td>

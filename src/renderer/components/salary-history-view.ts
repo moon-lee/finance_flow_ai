@@ -67,6 +67,9 @@ export class SalaryHistoryView extends LitElement {
   /** Opens `rate-row-form` directly in its delete-confirm state. */
   private _confirmDelete = false;
 
+  /** Opens `rate-row-form` in replace-current-rate mode. */
+  private _replaceMode = false;
+
   connectedCallback(): void {
     super.connectedCallback();
     this.addEventListener('account-create', this._onAccountCreate as EventListener);
@@ -90,6 +93,8 @@ export class SalaryHistoryView extends LitElement {
     this.addEventListener('rate-form-cancel', this._onRateCancel as EventListener);
     this.addEventListener('rate-delete-request', this._onRateDeleteRequest as EventListener);
     this.addEventListener('rate-delete', this._onRateDelete as EventListener);
+    this.addEventListener('rate-replace-request', this._onRateReplaceRequest as EventListener);
+    this.addEventListener('rate-replace', this._onRateReplace as EventListener);
   }
 
   disconnectedCallback(): void {
@@ -114,6 +119,8 @@ export class SalaryHistoryView extends LitElement {
     this.removeEventListener('rate-form-cancel', this._onRateCancel as EventListener);
     this.removeEventListener('rate-delete-request', this._onRateDeleteRequest as EventListener);
     this.removeEventListener('rate-delete', this._onRateDelete as EventListener);
+    this.removeEventListener('rate-replace-request', this._onRateReplaceRequest as EventListener);
+    this.removeEventListener('rate-replace', this._onRateReplace as EventListener);
   }
 
   updated(changed: Map<string, unknown>): void {
@@ -186,10 +193,12 @@ export class SalaryHistoryView extends LitElement {
         childEl.readOnly = this._rateReadOnly;
         childEl.rateError = this._rateError;
         childEl.confirmDelete = this._confirmDelete;
+        childEl.replaceMode = this._replaceMode;
         this._rateData = null;
         this._rateReadOnly = false;
         this._rateError = null;
         this._confirmDelete = false;
+        this._replaceMode = false;
       }
 
       const existing = this.querySelector('[data-ext-root]');
@@ -446,6 +455,47 @@ export class SalaryHistoryView extends LitElement {
       await this._finance.db.table('salary_history_rate_history').delete({ id });
     } catch (err) {
       console.error('[renderer] rate delete failed:', err);
+    }
+    this.navigate('pay-rate-history-view', this.mountData);
+  };
+
+  private _onRateReplaceRequest = async (e: Event): Promise<void> => {
+    const { id } = (e as CustomEvent).detail as { id: number };
+    if (!this._finance) return;
+    const row = (await this._finance.db
+      .table('salary_history_rate_history')
+      .findOne({ id })) as Record<string, unknown> | undefined;
+    if (!row) {
+      this.navigate('pay-rate-history-view', this.mountData);
+      return;
+    }
+    this._rateData = row;
+    this._rateReadOnly = false;
+    this._replaceMode = true;
+    this.navigate('rate-row-form', this.mountData);
+  };
+
+  /**
+   * Replace the current rate (Option A): close the old current row at the new
+   * rate's `effective_from`, then insert the new open-ended rate. This is the
+   * explicit, user-initiated "replace" action — distinct from the blocked
+   * open-ended "add" path — so it intentionally bypasses the single-current
+   * pre-write check that lives in `_onRateCreate`.
+   */
+  private _onRateReplace = async (e: Event): Promise<void> => {
+    const { id, input } = (e as CustomEvent).detail as { id: number; input: Record<string, unknown> };
+    if (!this._finance) return;
+    const effectiveFrom = String(input.effective_from ?? '');
+    try {
+      // Close the old current row (the one being replaced) at the new start date.
+      await this._finance.db
+        .table('salary_history_rate_history')
+        .update({ id }, { effective_to: effectiveFrom });
+      // Insert the new current rate.
+      await this._finance.db.table('salary_history_rate_history').insert(input);
+    } catch (err) {
+      await this._failRateWrite(err, id);
+      return;
     }
     this.navigate('pay-rate-history-view', this.mountData);
   };
