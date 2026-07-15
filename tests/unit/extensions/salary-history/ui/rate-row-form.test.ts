@@ -2,9 +2,9 @@
 /**
  * Tests for `extensions/salary-history/src/ui/rate-row-form.ts` (Phase 4 Task 11.5).
  *
- * 3 tests: renders a confirm panel with the rate summary first, invalid
- * input surfaces validation errors, and a valid submit dispatches
- * `rate-create` (Decision 11: confirm panel first).
+ * 4 tests: the form renders immediately (no confirm panel), new rates default
+ * `effective_from` to today, invalid input surfaces validation errors and
+ * blocks dispatch, and a valid submit dispatches `rate-edit` / `rate-create`.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -14,8 +14,11 @@ import type { UiEl } from './test-types';
 
 interface RateFormEl extends UiEl {
   rate: RateRow | null;
+  confirmDelete: boolean;
+  rateError: string | null;
   _values: { fields: Record<string, string> };
   _errors: readonly string[];
+  _deleteMode: boolean;
   _onSubmit(e: Event): void;
 }
 
@@ -42,27 +45,33 @@ const CURRENT: RateRow = {
   notes: null,
 };
 
+function todayISO(): string {
+  const d = new Date();
+  const pad = (n: number): string => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
 describe('RateRowForm (Task 11.5)', () => {
-  it('shows the confirm panel above the form fields (mock layout)', async () => {
+  it('renders the form fields immediately with no confirm panel', async () => {
     const el = makeEl();
     el.rate = CURRENT;
     await el.updateComplete;
-    expect(el.shadowRoot.querySelector('[data-testid="confirm-panel"]')).toBeTruthy();
-    // Form is visible immediately (header / inputs / footer), matching the mock.
-    expect(el.shadowRoot.querySelector('[data-testid="rate-submit"]')).toBeTruthy();
-    expect(el.shadowRoot.querySelector('[data-testid="confirm-panel"]').textContent).toContain('40');
-    // Confirm & Save dismisses the warning panel but keeps the form.
-    el.shadowRoot.querySelector('[data-testid="confirm-add"]').click();
-    await el.updateComplete;
     expect(el.shadowRoot.querySelector('[data-testid="confirm-panel"]')).toBeFalsy();
     expect(el.shadowRoot.querySelector('[data-testid="rate-submit"]')).toBeTruthy();
+    // Edit mode keeps the existing effective_from, not today.
+    expect(el._values.fields.effective_from).toBe('2025-07-01');
+  });
+
+  it('new rates default effective_from to today', async () => {
+    const el = makeEl();
+    el.rate = null;
+    await el.updateComplete;
+    expect(el._values.fields.effective_from).toBe(todayISO());
   });
 
   it('invalid input surfaces validation errors and blocks dispatch', async () => {
     const el = makeEl();
     el.rate = CURRENT;
-    await el.updateComplete;
-    el.shadowRoot.querySelector('[data-testid="confirm-add"]').click();
     await el.updateComplete;
 
     el._values.fields.base_hourly_rate = 'not-a-number';
@@ -82,8 +91,6 @@ describe('RateRowForm (Task 11.5)', () => {
     const el = makeEl();
     el.rate = CURRENT;
     await el.updateComplete;
-    el.shadowRoot.querySelector('[data-testid="confirm-add"]').click();
-    await el.updateComplete;
 
     let captured: unknown = null;
     el.addEventListener('rate-edit', (e: Event) => {
@@ -102,8 +109,6 @@ describe('RateRowForm (Task 11.5)', () => {
     const el = makeEl();
     el.rate = null;
     await el.updateComplete;
-    el.shadowRoot.querySelector('[data-testid="confirm-add"]').click();
-    await el.updateComplete;
 
     let fired = false;
     el.addEventListener('rate-create', () => {
@@ -112,5 +117,34 @@ describe('RateRowForm (Task 11.5)', () => {
     el._onSubmit(new Event('submit'));
     await el.updateComplete;
     expect(fired).toBe(true);
+  });
+
+  it('opening in delete-confirm mode (list Delete) cancels back to the list', async () => {
+    const el = makeEl();
+    el.rate = CURRENT;
+    el.confirmDelete = true;
+    await el.updateComplete;
+    expect(el._deleteMode).toBe(true);
+    expect(el.shadowRoot.querySelector('[data-testid="delete-confirm"]')).toBeTruthy();
+
+    let cancelled = false;
+    el.addEventListener('rate-form-cancel', () => {
+      cancelled = true;
+    });
+    (el.shadowRoot.querySelector('[data-testid="rate-delete-cancel"]') as HTMLElement).click();
+    await el.updateComplete;
+    expect(cancelled).toBe(true);
+  });
+
+  it('surfaces the "active rate already exists" banner when rateError is set', async () => {
+    const el = makeEl();
+    el.rate = CURRENT;
+    el.rateError =
+      'A current rate (end date empty) already exists. Only one current rate is allowed — edit the existing current rate, or give this row an end date.';
+    await el.updateComplete;
+    const banner = el.shadowRoot.querySelector('[data-testid="rate-error-banner"]') as HTMLElement;
+    expect(banner).toBeTruthy();
+    expect(banner.textContent).toContain('already exists');
+    expect(banner.textContent).toContain('Only one current rate is allowed');
   });
 });

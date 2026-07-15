@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { mkdtempSync, rmSync, writeFileSync, readdirSync } from 'node:fs';
 import {
   initializeDatabase, closeDatabase, getDatabase, registerMigration,
-  _setDatabaseConstructorForTesting
+  getTestDatabase, _setDatabaseConstructorForTesting
 } from '../../../src/main/services/database-service';
 import BetterSqlite3 from 'better-sqlite3';
 
@@ -107,5 +107,20 @@ describe('DatabaseService', () => {
     } finally {
       _setDatabaseConstructorForTesting(BetterSqlite3);
     }
+  });
+
+  it('enforces at most one current rate (effective_to IS NULL)', () => {
+    const db = getTestDatabase();
+    const insert = (from: string, to: string | null): void => {
+      db.prepare(
+        `INSERT INTO salary_history_rate_history (effective_from, effective_to, base_hourly_rate) VALUES (?, ?, ?)`,
+      ).run(from, to, 40);
+    };
+    // First current (open-ended) rate is allowed.
+    insert('2024-07-01', null);
+    // A second open-ended rate must be rejected by the partial unique index.
+    expect(() => insert('2025-07-01', null)).toThrow(/UNIQUE/);
+    // A historical (closed) rate is allowed alongside the single current one.
+    expect(() => insert('2025-07-01', '2025-06-30')).not.toThrow();
   });
 });

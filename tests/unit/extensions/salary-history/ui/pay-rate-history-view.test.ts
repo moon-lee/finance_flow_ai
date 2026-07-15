@@ -112,4 +112,21 @@ describe('PayRateHistoryView (Task 11.4)', () => {
     (historyRow.querySelector('[data-testid="rate-view"]') as HTMLElement).click();
     expect(viewId).toBe(1);
   });
+
+  it('every row exposes a Delete link dispatching rate-delete-request', async () => {
+    const el = makeEl();
+    el.rates = RATES;
+    await el.updateComplete;
+    const historyRow = el.shadowRoot.querySelector('[data-id="1"]') as HTMLElement;
+    const currentRow = el.shadowRoot.querySelector('[data-id="2"]') as HTMLElement;
+    expect(historyRow.querySelector('[data-testid="rate-delete"]')).toBeTruthy();
+    expect(currentRow.querySelector('[data-testid="rate-delete"]')).toBeTruthy();
+
+    let deleteId: unknown = null;
+    el.addEventListener('rate-delete-request', (e: Event) => {
+      deleteId = (e as CustomEvent).detail.id;
+    });
+    (currentRow.querySelector('[data-testid="rate-delete"]') as HTMLElement).click();
+    expect(deleteId).toBe(2);
+  });
 });

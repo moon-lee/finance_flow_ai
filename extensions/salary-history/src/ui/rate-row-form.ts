@@ -1,21 +1,24 @@
 /**
  * Phase 4 Task 11.5 — Rate row form (add/edit a single pay-rate row).
  *
- * Decision 11: confirm panel FIRST (no destructive editing before the user
- * accepts the semantics). Decision 17: read-only view of history rows is
- * handled by `pay-rate-history-view`; this form is only used for the current
- * row (edit) or a brand-new row (add).
+ * Decision 17: read-only view of history rows is handled by
+ * `pay-rate-history-view`; this form is only used for the current row (edit)
+ * or a brand-new row (add). New rates default `effective_from` to today.
  *
  * On submit it emits `rate-create` (new) or `rate-edit` (existing) so the
  * orchestrator can route to `finance.db.table('salary_history_rate_history')`
- * and (for add) call `PayRateService.closeCurrentRate()` + insert.
+ * and (for add) close the previous current rate before inserting the new one
+ * (Decision 16 close-then-insert; enforced by migration 006's partial unique
+ * index on `effective_to IS NULL`). A "Delete" button opens an in-form
+ * confirmation panel that emits `rate-delete`; the orchestrator then removes
+ * the row.
  *
  * Visual fidelity tracks `docs/design/salary-history-mvp/rate-row-form.html`
- * (topbar + breadcrumb, sectioned card layout, green confirm dialog,
- * change-highlighted fields, footer actions).
+ * (topbar + breadcrumb, sectioned card layout, change-highlighted fields,
+ * footer actions).
  */
 
-import { LitElement, css, html } from 'lit';
+import { LitElement, css, html, PropertyValues } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import type { RateRow } from '../dao/pay-rate-history.js';
 import { sharedStyles, formStyles } from './shared-styles.js';
@@ -66,6 +69,13 @@ const DEFAULTS: Partial<Record<keyof RateRow, number | string | null>> = {
   notes: '',
 };
 
+/** Local date as `YYYY-MM-DD` for `type="date"` inputs. */
+function todayISO(): string {
+  const d = new Date();
+  const pad = (n: number): string => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
 @customElement('rate-row-form')
 export class RateRowForm extends LitElement {
   static styles = [
@@ -74,37 +84,6 @@ export class RateRowForm extends LitElement {
     css`
       .container { max-width: 760px; margin: 0 auto; padding: 24px 20px 40px; }
       .subtitle { color: #858585; font-size: 13px; margin: 0 0 24px; }
-
-      .confirm-panel {
-        background: #1e2a1e;
-        border: 1px solid #4ec9b0;
-        border-left: 4px solid #4ec9b0;
-        border-radius: 4px;
-        padding: 14px 16px;
-        margin-bottom: 16px;
-      }
-      .confirm-panel h3 {
-        margin: 0 0 8px;
-        font-size: 14px;
-        font-weight: 700;
-        color: #4ec9b0;
-      }
-      .confirm-panel-body { margin: 0 0 12px; font-size: 13px; color: #d4d4d4; line-height: 1.6; }
-      .confirm-panel-body code { color: #4ec9b0; }
-      .confirm-panel-body strong { color: #fff; }
-      .confirm-panel-detail {
-        background: #1e1e1e;
-        border: 1px solid #3e3e3e;
-        border-radius: 3px;
-        padding: 10px 12px;
-        margin: 8px 0;
-        font-family: "SF Mono", Consolas, monospace;
-        font-size: 12px;
-      }
-      .confirm-panel-detail ul { margin: 0; padding-left: 18px; }
-      .confirm-panel-detail li { margin: 2px 0; }
-      .confirm-panel-detail code { color: #9cdc9c; }
-      .confirm-panel-actions { display: flex; gap: 8px; margin-top: 10px; }
 
       .errors {
         background: #2e1b1b;
@@ -121,6 +100,16 @@ export class RateRowForm extends LitElement {
       .btn-action.muted { background: transparent; color: #858585; border-color: #3e3e3e; }
       .btn-action.muted:hover { background: #3c3c3c; color: #d4d4d4; }
 
+      .btn-danger { background: #5a2a2a; color: #f48771; border: 1px solid #5a2a2a; padding: 6px 14px; border-radius: 3px; font-size: 12px; cursor: pointer; font-family: inherit; font-weight: 600; }
+      .btn-danger:hover { background: #7a3636; }
+
+      .delete-confirm { background: #2a2a2a; border: 1px solid #5a2a2a; border-radius: 6px; padding: 20px; margin-top: 8px; }
+      .delete-warning { color: #f48771; font-size: 14px; margin: 0 0 12px; }
+      .delete-summary { list-style: none; padding: 0; margin: 0 0 16px; }
+      .delete-summary li { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #3e3e3e; font-size: 13px; color: #d4d4d4; }
+      .delete-summary li span { color: #858585; }
+      .delete-summary code { font-family: "SF Mono", Consolas, monospace; color: #4ec9b0; }
+
       .info-note { font-size: 12px; color: #858585; font-style: italic; margin-top: 8px; padding: 8px 12px; background: #1e1e1e; border-radius: 3px; }
       .info-note::before { content: 'ℹ '; color: #4ec9b0; }
       .info-note code { color: #4ec9b0; }
@@ -133,7 +122,7 @@ export class RateRowForm extends LitElement {
   set rate(v: RateRow | null) {
     const old = this._rate;
     this._rate = v;
-    if (old !== v && !this._confirmed) {
+    if (old !== v) {
       this._values = { fields: this._buildDefaults() };
       this._errors = [];
     }
@@ -146,8 +135,15 @@ export class RateRowForm extends LitElement {
   @property({ type: Boolean })
   readOnly = false;
 
-  @state()
-  private _confirmed = false;
+  /** When true (set by the orchestrator on a list "Delete"), the form opens
+   * directly in its delete-confirmation state instead of the edit form. */
+  @property({ type: Boolean })
+  confirmDelete = false;
+
+  /** Transient error banner (e.g. a second-current-rate constraint
+   * violation surfaced by the orchestrator after a failed save). */
+  @property({ type: String })
+  rateError: string | null = null;
 
   @state()
   private _values: { fields: Record<string, string> } = { fields: {} };
@@ -155,10 +151,20 @@ export class RateRowForm extends LitElement {
   @state()
   private _errors: string[] = [];
 
+  /** True while the delete-confirmation panel is shown (in-form or list-driven). */
+  @state()
+  private _deleteMode = false;
+
   connectedCallback(): void {
     super.connectedCallback();
     this._values = { fields: this._buildDefaults() };
     this._errors = [];
+  }
+
+  willUpdate(changed: PropertyValues): void {
+    if (changed.has('confirmDelete')) {
+      this._deleteMode = this.confirmDelete;
+    }
   }
 
   private _buildDefaults(): Record<string, string> {
@@ -168,7 +174,8 @@ export class RateRowForm extends LitElement {
       const v = src[f.key];
       out[f.key] = v == null ? '' : String(v);
     }
-    out.effective_from = this.rate?.effective_from ?? '';
+    // New rates default effective_from to today; existing rows keep their value.
+    out.effective_from = this.rate?.effective_from ?? todayISO();
     out.effective_to = this.rate?.effective_to ?? '';
     out.notes = this.rate?.notes ?? '';
     return out;
@@ -185,7 +192,9 @@ export class RateRowForm extends LitElement {
   }
 
   private _isChanged(key: keyof RateRow): boolean {
-    const initial = this.rate ? this.rate[key] : DEFAULTS[key];
+    // Add mode has no baseline row to diff against — never highlight.
+    if (!this.rate) return false;
+    const initial = this.rate[key];
     const initStr = initial == null ? '' : String(initial);
     const cur = this._values.fields[key] ?? '';
     return initStr !== cur;
@@ -209,10 +218,6 @@ export class RateRowForm extends LitElement {
         ${err ? html`<div class="field-error">${err}</div>` : ''}
       </div>
     `;
-  }
-
-  private _money(n: number): string {
-    return '$' + n.toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 
   private _parse(): { ok: true; value: Record<string, number | string | null> } | { ok: false; errors: string[] } {
@@ -253,40 +258,55 @@ export class RateRowForm extends LitElement {
     }
   }
 
-  private _onConfirm(): void {
-    this._confirmed = true;
-  }
-
   private _onCancel(): void {
     this.dispatchEvent(new CustomEvent('rate-form-cancel', { bubbles: true, composed: true }));
   }
 
-  private _renderConfirmPanel(): unknown {
-    const cur = this.rate;
-    const changedCount = RATE_FIELDS.filter((f) => this._isChanged(f.key)).length;
+  /** Confirm delete — dispatch the final `rate-delete` event. */
+  private _onDelete(): void {
+    if (this.rate?.id == null) return;
+    this.dispatchEvent(
+      new CustomEvent('rate-delete', { detail: { id: this.rate.id }, bubbles: true, composed: true }),
+    );
+  }
+
+  /** Cancel delete — return to the form, or to the list if opened for delete. */
+  private _onCancelDelete(): void {
+    if (this.confirmDelete) {
+      this.dispatchEvent(new CustomEvent('rate-form-cancel', { bubbles: true, composed: true }));
+    } else {
+      this._deleteMode = false;
+    }
+  }
+
+  private _renderDeleteConfirm(): unknown {
+    const r = this.rate;
     return html`
-      <div class="confirm-panel" data-testid="confirm-panel">
-        <h3>⚠ Confirm rate change</h3>
-        ${cur
-          ? html`<p class="confirm-panel-body">Adding this rate will <strong>close the current rate</strong>. The current rate (effective from <code>${cur.effective_from}</code>) will have its <code>effective_to</code> set to the new rate's start date. Historical payslips keep using the closed rate; new payslips from that date use the new rate.</p>`
-          : html`<p class="confirm-panel-body">This creates the <strong>first pay-rate row</strong> — there is no current rate to close yet.</p>`}
-        <div class="confirm-panel-detail">
-          <div>Current rate · base <code>${cur ? this._money(cur.base_hourly_rate as number) : '—'}</code> · std <code>${cur?.standard_hours_per_week ?? '—'}h</code> · SG <code>${cur?.superannuation_rate ?? '—'}</code></div>
-          ${changedCount > 0
-            ? html`<ul>${RATE_FIELDS.filter((f) => this._isChanged(f.key)).map(
-                (f) => html`<li><code>${f.key}</code> ${String(cur?.[f.key] ?? DEFAULTS[f.key] ?? '')} → <strong>${this._values.fields[f.key]}</strong></li>`,
-              )}</ul>`
-            : html`<p>No values changed yet — editing the fields above will show the diff here.</p>`}
-        </div>
-        <div class="confirm-panel-actions">
-          <button class="btn-action" data-testid="confirm-add" @click="${this._onConfirm}">✓ Confirm &amp; Save</button>
-          <button class="btn-action muted" data-testid="confirm-cancel" @click="${this._onCancel}">Cancel</button>
+      <div class="topbar">
+        <span class="crumb-link" data-testid="back-link" @click="${this._onCancelDelete}">← Pay Rate History</span>
+        <span class="crumb-sep">/</span>
+        <span class="crumb-current">Delete Rate</span>
+      </div>
+      <div class="container">
+        <h1 data-testid="rate-form-title">Delete Rate</h1>
+        <div class="delete-confirm" data-testid="delete-confirm">
+          <p class="delete-warning">Delete this rate row? This cannot be undone.</p>
+          <ul class="delete-summary">
+            <li><span>Effective from</span><code>${r?.effective_from ?? ''}</code></li>
+            <li><span>Effective to</span><code>${r?.effective_to ?? '— (open)'}</code></li>
+            <li><span>Base hourly</span><code>${r?.base_hourly_rate ?? ''}</code></li>
+          </ul>
+          <div class="footer">
+            <button class="btn btn-secondary" type="button" data-testid="rate-delete-cancel" @click="${this._onCancelDelete}">Cancel</button>
+            <button class="btn btn-danger" type="button" data-testid="rate-delete-confirm" @click="${this._onDelete}">Delete rate</button>
+          </div>
         </div>
       </div>
     `;
   }
 
   render(): unknown {
+    if (this._deleteMode) return this._renderDeleteConfirm();
     if (this.readOnly) return this._renderForm(true);
     return this._renderForm(false);
   }
@@ -296,20 +316,22 @@ export class RateRowForm extends LitElement {
       <div class="topbar">
         <span class="crumb-link" data-testid="back-link" @click="${() => this._onCancel()}">← Pay Rate History</span>
         <span class="crumb-sep">/</span>
-        <span class="crumb-current">${readOnly ? 'View Rate' : this.rate ? 'Edit Rate' : 'Add New Rate'}</span>
+        <span class="crumb-current">${readOnly ? 'View Rate' : this.rate ? 'Update Rate' : 'Add New Rate'}</span>
       </div>
       <div class="container">
-        <h1 data-testid="rate-form-title">${readOnly ? 'View Rate' : this.rate ? 'Edit Rate' : 'Add New Rate'}</h1>
+        <h1 data-testid="rate-form-title">${readOnly ? 'View Rate' : this.rate ? 'Update Rate' : 'Add New Rate'}</h1>
         <p class="subtitle">${readOnly
           ? 'Read-only view of a historical rate row.'
           : this.rate
             ? 'Pre-filled from current rate. Edit fields you want to change; leave the rest as-is.'
             : 'Enter the new rate details. Saving will close the current rate.'}</p>
 
-        ${!readOnly && !this._confirmed ? this._renderConfirmPanel() : ''}
-
         ${!readOnly && this._errors.length
           ? html`<div class="errors" data-testid="rate-errors">${this._errors.map((e) => html`<div>${e}</div>`)}</div>`
+          : ''}
+
+        ${this.rateError
+          ? html`<div class="errors" data-testid="rate-error-banner">${this.rateError}</div>`
           : ''}
 
         <form class="rate-form" data-testid="rate-form" @submit="${this._onSubmit}">
@@ -357,13 +379,14 @@ export class RateRowForm extends LitElement {
 
           <div class="footer">
             ${readOnly
-              ? html`<button class="btn btn-secondary" type="button" data-testid="rate-cancel" @click="${this._onCancel}">Back</button>`
+              ? html`
+                <button class="btn btn-secondary" type="button" data-testid="rate-cancel" @click="${this._onCancel}">Back</button>`
               : html`
                 <button class="btn btn-secondary" type="button" data-testid="rate-cancel" @click="${this._onCancel}">Cancel</button>
-                <button class="btn btn-primary" type="submit" data-testid="rate-submit">Save rate</button>`}
+                <button class="btn btn-primary" type="submit" data-testid="rate-submit">${this.rate ? 'Update Rate' : 'Save rate'}</button>`}
           </div>
         </form>
-        <p class="info-note">Validated by <code>PayRateService.validateRateRow</code>: <code>effective_from &lt; effective_to</code> if both set; all rates ≥ 0; <code>SG ≤ 1</code>. The Confirm &amp; Save button calls <code>PayRateService.addNewRate</code> in a single SQLite transaction (atomic close + insert).</p>
+        <p class="info-note">Validated by <code>PayRateService.validateRateRow</code>: <code>effective_from &lt; effective_to</code> if both set; all rates ≥ 0; <code>SG ≤ 1</code>. Saving a new rate calls <code>PayRateService.addNewRate</code> in a single SQLite transaction (atomic close + insert).</p>
       </div>
     `;
   }

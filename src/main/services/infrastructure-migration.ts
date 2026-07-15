@@ -158,3 +158,45 @@ export const salaryHistoryRateHistoryMigration: Migration = {
     `);
   }
 };
+
+/**
+ * `salary_history_rate_history` — enforce **at most one current rate row**
+ * (`effective_to IS NULL`). The primary key is `id`, so without this guard
+ * two rows can both have `effective_to IS NULL`, which breaks the
+ * "exactly one current rate" invariant the rate engine (`getRateForDate`)
+ * relies on.
+ *
+ * Implementation: a partial UNIQUE index over a constant expression `(1)`
+ * filtered by `WHERE effective_to IS NULL`. Because every row matching the
+ * filter indexes the same constant value, the unique constraint permits at
+ * most one such row — SQLite's standard idiom for "at most one row where
+ * <condition>". Any INSERT/UPDATE that would produce a second current row
+ * fails with `UNIQUE constraint failed`.
+ *
+ * Defensive cleanup: if legacy data already has >1 current row, close all
+ * but the most-recent (`effective_from` DESC) before creating the index, so
+ * `CREATE UNIQUE INDEX` does not fail on existing duplicate rows.
+ */
+export const salaryHistoryRateHistorySingleCurrentMigration: Migration = {
+  name: '006-salary-history-rate-history-single-current',
+  up: (db) => {
+    db.exec(`
+      UPDATE salary_history_rate_history
+        SET effective_to = (
+          SELECT effective_from FROM salary_history_rate_history
+          WHERE effective_to IS NULL
+          ORDER BY effective_from DESC LIMIT 1
+        )
+        WHERE effective_to IS NULL
+          AND id != (
+            SELECT id FROM salary_history_rate_history
+            WHERE effective_to IS NULL
+            ORDER BY effective_from DESC LIMIT 1
+          )
+    `);
+    db.exec(`
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_salary_history_rate_history_single_current
+        ON salary_history_rate_history ((1)) WHERE effective_to IS NULL
+    `);
+  }
+};

@@ -7,6 +7,7 @@ import {
   sharedAccountsMigration,
   salaryHistoryPaySlipsMigration,
   salaryHistoryRateHistoryMigration,
+  salaryHistoryRateHistorySingleCurrentMigration,
 } from './infrastructure-migration';
 
 // Phase 2 has no rollback requirement; the `down` callback is
@@ -159,6 +160,7 @@ export function registerAllMigrations(): void {
   registerMigration(sharedAccountsMigration);
   registerMigration(salaryHistoryPaySlipsMigration);
   registerMigration(salaryHistoryRateHistoryMigration);
+  registerMigration(salaryHistoryRateHistorySingleCurrentMigration);
 }
 
 export function getTestDatabase(): BetterSqlite3.Database {

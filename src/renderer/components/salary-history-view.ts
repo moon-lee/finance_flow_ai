@@ -61,6 +61,12 @@ export class SalaryHistoryView extends LitElement {
   /** Renderer-side `FinanceApi` proxy (extension-namespaced DB access). */
   private _finance: FinanceApi | null = null;
 
+  /** Transient error surfaced to `rate-row-form` after a failed rate write. */
+  private _rateError: string | null = null;
+
+  /** Opens `rate-row-form` directly in its delete-confirm state. */
+  private _confirmDelete = false;
+
   connectedCallback(): void {
     super.connectedCallback();
     this.addEventListener('account-create', this._onAccountCreate as EventListener);
@@ -82,6 +88,8 @@ export class SalaryHistoryView extends LitElement {
     this.addEventListener('rate-create', this._onRateCreate as EventListener);
     this.addEventListener('rate-edit', this._onRateEdit as EventListener);
     this.addEventListener('rate-form-cancel', this._onRateCancel as EventListener);
+    this.addEventListener('rate-delete-request', this._onRateDeleteRequest as EventListener);
+    this.addEventListener('rate-delete', this._onRateDelete as EventListener);
   }
 
   disconnectedCallback(): void {
@@ -104,6 +112,8 @@ export class SalaryHistoryView extends LitElement {
     this.removeEventListener('rate-create', this._onRateCreate as EventListener);
     this.removeEventListener('rate-edit', this._onRateEdit as EventListener);
     this.removeEventListener('rate-form-cancel', this._onRateCancel as EventListener);
+    this.removeEventListener('rate-delete-request', this._onRateDeleteRequest as EventListener);
+    this.removeEventListener('rate-delete', this._onRateDelete as EventListener);
   }
 
   updated(changed: Map<string, unknown>): void {
@@ -122,7 +132,10 @@ export class SalaryHistoryView extends LitElement {
     this.componentTag = tag;
     this.mountData = mountData;
     this._editPaySlip = editPaySlip;
-    void this.mountChild();
+    // Mounting is driven by `updated()` (which fires when `componentTag`
+    // changes). Do NOT call `mountChild()` here as well — a second mount
+    // would run after `mountChild` has already nulled `_rateData` /
+    // `_editPaySlip`, replacing the pre-filled edit form with a blank one.
   }
 
   private async mountChild(): Promise<void> {
@@ -171,8 +184,12 @@ export class SalaryHistoryView extends LitElement {
       if (this.componentTag === 'rate-row-form') {
         childEl.rate = this._rateData;
         childEl.readOnly = this._rateReadOnly;
+        childEl.rateError = this._rateError;
+        childEl.confirmDelete = this._confirmDelete;
         this._rateData = null;
         this._rateReadOnly = false;
+        this._rateError = null;
+        this._confirmDelete = false;
       }
 
       const existing = this.querySelector('[data-ext-root]');
@@ -316,10 +333,30 @@ export class SalaryHistoryView extends LitElement {
   private _onRateCreate = async (e: Event): Promise<void> => {
     const { input } = (e as CustomEvent).detail as { input: Record<string, unknown> };
     if (!this._finance) return;
+    const effectiveTo = input.effective_to === null || input.effective_to === '' ? null : input.effective_to;
     try {
+      // A new row with no end date becomes the current rate. Validate up front
+      // (Decision 16 close-then-insert + migration 006's single-current rule):
+      // if a current rate already exists, surface a friendly banner and abort
+      // instead of round-tripping an insert that would hit the UNIQUE index.
+      if (effectiveTo === null) {
+        const current = (await this._finance.db
+          .table('salary_history_rate_history')
+          .findOne({ effective_to: { $isNull: true } })) as Record<string, unknown> | undefined;
+        if (current && typeof current.id === 'number') {
+          // There is already an open-ended current rate. We do NOT close it
+          // under the user's current row — that would silently rewrite history
+          // and lose the user's intended end date. Show the error and stop.
+          await this._failRateWrite(
+            new Error('UNIQUE constraint failed: a current rate already exists'),
+            undefined
+          );
+          return;
+        }
+      }
       await this._finance.db.table('salary_history_rate_history').insert(input);
     } catch (err) {
-      console.error('[renderer] rate create failed:', err);
+      await this._failRateWrite(err, undefined);
       return;
     }
     this.navigate('pay-rate-history-view', this.mountData);
@@ -331,8 +368,84 @@ export class SalaryHistoryView extends LitElement {
     try {
       await this._finance.db.table('salary_history_rate_history').update(input, { id });
     } catch (err) {
-      console.error('[renderer] rate update failed:', err);
+      await this._failRateWrite(err, id);
       return;
+    }
+    this.navigate('pay-rate-history-view', this.mountData);
+  };
+
+  /**
+   * Surface a failed rate write back to the form instead of silently
+   * dropping it. The most likely failure is the migration-006 unique
+   * constraint (a second `effective_to IS NULL` current rate); re-open the
+   * form (re-fetching the row for edits) with a friendly error banner.
+   */
+  /**
+   * Surface a failed rate write back to the form instead of silently
+   * dropping it. The most likely failure is the migration-006 unique
+   * constraint (a second `effective_to IS NULL` current rate). We push the
+   * error onto the **already-mounted** `rate-row-form` element so the
+   * user's typed input is preserved and the banner appears immediately.
+   * (Using `navigate()` here would be a no-op: `componentTag` is already
+   * `'rate-row-form'`, so `updated()` would skip `mountChild()` and the
+   * live element would never receive `rateError`.)
+   */
+  private async _failRateWrite(err: unknown, rateId: number | undefined): Promise<void> {
+    console.error('[renderer] rate write failed:', err);
+    const message =
+      err instanceof Error && /UNIQUE/i.test(err.message)
+        ? 'A current rate (end date empty) already exists. Only one current rate is allowed — edit the existing current rate, or give this row an end date.'
+        : 'Could not save the rate. Please try again.';
+    this._rateError = message;
+
+    // Re-fetch the row for edits so the form is pre-filled if it remounts.
+    if (rateId !== undefined && this._finance) {
+      const row = (await this._finance.db
+        .table('salary_history_rate_history')
+        .findOne({ id: rateId })) as Record<string, unknown> | undefined;
+      this._rateData = row ?? null;
+    } else {
+      this._rateData = null;
+    }
+    this._rateReadOnly = false;
+
+    // Push the error onto the live form element (preserves typed input).
+    const live = this.querySelector('rate-row-form') as
+      | (HTMLElement & { rateError: string | null; rate: unknown; readOnly: boolean })
+      | null;
+    if (live) {
+      live.rateError = message;
+      live.rate = this._rateData;
+      live.readOnly = false;
+    } else {
+      // Form not mounted yet — fall back to a remount.
+      this.navigate('rate-row-form', this.mountData);
+    }
+  }
+
+  private _onRateDeleteRequest = async (e: Event): Promise<void> => {
+    const { id } = (e as CustomEvent).detail as { id: number };
+    if (!this._finance) return;
+    const row = (await this._finance.db
+      .table('salary_history_rate_history')
+      .findOne({ id })) as Record<string, unknown> | undefined;
+    if (!row) {
+      this.navigate('pay-rate-history-view', this.mountData);
+      return;
+    }
+    this._rateData = row;
+    this._rateReadOnly = false;
+    this._confirmDelete = true;
+    this.navigate('rate-row-form', this.mountData);
+  };
+
+  private _onRateDelete = async (e: Event): Promise<void> => {
+    const { id } = (e as CustomEvent).detail as { id: number };
+    if (!this._finance) return;
+    try {
+      await this._finance.db.table('salary_history_rate_history').delete({ id });
+    } catch (err) {
+      console.error('[renderer] rate delete failed:', err);
     }
     this.navigate('pay-rate-history-view', this.mountData);
   };

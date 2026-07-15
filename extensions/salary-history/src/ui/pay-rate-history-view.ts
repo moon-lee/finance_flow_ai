@@ -79,6 +79,9 @@ export class PayRateHistoryView extends LitElement {
         vertical-align: middle;
       }
       .badge-history { background: #3e3e3e; color: #858585; }
+      .actions { white-space: nowrap; }
+      .btn-danger-link { color: #f48771; margin-left: 8px; }
+      .btn-danger-link:hover { color: #ff9a86; text-decoration: underline; }
       .empty-effective_to { color: #4ec9b0; font-weight: 700; }
       .info-note {
         font-size: 12px;
@@ -150,6 +153,12 @@ export class PayRateHistoryView extends LitElement {
     );
   }
 
+  private _onDelete(id: number): void {
+    this.dispatchEvent(
+      new CustomEvent('rate-delete-request', { detail: { id }, bubbles: true, composed: true }),
+    );
+  }
+
   private _renderHeader(): unknown {
     return html`
       <thead>
@@ -182,6 +191,7 @@ export class PayRateHistoryView extends LitElement {
           ${current
             ? html`<button class="btn-link" data-testid="rate-edit" @click="${() => this._onEdit(r.id ?? 0)}">Edit</button>`
             : html`<button class="btn-link" data-testid="rate-view" @click="${() => this._onView(r.id ?? 0)}">View</button>`}
+          <button class="btn-link btn-danger-link" data-testid="rate-delete" @click="${() => this._onDelete(r.id ?? 0)}">Delete</button>
         </td>
       </tr>
     `;

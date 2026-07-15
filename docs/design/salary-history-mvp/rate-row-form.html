@@ -118,23 +118,6 @@
     <h1>Add New Rate</h1>
     <p class="subtitle">Pre-filled from current rate (effective 2025-07-01 → 2026-06-30). Edit fields you want to change; leave the rest as-is.</p>
 
-    <!-- Confirmation panel — visible after user clicks "+ Add New Rate" on the history page -->
-    <div class="confirm-panel">
-      <h3>⚠ Confirm rate change</h3>
-      <div class="confirm-panel-body">
-        Adding this rate will <strong>close the current rate</strong>. The current rate (effective from <code>2025-07-01</code>) will have its <code>effective_to</code> set to <code>2026-07-01</code>.
-        <div class="confirm-panel-detail">
-          Current (will close): base_hourly_rate $32.00 · SG 12% · OT 1.5×=1.5<br>
-          New (will open):         base_hourly_rate $35.00 · SG 12% · OT 1.5×=1.5
-        </div>
-        Historical payslips keep using the closed rate (32.00). New payslips from <code>2026-07-01</code> onward use the new rate (35.00).
-        <div class="confirm-panel-actions">
-          <button class="btn-action">✓ Confirm &amp; Save</button>
-          <button class="btn-action muted">Cancel</button>
-        </div>
-      </div>
-    </div>
-
     <!-- Section: Effective dates -->
     <div class="section">
       <div class="section-header"><span class="section-title">Effective dates</span><span class="section-badge">required</span></div>

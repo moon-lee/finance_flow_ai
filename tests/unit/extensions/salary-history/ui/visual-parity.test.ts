@@ -140,7 +140,7 @@ describe('Task 11.8 visual parity — component DOM vs approved mock', () => {
     soft(`pay-rate-history-view: user-approved 8-column layout (Status, Effective From, Effective To, Base Hourly, Std Hrs/wk, SG Rate, Notes, Action); intentionally fewer than the 12-column mock per explicit user decision`);
   });
 
-  it('rate-row-form: confirm panel + 10 rate fields match mock', async () => {
+  it('rate-row-form: 10 rate fields match mock (no confirm panel)', async () => {
     const mock = parseMock('rate-row-form.html');
     const mockRateLabels = texts(mock, '.section .field label')
       .map((t) => t.replace(/\s*\(.*\)\s*/g, '').replace(/—.*$/g, '').trim())
@@ -148,9 +148,8 @@ describe('Task 11.8 visual parity — component DOM vs approved mock', () => {
     const el = make<RateRowForm>('rate-row-form');
     (el as unknown as { rate: RateRow | null }).rate = { id: 1, effective_from: '2025-07-01', effective_to: '2026-06-30', base_hourly_rate: 32, standard_hours_per_week: 38, shift_allowance_multiplier: 0.15, shift_allowance_hours_per_week: 38, overtime_1_5_multiplier: 1.5, overtime_2_0_multiplier: 2.0, superannuation_rate: 0.12, holiday_leave_loading_rate: 0.175, accrual_rate_per_week: 2.92, starting_holiday_leave_balance: 0, notes: '' } as unknown as RateRow;
     await el.updateComplete;
-    expect(sr(el).querySelector('[data-testid="confirm-panel"]')).toBeTruthy();
-    (sr(el).querySelector('[data-testid="confirm-add"]') as HTMLElement).click();
-    await el.updateComplete;
+    expect(sr(el).querySelector('[data-testid="confirm-panel"]')).toBeFalsy();
+    expect(sr(el).querySelector('[data-testid="rate-submit"]')).toBeTruthy();
 
     const fieldKeys = [...sr(el).querySelectorAll('[data-testid^="input-"]')]
       .map((n) => (n.getAttribute('data-testid') ?? '').replace('input-', ''))
