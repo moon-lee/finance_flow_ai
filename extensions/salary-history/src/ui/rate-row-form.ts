@@ -18,6 +18,7 @@
 import { LitElement, css, html } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import type { RateRow } from '../dao/pay-rate-history.js';
+import { sharedStyles, formStyles } from './shared-styles.js';
 
 interface RateFieldDef {
   key: keyof RateRow;
@@ -67,145 +68,64 @@ const DEFAULTS: Partial<Record<keyof RateRow, number | string | null>> = {
 
 @customElement('rate-row-form')
 export class RateRowForm extends LitElement {
-  static styles = css`
-    :host {
-      display: block;
-      background: #1e1e1e;
-      color: #d4d4d4;
-      font: 14px/1.5 system-ui, sans-serif;
-    }
-    .topbar {
-      background: #252526;
-      border-bottom: 1px solid #3e3e3e;
-      padding: 10px 20px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-    .topbar .crumb-link { color: #007acc; text-decoration: none; font-size: 13px; }
-    .topbar .crumb-link:hover { text-decoration: underline; }
-    .topbar .crumb-sep { color: #858585; }
-    .topbar .crumb-current { color: #d4d4d4; font-weight: 500; }
-    .container { max-width: 760px; margin: 0 auto; padding: 24px 20px 40px; }
-    h1 { font-size: 18px; font-weight: 600; color: #fff; margin: 0 0 4px; }
-    .subtitle { color: #858585; font-size: 13px; margin: 0 0 24px; }
+  static styles = [
+    sharedStyles,
+    formStyles,
+    css`
+      .container { max-width: 760px; margin: 0 auto; padding: 24px 20px 40px; }
+      .subtitle { color: #858585; font-size: 13px; margin: 0 0 24px; }
 
-    .confirm-panel {
-      background: #1e2a1e;
-      border: 1px solid #4ec9b0;
-      border-left: 4px solid #4ec9b0;
-      border-radius: 4px;
-      padding: 14px 16px;
-      margin-bottom: 16px;
-    }
-    .confirm-panel h3 {
-      margin: 0 0 8px;
-      font-size: 14px;
-      font-weight: 700;
-      color: #4ec9b0;
-    }
-    .confirm-panel-body { margin: 0 0 12px; font-size: 13px; color: #d4d4d4; line-height: 1.6; }
-    .confirm-panel-body code { color: #4ec9b0; }
-    .confirm-panel-body strong { color: #fff; }
-    .confirm-panel-detail {
-      background: #1e1e1e;
-      border: 1px solid #3e3e3e;
-      border-radius: 3px;
-      padding: 10px 12px;
-      margin: 8px 0;
-      font-family: "SF Mono", Consolas, monospace;
-      font-size: 12px;
-    }
-    .confirm-panel-detail ul { margin: 0; padding-left: 18px; }
-    .confirm-panel-detail li { margin: 2px 0; }
-    .confirm-panel-detail code { color: #9cdc9c; }
-    .confirm-panel-actions { display: flex; gap: 8px; margin-top: 10px; }
+      .confirm-panel {
+        background: #1e2a1e;
+        border: 1px solid #4ec9b0;
+        border-left: 4px solid #4ec9b0;
+        border-radius: 4px;
+        padding: 14px 16px;
+        margin-bottom: 16px;
+      }
+      .confirm-panel h3 {
+        margin: 0 0 8px;
+        font-size: 14px;
+        font-weight: 700;
+        color: #4ec9b0;
+      }
+      .confirm-panel-body { margin: 0 0 12px; font-size: 13px; color: #d4d4d4; line-height: 1.6; }
+      .confirm-panel-body code { color: #4ec9b0; }
+      .confirm-panel-body strong { color: #fff; }
+      .confirm-panel-detail {
+        background: #1e1e1e;
+        border: 1px solid #3e3e3e;
+        border-radius: 3px;
+        padding: 10px 12px;
+        margin: 8px 0;
+        font-family: "SF Mono", Consolas, monospace;
+        font-size: 12px;
+      }
+      .confirm-panel-detail ul { margin: 0; padding-left: 18px; }
+      .confirm-panel-detail li { margin: 2px 0; }
+      .confirm-panel-detail code { color: #9cdc9c; }
+      .confirm-panel-actions { display: flex; gap: 8px; margin-top: 10px; }
 
-    .section {
-      background: #252526;
-      border: 1px solid #3e3e3e;
-      border-radius: 6px;
-      margin-bottom: 12px;
-      overflow: hidden;
-    }
-    .section-header {
-      background: #2a2a2a;
-      padding: 8px 16px;
-      border-bottom: 1px solid #3e3e3e;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    .section-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #cccccc; margin: 0; }
-    .section-badge {
-      background: #3e3e3e;
-      color: #858585;
-      font-size: 10px;
-      font-weight: 600;
-      padding: 2px 6px;
-      border-radius: 2px;
-      text-transform: uppercase;
-      letter-spacing: 0.3px;
-    }
-    .section-badge.muted { background: #3e3e3e; color: #858585; }
-    .section-body { padding: 16px; }
-    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; }
+      .errors {
+        background: #2e1b1b;
+        border: 1px solid #5a2a2a;
+        border-radius: 4px;
+        padding: 8px 12px;
+        margin-bottom: 16px;
+        font-size: 12px;
+        color: #f48771;
+      }
 
-    .field { display: flex; flex-direction: column; gap: 4px; }
-    .field label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; color: #858585; }
-    .field .label-sub { font-size: 10px; color: #707070; text-transform: none; letter-spacing: 0; font-weight: 400; }
-    .field input,
-    .field textarea {
-      background: #3c3c3c;
-      color: #d4d4d4;
-      border: 1px solid #3e3e3e;
-      border-radius: 3px;
-      padding: 6px 10px;
-      font-size: 13px;
-      font-family: inherit;
-      outline: none;
-    }
-    .field input:focus,
-    .field textarea:focus { border-color: #007acc; }
-    .field input[type="number"] { font-family: "SF Mono", Consolas, monospace; }
-    .field.textarea { grid-column: 1 / -1; }
-    .field textarea { resize: vertical; min-height: 60px; font-family: inherit; }
-    .field-changed input { border-color: #cca700; background: #3a2e0a; }
-    .field-changed .label-sub { color: #ffd866; }
-    .field-error { font-size: 11px; color: #f48771; margin-top: 2px; }
+      .btn-action { background: #4ec9b0; color: #1e1e1e; border: 1px solid #4ec9b0; padding: 6px 14px; border-radius: 3px; font-size: 12px; cursor: pointer; font-family: inherit; font-weight: 600; }
+      .btn-action:hover { background: #6fdec0; }
+      .btn-action.muted { background: transparent; color: #858585; border-color: #3e3e3e; }
+      .btn-action.muted:hover { background: #3c3c3c; color: #d4d4d4; }
 
-    .errors {
-      background: #2e1b1b;
-      border: 1px solid #5a2a2a;
-      border-radius: 4px;
-      padding: 8px 12px;
-      margin-bottom: 16px;
-      font-size: 12px;
-      color: #f48771;
-    }
-
-    .footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
-    .btn {
-      padding: 8px 20px;
-      border-radius: 3px;
-      font-size: 13px;
-      cursor: pointer;
-      font-family: inherit;
-      border: 1px solid transparent;
-    }
-    .btn-primary { background: #007acc; color: #fff; border-color: #007acc; }
-    .btn-primary:hover { background: #1188dd; }
-    .btn-secondary { background: #3c3c3c; color: #d4d4d4; border-color: #3e3e3e; }
-    .btn-secondary:hover { background: #4a4a4a; }
-    .btn-action { background: #4ec9b0; color: #1e1e1e; border: 1px solid #4ec9b0; padding: 6px 14px; border-radius: 3px; font-size: 12px; cursor: pointer; font-family: inherit; font-weight: 600; }
-    .btn-action:hover { background: #6fdec0; }
-    .btn-action.muted { background: transparent; color: #858585; border-color: #3e3e3e; }
-    .btn-action.muted:hover { background: #3c3c3c; color: #d4d4d4; }
-
-    .info-note { font-size: 12px; color: #858585; font-style: italic; margin-top: 8px; padding: 8px 12px; background: #1e1e1e; border-radius: 3px; }
-    .info-note::before { content: 'ℹ '; color: #4ec9b0; }
-    .info-note code { color: #4ec9b0; }
-  `;
+      .info-note { font-size: 12px; color: #858585; font-style: italic; margin-top: 8px; padding: 8px 12px; background: #1e1e1e; border-radius: 3px; }
+      .info-note::before { content: 'ℹ '; color: #4ec9b0; }
+      .info-note code { color: #4ec9b0; }
+    `,
+  ];
 
   private _rate: RateRow | null = null;
 

@@ -17,6 +17,7 @@ import { customElement, property, state } from 'lit/decorators.js';
 import type { FinanceApi } from 'finance';
 import type { PaySlip } from '../dao/pay-slips.js';
 import { aggregateYearToDate, type YtdAggregate } from '../services/pay-service.js';
+import { sharedStyles, listStyles } from './shared-styles.js';
 
 export interface AccountOption {
   readonly id: number;
@@ -29,165 +30,115 @@ const PAGE_SIZE = 15;
 
 @customElement('payslip-list')
 export class PayslipList extends LitElement {
-  static styles = css`
-    :host {
-      display: block;
-      background: #1e1e1e;
-      color: #d4d4d4;
-      font: 14px/1.5 system-ui, sans-serif;
-    }
-    .topbar {
-      background: #252526;
-      border-bottom: 1px solid #3e3e3e;
-      padding: 10px 20px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-    .topbar .crumb-link { color: #007acc; font-size: 13px; cursor: default; }
-    .topbar .crumb-sep { color: #858585; }
-    .topbar .crumb-current { color: #d4d4d4; font-weight: 500; }
-    .topbar .spacer { flex: 1; }
-    .topbar .filter-btn {
-      background: #3c3c3c;
-      color: #d4d4d4;
-      border: 1px solid #3e3e3e;
-      padding: 5px 12px;
-      border-radius: 3px;
-      font-size: 12px;
-      cursor: pointer;
-      font-family: inherit;
-    }
-    .topbar .filter-btn:hover { border-color: #007acc; }
-    .topbar a.filter-btn { color: #d4d4d4; text-decoration: none; }
-    .container { max-width: 960px; margin: 0 auto; padding: 24px 20px 40px; }
-    h1 { font-size: 18px; font-weight: 600; color: #ffffff; margin: 0 0 4px; }
-    .subtitle { color: #858585; font-size: 13px; margin: 0 0 16px; }
-    .summary-bar {
-      display: flex;
-      gap: 24px;
-      background: #252526;
-      border: 1px solid #3e3e3e;
-      border-radius: 6px;
-      padding: 12px 16px;
-      margin-bottom: 12px;
-      font-size: 13px;
-    }
-    .summary-item, .kpi { display: block; }
-    .summary-item .summary-label, .kpi .label {
-      color: #858585;
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.3px;
-      margin-bottom: 2px;
-    }
-    .summary-item .summary-value, .kpi .value {
-      font-family: "SF Mono", Consolas, monospace;
-      font-size: 16px;
-      color: #ffffff;
-      font-weight: 600;
-    }
-    .table-wrap {
-      background: #252526;
-      border: 1px solid #3e3e3e;
-      border-radius: 6px;
-      overflow: hidden;
-    }
-    table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    thead { background: #2a2a2a; }
-    th {
-      text-align: left;
-      padding: 10px 12px;
-      font-size: 11px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      color: #858585;
-      border-bottom: 1px solid #3e3e3e;
-    }
-    th.sortable { cursor: pointer; user-select: none; }
-    th.sortable:hover { color: #d4d4d4; }
-    th.sortable::after { content: ' ⇅'; color: #555; font-size: 10px; }
-    th.sorted-desc::after { content: ' ↓'; color: #007acc; }
-    th.sorted-asc::after { content: ' ↑'; color: #007acc; }
-    td {
-      padding: 8px 12px;
-      border-bottom: 1px solid #2a2a2a;
-      color: #d4d4d4;
-    }
-    tbody tr:hover { background: #2a2a2a; }
-    tbody tr:last-child td { border-bottom: none; }
-    td.num { font-family: "SF Mono", Consolas, monospace; text-align: right; }
-    td.fy { font-family: "SF Mono", Consolas, monospace; color: #858585; font-size: 12px; }
-    td.actions { text-align: right; white-space: nowrap; }
-    .btn-link {
-      background: transparent;
-      color: #007acc;
-      border: none;
-      padding: 0 6px;
-      font-size: 12px;
-      cursor: pointer;
-      font-family: inherit;
-    }
-    .btn-link:hover { text-decoration: underline; }
-    .btn-link.danger { color: #f48771; }
-    .ytd-footer {
-      background: #1e3a2e;
-      border-top: 2px solid #4ec9b0;
-      padding: 14px 16px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 16px;
-      flex-wrap: wrap;
-    }
-    .ytd-footer-label {
-      font-size: 11px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      color: #4ec9b0;
-    }
-    .ytd-footer-values { display: flex; gap: 24px; flex-wrap: wrap; }
-    .ytd-footer-values .item { font-family: "SF Mono", Consolas, monospace; font-size: 14px; }
-    .ytd-footer-values .item .lbl { color: #858585; font-size: 11px; margin-right: 4px; text-transform: uppercase; letter-spacing: 0.3px; }
-    .ytd-footer-values .item .val { color: #ffffff; font-weight: 600; }
-    .pagination {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 10px 16px;
-      background: #2a2a2a;
-      border-top: 1px solid #3e3e3e;
-      font-size: 12px;
-      color: #858585;
-    }
-    .pagination .pages { display: flex; gap: 4px; }
-    .pagination .page-btn {
-      background: transparent;
-      border: 1px solid #3e3e3e;
-      color: #d4d4d4;
-      padding: 4px 10px;
-      border-radius: 3px;
-      cursor: pointer;
-      font-family: inherit;
-      font-size: 12px;
-    }
-    .pagination .page-btn:hover { border-color: #007acc; }
-    .pagination .page-btn.current { background: #007acc; border-color: #007acc; color: #ffffff; }
-    .pagination .page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-    .info-note {
-      font-size: 12px;
-      color: #858585;
-      font-style: italic;
-      margin-top: 8px;
-      padding: 8px 12px;
-      background: #1e1e1e;
-      border-radius: 3px;
-    }
-    .info-note code { color: #4ec9b0; font-style: normal; }
-    .empty { color: #9a9a9a; padding: 16px 0; }
-  `;
+  static styles = [
+    sharedStyles,
+    listStyles,
+    css`
+      .container { max-width: 960px; margin: 0 auto; padding: 24px 20px 40px; }
+      .subtitle { color: #858585; font-size: 13px; margin: 0 0 16px; }
+      .summary-bar {
+        display: flex;
+        gap: 24px;
+        background: #252526;
+        border: 1px solid #3e3e3e;
+        border-radius: 6px;
+        padding: 12px 16px;
+        margin-bottom: 12px;
+        font-size: 13px;
+      }
+      .summary-item, .kpi { display: block; }
+      .summary-item .summary-label, .kpi .label {
+        color: #858585;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        margin-bottom: 2px;
+      }
+      .summary-item .summary-value, .kpi .value {
+        font-family: "SF Mono", Consolas, monospace;
+        font-size: 16px;
+        color: #ffffff;
+        font-weight: 600;
+      }
+      table { width: 100%; border-collapse: collapse; font-size: 13px; }
+      th {
+        text-align: left;
+        padding: 10px 12px;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #858585;
+        border-bottom: 1px solid #3e3e3e;
+      }
+      th.sortable { cursor: pointer; user-select: none; }
+      th.sortable:hover { color: #d4d4d4; }
+      th.sortable::after { content: ' ⇅'; color: #555; font-size: 10px; }
+      th.sorted-desc::after { content: ' ↓'; color: #007acc; }
+      th.sorted-asc::after { content: ' ↑'; color: #007acc; }
+      td {
+        padding: 8px 12px;
+        border-bottom: 1px solid #2a2a2a;
+        color: #d4d4d4;
+      }
+      td.fy { font-family: "SF Mono", Consolas, monospace; color: #858585; font-size: 12px; }
+      .ytd-footer {
+        background: #1e3a2e;
+        border-top: 2px solid #4ec9b0;
+        padding: 14px 16px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        flex-wrap: wrap;
+      }
+      .ytd-footer-label {
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #4ec9b0;
+      }
+      .ytd-footer-values { display: flex; gap: 24px; flex-wrap: wrap; }
+      .ytd-footer-values .item { font-family: "SF Mono", Consolas, monospace; font-size: 14px; }
+      .ytd-footer-values .item .lbl { color: #858585; font-size: 11px; margin-right: 4px; text-transform: uppercase; letter-spacing: 0.3px; }
+      .ytd-footer-values .item .val { color: #ffffff; font-weight: 600; }
+      .pagination {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 16px;
+        background: #2a2a2a;
+        border-top: 1px solid #3e3e3e;
+        font-size: 12px;
+        color: #858585;
+      }
+      .pagination .pages { display: flex; gap: 4px; }
+      .pagination .page-btn {
+        background: transparent;
+        border: 1px solid #3e3e3e;
+        color: #d4d4d4;
+        padding: 4px 10px;
+        border-radius: 3px;
+        cursor: pointer;
+        font-family: inherit;
+        font-size: 12px;
+      }
+      .pagination .page-btn:hover { border-color: #007acc; }
+      .pagination .page-btn.current { background: #007acc; border-color: #007acc; color: #ffffff; }
+      .pagination .page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+      .info-note {
+        font-size: 12px;
+        color: #858585;
+        font-style: italic;
+        margin-top: 8px;
+        padding: 8px 12px;
+        background: #1e1e1e;
+        border-radius: 3px;
+      }
+      .info-note code { color: #4ec9b0; font-style: normal; }
+    `,
+  ];
 
   @property({ attribute: false })
   finance: FinanceApi | null = null;

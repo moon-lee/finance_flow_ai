@@ -32,6 +32,7 @@
 import { LitElement, css, html, type PropertyValues, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import type { FinanceApi } from 'finance';
+import { sharedStyles, formStyles } from './shared-styles.js';
 import type { PaySlip, PaySlipInput } from '../dao/pay-slips.js';
 import type { RateRow } from '../dao/pay-rate-history.js';
 import {
@@ -114,110 +115,52 @@ function num(v: string): number {
 
 @customElement('payslip-form')
 export class PayslipForm extends LitElement {
-  static styles = css`
-    :host {
-      display: block;
-      color: #d4d4d4;
-      font: 14px/1.5 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #1e1e1e;
-    }
-    * { box-sizing: border-box; }
-    .topbar {
-      background: #252526;
-      border-bottom: 1px solid #3e3e3e;
-      padding: 10px 20px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-    .crumb-link { color: #007acc; text-decoration: none; font-size: 13px; cursor: pointer; }
-    .crumb-link:hover { text-decoration: underline; }
-    .crumb-sep { color: #858585; }
-    .crumb-current { color: #d4d4d4; font-weight: 500; }
-    .spacer { flex: 1; }
-    .reorder-btn {
-      background: transparent;
-      color: #858585;
-      border: 1px solid #3e3e3e;
-      padding: 4px 10px;
-      border-radius: 3px;
-      font-size: 12px;
-      cursor: pointer;
-      font-family: inherit;
-    }
-    .reorder-btn:hover { border-color: #007acc; color: #d4d4d4; }
-    .container { max-width: 760px; margin: 0 auto; padding: 24px 20px 40px; }
-    h1 { font-size: 18px; font-weight: 600; color: #ffffff; margin: 0 0 4px; }
-    .subtitle { color: #858585; font-size: 13px; margin: 0 0 24px; }
-    .section { background: #252526; border: 1px solid #3e3e3e; border-radius: 6px; margin-bottom: 12px; overflow: hidden; }
-    .section.readonly { border-color: #5a4a1a; }
-    .section.accrual { border-color: #c2913a; }
-    .section-header {
-      background: #2a2a2a;
-      padding: 8px 16px;
-      border-bottom: 1px solid #3e3e3e;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    h3 { margin: 0; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #cccccc; }
-    .section-badge {
-      background: #3e3e3e;
-      color: #858585;
-      font-size: 10px;
-      font-weight: 600;
-      padding: 2px 6px;
-      border-radius: 2px;
-      text-transform: uppercase;
-      letter-spacing: 0.3px;
-    }
-    .section-body { padding: 16px; }
-    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; }
-    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px 16px; }
-    .field { display: flex; flex-direction: column; gap: 4px; }
-    .field-full { grid-column: 1 / -1; }
-    .field label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; color: #858585; }
-    .field .label-sub { font-size: 10px; color: #707070; text-transform: none; letter-spacing: 0; font-weight: 400; }
-    input, select, textarea {
-      background: #3c3c3c;
-      color: #d4d4d4;
-      border: 1px solid #3e3e3e;
-      border-radius: 3px;
-      padding: 6px 10px;
-      font-size: 13px;
-      font-family: inherit;
-      outline: none;
-    }
-    input:focus, select:focus, textarea:focus { border-color: #007acc; }
-    input[readonly], input:disabled { background: #2a2a2a; color: #858585; font-style: italic; }
-    input[type='number'] { font-family: 'SF Mono', Consolas, monospace; }
-    .read-only-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px; }
-    .read-only-row .label { color: #858585; font-family: 'SF Mono', Consolas, monospace; font-size: 12px; }
-    .read-only-row .value { color: #d4d4d4; font-family: 'SF Mono', Consolas, monospace; }
-    .toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; }
-    .toggle { cursor: pointer; color: #6da3d6; }
-    .hours-block { background: #1e1e1e; border: 1px solid #3e3e3e; border-radius: 4px; padding: 12px; margin-top: 12px; }
-    .hours-block-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; color: #858585; margin-bottom: 8px; }
-    .footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
-    .btn { padding: 8px 20px; border-radius: 3px; font-size: 13px; cursor: pointer; font-family: inherit; border: 1px solid transparent; }
-    .btn-primary { background: #007acc; color: #ffffff; border-color: #007acc; }
-    .btn-primary:hover { background: #1188dd; }
-    .btn-secondary { background: #3c3c3c; color: #d4d4d4; border-color: #3e3e3e; }
-    .btn-secondary:hover { background: #4a4a4a; }
-    .amber { background: #4a3c00; border: 1px solid #cca700; color: #e8d28a; border-radius: 4px; padding: 8px 10px; margin: 8px 0; font-size: 12px; }
-    .amber button { margin-left: 6px; }
-    .green { background: #0d2e26; border: 1px solid #4ec9b0; color: #9fe6d6; border-radius: 4px; padding: 8px 10px; margin: 8px 0; font-size: 12px; }
-    .red { background: #3a1414; border: 1px solid #f48771; color: #f3b3a6; border-radius: 4px; padding: 8px 10px; margin: 8px 0; font-size: 12px; }
-    .errors { color: #f48771; font-size: 12px; margin: 8px 0; }
-    .formula { color: #8a8a8a; font-size: 11px; margin-top: 8px; font-family: 'SF Mono', Consolas, monospace; }
-    .btn-validate { background: #2a2a2a; color: #007acc; border: 1px solid #007acc; padding: 5px 12px; border-radius: 3px; font-size: 12px; cursor: pointer; font-family: inherit; }
-    .btn-validate:hover { background: #003a66; }
-    .payg-btn-row { display: flex; align-items: center; gap: 12px; margin-top: 8px; flex-wrap: wrap; }
-    .payg-result { margin-top: 12px; padding: 10px 12px; background: #1e3a2e; border-left: 3px solid #4ec9b0; border-radius: 3px; font-size: 12px; color: #d4d4d4; }
-    .payg-result-icon { color: #4ec9b0; font-weight: 700; margin-right: 6px; }
-    .payg-detail { color: #858585; margin-top: 4px; font-family: 'SF Mono', Consolas, monospace; font-size: 11px; }
-    .info-note { font-size: 11px; color: #858585; font-style: italic; margin: 0 0 8px; }
-  `;
+  static styles = [
+    sharedStyles,
+    formStyles,
+    css`
+      :host {
+        font: 14px/1.5 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      }
+      * { box-sizing: border-box; }
+      .container { max-width: 760px; margin: 0 auto; padding: 24px 20px 40px; }
+      .subtitle { color: #858585; font-size: 13px; margin: 0 0 24px; }
+      .section.readonly { border-color: #5a4a1a; }
+      .section.accrual { border-color: #c2913a; }
+      .reorder-btn {
+        background: transparent;
+        color: #858585;
+        border: 1px solid #3e3e3e;
+        padding: 4px 10px;
+        border-radius: 3px;
+        font-size: 12px;
+        cursor: pointer;
+        font-family: inherit;
+      }
+      .reorder-btn:hover { border-color: #007acc; color: #d4d4d4; }
+      input[readonly], input:disabled { background: #2a2a2a; color: #858585; font-style: italic; }
+      .read-only-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px; }
+      .read-only-row .label { color: #858585; font-family: 'SF Mono', Consolas, monospace; font-size: 12px; }
+      .read-only-row .value { color: #d4d4d4; font-family: 'SF Mono', Consolas, monospace; }
+      .toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; }
+      .toggle { cursor: pointer; color: #6da3d6; }
+      .hours-block { background: #1e1e1e; border: 1px solid #3e3e3e; border-radius: 4px; padding: 12px; margin-top: 12px; }
+      .hours-block-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; color: #858585; margin-bottom: 8px; }
+      .amber { background: #4a3c00; border: 1px solid #cca700; color: #e8d28a; border-radius: 4px; padding: 8px 10px; margin: 8px 0; font-size: 12px; }
+      .amber button { margin-left: 6px; }
+      .green { background: #0d2e26; border: 1px solid #4ec9b0; color: #9fe6d6; border-radius: 4px; padding: 8px 10px; margin: 8px 0; font-size: 12px; }
+      .red { background: #3a1414; border: 1px solid #f48771; color: #f3b3a6; border-radius: 4px; padding: 8px 10px; margin: 8px 0; font-size: 12px; }
+      .errors { color: #f48771; font-size: 12px; margin: 8px 0; }
+      .formula { color: #8a8a8a; font-size: 11px; margin-top: 8px; font-family: 'SF Mono', Consolas, monospace; }
+      .btn-validate { background: #2a2a2a; color: #007acc; border: 1px solid #007acc; padding: 5px 12px; border-radius: 3px; font-size: 12px; cursor: pointer; font-family: inherit; }
+      .btn-validate:hover { background: #003a66; }
+      .payg-btn-row { display: flex; align-items: center; gap: 12px; margin-top: 8px; flex-wrap: wrap; }
+      .payg-result { margin-top: 12px; padding: 10px 12px; background: #1e3a2e; border-left: 3px solid #4ec9b0; border-radius: 3px; font-size: 12px; color: #d4d4d4; }
+      .payg-result-icon { color: #4ec9b0; font-weight: 700; margin-right: 6px; }
+      .payg-detail { color: #858585; margin-top: 4px; font-family: 'SF Mono', Consolas, monospace; font-size: 11px; }
+      .info-note { font-size: 11px; color: #858585; font-style: italic; margin: 0 0 8px; }
+    `,
+  ];
 
   /** Per-extension `finance` API (db accessor bound to this extension). */
   @property({ attribute: false })

@@ -20,6 +20,7 @@ import { LitElement, css, html } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import type { FinanceApi } from 'finance';
 import type { RateRow } from '../dao/pay-rate-history.js';
+import { sharedStyles, listStyles } from './shared-styles.js';
 
 const RATE_COLUMNS: { key: keyof RateRow; label: string; kind: 'money' | 'int' | 'rate' }[] = [
   { key: 'base_hourly_rate', label: 'Base Hourly', kind: 'money' },
@@ -29,117 +30,68 @@ const RATE_COLUMNS: { key: keyof RateRow; label: string; kind: 'money' | 'int' |
 
 @customElement('pay-rate-history-view')
 export class PayRateHistoryView extends LitElement {
-  static styles = css`
-    :host {
-      display: block;
-      background: #1e1e1e;
-      color: #d4d4d4;
-      font: 14px/1.5 system-ui, sans-serif;
-    }
-    .topbar {
-      background: #252526;
-      border-bottom: 1px solid #3e3e3e;
-      padding: 10px 20px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-    .topbar .crumb-link { color: #007acc; font-size: 13px; cursor: default; }
-    .topbar .crumb-sep { color: #858585; }
-    .topbar .crumb-current { color: #d4d4d4; font-weight: 500; }
-    .topbar .spacer { flex: 1; }
-    .topbar .filter-btn {
-      background: #3c3c3c;
-      color: #d4d4d4;
-      border: 1px solid #3e3e3e;
-      padding: 5px 12px;
-      border-radius: 3px;
-      font-size: 12px;
-      cursor: pointer;
-      font-family: inherit;
-    }
-    .topbar .filter-btn:hover { border-color: #007acc; }
-    .topbar a.filter-btn { color: #d4d4d4; text-decoration: none; }
-    .container { max-width: 1080px; margin: 0 auto; padding: 24px 20px 40px; }
-    h1 { font-size: 18px; font-weight: 600; color: #fff; margin: 0 0 4px; }
-    .subtitle { color: #858585; font-size: 13px; margin: 0 0 16px; }
-    .info-banner {
-      background: #2a2a2a;
-      border: 1px solid #3e3e3e;
-      border-radius: 6px;
-      padding: 12px 16px;
-      margin-bottom: 16px;
-      font-size: 13px;
-      color: #d4d4d4;
-    }
-    .info-banner strong { color: #4ec9b0; }
-    .table-wrap {
-      background: #252526;
-      border: 1px solid #3e3e3e;
-      border-radius: 6px;
-      overflow: hidden;
-    }
-    table { width: 100%; border-collapse: collapse; font-size: 12px; }
-    thead { background: #2a2a2a; }
-    th {
-      text-align: left;
-      padding: 8px 10px;
-      font-size: 10px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.4px;
-      color: #858585;
-      border-bottom: 1px solid #3e3e3e;
-      white-space: nowrap;
-    }
-    td {
-      padding: 10px;
-      border-bottom: 1px solid #2a2a2a;
-      color: #d4d4d4;
-      font-family: "SF Mono", Consolas, monospace;
-    }
-    tr.current { background: #1e2a1e; }
-    tr.current:hover { background: #233023; }
-    tr:hover { background: #2a2a2a; }
-    tbody tr:last-child td { border-bottom: none; }
-    td.num { text-align: right; }
-    td.actions { text-align: right; white-space: nowrap; }
-    .badge {
-      display: inline-block;
-      background: #4ec9b0;
-      color: #1e1e1e;
-      font-size: 10px;
-      font-weight: 700;
-      padding: 2px 8px;
-      border-radius: 3px;
-      text-transform: uppercase;
-      letter-spacing: 0.4px;
-      vertical-align: middle;
-    }
-    .badge-history { background: #3e3e3e; color: #858585; }
-    .btn-link {
-      background: transparent;
-      color: #007acc;
-      border: none;
-      padding: 0 6px;
-      font-size: 12px;
-      cursor: pointer;
-      font-family: inherit;
-    }
-    .btn-link:hover { text-decoration: underline; }
-    .empty-effective_to { color: #4ec9b0; font-weight: 700; }
-    .info-note {
-      font-size: 12px;
-      color: #858585;
-      font-style: italic;
-      margin-top: 8px;
-      padding: 8px 12px;
-      background: #1e1e1e;
-      border-radius: 3px;
-    }
-    .info-note code { color: #4ec9b0; font-style: normal; }
-    .empty { color: #9a9a9a; padding: 16px 0; }
-  `;
+  static styles = [
+    sharedStyles,
+    listStyles,
+    css`
+      .container { max-width: 1080px; margin: 0 auto; padding: 24px 20px 40px; }
+      .subtitle { color: #858585; font-size: 13px; margin: 0 0 16px; }
+      .info-banner {
+        background: #2a2a2a;
+        border: 1px solid #3e3e3e;
+        border-radius: 6px;
+        padding: 12px 16px;
+        margin-bottom: 16px;
+        font-size: 13px;
+        color: #d4d4d4;
+      }
+      .info-banner strong { color: #4ec9b0; }
+      table { width: 100%; border-collapse: collapse; font-size: 12px; }
+      th {
+        text-align: left;
+        padding: 8px 10px;
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+        color: #858585;
+        border-bottom: 1px solid #3e3e3e;
+        white-space: nowrap;
+      }
+      td {
+        padding: 10px;
+        border-bottom: 1px solid #2a2a2a;
+        color: #d4d4d4;
+        font-family: "SF Mono", Consolas, monospace;
+      }
+      tr.current { background: #1e2a1e; }
+      tr.current:hover { background: #233023; }
+      .badge {
+        display: inline-block;
+        background: #4ec9b0;
+        color: #1e1e1e;
+        font-size: 10px;
+        font-weight: 700;
+        padding: 2px 8px;
+        border-radius: 3px;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+        vertical-align: middle;
+      }
+      .badge-history { background: #3e3e3e; color: #858585; }
+      .empty-effective_to { color: #4ec9b0; font-weight: 700; }
+      .info-note {
+        font-size: 12px;
+        color: #858585;
+        font-style: italic;
+        margin-top: 8px;
+        padding: 8px 12px;
+        background: #1e1e1e;
+        border-radius: 3px;
+      }
+      .info-note code { color: #4ec9b0; font-style: normal; }
+    `,
+  ];
 
   @property({ attribute: false })
   finance: FinanceApi | null = null;
