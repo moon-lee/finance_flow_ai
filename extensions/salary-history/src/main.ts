@@ -3,11 +3,9 @@
  *
  * Wires the extension to the host:
  *  1. Registers the six UI custom elements (via ./ui/index.js).
- *  2. Seeds a default rate row on first activation when the rate history
- *     is empty (Decision 16).
- *  3. Registers the two commands (Decision 17): `salary.show-pay-history`
+ *  2. Registers the two commands (Decision 17): `salary.show-pay-history`
  *     and `salary.show-pay-rate-history`.
- *  4. (Task 16.1) Reads namespace-scoped settings with safe defaults.
+ *  3. (Task 16.1) Reads namespace-scoped settings with safe defaults.
  *
  * The `finance` API passed to `activate` is the per-extension `FinanceApi`
  * (`db` + `commands` + `ai` + optional `ui`/`settings`). The Host process
@@ -17,13 +15,7 @@
  * Direct DOM creation here would fail at runtime (Node `utilityProcess`).
  */
 
-import { listAllRates, addNewRate } from './dao/pay-rate-history.js';
-import { buildDefaultRateRow } from './services/pay-rate-service.js';
 import type { FinanceApi } from 'finance';
-
-function todayISO(): string {
-  return new Date().toISOString().slice(0, 10);
-}
 
 /**
  * Register the extension's custom elements. The Extension Host runs in a
@@ -68,12 +60,6 @@ async function openPayHistory(
 }
 
 export async function activate(finance: FinanceApi): Promise<void> {
-  // Decision 16 — seed a default current rate row if none exists.
-  const rates = await listAllRates(finance);
-  if (rates.length === 0) {
-    await addNewRate(finance, buildDefaultRateRow(todayISO()));
-  }
-
   // Task 16.1 — read extension-scoped settings (namespace-enforced by Main),
   // falling back to defaults when unset. Forwarded as mount data so the
   // Renderer can surface them (e.g. the currency selector) once the

@@ -488,9 +488,10 @@ export class SalaryHistoryView extends LitElement {
     const effectiveFrom = String(input.effective_from ?? '');
     try {
       // Close the old current row (the one being replaced) at the new start date.
+      // The `id` goes in the WHERE clause; only the changed column is in the payload.
       await this._finance.db
         .table('salary_history_rate_history')
-        .update({ id }, { effective_to: effectiveFrom });
+        .update({ effective_to: effectiveFrom }, { id });
       // Insert the new current rate.
       await this._finance.db.table('salary_history_rate_history').insert(input);
     } catch (err) {

@@ -2,10 +2,11 @@
 /**
  * Phase 4 Task 12 — unit tests for the salary-history extension entry point.
  *
- * Verifies `activate` against an in-memory `FinanceApi` stub: it seeds a
- * default rate row when the rate history is empty and registers exactly the
- * two Decision 17 commands. The UI mount (Task 14) is out of scope, so the
- * command handlers are not executed here.
+ * Verifies `activate` against an in-memory `FinanceApi` stub: it does NOT
+ * seed a default rate row (the user must add their own rates — no fabricated
+ * salary data) and registers exactly the two Decision 17 commands. The UI
+ * mount (Task 14) is out of scope, so the command handlers are not executed
+ * here.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -59,18 +60,18 @@ function makeFinance() {
 }
 
 describe('salary-history activate (Task 12)', () => {
-  it('seeds a default rate row when rate history is empty and registers both commands', async () => {
+  it('does not seed a default rate row when rate history is empty and registers both commands', async () => {
     const { finance, registered, store } = makeFinance();
     await activate(finance);
 
-    expect(store['salary_history_rate_history']).toHaveLength(1);
+    expect(store['salary_history_rate_history']).toHaveLength(0);
     expect(registered.map((r) => r.id)).toEqual([
       'salary.show-pay-history',
       'salary.show-pay-rate-history',
     ]);
   });
 
-  it('does not seed when a current rate row already exists', async () => {
+  it('leaves an existing rate row untouched', async () => {
     const { finance, store } = makeFinance();
     store['salary_history_rate_history'].push({
       id: 1,
