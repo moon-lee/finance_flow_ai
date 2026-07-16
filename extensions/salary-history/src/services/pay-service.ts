@@ -89,6 +89,14 @@ export interface YtdAggregate {
   readonly payg: number;
   readonly superannuation_guarantee: number;
   readonly count: number;
+  // Earnings-breakdown components (summed per payslip, all >= 0):
+  readonly shift_allowance: number;
+  readonly overtime_1_5x: number;
+  readonly overtime_2_0x: number;
+  readonly personal_leave: number;
+  readonly holiday_leave_loading: number;
+  readonly holiday_pay: number;
+  readonly public_holiday: number;
 }
 
 export interface ReconciliationResult {
@@ -431,14 +439,33 @@ export function aggregateYearToDate(
   referenceDate: string = new Date().toISOString().slice(0, 10),
 ): YtdAggregate {
   const fyLabel = computeFinanceYear(referenceDate, financialYearStart);
-  if (fyLabel === null) {
-    return { gross: 0, net: 0, payg: 0, superannuation_guarantee: 0, count: 0 };
-  }
+  const zero: YtdAggregate = {
+    gross: 0,
+    net: 0,
+    payg: 0,
+    superannuation_guarantee: 0,
+    count: 0,
+    shift_allowance: 0,
+    overtime_1_5x: 0,
+    overtime_2_0x: 0,
+    personal_leave: 0,
+    holiday_leave_loading: 0,
+    holiday_pay: 0,
+    public_holiday: 0,
+  };
+  if (fyLabel === null) return zero;
   let gross = 0;
   let net = 0;
   let payg = 0;
   let sg = 0;
   let count = 0;
+  let shift_allowance = 0;
+  let overtime_1_5x = 0;
+  let overtime_2_0x = 0;
+  let personal_leave = 0;
+  let holiday_leave_loading = 0;
+  let holiday_pay = 0;
+  let public_holiday = 0;
   for (const p of payslips) {
     // Normalize both sides so legacy `YYYY-YY` rows still match the current
     // `YYYY-YYYY` label.
@@ -447,9 +474,29 @@ export function aggregateYearToDate(
     net += p.net;
     payg += p.payg_withholding;
     sg += p.superannuation_guarantee;
+    shift_allowance += p.shift_allowance;
+    overtime_1_5x += p.overtime_1_5x;
+    overtime_2_0x += p.overtime_2_0x;
+    personal_leave += p.personal_leave;
+    holiday_leave_loading += p.holiday_leave_loading;
+    holiday_pay += p.holiday_pay;
+    public_holiday += p.public_holiday;
     count += 1;
   }
-  return { gross, net, payg, superannuation_guarantee: sg, count };
+  return {
+    gross,
+    net,
+    payg,
+    superannuation_guarantee: sg,
+    count,
+    shift_allowance,
+    overtime_1_5x,
+    overtime_2_0x,
+    personal_leave,
+    holiday_leave_loading,
+    holiday_pay,
+    public_holiday,
+  };
 }
 
 // ---------------------------------------------------------------------------

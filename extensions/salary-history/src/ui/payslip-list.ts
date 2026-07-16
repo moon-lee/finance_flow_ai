@@ -41,8 +41,8 @@ export class PayslipList extends LitElement {
         justify-content: space-between;
         align-items: flex-end;
         gap: 12px;
-        background: #252526;
-        border: 1px solid #3e3e3e;
+        background: var(--ff-bg-panel);
+        border: 1px solid var(--ff-border);
         border-radius: 6px;
         padding: 12px 16px;
         margin-bottom: 12px;
@@ -50,7 +50,7 @@ export class PayslipList extends LitElement {
       }
       .summary-item, .kpi { display: block; flex: 1 1 0; text-align: center; }
       .summary-item .summary-label, .kpi .label {
-        color: #858585;
+        color: var(--ff-text-muted);
         font-size: 11px;
         text-transform: uppercase;
         letter-spacing: 0.3px;
@@ -59,7 +59,7 @@ export class PayslipList extends LitElement {
       .summary-item .summary-value, .kpi .value {
         font-family: "SF Mono", Consolas, monospace;
         font-size: 16px;
-        color: #ffffff;
+        color: var(--ff-text-strong);
         font-weight: 600;
       }
       table { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -91,12 +91,19 @@ export class PayslipList extends LitElement {
       td.actions .btn-link { margin-left: 8px; }
       td.actions .btn-link:first-child { margin-left: 0; }
       .ytd-footer {
-        background: #1e3a2e;
-        border-top: 2px solid #4ec9b0;
+        background: var(--ff-bg-panel);
+        border: 1px solid var(--ff-border);
+        border-top: 2px solid var(--ff-teal);
+        border-radius: 0 0 6px 6px;
         padding: 14px 16px;
         display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .ytd-footer-head {
+        display: flex;
+        align-items: baseline;
         justify-content: space-between;
-        align-items: center;
         gap: 16px;
         flex-wrap: wrap;
       }
@@ -105,12 +112,64 @@ export class PayslipList extends LitElement {
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.5px;
-        color: #4ec9b0;
+        color: var(--ff-teal);
       }
-      .ytd-footer-values { display: flex; gap: 24px; flex-wrap: wrap; }
-      .ytd-footer-values .item { font-family: "SF Mono", Consolas, monospace; font-size: 14px; }
-      .ytd-footer-values .item .lbl { color: #858585; font-size: 11px; margin-right: 4px; text-transform: uppercase; letter-spacing: 0.3px; }
-      .ytd-footer-values .item .val { color: #ffffff; font-weight: 600; }
+      .ytd-footer-values {
+        display: grid;
+        grid-auto-flow: column;
+        grid-auto-columns: max-content;
+        justify-content: end;
+        gap: 12px 28px;
+        flex-wrap: wrap;
+      }
+      .ytd-footer-values .item {
+        display: flex;
+        align-items: baseline;
+        justify-content: flex-end;
+        text-align: right;
+        gap: 6px;
+        font-family: "SF Mono", Consolas, monospace;
+        font-size: 14px;
+      }
+      .ytd-footer-values .item .lbl {
+        color: var(--ff-text-muted);
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+      }
+      .ytd-footer-values .item .val { color: var(--ff-text-strong); font-weight: 600; }
+      .ytd-breakdown {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(178px, 1fr));
+        justify-content: end;
+        gap: 8px;
+        width: 100%;
+        padding-top: 12px;
+        border-top: 1px solid var(--ff-border);
+      }
+      .ytd-chip {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 8px;
+        min-width: 0;
+        background: var(--ff-bg-subpanel);
+        border: 1px solid var(--ff-border);
+        border-radius: 4px;
+        padding: 4px 8px;
+        font-family: "SF Mono", Consolas, monospace;
+        font-size: 12px;
+        white-space: nowrap;
+      }
+      .ytd-chip .chip-label {
+        color: var(--ff-text-muted);
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .ytd-chip .chip-value { color: var(--ff-text); font-weight: 600; flex-shrink: 0; }
       .pagination {
         display: flex;
         justify-content: space-between;
@@ -250,6 +309,38 @@ export class PayslipList extends LitElement {
     return '$' + n.toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 
+  /**
+   * Earnings-breakdown chips for the YTD footer. Each component is shown
+   * only when its YTD sum is materially > 0 (threshold 0.005 avoids
+   * floating-point `$0.00` chips). Keeps the footer clean when most
+   * components are zero.
+   */
+  private _ytdBreakdownChips(ytd: YtdAggregate): unknown {
+    const components: Array<[string, number, string]> = [
+      ['YTD Shift Allowance', ytd.shift_allowance, 'shift-allowance'],
+      ['Overtime 1.5', ytd.overtime_1_5x, 'overtime-1-5'],
+      ['Overtime 2.0', ytd.overtime_2_0x, 'overtime-2-0'],
+      ['Personal Leave', ytd.personal_leave, 'personal-leave'],
+      ['Holiday Leave Loading', ytd.holiday_leave_loading, 'holiday-loading'],
+      ['Holiday Pay', ytd.holiday_pay, 'holiday-pay'],
+      ['Public Holiday', ytd.public_holiday, 'public-holiday'],
+    ];
+    const active = components.filter(([, v]) => v > 0.005);
+    if (active.length === 0) return nothing;
+    return html`
+      <div class="ytd-breakdown" data-testid="ytd-breakdown">
+        ${active.map(
+          ([label, value, key]) => html`
+            <span class="ytd-chip" data-testid="ytd-chip-${key}">
+              <span class="chip-label">${label}</span>
+              <span class="chip-value">${this._money(value)}</span>
+            </span>
+          `,
+        )}
+      </div>
+    `;
+  }
+
   private _fyLabel(): string {
     const ref = this.referenceDate || new Date().toISOString().slice(0, 10);
     const [ry, rm] = ref.split('-').map(Number);
@@ -367,13 +458,16 @@ export class PayslipList extends LitElement {
               </table>
 
               <div class="ytd-footer" data-testid="ytd-footer">
-                <span class="ytd-footer-label">▾ Year-to-Date Summary (FY${this._fyLabel()}, ${total} payslips)</span>
-                <div class="ytd-footer-values">
-                  <div class="item"><span class="lbl">YTD Gross:</span><span class="val">${this._money(ytd.gross)}</span></div>
-                  <div class="item"><span class="lbl">YTD Net:</span><span class="val">${this._money(ytd.net)}</span></div>
-                  <div class="item"><span class="lbl">YTD PAYG:</span><span class="val">${this._money(ytd.payg)}</span></div>
-                  <div class="item"><span class="lbl">YTD SG:</span><span class="val">${this._money(ytd.superannuation_guarantee)}</span></div>
+                <div class="ytd-footer-head">
+                  <span class="ytd-footer-label">▾ Year-to-Date (FY${this._fyLabel()} · ${total} payslips)</span>
+                  <div class="ytd-footer-values">
+                    <div class="item"><span class="lbl">YTD Gross</span><span class="val" data-testid="ytd-gross">${this._money(ytd.gross)}</span></div>
+                    <div class="item"><span class="lbl">YTD Net</span><span class="val" data-testid="ytd-net">${this._money(ytd.net)}</span></div>
+                    <div class="item"><span class="lbl">YTD PAYG</span><span class="val" data-testid="ytd-payg">${this._money(ytd.payg)}</span></div>
+                    <div class="item"><span class="lbl">YTD SG</span><span class="val" data-testid="ytd-sg">${this._money(ytd.superannuation_guarantee)}</span></div>
+                  </div>
                 </div>
+                ${this._ytdBreakdownChips(ytd)}
               </div>
 
               <div class="pagination">
