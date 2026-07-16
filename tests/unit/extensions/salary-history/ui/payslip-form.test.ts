@@ -263,7 +263,7 @@ describe('PayslipForm (Task 11.1)', () => {
     el._values = { ...el._values, pay_date: '2026-01-15' };
     await el.recompute();
     await el.updateComplete;
-    expect(el._values.finance_year).toBe('2025-26');
+    expect(el._values.finance_year).toBe('2025-2026');
   });
 
   it('surfaces a finance_year mismatch warning with override actions', async () => {

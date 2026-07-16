@@ -64,6 +64,7 @@ export class PayRateHistoryView extends LitElement {
         color: #d4d4d4;
         font-family: "SF Mono", Consolas, monospace;
       }
+      th.num, td.num { text-align: right; }
       tr.current { background: #1e2a1e; }
       tr.current:hover { background: #233023; }
       .badge {
@@ -169,12 +170,12 @@ export class PayRateHistoryView extends LitElement {
     return html`
       <thead>
         <tr>
-          <th>Status</th>
-          <th>Effective From</th>
-          <th>Effective To</th>
-          ${RATE_COLUMNS.map((c) => html`<th>${c.label}</th>`)}
-          <th>Notes</th>
-          <th style="text-align: right;">Actions</th>
+           <th>Status</th>
+           <th>Effective From</th>
+           <th>Effective To</th>
+           ${RATE_COLUMNS.map((c) => html`<th class="num">${c.label}</th>`)}
+           <th>Notes</th>
+           <th class="num">Actions</th>
         </tr>
       </thead>
     `;
@@ -193,7 +194,7 @@ export class PayRateHistoryView extends LitElement {
           (c) => html`<td class="num" data-testid="rate-${c.key}">${this._fmt(c, r[c.key] as number)}</td>`,
         )}
         <td data-testid="rate-notes">${r.notes ?? ''}</td>
-        <td class="actions">
+        <td class="actions" style="text-align: right;">
           ${current
             ? html`
               <button class="btn-link" data-testid="rate-edit" @click="${() => this._onEdit(r.id ?? 0)}">Edit</button>

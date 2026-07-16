@@ -86,7 +86,7 @@ describe('Task 11.8 visual parity — component DOM vs approved mock', () => {
     const mockHeaders = texts(mock, 'thead th').map((t) => t.replace(/[⇅↓↑]/g, '').trim());
     const el = make<PayslipList>('payslip-list');
     el.payslips = [
-      { id: 1, pay_date: '2026-06-12', finance_year: 'FY2025-2026', gross: 1616.9, net: 1275.9, account_id: 1, regular_hours: 38, shift_hours: 0, overtime_1_5_hours: 0, overtime_2_0_hours: 0, public_holiday_hours: 0, holiday_leave_accrual_hours: 0, currency: 'AUD', pay_period_start: '2026-06-12', pay_period_end: '2026-06-12' } as unknown as PaySlip,
+      { id: 1, pay_date: '2026-06-12', finance_year: 'FY2025-2026', gross: 1616.9, net: 1275.9, account_id: 1, regular_hours: 38, shift_hours: 0, overtime_1_5_hours: 0, overtime_2_0_hours: 0, public_holiday_hours: 0, holiday_leave_accrual_hours: 0, payg_withholding: 200, superannuation_guarantee: 150, currency: 'AUD', pay_period_start: '2026-06-12', pay_period_end: '2026-06-12' } as unknown as PaySlip,
     ];
     await el.updateComplete;
 

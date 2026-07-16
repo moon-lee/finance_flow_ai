@@ -105,7 +105,8 @@ export interface ReconciliationResult {
 // ---------------------------------------------------------------------------
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-const FY_LABEL_RE = /^\d{4}-\d{2}$/;
+// Accept both `YYYY-YY` (legacy) and `YYYY-YYYY` (current) finance-year labels.
+const FY_LABEL_RE = /^\d{4}-\d{2}(?:\d{2})?$/;
 
 function isFiniteNumber(n: unknown): n is number {
   return typeof n === 'number' && Number.isFinite(n);
@@ -142,8 +143,17 @@ export function computeFinanceYear(payDate: string, financialYearStart: string):
   }
 
   const fyEndYear = fyStartYear + 1;
-  const fyEndYY = String(fyEndYear).slice(-2);
-  return `${fyStartYear}-${fyEndYY}`;
+  return `${fyStartYear}-${fyEndYear}`;
+}
+
+/** Normalize a finance-year label to `YYYY-YYYY` (expands legacy `YYYY-YY`). */
+export function normalizeFinanceYear(fy: string): string {
+  const m = /^(\d{4})-(\d{2})$/.exec(fy.trim());
+  if (!m) return fy;
+  const start = Number(m[1]);
+  const end2 = Number(m[2]);
+  const century = Math.floor(start / 100);
+  return `${start}-${century * 100 + end2}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -159,7 +169,7 @@ export function computeFinanceYear(payDate: string, financialYearStart: string):
  *   3. `pay_period_start ≤ pay_period_end ≤ pay_date`, all valid
  *      `YYYY-MM-DD` strings.
  *   4. `account_id > 0`, integer.
- *   5. `finance_year` matches `YYYY-YY` pattern.
+ *   5. `finance_year` matches `YYYY-YY` or `YYYY-YYYY` pattern.
  *   6. All 9 breakdown monetary columns + `payg_withholding` +
  *      `superannuation_guarantee` + `personal_leave` are finite
  *      numbers ≥ 0.
@@ -214,7 +224,7 @@ export function validatePayslipInput(input: PaySlipInput): ValidationResult {
 
   // 5. finance_year
   if (typeof input.finance_year !== 'string' || !FY_LABEL_RE.test(input.finance_year)) {
-    errors.push('finance_year must match YYYY-YY pattern');
+    errors.push('finance_year must match YYYY-YY or YYYY-YYYY pattern');
   }
 
   // 6. breakdown monetary columns
@@ -430,7 +440,9 @@ export function aggregateYearToDate(
   let sg = 0;
   let count = 0;
   for (const p of payslips) {
-    if (p.finance_year !== fyLabel) continue;
+    // Normalize both sides so legacy `YYYY-YY` rows still match the current
+    // `YYYY-YYYY` label.
+    if (normalizeFinanceYear(p.finance_year) !== normalizeFinanceYear(fyLabel)) continue;
     gross += p.gross;
     net += p.net;
     payg += p.payg_withholding;

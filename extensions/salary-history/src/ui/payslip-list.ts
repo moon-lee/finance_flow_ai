@@ -25,7 +25,7 @@ export interface AccountOption {
   readonly institution: string | null;
 }
 
-type SortKey = 'pay_date' | 'gross' | 'net' | 'hours';
+type SortKey = 'pay_date' | 'gross' | 'net' | 'payg' | 'sg' | 'leave';
 const PAGE_SIZE = 15;
 
 @customElement('payslip-list')
@@ -48,7 +48,7 @@ export class PayslipList extends LitElement {
         margin-bottom: 12px;
         font-size: 13px;
       }
-      .summary-item, .kpi { display: block; flex: 1 1 0; text-align: left; }
+      .summary-item, .kpi { display: block; flex: 1 1 0; text-align: center; }
       .summary-item .summary-label, .kpi .label {
         color: #858585;
         font-size: 11px;
@@ -218,16 +218,14 @@ export class PayslipList extends LitElement {
         return p.gross;
       case 'net':
         return p.net;
-      case 'hours':
-        return p.regular_hours + p.shift_hours + p.overtime_1_5_hours + p.overtime_2_0_hours + p.public_holiday_hours;
+      case 'payg':
+        return p.payg_withholding;
+      case 'sg':
+        return p.superannuation_guarantee;
       case 'pay_date':
       default:
         return p.pay_date;
     }
-  }
-
-  private _accountName(id: number): string {
-    return this.accounts.find((a) => a.id === id)?.name ?? `#${id}`;
   }
 
   private _toggleSort(key: SortKey): void {
@@ -258,6 +256,16 @@ export class PayslipList extends LitElement {
     const [sm] = this.financialYearStart.split('-').map(Number);
     const startYear = rm >= sm ? ry : ry - 1;
     return `${startYear}-${startYear + 1}`;
+  }
+
+  /** Expand a stored `YYYY-YY` finance year to `YYYY-YYYY` for display. */
+  private _fyDisplay(fy: string): string {
+    const m = /^(\d{4})-(\d{2})$/.exec(fy.trim());
+    if (!m) return fy;
+    const start = Number(m[1]);
+    const end2 = Number(m[2]);
+    const century = Math.floor(start / 100);
+    return `${start}-${century * 100 + end2}`;
   }
 
   private _ytd(): YtdAggregate {
@@ -299,7 +307,7 @@ export class PayslipList extends LitElement {
     const start = page * PAGE_SIZE;
     const end = Math.min(start + PAGE_SIZE, total);
     const rows = this.payslips.slice(start, end);
-    const subtitle = `FY ${this._fyLabel()} · Account: ${this.accounts[0]?.name ?? '—'} · ${total} payslips`;
+        const subtitle = `FY ${this._fyDisplay(this._fyLabel())} · Account: ${this.accounts[0]?.name ?? '—'} · ${total} payslips`;
 
     return html`
       <div class="topbar">
@@ -331,8 +339,9 @@ export class PayslipList extends LitElement {
                      <th>Finance Year</th>
                      ${this._th('gross', 'Gross', 'num')}
                      ${this._th('net', 'Net', 'num')}
-                     <th>Account</th>
-                     ${this._th('hours', 'Hours', 'num')}
+                     ${this._th('payg', 'PAYG', 'num')}
+                     ${this._th('sg', 'SG', 'num')}
+                     ${this._th('leave', 'Leave Accrual', 'num')}
                      <th class="num">Actions</th>
                    </tr>
                 </thead>
@@ -340,12 +349,13 @@ export class PayslipList extends LitElement {
                   ${rows.map(
                     (p) => html`
                       <tr data-testid="payslip-row" data-id="${p.id}">
-                        <td class="num">${p.pay_date}</td>
-                        <td class="fy">${p.finance_year}</td>
+                        <td class="fy">${p.pay_date}</td>
+                        <td class="fy">${this._fyDisplay(p.finance_year)}</td>
                         <td class="num">${this._money(p.gross)}</td>
                         <td class="num">${this._money(p.net)}</td>
-                        <td>${this._accountName(p.account_id)}</td>
-                        <td class="num">${(p.regular_hours + p.shift_hours + p.overtime_1_5_hours + p.overtime_2_0_hours + p.public_holiday_hours).toFixed(2)}</td>
+                        <td class="num">${this._money(p.payg_withholding)}</td>
+                        <td class="num">${this._money(p.superannuation_guarantee)}</td>
+                        <td class="num">${p.holiday_leave_accrual_hours.toFixed(2)}</td>
                         <td class="actions">
                           <button class="btn-link" data-testid="edit-${p.id}" @click="${() => this._onEdit(p.id ?? 0)}">Edit</button>
                           <button class="btn-link danger" data-testid="delete-${p.id}" @click="${() => this._onDelete(p.id ?? 0)}">Delete</button>

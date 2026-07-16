@@ -140,16 +140,16 @@ describe('pay-service', () => {
   });
 
   describe('computeFinanceYear + validateFinanceYear', () => {
-    it('returns "2025-26" for a date in the second half of 2025 with FY-start 07-01', () => {
-      expect(computeFinanceYear('2025-08-15', '07-01')).toBe('2025-26');
+    it('returns "2025-2026" for a date in the second half of 2025 with FY-start 07-01', () => {
+      expect(computeFinanceYear('2025-08-15', '07-01')).toBe('2025-2026');
     });
 
-    it('returns "2025-26" for a date in the first half of 2026 with FY-start 07-01', () => {
-      expect(computeFinanceYear('2026-01-15', '07-01')).toBe('2025-26');
+    it('returns "2025-2026" for a date in the first half of 2026 with FY-start 07-01', () => {
+      expect(computeFinanceYear('2026-01-15', '07-01')).toBe('2025-2026');
     });
 
-    it('wraps to "2026-27" for a date in the second half of 2026', () => {
-      expect(computeFinanceYear('2026-08-15', '07-01')).toBe('2026-27');
+    it('wraps to "2026-2027" for a date in the second half of 2026', () => {
+      expect(computeFinanceYear('2026-08-15', '07-01')).toBe('2026-2027');
     });
 
     it('returns null for an invalid payDate', () => {
@@ -157,13 +157,13 @@ describe('pay-service', () => {
     });
 
     it('validateFinanceYear passes when labels match', () => {
-      expect(validateFinanceYear('2026-01-15', '2025-26', '07-01')).toEqual({ ok: true });
+      expect(validateFinanceYear('2026-01-15', '2025-2026', '07-01')).toEqual({ ok: true });
     });
 
     it('validateFinanceYear fails when labels do not match', () => {
-      const r = validateFinanceYear('2026-01-15', '2026-27', '07-01');
+      const r = validateFinanceYear('2026-01-15', '2026-2027', '07-01');
       expect(r.ok).toBe(false);
-      if (!r.ok) expect(r.errors.join(' ')).toMatch(/financeYear "2026-27" does not match expected "2025-26"/);
+      if (!r.ok) expect(r.errors.join(' ')).toMatch(/financeYear "2026-2027" does not match expected "2025-2026"/);
     });
   });
 
