@@ -38,7 +38,9 @@ export class PayslipList extends LitElement {
       .subtitle { color: #858585; font-size: 13px; margin: 0 0 16px; }
       .summary-bar {
         display: flex;
-        gap: 24px;
+        justify-content: space-between;
+        align-items: flex-end;
+        gap: 12px;
         background: #252526;
         border: 1px solid #3e3e3e;
         border-radius: 6px;
@@ -46,7 +48,7 @@ export class PayslipList extends LitElement {
         margin-bottom: 12px;
         font-size: 13px;
       }
-      .summary-item, .kpi { display: block; }
+      .summary-item, .kpi { display: block; flex: 1 1 0; text-align: left; }
       .summary-item .summary-label, .kpi .label {
         color: #858585;
         font-size: 11px;
@@ -80,8 +82,14 @@ export class PayslipList extends LitElement {
         padding: 8px 12px;
         border-bottom: 1px solid #2a2a2a;
         color: #d4d4d4;
+        text-align: left;
       }
+      th.num, td.num { text-align: right; }
+      td.num { font-family: "SF Mono", Consolas, monospace; }
       td.fy { font-family: "SF Mono", Consolas, monospace; color: #858585; font-size: 12px; }
+      td.actions { text-align: right; white-space: nowrap; }
+      td.actions .btn-link { margin-left: 8px; }
+      td.actions .btn-link:first-child { margin-left: 0; }
       .ytd-footer {
         background: #1e3a2e;
         border-top: 2px solid #4ec9b0;
@@ -232,12 +240,12 @@ export class PayslipList extends LitElement {
     this.payslips = this.payslips.slice().sort(this._cmp.bind(this));
   }
 
-  private _th(key: SortKey, label: string) {
+  private _th(key: SortKey, label: string, extraClass = '') {
     const active = this._sortKey === key;
     const cls = active
       ? `sortable ${this._sortDir === 'asc' ? 'sorted-asc' : 'sorted-desc'}`
       : 'sortable';
-    return html`<th class="${cls}" @click="${() => this._toggleSort(key)}">${label}</th>`;
+    return html`<th class="${[cls, extraClass].filter(Boolean).join(' ')}" @click="${() => this._toggleSort(key)}">${label}</th>`;
   }
 
   private _money(n: number): string {
@@ -318,15 +326,15 @@ export class PayslipList extends LitElement {
             <div class="table-wrap">
               <table data-testid="payslip-table">
                 <thead>
-                  <tr>
-                    ${this._th('pay_date', 'Pay date')}
-                    <th>Finance Year</th>
-                    ${this._th('gross', 'Gross')}
-                    ${this._th('net', 'Net')}
-                    <th>Account</th>
-                    ${this._th('hours', 'Hours')}
-                    <th style="text-align: right;">Actions</th>
-                  </tr>
+                   <tr>
+                     ${this._th('pay_date', 'Pay date')}
+                     <th>Finance Year</th>
+                     ${this._th('gross', 'Gross', 'num')}
+                     ${this._th('net', 'Net', 'num')}
+                     <th>Account</th>
+                     ${this._th('hours', 'Hours', 'num')}
+                     <th class="num">Actions</th>
+                   </tr>
                 </thead>
                 <tbody>
                   ${rows.map(
