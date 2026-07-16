@@ -120,7 +120,6 @@ describe('pay-rate-service', () => {
         superannuation_rate: 0,
         holiday_leave_loading_rate: 0,
         accrual_rate_per_week: 0,
-        starting_holiday_leave_balance: 0,
         notes: null,
       });
       expect(r.ok).toBe(false);
@@ -163,7 +162,6 @@ describe('pay-rate-service', () => {
         overtime_2_0_multiplier: 2.0,
         holiday_leave_loading_rate: 0.175,
         accrual_rate_per_week: 2.92,
-        starting_holiday_leave_balance: 0,
         notes: null,
       });
       expect(r.ok).toBe(false);
@@ -276,7 +274,6 @@ describe('pay-rate-service', () => {
           superannuation_rate: 0.12,
           holiday_leave_loading_rate: 0.175,
           accrual_rate_per_week: 2.92,
-          starting_holiday_leave_balance: 0,
           notes: null,
         });
       });
@@ -301,7 +298,6 @@ describe('pay-rate-service', () => {
           superannuation_rate: 0.12,
           holiday_leave_loading_rate: 0.175,
           accrual_rate_per_week: 2.92,
-          starting_holiday_leave_balance: 0,
           notes: null,
         });
       });

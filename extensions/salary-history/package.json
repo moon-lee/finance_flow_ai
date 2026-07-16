@@ -90,7 +90,6 @@
           { "name": "superannuation_rate", "type": "real", "nullable": false, "default": 0.12, "min": 0 },
           { "name": "holiday_leave_loading_rate", "type": "real", "nullable": false, "default": 0.175, "min": 0 },
           { "name": "accrual_rate_per_week", "type": "real", "nullable": false, "default": 2.92, "min": 0 },
-          { "name": "starting_holiday_leave_balance", "type": "real", "nullable": false, "default": 0, "min": 0 },
           { "name": "notes", "type": "text", "nullable": true },
           { "name": "created_at", "type": "datetime", "nullable": false, "default": "now" },
           { "name": "updated_at", "type": "datetime", "nullable": false, "default": "now" }

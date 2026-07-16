@@ -446,9 +446,7 @@ export class PayslipForm extends LitElement {
       payg_withholding: Math.max(0, num(v.gross) - num(v.net)),
       superannuation_guarantee: 0,
     };
-    const prevBalance =
-      this.editPaySlip?.holiday_leave_accrual_hours ??
-      this._rate?.starting_holiday_leave_balance ?? 0;
+    const prevBalance = this.editPaySlip?.holiday_leave_accrual_hours ?? 0;
     const accrualRate = this._rate?.accrual_rate_per_week ?? 2.92;
     const holidayHours = num(v.holiday_hours);
     const accrual = calculateHolidayLeaveAccrual(prevBalance, holidayHours, accrualRate);

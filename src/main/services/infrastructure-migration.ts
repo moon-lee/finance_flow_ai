@@ -145,7 +145,6 @@ export const salaryHistoryRateHistoryMigration: Migration = {
         superannuation_rate             REAL    NOT NULL DEFAULT 0.12 CHECK (superannuation_rate >= 0 AND superannuation_rate <= 1),
         holiday_leave_loading_rate      REAL    NOT NULL DEFAULT 0.175 CHECK (holiday_leave_loading_rate >= 0),
         accrual_rate_per_week           REAL    NOT NULL DEFAULT 2.92 CHECK (accrual_rate_per_week >= 0),
-        starting_holiday_leave_balance  REAL    NOT NULL DEFAULT 0 CHECK (starting_holiday_leave_balance >= 0),
         notes                           TEXT,
         created_at                      TEXT    NOT NULL DEFAULT (datetime('now')),
         updated_at                      TEXT    NOT NULL DEFAULT (datetime('now'))
@@ -231,16 +230,20 @@ export const salaryHistoryPaySlipsHourInputsMigration: Migration = {
 };
 
 /**
- * Placeholder / no-op migration (was `008-salary-history-rate-history-drop-seed-balance`).
+ * Remove `starting_holiday_leave_balance` from `salary_history_rate_history`.
  *
- * The `starting_holiday_leave_balance` column on `salary_history_rate_history`
- * is now retained as the opening/seed balance for the holiday-leave accrual
- * chain, so this migration no longer drops it. Kept registered (as a no-op)
- * to preserve migration ordering for environments that already recorded it.
+ * The opening/seed holiday-leave balance is no longer stored on the rate row —
+ * the running balance is a cumulative chain across payslips
+ * (balance(N) = balance(N-1) − holiday_hours + accrual_rate), seeded from `0`
+ * for the first payslip. `ALTER TABLE DROP COLUMN` requires SQLite ≥ 3.35.0;
+ * guarded with a PRAGMA table_info check so re-running is a no-op once gone.
  */
 export const salaryHistoryRateHistoryDropSeedBalanceMigration: Migration = {
   name: '008-salary-history-rate-history-drop-seed-balance',
-  up: () => {
-    /* no-op: the seed-balance column is intentionally retained */
+  up: (db) => {
+    const columns = db.pragma('table_info(salary_history_rate_history)') as { name: string }[];
+    if (columns.some((c) => c.name === 'starting_holiday_leave_balance')) {
+      db.exec(`ALTER TABLE salary_history_rate_history DROP COLUMN starting_holiday_leave_balance`);
+    }
   }
 };

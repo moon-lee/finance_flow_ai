@@ -155,7 +155,6 @@ describe('Task 11.8 visual parity — component DOM vs approved mock', () => {
       'base_hourly_rate', 'standard_hours_per_week', 'shift_allowance_multiplier',
       'shift_allowance_hours_per_week', 'overtime_1_5_multiplier', 'overtime_2_0_multiplier',
       'superannuation_rate', 'holiday_leave_loading_rate', 'accrual_rate_per_week',
-      'starting_holiday_leave_balance',
     ].sort());
     soft(`rate-row-form: mock rate-field labels parsed = ${mockRateLabels.length}; component now renders the raw \`base_hourly_rate\`-style keys as primary labels with descriptive sublabels, matching the mock (12 vs 10 keys is the approved 10-canonical-field deviation, Finding 12)`);
   });

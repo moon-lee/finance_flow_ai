@@ -39,7 +39,6 @@ const NUMERIC_FIELDS = [
   'superannuation_rate',
   'holiday_leave_loading_rate',
   'accrual_rate_per_week',
-  'starting_holiday_leave_balance',
 ] as const;
 
 export type RateValidationResult =
@@ -133,7 +132,6 @@ export function buildDefaultRateRow(effectiveFrom: string): RateRowInput {
     superannuation_rate: 0.12,
     holiday_leave_loading_rate: 0.175,
     accrual_rate_per_week: 2.92,
-    starting_holiday_leave_balance: 0,
     notes: null,
   };
 }
