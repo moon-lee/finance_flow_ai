@@ -103,9 +103,14 @@ describe('PayslipList (Task 11.2)', () => {
     el.financialYearStart = '07-01';
     await el.updateComplete;
     const footer = el.shadowRoot.querySelector('[data-testid="ytd-footer"]').textContent;
-    expect(footer).toContain('300.00');
-    expect(footer).toContain('240.00');
+    // Gross/Net live in the KPI header (not duplicated in the footer).
     expect(el.shadowRoot.querySelector('[data-testid="kpi-gross"]').textContent).toContain('300.00');
+    expect(el.shadowRoot.querySelector('[data-testid="kpi-net"]').textContent).toContain('240.00');
+    // Footer chips show PAYG (60.00) + SG (36.00); Gross/Net must NOT appear.
+    expect(footer).toContain('60.00');
+    expect(footer).toContain('36.00');
+    expect(footer).not.toContain('300.00');
+    expect(footer).not.toContain('240.00');
   });
 
   it('Edit button dispatches payslip-edit-request', async () => {

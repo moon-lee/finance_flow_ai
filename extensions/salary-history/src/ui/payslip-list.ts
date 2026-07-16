@@ -103,7 +103,6 @@ export class PayslipList extends LitElement {
       .ytd-footer-head {
         display: flex;
         align-items: baseline;
-        justify-content: space-between;
         gap: 16px;
         flex-wrap: wrap;
       }
@@ -114,30 +113,6 @@ export class PayslipList extends LitElement {
         letter-spacing: 0.5px;
         color: var(--ff-teal);
       }
-      .ytd-footer-values {
-        display: grid;
-        grid-auto-flow: column;
-        grid-auto-columns: max-content;
-        justify-content: end;
-        gap: 12px 28px;
-        flex-wrap: wrap;
-      }
-      .ytd-footer-values .item {
-        display: flex;
-        align-items: baseline;
-        justify-content: flex-end;
-        text-align: right;
-        gap: 6px;
-        font-family: "SF Mono", Consolas, monospace;
-        font-size: 14px;
-      }
-      .ytd-footer-values .item .lbl {
-        color: var(--ff-text-muted);
-        font-size: 11px;
-        text-transform: uppercase;
-        letter-spacing: 0.3px;
-      }
-      .ytd-footer-values .item .val { color: var(--ff-text-strong); font-weight: 600; }
       .ytd-breakdown {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(178px, 1fr));
@@ -310,14 +285,18 @@ export class PayslipList extends LitElement {
   }
 
   /**
-   * Earnings-breakdown chips for the YTD footer. Each component is shown
-   * only when its YTD sum is materially > 0 (threshold 0.005 avoids
-   * floating-point `$0.00` chips). Keeps the footer clean when most
-   * components are zero.
+   * Earnings-breakdown chips for the YTD footer. Three summary chips
+   * (YTD PAYG, YTD SG, YTD Shift Allow) are always shown at the same
+   * level; the remaining components are shown only when their YTD sum is
+   * materially > 0 (threshold 0.005 avoids floating-point `$0.00` chips).
    */
   private _ytdBreakdownChips(ytd: YtdAggregate): unknown {
+    const summary: Array<[string, number, string]> = [
+      ['YTD PAYG', ytd.payg, 'payg'],
+      ['YTD SG', ytd.superannuation_guarantee, 'sg'],
+      ['YTD Shift Allow.', ytd.shift_allowance, 'shift-allowance'],
+    ];
     const components: Array<[string, number, string]> = [
-      ['YTD Shift Allowance', ytd.shift_allowance, 'shift-allowance'],
       ['Overtime 1.5', ytd.overtime_1_5x, 'overtime-1-5'],
       ['Overtime 2.0', ytd.overtime_2_0x, 'overtime-2-0'],
       ['Personal Leave', ytd.personal_leave, 'personal-leave'],
@@ -326,10 +305,11 @@ export class PayslipList extends LitElement {
       ['Public Holiday', ytd.public_holiday, 'public-holiday'],
     ];
     const active = components.filter(([, v]) => v > 0.005);
-    if (active.length === 0) return nothing;
+    const chips = [...summary, ...active];
+    if (chips.length === 0) return nothing;
     return html`
       <div class="ytd-breakdown" data-testid="ytd-breakdown">
-        ${active.map(
+        ${chips.map(
           ([label, value, key]) => html`
             <span class="ytd-chip" data-testid="ytd-chip-${key}">
               <span class="chip-label">${label}</span>
@@ -460,12 +440,6 @@ export class PayslipList extends LitElement {
               <div class="ytd-footer" data-testid="ytd-footer">
                 <div class="ytd-footer-head">
                   <span class="ytd-footer-label">▾ Year-to-Date (FY${this._fyLabel()} · ${total} payslips)</span>
-                  <div class="ytd-footer-values">
-                    <div class="item"><span class="lbl">YTD Gross</span><span class="val" data-testid="ytd-gross">${this._money(ytd.gross)}</span></div>
-                    <div class="item"><span class="lbl">YTD Net</span><span class="val" data-testid="ytd-net">${this._money(ytd.net)}</span></div>
-                    <div class="item"><span class="lbl">YTD PAYG</span><span class="val" data-testid="ytd-payg">${this._money(ytd.payg)}</span></div>
-                    <div class="item"><span class="lbl">YTD SG</span><span class="val" data-testid="ytd-sg">${this._money(ytd.superannuation_guarantee)}</span></div>
-                  </div>
                 </div>
                 ${this._ytdBreakdownChips(ytd)}
               </div>
