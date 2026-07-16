@@ -1533,6 +1533,8 @@ finance-flow-ai/
 
 **Test Unit 1: First-Run Account Seed** — Open the app fresh (delete `finance.db`), click the `P` Activity Bar icon, confirm the accounts-seed modal appears. Create an account named "Primary Salary". Confirm the modal closes and the payslip form renders with the account in the dropdown.
 
+> **TU1 comment (review 2026-07-17):** Manual GUI walk-through only — no automated counterpart. Prerequisite: empty `accounts` table forces the seed modal (orchestrator path `financeShell.accounts.create`). Validated by design against `accounts-seed-modal.ts` + payslip form dropdown wiring; user confirmed the first-run flow is correct. No code change required.
+
 Detailed manual procedure (requires the Electron GUI — cannot be automated):
 
 - [ ] 1.1 Fully close the app. Delete `%APPDATA%\Electron\finance.db` (and its `-wal` / `-shm` siblings) to force a fresh first run (empty `accounts` table).
@@ -1550,15 +1552,118 @@ Detailed manual procedure (requires the Electron GUI — cannot be automated):
 
 **Test Unit 2: Create a Payslip** — Fill the form (period 2026-01-01 → 2026-01-15, pay date 2026-01-20, gross 5000, net 3800, account "Primary Salary"). Submit. Confirm the row appears in the list. Open a SQLite browser; confirm the row exists in `salary_history_pay_slips` with the correct `account_id` foreign key.
 
+> **TU2 comment (review 2026-07-17):** Manual walk-through. The create path (`payslip-form` → `financeShell` insert) is covered by automated tests in `tests/unit/extensions/salary-history/ui/payslip-form.test.ts` and `dao/pay-slips.test.ts`. The FK integrity (`account_id` reference) is enforced by the migration `CHECK`/foreign-key schema; manual SQLite inspection is the final confirmation step. No code change required.
+
 **Test Unit 3: Edit a Payslip** — Click the Edit button on the row, change gross to 5200, save. Confirm the list re-renders. Verify the SQLite row's `gross` column updated and `updated_at` is newer than `created_at`.
+
+> **TU3 comment (review 2026-07-17):** Manual walk-through. The edit path maps to `dao-service.update` (stamps `updated_at` via `new Date().toISOString()` at `dao-service.ts:393`). **Timestamp note (verified 2026-07-17):** both `created_at`/`updated_at` are stored as ISO-8601 UTC (`YYYY-MM-DDTHH:MM:SS.sssZ`); the `datetime('now')` SQL default is never hit because the DAO always supplies explicit stamps. `updated_at` > `created_at` is guaranteed on edit. User confirmed "no problem, correct". No code change required.
 
 **Test Unit 4: Persistence Across Restart** — Note a payslip's id. Quit the app. Re-open. Click the `P` icon. Confirm the payslip is still in the list.
 
+> **TU4 comment (review 2026-07-17):** Manual walk-through. Persistence is a property of the on-disk SQLite store (WAL mode) — no in-memory state. Automated equivalent covered by `payslip-list.test.ts` render assertions. The restart check confirms the DB path (`%APPDATA%\Finance Flow AI\finance.db`) survives process exit. No code change required.
+
 **Test Unit 5: Year-to-Date Aggregation** — Open a DevTools console in the Renderer (Phase 3 Test Unit 4 plumbing works). Add 3 more payslips for the same financial year (FY starting 2025-07-01 per default settings). Confirm `pay-service.aggregateYearToDate()` returns `{ gross: <sum>, net: <sum>, count: 4 }` (visible via a temporary debug console.log in the extension, or via a manual SQL query in the SQLite browser). The YTD summary footer in `payslip-list.ts` should also render these aggregates.
+
+> **TU5 comment (review 2026-07-17):** Manual + partial-automated walk-through. `aggregateYearToDate` was extended during Phase 4 to sum 7 earnings fields (`pay-service.ts`) and the footer chip grid in `payslip-list.ts` renders them (always-shown: YTD PAYG, YTD SG, YTD Shift Allow.; conditional if >0.005: Overtime 1.5/2.0, Personal/Holiday Leave Loading, Holiday Pay, Public Holiday). Automated coverage: `pay-service.test.ts` (`aggregateYearToDate` expectations) and `payslip-list.test.ts` (footer chip assertion, no Gross/Net in footer). FY boundary uses `normalizeFinanceYear` so legacy `YYYY-YY` still aggregates. No code change required.
 
 **Test Unit 6: Namespace Enforcement (Negative Test)** — Open a SQLite browser. Insert a row into `extension_registry` with `id='tax-stub'` (simulating a different extension installed). Then from the salary-history Host, evaluate `finance.db.table('tax_deductions').find({})` (the table name has the `tax_` prefix, not `salary-history_`). Confirm the DAO returns `TableAccessDenied` because the prefix doesn't match the calling extension's id. Restore the `extension_registry` row to its original state after the test. (Rewritten per Review Finding 10 — Phase 4 has no Budget extension, so testing against `budget_items` would return `TableNotFound` instead of `TableAccessDenied`. The new test exercises the prefix-rejection branch directly via the registry seam.)
 
+#### TU6 — Detailed Procedure (Namespace Enforcement, negative test)
+
+**Goal:** Prove the DAO rejects a cross-extension table access attempt where the table prefix does not match the caller's extension id, returning `TableAccessDenied`.
+
+**Prerequisites**
+- The app is running (Dev mode: `npm run rebuild && npm start`, or `npm run dev`).
+- A SQLite browser (e.g. DB Browser for SQLite, or `sqlite3` CLI) pointed at the live DB path logged on launch: `[main] database path: ...` → `%APPDATA%\Finance Flow AI\finance.db`.
+- Access to the Renderer DevTools console in the salary-history Host context (Phase 3 Test Unit 4 plumbing exposes `finance.db` / `financeShell` on the host).
+
+**Steps**
+1. **Snapshot the registry.** Before mutating, record the current `extension_registry` rows so you can restore exactly:
+   ```sql
+   SELECT id, name, version, main, is_core, tables, permissions
+   FROM extension_registry;
+   ```
+   Save the full result set (e.g. copy to a temp file). This is required for the restore step.
+2. **Inject a foreign extension row.** Simulate a second extension `tax-stub` that owns a `tax_`-prefixed table. Insert a minimal row:
+   ```sql
+   INSERT INTO extension_registry
+     (id, name, version, main, is_core, tables, permissions)
+   VALUES
+     ('tax-stub', 'Tax Stub', '0.0.1', 'tax-stub/main.js', 0,
+      '["tax_deductions"]', '[]');
+   ```
+   (Only `id` and the existence of a `tax_`-prefixed owned table name matter for this test; the `tables` JSON array documents that `tax_deductions` belongs to `tax-stub`.)
+3. **Confirm the foreign table does not physically exist yet** (optional, sanity):
+   ```sql
+   SELECT name FROM sqlite_master WHERE type='table' AND name='tax_deductions';
+   ```
+   Expect no rows — the test exercises the *prefix-rejection* branch **before** any `TableNotFound` lookup, so the table need not exist.
+4. **From the salary-history Host, attempt cross-namespace access.** In the Renderer DevTools console (salary-history extension context, caller id = `salary-history`):
+   ```js
+   const res = await finance.db.table('tax_deductions').find({});
+   console.log(JSON.stringify(res));
+   ```
+5. **Expected result:** `res` is an error-shaped object (not data) with `error === 'TableAccessDenied'` (or the SDK-equivalent envelope). The DAO must reject because `'tax_deductions'` begins with `tax_`, which does not equal the caller's own prefix `salary-history_`. The prefix mismatch is detected **before** the table-existence check, so `TableNotFound` must NOT be returned.
+6. **Negative control (same-namespace allowed).** In the same console, confirm a legitimate owned-table call still succeeds:
+   ```js
+   const ok = await finance.db.table('salary-history_pay_slips').find({});
+   console.log('rows:', ok?.data?.length ?? ok?.length);
+   ```
+   Expect an array (possibly empty) — not a `TableAccessDenied` error.
+7. **Restore the registry.** Delete the injected row to leave the DB in its original state:
+   ```sql
+   DELETE FROM extension_registry WHERE id = 'tax-stub';
+   ```
+   Then re-run the step-1 `SELECT` and confirm the rowset matches the pre-test snapshot exactly.
+8. **Cleanup verification.** Re-run step 4; the injected row is gone, so behavior returns to baseline. No leftover `tax-stub` row, no `tax_deductions` table created.
+
+**Pass criteria:** Step 5 returns `TableAccessDenied` (not `TableNotFound`); step 6 returns data; step 7 restores the registry to its snapshot.
+
+**Notes (review 2026-07-17):** This test deliberately avoids `budget_items` (Review Finding 10) because Phase 4 has no Budget extension — a missing table would yield `TableNotFound` and would not exercise the prefix-rejection branch. The `tax-stub` registry seam isolates the prefix check. No production code change; this is a verification-only procedure.
+
 **Test Unit 7: Shared Accounts Read-Only** — In DevTools, from a temporary test extension that calls `finance.db.table('accounts').insert({ name: 'evil' })` directly (no `tables[]` manifest declaration needed for shared reads — `accounts` is in Core's `SHARED_FINANCIAL_DATA_TABLES` allowlist per Decision 4), confirm the response is a `SharedTableReadOnly` error. (Reworded per Review Finding 11 — the original "manifest read of `accounts`" phrasing was misleading because the `tables[]` manifest block is for OWNED tables, not for shared-read declarations.)
+
+#### TU7 — Detailed Procedure (Shared Accounts Read-Only)
+
+**Goal:** Prove that a shared Core table (`accounts`, in `SHARED_FINANCIAL_DATA_TABLES` per Decision 4) is readable by an extension but **rejects direct insert** with `SharedTableReadOnly`.
+
+**Prerequisites**
+- App running in Dev mode with Renderer DevTools available.
+- A throwaway test extension host (or the salary-history Host DevTools console) from which to issue the call. No `tables[]` manifest entry is required for shared reads — `accounts` is allowlisted by Core, not declared by the caller.
+- The `accounts` table already has ≥1 row (from TU1/TU2, or seed one).
+
+**Steps**
+1. **Confirm shared read works (baseline).** In the Host console:
+   ```js
+   const read = await finance.db.table('accounts').find({});
+   console.log('accounts readable:', JSON.stringify(read));
+   ```
+   Expect an array of account rows — proves the shared-read allowlist path is open.
+2. **Attempt a direct write to the shared table.** From the same Host (no `tables[]` ownership declaration for `accounts`):
+   ```js
+   const write = await finance.db.table('accounts').insert({ name: 'evil' });
+   console.log(JSON.stringify(write));
+   ```
+3. **Expected result:** `write` is an error-shaped object with `error === 'SharedTableReadOnly'` (or SDK-equivalent). The DAO must reject the insert because `accounts` is a Core-owned shared table exposed read-only to extensions — the caller is not the owner, so writes are denied regardless of whether a `tables[]` manifest entry exists.
+4. **Confirm no row was written.** In the SQLite browser:
+   ```sql
+   SELECT * FROM accounts WHERE name = 'evil';
+   ```
+   Expect **no rows** — the rejected insert must be a no-op (atomic rollback), leaving `accounts` unchanged.
+5. **Negative control — legitimate Core write path.** Confirm that the *approved* orchestrator path still works (this is how TU1 created the account):
+   ```js
+   const coreWrite = await financeShell.accounts.create({ name: 'Control', institution: 'NAB' });
+   console.log('core write ok:', JSON.stringify(coreWrite));
+   ```
+   Expect success — writes go through Core's owned `accounts:create` IPC, not the extension's direct `finance.db.table('accounts').insert`. (Delete the `Control` row afterward if you want a clean state.)
+6. **Restore state.** If step 5 created a `Control` row and you want exact pre-test parity:
+   ```sql
+   DELETE FROM accounts WHERE name = 'Control';
+   ```
+
+**Pass criteria:** Step 3 returns `SharedTableReadOnly`; step 4 shows no `evil` row was persisted; step 5 (control) succeeds via the Core IPC path, proving the rejection is scope-based (extension-direct-write), not a global lockout.
+
+**Notes (review 2026-07-17):** Reworded per Review Finding 11 — the original "manifest read of `accounts`" wording was misleading. `tables[]` in an extension manifest declares **owned** tables; shared reads of Core allowlisted tables (`accounts`) need no manifest entry. The enforcement point is the DAO write-guard keyed on `SHARED_FINANCIAL_DATA_TABLES`. Verification-only procedure; no production code change.
 
 **Test Unit 8: TypeScript Strict + Lint + Tests** — Run `npm run typecheck` (exit 0), `npm run lint` (exit 0), `npm run test:unit` (all ~181 tests pass: 65 Phase 3 + ~116 Phase 4).
 
