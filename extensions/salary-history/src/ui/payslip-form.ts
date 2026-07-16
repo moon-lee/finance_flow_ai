@@ -151,7 +151,24 @@ export class PayslipForm extends LitElement {
       }
       .reorder-btn:hover { border-color: #007acc; color: #d4d4d4; }
       input[readonly], input:disabled { background: #2a2a2a; color: #858585; font-style: italic; }
-      .read-only-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px; }
+      .read-only-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; font-size: 13px; }
+      .edit-balance-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 0; }
+      .edit-balance-row.balance-divider { border-top: 1px solid #3e3e3e; margin-top: 4px; padding-top: 8px; }
+      .edit-balance-label { color: #d4d4d4; font-size: 13px; }
+      .edit-balance-label .hint { color: #858585; font-weight: normal; font-size: 12px; }
+      .edit-balance-input {
+        width: 160px;
+        text-align: right;
+        background: #3c3c3c;
+        color: #d4d4d4;
+        border: 1px solid #3e3e3e;
+        border-radius: 3px;
+        padding: 6px 10px;
+        font-size: 13px;
+        font-family: 'SF Mono', Consolas, monospace;
+        outline: none;
+      }
+      .edit-balance-input:focus { border-color: #007acc; }
       .read-only-row .label { color: #858585; font-family: 'SF Mono', Consolas, monospace; font-size: 12px; }
       .read-only-row .value { color: #d4d4d4; font-family: 'SF Mono', Consolas, monospace; }
       .toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; }
@@ -241,7 +258,7 @@ export class PayslipForm extends LitElement {
   @state()
   _referenceLoaded = false;
 
-  /** Stored `holiday_leave_accrual_hours` of the chronologically previous payslip (edit mode only). */
+  /** Stored `holiday_leave_accrual_hours` of the chronologically previous payslip (edit mode only, read-only display). */
   _predecessorBalance: number | null = null;
 
   /**
@@ -258,21 +275,6 @@ export class PayslipForm extends LitElement {
     ]);
     const rates = (rateRows as RateRow[]).filter((r) => r.effective_to === null);
     this._rate = rates.length > 0 ? rates[0] : null;
-    if (this.editPaySlip) {
-      const predecessorRows = (await this.finance.db
-        .table('salary_history_pay_slips')
-        .find({
-          account_id: this.editPaySlip.account_id,
-          pay_date: { $lt: this.editPaySlip.pay_date },
-        })) as Array<{ pay_date: string; holiday_leave_accrual_hours: number }>;
-      const predecessor = predecessorRows
-        .slice()
-        .sort((a, b) => (a.pay_date < b.pay_date ? 1 : a.pay_date > b.pay_date ? -1 : 0))[0] as
-        | { pay_date: string; holiday_leave_accrual_hours: number }
-        | undefined;
-      this._predecessorBalance = predecessor ? predecessor.holiday_leave_accrual_hours : null;
-      this._values = { ...this._values, previous_balance: String(this._predecessorBalance ?? 0) };
-    }
     if (this.accounts.length === 0) {
       this.accounts = (accountRows as { id: number; name: string; institution: string | null }[]).map(
         (a) => ({ id: a.id, name: a.name, institution: a.institution }),
@@ -281,6 +283,8 @@ export class PayslipForm extends LitElement {
 
     // Seed sensible defaults for a fresh (non-edit) form. Edit mode has already
     // populated `_values` via `_prefillFromEdit`, so these only fill empties.
+    // These MUST run before the predecessor query below so the query uses the
+    // real account_id / pay_date rather than the empty initial values.
     if (!this.editPaySlip) {
       const seed: Partial<FormValues> = {};
       if (!this._values.pay_date) seed.pay_date = todayISO();
@@ -300,6 +304,12 @@ export class PayslipForm extends LitElement {
         this._values = { ...this._values, ...seed };
       }
     }
+
+    // Best-guess "previous balance": the chronologically previous payslip's
+    // stored balance (same account). Used as the editable seed in CREATE mode
+    // and as the read-only display in EDIT mode. `_refreshPredecessor` also
+    // re-seeds when the user changes the account in create mode.
+    await this._refreshPredecessor();
 
     this._referenceLoaded = true;
     await this.recompute();
@@ -328,7 +338,11 @@ export class PayslipForm extends LitElement {
       holiday_hours: String(p.holiday_hours),
       public_holiday_hours: String(p.public_holiday_hours),
       personal_leave_hours: String(p.personal_leave_hours),
-      previous_balance: '0',
+      // In edit mode the editable "Previous balance" input carries the stored
+      // New balance of THIS row. It is the source of truth on save (no calc
+      // is applied in edit mode), so it must be reversible: the user can
+      // correct the balance directly here.
+      previous_balance: money2(p.holiday_leave_accrual_hours),
     };
   }
 
@@ -428,6 +442,33 @@ export class PayslipForm extends LitElement {
     const target = e.target as HTMLSelectElement;
     const id = Number(target.value);
     this._values = { ...this._values, account_id: Number.isFinite(id) ? id : null };
+    // Re-seed the best-guess previous balance for the newly selected account
+    // (CREATE mode only — edit mode shows the row's own stored balance).
+    if (!this.editPaySlip) void this._refreshPredecessor();
+  }
+
+  /** Query the chronologically previous payslip for the current account/date. */
+  private async _refreshPredecessor(): Promise<void> {
+    if (!this.finance) return;
+    const predecessorRows = (await this.finance.db
+      .table('salary_history_pay_slips')
+      .find({
+        account_id: this._values.account_id,
+        pay_date: { $lt: this._values.pay_date },
+      })) as Array<{ pay_date: string; holiday_leave_accrual_hours: number }>;
+    const predecessor = predecessorRows
+      .slice()
+      .sort((a, b) => (a.pay_date < b.pay_date ? 1 : a.pay_date > b.pay_date ? -1 : 0))[0] as
+      | { pay_date: string; holiday_leave_accrual_hours: number }
+      | undefined;
+    this._predecessorBalance = predecessor ? predecessor.holiday_leave_accrual_hours : null;
+    if (!this.editPaySlip) {
+      this._values = {
+        ...this._values,
+        previous_balance: String(this._predecessorBalance ?? 0),
+      };
+    }
+    await this.recompute();
   }
 
   private _toggleHours(): void {
@@ -470,7 +511,12 @@ export class PayslipForm extends LitElement {
     const prevBalance = num(v.previous_balance);
     const accrualRate = this._rate?.accrual_rate_per_week ?? 2.92;
     const holidayHours = num(v.holiday_hours);
-    const accrual = calculateHolidayLeaveAccrual(prevBalance, holidayHours, accrualRate);
+    // In EDIT mode the stored New balance is the source of truth: no
+    // calculation is re-applied (the user may have corrected it). The editable
+    // "Previous balance" input holds that stored value and is saved verbatim.
+    const accrual = this.editPaySlip
+      ? num(v.previous_balance)
+      : calculateHolidayLeaveAccrual(prevBalance, holidayHours, accrualRate);
 
     return {
       account_id: v.account_id ?? 0,
@@ -674,9 +720,34 @@ export class PayslipForm extends LitElement {
     const newBalance = this._buildInput().holiday_leave_accrual_hours;
     const holidayHours = num(this._values.holiday_hours);
     const rate = this._rate?.accrual_rate_per_week ?? 2.92;
+    if (this.editPaySlip) {
+      // EDIT mode: Previous balance is read-only; New balance (at its original
+      // bottom position) is an editable input pre-filled from the stored
+      // holiday_leave_accrual_hours of this row and saved verbatim (no calc).
+      return html`
+        <div class="read-only-row"><span class="label">Previous balance</span><span class="value" data-testid="display-previous_balance">${(this._predecessorBalance ?? 0).toFixed(2)} h</span></div>
+        <div class="read-only-row"><span class="label">− Holiday leave taken</span><span class="value">${holidayHours.toFixed(2)} h</span></div>
+        <div class="read-only-row"><span class="label">+ Weekly accrual</span><span class="value">${rate} h</span></div>
+        <div class="edit-balance-row balance-divider">
+          <label class="edit-balance-label" for="input-new_balance">New balance <span class="hint">(editable)</span></label>
+          <input
+            id="input-new_balance"
+            class="edit-balance-input"
+            data-testid="input-new_balance"
+            type="number"
+            step="0.01"
+            .value="${this._values.previous_balance ?? '0'}"
+            @input="${(e: Event) => this._onInput('previous_balance', e)}"
+          />
+        </div>
+      `;
+    }
     return html`
-      <div class="field field-full"><label>Previous balance <span style="color:#858585;font-style:normal;">(editable — correct if wrong)</span></label>
+      <div class="edit-balance-row">
+        <label class="edit-balance-label" for="input-previous_balance">Previous balance <span class="hint">(editable — correct if wrong)</span></label>
         <input
+          id="input-previous_balance"
+          class="edit-balance-input"
           data-testid="input-previous_balance"
           type="number"
           step="0.01"
@@ -686,7 +757,7 @@ export class PayslipForm extends LitElement {
       </div>
       <div class="read-only-row"><span class="label">− Holiday leave taken</span><span class="value">${holidayHours.toFixed(2)} h</span></div>
       <div class="read-only-row"><span class="label">+ Weekly accrual</span><span class="value">${rate} h</span></div>
-      <div class="read-only-row" style="border-top:1px solid #3e3e3e;padding-top:6px;margin-top:4px;"><span class="label"><strong>New balance</strong></span><span class="value"><strong data-testid="accrual-new">${newBalance.toFixed(2)} h</strong></span></div>
+      <div class="read-only-row balance-divider"><span class="label"><strong>New balance</strong></span><span class="value"><strong data-testid="accrual-new">${newBalance.toFixed(2)} h</strong></span></div>
     `;
   }
 

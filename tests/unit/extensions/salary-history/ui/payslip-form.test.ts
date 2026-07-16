@@ -24,6 +24,7 @@ interface FormEl extends UiEl {
   _values: Record<string, unknown>;
   _rate: RateRow | null;
   _breakdown: unknown;
+  editPaySlip: unknown;
   _onSubmit(e: Event): void;
 }
 
@@ -106,6 +107,113 @@ describe('PayslipForm (Task 11.1)', () => {
     expect(detail.input.shift_allowance).toBe(38 * 40 * 0.15);
     expect(detail.input.payg_withholding).toBe(1200);
     expect(detail.input.superannuation_guarantee).toBe(5000 * 0.12);
+  });
+
+  it('editing Previous balance flows into the saved holiday_leave_accrual_hours', async () => {
+    const el = makeEl();
+    el.finance = makeMockFinance({ rates: [RATE], accounts: [{ id: 1, name: 'Primary' }] });
+    await el.loadReferenceData();
+    el._values = {
+      pay_date: '2026-01-15',
+      finance_year: '2025-26',
+      account_id: 1,
+      gross: '5000',
+      net: '3800',
+      notes: '',
+      regular_hours: '38',
+      shift_hours: '38',
+      overtime_1_5_hours: '0',
+      overtime_2_0_hours: '0',
+      holiday_hours: '0',
+      public_holiday_hours: '0',
+      personal_leave_hours: '0',
+      previous_balance: '100',
+    };
+    await el.recompute();
+    await el.updateComplete;
+
+    // Simulate the user editing the Previous balance input.
+    const input = el.shadowRoot.querySelector('[data-testid="input-previous_balance"]') as HTMLInputElement;
+    expect(input).toBeTruthy();
+    input.value = '200';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    await el.updateComplete;
+
+    const newBalanceText = el.shadowRoot
+      .querySelector('[data-testid="accrual-new"]')
+      ?.textContent?.trim();
+    // 200 - 0 + 2.92 = 202.92
+    expect(newBalanceText).toContain('202.92');
+
+    let captured: unknown = null;
+    el.addEventListener('payslip-create', (e: Event) => {
+      captured = (e as CustomEvent).detail;
+    });
+    el._onSubmit(new Event('submit'));
+    const detail = captured as { input: Record<string, unknown> };
+    expect(detail.input.holiday_leave_accrual_hours).toBeCloseTo(202.92, 2);
+  });
+
+  it('edit mode: New balance is the stored value (no calc) and is editable + saved verbatim', async () => {
+    const el = makeEl();
+    el.finance = makeMockFinance({ rates: [RATE], accounts: [{ id: 1, name: 'Primary' }] });
+    el.editPaySlip = {
+      id: 5,
+      account_id: 1,
+      pay_date: '2026-07-09',
+      finance_year: '2025-26',
+      gross: 423.69,
+      net: 350,
+      currency: 'AUD',
+      shift_allowance: 0,
+      base_hourly: 0,
+      overtime_1_5x: 0,
+      overtime_2_0x: 0,
+      holiday_leave_loading: 0,
+      holiday_pay: 0,
+      public_holiday: 0,
+      payg_withholding: 0,
+      superannuation_guarantee: 0,
+      personal_leave: 0,
+      regular_hours: 38,
+      shift_hours: 38,
+      overtime_1_5_hours: 0,
+      overtime_2_0_hours: 0,
+      holiday_hours: 5,
+      public_holiday_hours: 0,
+      personal_leave_hours: 0,
+      holiday_leave_accrual_hours: 423.69,
+      notes: null,
+    } as never;
+    (el as unknown as { _prefillFromEdit: () => void })._prefillFromEdit();
+    await el.loadReferenceData();
+    await el.updateComplete;
+
+    // The calc-derived "New balance" read-only line must NOT be present.
+    expect(el.shadowRoot.querySelector('[data-testid="accrual-new"]')).toBeFalsy();
+
+    // Previous balance is read-only (display only).
+    const prevDisplay = el.shadowRoot.querySelector('[data-testid="display-previous_balance"]') as HTMLElement;
+    expect(prevDisplay).toBeTruthy();
+
+    // The editable New balance input carries the stored value.
+    const input = el.shadowRoot.querySelector('[data-testid="input-new_balance"]') as HTMLInputElement;
+    expect(input).toBeTruthy();
+    expect(input.value).toBe('423.69');
+
+    // Editing it changes the saved value — NOT recalculated from it.
+    input.value = '500';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    await el.updateComplete;
+
+    let captured: unknown = null;
+    el.addEventListener('payslip-edit', (e: Event) => {
+      captured = (e as CustomEvent).detail;
+    });
+    el._onSubmit(new Event('submit'));
+    const detail = captured as { id: number; input: Record<string, unknown> };
+    expect(detail.id).toBe(5);
+    expect(detail.input.holiday_leave_accrual_hours).toBe(500);
   });
 
   it('recomputes the breakdown preview on input change', async () => {
