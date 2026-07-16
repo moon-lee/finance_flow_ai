@@ -6,6 +6,8 @@ export interface PaletteCommand {
   label: string;
   /** If true, this is an extension command and we forward the click to Main. */
   extensionCommand?: boolean;
+  /** Optional keyboard shortcut shown right-aligned in the row (e.g. "Ctrl+Alt+H"). */
+  keybinding?: string;
 }
 
 const BUILT_IN_COMMANDS: PaletteCommand[] = [
@@ -53,6 +55,43 @@ export class CommandPalette extends LitElement {
 
     .palette-item.selected {
       background: var(--accent);
+      color: #ffffff;
+    }
+
+    .palette-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .palette-item .label-text {
+      flex: 1 1 auto;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .keybinding {
+      flex: 0 0 auto;
+      display: inline-flex;
+      gap: 2px;
+    }
+
+    .keybinding kbd {
+      font-family: 'SF Mono', Consolas, monospace;
+      font-size: 10px;
+      line-height: 1;
+      padding: 2px 5px;
+      border-radius: 4px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      background: rgba(255, 255, 255, 0.06);
+      color: #cbd5e1;
+    }
+
+    .palette-item.selected .keybinding kbd {
+      border-color: rgba(255, 255, 255, 0.4);
+      background: rgba(255, 255, 255, 0.14);
       color: #ffffff;
     }
 
@@ -155,6 +194,13 @@ export class CommandPalette extends LitElement {
     }));
   }
 
+  /** Renders an "Ctrl+Alt+H" keybinding as a row of <kbd> key caps. */
+  private _renderKeybinding(item: PaletteCommand) {
+    if (!item.keybinding) return '';
+    const keys = item.keybinding.split('+');
+    return html`<span class="keybinding">${keys.map((k) => html`<kbd>${k}</kbd>`)}</span>`;
+  }
+
   render() {
     const builtIn = this._builtInFiltered;
     const extension = this._extensionFiltered;
@@ -177,7 +223,7 @@ export class CommandPalette extends LitElement {
             aria-selected="${index === this._selectedIndex}"
             @click="${() => this._selectItem(item)}"
             @mouseenter="${() => this._selectedIndex = index}"
-          >${item.label}</div>
+          ><span class="label-text">${item.label}</span>${this._renderKeybinding(item)}</div>
         `)}
         ${extension.length > 0 ? html`<div class="group-label">Extensions</div>` : ''}
         ${extension.map((item, i) => {
@@ -189,9 +235,9 @@ export class CommandPalette extends LitElement {
               aria-selected="${index === this._selectedIndex}"
               @click="${() => this._selectItem(item)}"
               @mouseenter="${() => this._selectedIndex = index}"
-            >${item.label}</div>
-          `;
-        })}
+             ><span class="label-text">${item.label}</span>${this._renderKeybinding(item)}</div>
+           `;
+         })}
       </div>
     `;
   }

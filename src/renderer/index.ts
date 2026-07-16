@@ -105,7 +105,8 @@ async function loadExtensionContributions(): Promise<void> {
       commandPalette.extensionCommands = contributions.commands.map((c) => ({
         id: c.command.id,
         label: c.command.title,
-        extensionCommand: true
+        extensionCommand: true,
+        keybinding: c.command.keybinding
       }));
     }
   } catch (err) {
@@ -206,5 +207,29 @@ window.addEventListener('keydown', (event) => {
     toggleAiPanel();
   }
 
+  // Extension command shortcuts (Decision 17, bound per user request).
+  // Ctrl+Alt+H → Pay History, Ctrl+Alt+R → Pay Rate History.
+  if (commandKey && event.altKey && event.key.toLowerCase() === 'h') {
+    event.preventDefault();
+    executeExtensionCommand('salary.show-pay-history');
+  }
+  if (commandKey && event.altKey && event.key.toLowerCase() === 'r') {
+    event.preventDefault();
+    executeExtensionCommand('salary.show-pay-rate-history');
+  }
+
   if (event.key === 'Escape') setCommandPaletteVisible(false);
 });
+
+/** Forwards an extension command id to Main via the same path as palette selection. */
+function executeExtensionCommand(commandId: string): void {
+  window.financeShell?.extensions
+    .executeCommand(commandId)
+    .then((result) => {
+      if (result && !result.executed) {
+        console.warn(`[shortcut] extension command "${commandId}" did not execute: ${result.reason ?? 'unknown reason'}`);
+      }
+    })
+    .catch((err) => console.error(`[shortcut] extension command "${commandId}" threw:`, err));
+  setCommandPaletteVisible(false);
+}

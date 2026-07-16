@@ -59,14 +59,16 @@ export interface PaySlip {
   readonly payg_withholding: number;
   readonly superannuation_guarantee: number;
   readonly personal_leave: number;
-  // Hour inputs (Plan Amendment 6: only 4 are persisted;
-  // `holiday_hours` and `personal_leave_hours` are transient form
-  // inputs that never reach the DAO):
+  // Hour inputs (all 6 persisted; `holiday_hours` and
+  // `personal_leave_hours` moved from transient form inputs to stored
+  // columns so payslips round-trip on edit — see migration 007):
   readonly regular_hours: number;
   readonly shift_hours: number;
   readonly overtime_1_5_hours: number;
   readonly overtime_2_0_hours: number;
+  readonly holiday_hours: number;
   readonly public_holiday_hours: number;
+  readonly personal_leave_hours: number;
   // Leave accrual balance:
   readonly holiday_leave_accrual_hours: number;
   readonly notes: string | null;

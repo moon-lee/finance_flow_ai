@@ -81,7 +81,9 @@ const SALARY_HISTORY_PAY_SLIPS = {
     { name: 'shift_hours', type: 'real' as const, nullable: false, default: 0, min: 0 },
     { name: 'overtime_1_5_hours', type: 'real' as const, nullable: false, default: 0, min: 0 },
     { name: 'overtime_2_0_hours', type: 'real' as const, nullable: false, default: 0, min: 0 },
+    { name: 'holiday_hours', type: 'real' as const, nullable: false, default: 0, min: 0 },
     { name: 'public_holiday_hours', type: 'real' as const, nullable: false, default: 0, min: 0 },
+    { name: 'personal_leave_hours', type: 'real' as const, nullable: false, default: 0, min: 0 },
     { name: 'notes', type: 'text' as const, nullable: true },
     { name: 'created_at', type: 'datetime' as const, nullable: false, default: 'now' },
     { name: 'updated_at', type: 'datetime' as const, nullable: false, default: 'now' }

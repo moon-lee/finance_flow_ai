@@ -51,7 +51,6 @@ export interface RateRow {
   readonly superannuation_rate: number;
   readonly holiday_leave_loading_rate: number;
   readonly accrual_rate_per_week: number;
-  readonly starting_holiday_leave_balance: number;
   readonly notes: string | null;
   readonly created_at?: string;
   readonly updated_at?: string;

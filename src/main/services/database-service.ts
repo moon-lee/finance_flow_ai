@@ -8,6 +8,8 @@ import {
   salaryHistoryPaySlipsMigration,
   salaryHistoryRateHistoryMigration,
   salaryHistoryRateHistorySingleCurrentMigration,
+  salaryHistoryPaySlipsHourInputsMigration,
+  salaryHistoryRateHistoryDropSeedBalanceMigration,
 } from './infrastructure-migration';
 
 // Phase 2 has no rollback requirement; the `down` callback is
@@ -161,6 +163,8 @@ export function registerAllMigrations(): void {
   registerMigration(salaryHistoryPaySlipsMigration);
   registerMigration(salaryHistoryRateHistoryMigration);
   registerMigration(salaryHistoryRateHistorySingleCurrentMigration);
+  registerMigration(salaryHistoryPaySlipsHourInputsMigration);
+  registerMigration(salaryHistoryRateHistoryDropSeedBalanceMigration);
 }
 
 export function getTestDatabase(): BetterSqlite3.Database {

@@ -38,7 +38,6 @@ const RATE_FIELDS: RateFieldDef[] = [
   { key: 'superannuation_rate', label: 'Superannuation rate' },
   { key: 'holiday_leave_loading_rate', label: 'Holiday leave loading rate' },
   { key: 'accrual_rate_per_week', label: 'Accrual rate / week' },
-  { key: 'starting_holiday_leave_balance', label: 'Starting holiday leave balance' },
 ];
 
 /** Mock-faithful descriptive sublabels (rate-row-form.html). */
@@ -52,7 +51,6 @@ const RATE_FIELD_HINTS: Record<string, string> = {
   superannuation_rate: '(ATO mandate; current 12%)',
   holiday_leave_loading_rate: '(default 0.175 = 17.5%)',
   accrual_rate_per_week: '(default 2.92 hours)',
-  starting_holiday_leave_balance: '(default 0 hours)',
 };
 
 const DEFAULTS: Partial<Record<keyof RateRow, number | string | null>> = {
@@ -65,7 +63,6 @@ const DEFAULTS: Partial<Record<keyof RateRow, number | string | null>> = {
   superannuation_rate: 0.12,
   holiday_leave_loading_rate: 0.175,
   accrual_rate_per_week: 2.92,
-  starting_holiday_leave_balance: 0,
   notes: '',
 };
 
@@ -229,7 +226,7 @@ export class RateRowForm extends LitElement {
     return html`
       <div class="field ${changed ? 'field-changed' : ''}" data-testid="field-${key}">
         <label for="input-${key}">
-          <span class="label-main">${key}</span>
+          <span class="label-main">${key.replace(/_/g, ' ')}</span>
           ${sublabel ? html`<span class="label-sub">${sublabel}</span>` : ''}
         </label>
         <input id="input-${key}" data-testid="input-${key}" type="number" step="any" min="0"

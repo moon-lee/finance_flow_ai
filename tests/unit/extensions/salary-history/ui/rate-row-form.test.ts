@@ -42,7 +42,6 @@ const CURRENT: RateRow = {
   superannuation_rate: 0.12,
   holiday_leave_loading_rate: 0.175,
   accrual_rate_per_week: 2.92,
-  starting_holiday_leave_balance: 20,
   notes: null,
 };
 

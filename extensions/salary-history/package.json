@@ -21,11 +21,13 @@
       "commands": [
         {
           "id": "salary.show-pay-history",
-          "title": "View: Pay History"
+          "title": "View: Pay History",
+          "keybinding": "Ctrl+Alt+H"
         },
         {
           "id": "salary.show-pay-rate-history",
-          "title": "View: Pay Rate History"
+          "title": "View: Pay Rate History",
+          "keybinding": "Ctrl+Alt+R"
         }
       ],
       "configuration": [
@@ -65,7 +67,9 @@
           { "name": "shift_hours", "type": "real", "nullable": false, "default": 0, "min": 0 },
           { "name": "overtime_1_5_hours", "type": "real", "nullable": false, "default": 0, "min": 0 },
           { "name": "overtime_2_0_hours", "type": "real", "nullable": false, "default": 0, "min": 0 },
+          { "name": "holiday_hours", "type": "real", "nullable": false, "default": 0, "min": 0 },
           { "name": "public_holiday_hours", "type": "real", "nullable": false, "default": 0, "min": 0 },
+          { "name": "personal_leave_hours", "type": "real", "nullable": false, "default": 0, "min": 0 },
           { "name": "notes", "type": "text", "nullable": true },
           { "name": "created_at", "type": "datetime", "nullable": false, "default": "now" },
           { "name": "updated_at", "type": "datetime", "nullable": false, "default": "now" }
@@ -86,7 +90,6 @@
           { "name": "superannuation_rate", "type": "real", "nullable": false, "default": 0.12, "min": 0 },
           { "name": "holiday_leave_loading_rate", "type": "real", "nullable": false, "default": 0.175, "min": 0 },
           { "name": "accrual_rate_per_week", "type": "real", "nullable": false, "default": 2.92, "min": 0 },
-          { "name": "starting_holiday_leave_balance", "type": "real", "nullable": false, "default": 0, "min": 0 },
           { "name": "notes", "type": "text", "nullable": true },
           { "name": "created_at", "type": "datetime", "nullable": false, "default": "now" },
           { "name": "updated_at", "type": "datetime", "nullable": false, "default": "now" }

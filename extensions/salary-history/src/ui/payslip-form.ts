@@ -89,6 +89,7 @@ interface FormValues {
   holiday_hours: string;
   public_holiday_hours: string;
   personal_leave_hours: string;
+  previous_accrual_balance: string;
 }
 
 const EMPTY_VALUES: FormValues = {
@@ -100,17 +101,28 @@ const EMPTY_VALUES: FormValues = {
   notes: '',
   regular_hours: '',
   shift_hours: '',
-  overtime_1_5_hours: '',
-  overtime_2_0_hours: '',
-  holiday_hours: '',
-  public_holiday_hours: '',
-  personal_leave_hours: '',
+  overtime_1_5_hours: '0',
+  overtime_2_0_hours: '0',
+  holiday_hours: '0',
+  public_holiday_hours: '0',
+  personal_leave_hours: '0',
+  previous_accrual_balance: '0',
 };
 
 function num(v: string): number {
   if (v.trim() === '') return 0;
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
+}
+
+/** Format a monetary amount to a fixed 2-decimal string (e.g. 1616.9 → "1616.90"). */
+function money2(n: number): string {
+  if (!Number.isFinite(n)) return '0.00';
+  return n.toFixed(2);
+}
+
+function todayISO(): string {
+  return new Date().toISOString().slice(0, 10);
 }
 
 @customElement('payslip-form')
@@ -143,7 +155,15 @@ export class PayslipForm extends LitElement {
       .read-only-row .label { color: #858585; font-family: 'SF Mono', Consolas, monospace; font-size: 12px; }
       .read-only-row .value { color: #d4d4d4; font-family: 'SF Mono', Consolas, monospace; }
       .toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; }
-      .toggle { cursor: pointer; color: #6da3d6; }
+      .toggle-btn {
+        display: inline-flex; align-items: center; gap: 6px;
+        cursor: pointer; color: #6da3d6;
+        background: #1e1e1e; border: 1px solid #3e3e3e; border-radius: 4px;
+        padding: 6px 12px; font-size: 13px; line-height: 1;
+      }
+      .toggle-btn:hover { background: #2a2a2a; border-color: #6da3d6; }
+      .toggle-icon { font-size: 16px; line-height: 1; transform: translateY(1px); }
+      .toggle-text { font-weight: 500; }
       .hours-block { background: #1e1e1e; border: 1px solid #3e3e3e; border-radius: 4px; padding: 12px; margin-top: 12px; }
       .hours-block-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; color: #858585; margin-bottom: 8px; }
       .amber { background: #4a3c00; border: 1px solid #cca700; color: #e8d28a; border-radius: 4px; padding: 8px 10px; margin: 8px 0; font-size: 12px; }
@@ -194,6 +214,26 @@ export class PayslipForm extends LitElement {
   @property({ attribute: false })
   editPaySlip: PaySlip | null = null;
 
+  /**
+   * Running-balance seed for the accrual preview.
+   *
+   * In CREATE mode: the orchestrator supplies the previous payslip's stored
+   * balance when one exists; when there is no prior payslip the value is
+   * undefined and the form defaults the editable "Previous balance" input to
+   * `0` (no seed balance per user request).
+   *
+   * In EDIT mode the orchestrator supplies the **chronologically previous**
+   * payslip's stored `holiday_leave_accrual_hours` — NOT this row's own
+   * stored value. Using the row's own stored value would re-apply the
+   * holiday-hours deduction + weekly accrual on top of an already-derived
+   * balance, double-counting on every save (the self-reference bug).
+   *
+   * The user may override the seeded value via the editable "Previous
+   * balance" input (B-3); only the resulting new balance is persisted.
+   */
+  @property({ attribute: false })
+  previousAccrualBalance: number | undefined = undefined;
+
   @state()
   _values: FormValues = { ...EMPTY_VALUES };
 
@@ -240,6 +280,35 @@ export class PayslipForm extends LitElement {
         (a) => ({ id: a.id, name: a.name, institution: a.institution }),
       );
     }
+
+    // Seed sensible defaults for a fresh (non-edit) form. Edit mode has already
+    // populated `_values` via `_prefillFromEdit`, so these only fill empties.
+    if (!this.editPaySlip) {
+      const seed: Partial<FormValues> = {};
+      if (!this._values.pay_date) seed.pay_date = todayISO();
+      // Primary salary account = first active account.
+      if (this._values.account_id === null && this.accounts.length > 0) {
+        seed.account_id = this.accounts[0].id;
+      }
+      // Default regular hours to a standard full-time week (rate's
+      // standard_hours_per_week when available, else 38). Rule 1: shift
+      // hours mirror regular. Leave hours stay 0 (rule 3 drivers).
+      if (!this._values.regular_hours) {
+        const regular = String(this._rate?.standard_hours_per_week ?? 38);
+        seed.regular_hours = regular;
+        if (!this._values.shift_hours) seed.shift_hours = regular;
+      }
+      // Seed the editable "Previous balance": predecessor's stored balance if
+      // one exists (B-2), else 0 (no seed balance per user request).
+      if (this._values.previous_accrual_balance === undefined || this._values.previous_accrual_balance === '') {
+        seed.previous_accrual_balance =
+          this.previousAccrualBalance !== undefined ? String(this.previousAccrualBalance) : '0';
+      }
+      if (Object.keys(seed).length > 0) {
+        this._values = { ...this._values, ...seed };
+      }
+    }
+
     this._referenceLoaded = true;
     await this.recompute();
   }
@@ -257,16 +326,22 @@ export class PayslipForm extends LitElement {
       pay_date: p.pay_date,
       finance_year: p.finance_year,
       account_id: p.account_id,
-      gross: String(p.gross),
-      net: String(p.net),
+      gross: money2(p.gross),
+      net: money2(p.net),
       notes: p.notes ?? '',
       regular_hours: String(p.regular_hours),
       shift_hours: String(p.shift_hours),
       overtime_1_5_hours: String(p.overtime_1_5_hours),
       overtime_2_0_hours: String(p.overtime_2_0_hours),
-      holiday_hours: '',
+      holiday_hours: String(p.holiday_hours),
       public_holiday_hours: String(p.public_holiday_hours),
-      personal_leave_hours: '',
+      personal_leave_hours: String(p.personal_leave_hours),
+      // Seed the editable "Previous balance" from the orchestrator-supplied
+      // predecessor balance (or 0 if this is the first payslip). This row's
+      // own stored balance is the calc OUTPUT and is never re-fed as input.
+      previous_accrual_balance: this.previousAccrualBalance !== undefined
+        ? String(this.previousAccrualBalance)
+        : '0',
     };
   }
 
@@ -328,7 +403,37 @@ export class PayslipForm extends LitElement {
 
   private _onInput(field: keyof FormValues, e: Event): void {
     const target = e.target as HTMLInputElement;
-    this._values = { ...this._values, [field]: target.value };
+    const next: Partial<FormValues> = { [field]: target.value as never };
+    const v = this._values;
+
+    // Rule 1: shift hours mirror regular hours.
+    if (field === 'regular_hours') {
+      next.shift_hours = target.value;
+    }
+
+    // Rule 3: regular = standard week − (holiday + public holiday + personal leave).
+    // When any leave field changes, re-derive regular (and shift follows it).
+    // Build the leave sum from the NEW values — use the just-entered value for
+    // the field being edited, and the (already-updated) current value for the
+    // others. Adding target.value on top of v[field] double-counts the edited
+    // field (it already holds its prior value in the stale snapshot).
+    const LEAVE_FIELDS: ReadonlyArray<keyof FormValues> = [
+      'holiday_hours',
+      'public_holiday_hours',
+      'personal_leave_hours',
+    ];
+    if (LEAVE_FIELDS.includes(field)) {
+      const base = this._rate?.standard_hours_per_week ?? 38;
+      const leaveSum = LEAVE_FIELDS.reduce(
+        (sum, f) => sum + num(f === field ? target.value : (this._values[f] as string)),
+        0,
+      );
+      const regular = Math.max(0, base - leaveSum);
+      next.regular_hours = String(regular);
+      next.shift_hours = String(regular);
+    }
+
+    this._values = { ...v, ...next };
     void this.recompute();
   }
 
@@ -375,9 +480,7 @@ export class PayslipForm extends LitElement {
       payg_withholding: Math.max(0, num(v.gross) - num(v.net)),
       superannuation_guarantee: 0,
     };
-    const prevBalance =
-      this.editPaySlip?.holiday_leave_accrual_hours ??
-      this._rate?.starting_holiday_leave_balance ?? 0;
+    const prevBalance = this._accrualSeed();
     const accrualRate = this._rate?.accrual_rate_per_week ?? 2.92;
     const holidayHours = num(v.holiday_hours);
     const accrual = calculateHolidayLeaveAccrual(prevBalance, holidayHours, accrualRate);
@@ -405,16 +508,47 @@ export class PayslipForm extends LitElement {
       shift_hours: num(v.shift_hours),
       overtime_1_5_hours: num(v.overtime_1_5_hours),
       overtime_2_0_hours: num(v.overtime_2_0_hours),
+      holiday_hours: num(v.holiday_hours),
       public_holiday_hours: num(v.public_holiday_hours),
+      personal_leave_hours: num(v.personal_leave_hours),
       holiday_leave_accrual_hours: accrual,
       notes: v.notes.trim() === '' ? null : v.notes,
     };
+  }
+
+  /**
+   * The running-balance seed used to derive this payslip's accrual.
+   *
+   * This is the **editable** "Previous balance" input
+   * (`_values.previous_accrual_balance`). The orchestrator seeds it from the
+   * previous payslip's stored balance (or `0` when there is no prior payslip,
+   * per B-2); the user may override it directly in the form (B-3). This
+   * row's own stored `holiday_leave_accrual_hours` is the *output* of the
+   * calc and must never be its own input — doing so re-applies the
+   * holiday-hours deduction + weekly accrual on every save, inflating the
+   * balance (self-reference bug).
+   */
+  private _accrualSeed(): number {
+    return num(this._values.previous_accrual_balance ?? '0');
   }
 
   private _onCancel(): void {
     this.dispatchEvent(
       new CustomEvent('payslip-cancel', { bubbles: true, composed: true }),
     );
+  }
+
+  private _onFormKeyDown(e: KeyboardEvent): void {
+    // Prevent Enter in a text/number input from implicitly submitting the
+    // form (which would save prematurely). Only the submit button or the
+    // notes textarea may trigger submission via Enter.
+    if (e.key !== 'Enter') return;
+    const target = e.target as HTMLElement;
+    const isSubmitButton = target instanceof HTMLButtonElement && target.type === 'submit';
+    const isTextarea = target instanceof HTMLTextAreaElement;
+    if (!isSubmitButton && !isTextarea) {
+      e.preventDefault();
+    }
   }
 
   private _onSubmit(e: Event): void {
@@ -452,6 +586,7 @@ export class PayslipForm extends LitElement {
     type: string,
     sub?: string,
     full?: boolean,
+    step?: string,
   ): unknown {
     const labelHtml = sub
       ? html`${label} <span class="label-sub">${sub}</span>`
@@ -478,6 +613,7 @@ export class PayslipForm extends LitElement {
         <input
           data-testid="input-${field}"
           type="${type}"
+          step="${step ?? ''}"
           .value="${this._values[field]}"
           @input="${(e: Event) => this._onInput(field, e)}"
         />
@@ -490,14 +626,14 @@ export class PayslipForm extends LitElement {
     if (!bd)
       return html`<p class="info-note">Enter pay date, gross and net to preview the breakdown.</p>`;
     const rows: [string, number][] = [
-      ['base_hourly', bd.base_hourly],
-      ['shift_allowance', bd.shift_allowance],
-      ['overtime_1_5x', bd.overtime_1_5x],
-      ['overtime_2_0x', bd.overtime_2_0x],
-      ['holiday_pay', bd.holiday_pay],
-      ['holiday_leave_loading', bd.holiday_leave_loading],
-      ['public_holiday', bd.public_holiday],
-      ['personal_leave', bd.personal_leave],
+      ['base hourly', bd.base_hourly],
+      ['shift allowance', bd.shift_allowance],
+      ['overtime 1.5x', bd.overtime_1_5x],
+      ['overtime 2.0x', bd.overtime_2_0x],
+      ['holiday pay', bd.holiday_pay],
+      ['holiday leave loading', bd.holiday_leave_loading],
+      ['public holiday', bd.public_holiday],
+      ['personal leave', bd.personal_leave],
     ];
     return html`
       <p class="info-note">Derived from rate row effective at pay_date × hours entered below. Toggle "This week was different" to override the hours used in the calculation.</p>
@@ -536,7 +672,7 @@ export class PayslipForm extends LitElement {
     const sg = this._breakdown?.superannuation_guarantee ?? 0;
     return html`
       <div class="read-only-row">
-        <span class="label">superannuation_guarantee <span style="color:#858585;font-style:normal;">(gross × sg_rate, default 12%)</span></span>
+        <span class="label">superannuation guarantee <span style="color:#858585;font-style:normal;">(gross × sg_rate, default 12%)</span></span>
         <span class="value">$${sg.toFixed(2)}</span>
       </div>
     `;
@@ -544,20 +680,20 @@ export class PayslipForm extends LitElement {
 
   private _renderHours(): unknown {
     if (!this._showHours) {
-      return html`<div class="toggle-row"><span class="label">This week was different (hours)</span><span class="toggle" data-testid="toggle-hours" @click="${() => this._toggleHours()}">▸</span></div>`;
+      return html`<div class="toggle-row"><span class="label">This week was different (hours)</span><button type="button" class="toggle-btn" data-testid="toggle-hours" aria-expanded="false" @click="${() => this._toggleHours()}"><span class="toggle-icon">▸</span><span class="toggle-text">Show hours</span></button></div>`;
     }
     return html`
-      <div class="toggle-row"><span class="label">This week was different (hours)</span><span class="toggle" data-testid="toggle-hours" @click="${() => this._toggleHours()}">▾</span></div>
+      <div class="toggle-row"><span class="label">This week was different (hours)</span><button type="button" class="toggle-btn" data-testid="toggle-hours" aria-expanded="true" @click="${() => this._toggleHours()}"><span class="toggle-icon">▾</span><span class="toggle-text">Hide hours</span></button></div>
       <div class="hours-block" data-testid="hours-fields">
         <div class="hours-block-title">Hours breakdown — drives earnings above via rate row</div>
         <div class="grid-3">
-          ${this._renderInput('leave', 'regular_hours', 'regular_hours', 'number')}
-          ${this._renderInput('leave', 'shift_hours', 'shift_hours', 'number')}
-          ${this._renderInput('leave', 'overtime_1_5_hours', 'overtime_1_5_hours', 'number')}
-          ${this._renderInput('leave', 'overtime_2_0_hours', 'overtime_2_0_hours', 'number')}
-          ${this._renderInput('leave', 'holiday_hours', 'holiday_hours', 'number')}
-          ${this._renderInput('leave', 'public_holiday_hours', 'public_holiday_hours', 'number')}
-          ${this._renderInput('leave', 'personal_leave_hours', 'personal_leave_hours', 'number')}
+          ${this._renderInput('leave', 'regular_hours', 'regular hours', 'number')}
+          ${this._renderInput('leave', 'shift_hours', 'shift hours', 'number')}
+          ${this._renderInput('leave', 'overtime_1_5_hours', 'overtime 1.5 hours', 'number')}
+          ${this._renderInput('leave', 'overtime_2_0_hours', 'overtime 2.0 hours', 'number')}
+          ${this._renderInput('leave', 'holiday_hours', 'holiday hours', 'number')}
+          ${this._renderInput('leave', 'public_holiday_hours', 'public holiday hours', 'number')}
+          ${this._renderInput('leave', 'personal_leave_hours', 'personal leave hours', 'number')}
         </div>
       </div>
     `;
@@ -565,11 +701,19 @@ export class PayslipForm extends LitElement {
 
   private _renderAccrual(): unknown {
     const newBalance = this._buildInput().holiday_leave_accrual_hours;
-    const prev = this.editPaySlip?.holiday_leave_accrual_hours ?? this._rate?.starting_holiday_leave_balance ?? 0;
     const holidayHours = num(this._values.holiday_hours);
     const rate = this._rate?.accrual_rate_per_week ?? 2.92;
     return html`
-      <div class="read-only-row"><span class="label">Previous balance</span><span class="value">${prev} h</span></div>
+      <div class="field field-full" data-testid="field-previous_accrual_balance">
+        <label>Previous balance <span style="color:#858585;font-style:normal;">(editable — override if needed)</span></label>
+        <input
+          data-testid="input-previous_accrual_balance"
+          type="number"
+          step="0.01"
+          .value="${this._values.previous_accrual_balance ?? '0'}"
+          @input="${(e: Event) => this._onInput('previous_accrual_balance', e)}"
+        />
+      </div>
       <div class="read-only-row"><span class="label">− Holiday leave taken</span><span class="value">${holidayHours.toFixed(2)} h</span></div>
       <div class="read-only-row"><span class="label">+ Weekly accrual</span><span class="value">${rate} h</span></div>
       <div class="read-only-row" style="border-top:1px solid #3e3e3e;padding-top:6px;margin-top:4px;"><span class="label"><strong>New balance</strong></span><span class="value"><strong data-testid="accrual-new">${newBalance.toFixed(2)} h</strong></span></div>
@@ -627,8 +771,8 @@ export class PayslipForm extends LitElement {
           'always visible · user input',
           html`
             <div class="grid-2">
-              ${this._renderInput('totals', 'gross', 'Gross', 'number', '($)')}
-              ${this._renderInput('totals', 'net', 'Net', 'number', '($)')}
+              ${this._renderInput('totals', 'gross', 'Gross', 'number', '($)', false, '0.01')}
+              ${this._renderInput('totals', 'net', 'Net', 'number', '($)', false, '0.01')}
             </div>
             <p class="info-note" style="margin-top:8px;">Pay date, gross, and net are the only required inputs. Everything else is derived from the rate row effective at pay_date × hours, plus PAYG = gross − net and SG = gross × sg_rate.</p>
           `,
@@ -689,7 +833,7 @@ export class PayslipForm extends LitElement {
       <div class="container">
         <h1 data-testid="form-title">${this.editPaySlip ? 'Edit Payslip' : 'New Payslip'}</h1>
         <p class="subtitle" data-testid="form-subtitle">${this._subtitle()}</p>
-        <form data-testid="payslip-form" @submit="${(e: Event) => this._onSubmit(e)}">
+         <form data-testid="payslip-form" @submit="${(e: Event) => this._onSubmit(e)}" @keydown="${(e: KeyboardEvent) => this._onFormKeyDown(e)}">
           ${this.sectionOrder.map((id) => this._renderSection(id))}
           ${this._errors.length > 0
             ? html`<div class="errors" data-testid="form-errors">${this._errors.map((e) => html`<div>${e}</div>`)}</div>`
@@ -697,7 +841,7 @@ export class PayslipForm extends LitElement {
           <div class="footer">
             <button type="button" class="btn btn-secondary" data-testid="cancel" @click="${() => this._onCancel()}">Cancel</button>
             <button type="submit" class="btn btn-primary" data-testid="submit">
-              ${this.editPaySlip ? 'Save changes' : 'Create payslip'}
+              ${this.editPaySlip ? 'Save changes' : 'Add Payslip'}
             </button>
           </div>
         </form>

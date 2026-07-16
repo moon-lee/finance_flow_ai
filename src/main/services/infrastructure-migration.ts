@@ -145,7 +145,6 @@ export const salaryHistoryRateHistoryMigration: Migration = {
         superannuation_rate             REAL    NOT NULL DEFAULT 0.12 CHECK (superannuation_rate >= 0 AND superannuation_rate <= 1),
         holiday_leave_loading_rate      REAL    NOT NULL DEFAULT 0.175 CHECK (holiday_leave_loading_rate >= 0),
         accrual_rate_per_week           REAL    NOT NULL DEFAULT 2.92 CHECK (accrual_rate_per_week >= 0),
-        starting_holiday_leave_balance  REAL    NOT NULL DEFAULT 0 CHECK (starting_holiday_leave_balance >= 0),
         notes                           TEXT,
         created_at                      TEXT    NOT NULL DEFAULT (datetime('now')),
         updated_at                      TEXT    NOT NULL DEFAULT (datetime('now'))
@@ -198,5 +197,59 @@ export const salaryHistoryRateHistorySingleCurrentMigration: Migration = {
       CREATE UNIQUE INDEX IF NOT EXISTS idx_salary_history_rate_history_single_current
         ON salary_history_rate_history ((1)) WHERE effective_to IS NULL
     `);
+  }
+};
+
+/**
+ * [Plan Amendment 6 reverse, user request] Persist `holiday_hours` and
+ * `personal_leave_hours` on `salary_history_pay_slips`.
+ *
+ * Plan Amendment 6 originally classified these as transient form inputs
+ * (only the derived money columns `holiday_pay` / `holiday_leave_loading` /
+ * `personal_leave` were stored). The downside: editing a payslip could
+ * never restore the original hour values, because the money columns are
+ * lossy (multiple hour values can map to the same money via the base rate).
+ *
+ * This migration adds the two columns so the form can round-trip the raw
+ * hours. SQLite rejects ALTER TABLE ADD COLUMN IF NOT EXISTS, so we guard
+ * with a PRAGMA table_info check (same idiom as migration 002).
+ */
+export const salaryHistoryPaySlipsHourInputsMigration: Migration = {
+  name: '007-salary-history-pay-slips-hour-inputs',
+  up: (db) => {
+    const columns = db.pragma('table_info(salary_history_pay_slips)') as { name: string }[];
+    const hasColumn = (name: string) => columns.some((c) => c.name === name);
+
+    if (!hasColumn('holiday_hours')) {
+      db.exec(`ALTER TABLE salary_history_pay_slips ADD COLUMN holiday_hours REAL NOT NULL DEFAULT 0 CHECK (holiday_hours >= 0)`);
+    }
+    if (!hasColumn('personal_leave_hours')) {
+      db.exec(`ALTER TABLE salary_history_pay_slips ADD COLUMN personal_leave_hours REAL NOT NULL DEFAULT 0 CHECK (personal_leave_hours >= 0)`);
+    }
+  }
+};
+
+/**
+ * [User request B-1] Remove `starting_holiday_leave_balance` from
+ * `salary_history_rate_history`.
+ *
+ * The opening/seed holiday-leave balance is no longer stored on the rate
+ * row — the running balance is a cumulative chain across payslips
+ * (balance(N) = balance(N-1) − holiday_hours + accrual_rate), seeded from
+ * the previous payslip's stored balance, or `0` when there is no prior
+ * payslip (the user may override it in the form). Removing the column from
+ * the rate row keeps rate rows purely about pay *rates*.
+ *
+ * `ALTER TABLE DROP COLUMN` requires SQLite ≥ 3.35.0; we guard with a
+ * PRAGMA table_info check so re-running the migration is a no-op once the
+ * column is gone.
+ */
+export const salaryHistoryRateHistoryDropSeedBalanceMigration: Migration = {
+  name: '008-salary-history-rate-history-drop-seed-balance',
+  up: (db) => {
+    const columns = db.pragma('table_info(salary_history_rate_history)') as { name: string }[];
+    if (columns.some((c) => c.name === 'starting_holiday_leave_balance')) {
+      db.exec(`ALTER TABLE salary_history_rate_history DROP COLUMN starting_holiday_leave_balance`);
+    }
   }
 };

@@ -120,7 +120,6 @@ describe('pay-rate-service', () => {
         superannuation_rate: 0,
         holiday_leave_loading_rate: 0,
         accrual_rate_per_week: 0,
-        starting_holiday_leave_balance: 0,
         notes: null,
       });
       expect(r.ok).toBe(false);
@@ -163,7 +162,6 @@ describe('pay-rate-service', () => {
         overtime_2_0_multiplier: 2.0,
         holiday_leave_loading_rate: 0.175,
         accrual_rate_per_week: 2.92,
-        starting_holiday_leave_balance: 0,
         notes: null,
       });
       expect(r.ok).toBe(false);
@@ -180,7 +178,6 @@ describe('pay-rate-service', () => {
       expect(r.superannuation_rate).toBe(0.12);
       expect(r.holiday_leave_loading_rate).toBe(0.175);
       expect(r.accrual_rate_per_week).toBe(2.92);
-      expect(r.starting_holiday_leave_balance).toBe(0);
     });
   });
 
@@ -201,14 +198,12 @@ describe('pay-rate-service', () => {
         shift_allowance_multiplier: 0.15, shift_allowance_hours_per_week: 38,
         overtime_1_5_multiplier: 1.5, overtime_2_0_multiplier: 2.0,
         superannuation_rate: 0.12, holiday_leave_loading_rate: 0.175,
-        accrual_rate_per_week: 2.92, starting_holiday_leave_balance: 0, notes: null,
       } as Record<string, unknown>);
       await env.finance.db.table('x').insert({
         effective_from: '2025-01-01', effective_to: null, base_hourly_rate: 35, standard_hours_per_week: 38,
         shift_allowance_multiplier: 0.15, shift_allowance_hours_per_week: 38,
         overtime_1_5_multiplier: 1.5, overtime_2_0_multiplier: 2.0,
         superannuation_rate: 0.12, holiday_leave_loading_rate: 0.175,
-        accrual_rate_per_week: 2.92, starting_holiday_leave_balance: 0, notes: null,
       } as Record<string, unknown>);
       const current = await getCurrentRate(env.finance);
       expect(current?.base_hourly_rate).toBe(35);
@@ -220,14 +215,12 @@ describe('pay-rate-service', () => {
         shift_allowance_multiplier: 0.15, shift_allowance_hours_per_week: 38,
         overtime_1_5_multiplier: 1.5, overtime_2_0_multiplier: 2.0,
         superannuation_rate: 0.12, holiday_leave_loading_rate: 0.175,
-        accrual_rate_per_week: 2.92, starting_holiday_leave_balance: 0, notes: null,
       } as Record<string, unknown>);
       await env.finance.db.table('x').insert({
         effective_from: '2025-01-01', effective_to: null, base_hourly_rate: 35, standard_hours_per_week: 38,
         shift_allowance_multiplier: 0.15, shift_allowance_hours_per_week: 38,
         overtime_1_5_multiplier: 1.5, overtime_2_0_multiplier: 2.0,
         superannuation_rate: 0.12, holiday_leave_loading_rate: 0.175,
-        accrual_rate_per_week: 2.92, starting_holiday_leave_balance: 0, notes: null,
       } as Record<string, unknown>);
       const r1 = await getRateForDate(env.finance, '2024-06-15');
       expect(r1?.base_hourly_rate).toBe(30);
@@ -241,7 +234,6 @@ describe('pay-rate-service', () => {
         shift_allowance_multiplier: 0.15, shift_allowance_hours_per_week: 38,
         overtime_1_5_multiplier: 1.5, overtime_2_0_multiplier: 2.0,
         superannuation_rate: 0.12, holiday_leave_loading_rate: 0.175,
-        accrual_rate_per_week: 2.92, starting_holiday_leave_balance: 0, notes: null,
       } as Record<string, unknown>);
       expect(await getRateForDate(env.finance, '2024-01-01')).toBeNull();
     });
@@ -253,7 +245,6 @@ describe('pay-rate-service', () => {
           shift_allowance_multiplier: 0.15, shift_allowance_hours_per_week: 38,
           overtime_1_5_multiplier: 1.5, overtime_2_0_multiplier: 2.0,
           superannuation_rate: 0.12, holiday_leave_loading_rate: 0.175,
-          accrual_rate_per_week: 2.92, starting_holiday_leave_balance: 0, notes: null,
         } as Record<string, unknown>);
       }
       const all = await listAllRates(env.finance);
@@ -266,7 +257,6 @@ describe('pay-rate-service', () => {
         shift_allowance_multiplier: 0.15, shift_allowance_hours_per_week: 38,
         overtime_1_5_multiplier: 1.5, overtime_2_0_multiplier: 2.0,
         superannuation_rate: 0.12, holiday_leave_loading_rate: 0.175,
-        accrual_rate_per_week: 2.92, starting_holiday_leave_balance: 0, notes: null,
       } as Record<string, unknown>);
       // addNewRate on a DAO with a current row should:
       // (a) close the previous current row by setting effective_to to the new row's effective_from
@@ -284,7 +274,6 @@ describe('pay-rate-service', () => {
           superannuation_rate: 0.12,
           holiday_leave_loading_rate: 0.175,
           accrual_rate_per_week: 2.92,
-          starting_holiday_leave_balance: 0,
           notes: null,
         });
       });
@@ -309,7 +298,6 @@ describe('pay-rate-service', () => {
           superannuation_rate: 0.12,
           holiday_leave_loading_rate: 0.175,
           accrual_rate_per_week: 2.92,
-          starting_holiday_leave_balance: 0,
           notes: null,
         });
       });
