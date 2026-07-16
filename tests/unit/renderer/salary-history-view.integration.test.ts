@@ -13,6 +13,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { PayRateHistoryView } from '../../../extensions/salary-history/src/ui/pay-rate-history-view';
 import { RateRowForm } from '../../../extensions/salary-history/src/ui/rate-row-form';
+import { PayslipForm } from '../../../extensions/salary-history/src/ui/payslip-form';
 import { SalaryHistoryView } from '../../../src/renderer/components/salary-history-view';
 
 const ROW = {
@@ -28,6 +29,7 @@ const ROW = {
   superannuation_rate: 0.12,
   holiday_leave_loading_rate: 0.175,
   accrual_rate_per_week: 2.92,
+  starting_holiday_leave_balance: 0,
   notes: null,
 };
 

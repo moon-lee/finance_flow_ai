@@ -227,7 +227,7 @@ export class SalaryHistoryView extends LitElement {
     this.navigate('payslip-list', this.mountData);
   };
 
-  private _onAddPayslip = (): void => {
+  private _onAddPayslip = async (): Promise<void> => {
     this.navigate('payslip-form', this.mountData);
   };
 
@@ -253,29 +253,7 @@ export class SalaryHistoryView extends LitElement {
       this.navigate('payslip-form', this.mountData, null);
       return;
     }
-    // Find the chronologically PREVIOUS payslip (latest pay_date strictly
-    // before this row's pay_date, same account) so the accrual preview can
-    // seed from its stored balance instead of this row's own (which is the
-    // derived output and must not feed its own input).
-    const editedDate = String(row.pay_date);
-    const predecessorRows = (await this._finance.db
-      .table('salary_history_pay_slips')
-      .find({
-        account_id: row.account_id,
-        pay_date: { $lt: editedDate },
-      })) as Array<Record<string, unknown>>;
-    const predecessor = predecessorRows
-      .slice()
-      .sort((a, b) => {
-        const ad = String(a.pay_date);
-        const bd = String(b.pay_date);
-        return ad < bd ? 1 : ad > bd ? -1 : 0;
-      })[0];
-    const mountData: Record<string, unknown> = { ...this.mountData };
-    if (predecessor && typeof predecessor.holiday_leave_accrual_hours === 'number') {
-      mountData.previousAccrualBalance = predecessor.holiday_leave_accrual_hours;
-    }
-    this.navigate('payslip-form', mountData, row);
+    this.navigate('payslip-form', this.mountData, row);
   };
 
   private _onEditPayslip = async (e: Event): Promise<void> => {

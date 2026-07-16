@@ -89,7 +89,6 @@ interface FormValues {
   holiday_hours: string;
   public_holiday_hours: string;
   personal_leave_hours: string;
-  previous_accrual_balance: string;
 }
 
 const EMPTY_VALUES: FormValues = {
@@ -106,7 +105,6 @@ const EMPTY_VALUES: FormValues = {
   holiday_hours: '0',
   public_holiday_hours: '0',
   personal_leave_hours: '0',
-  previous_accrual_balance: '0',
 };
 
 function num(v: string): number {
@@ -214,26 +212,6 @@ export class PayslipForm extends LitElement {
   @property({ attribute: false })
   editPaySlip: PaySlip | null = null;
 
-  /**
-   * Running-balance seed for the accrual preview.
-   *
-   * In CREATE mode: the orchestrator supplies the previous payslip's stored
-   * balance when one exists; when there is no prior payslip the value is
-   * undefined and the form defaults the editable "Previous balance" input to
-   * `0` (no seed balance per user request).
-   *
-   * In EDIT mode the orchestrator supplies the **chronologically previous**
-   * payslip's stored `holiday_leave_accrual_hours` — NOT this row's own
-   * stored value. Using the row's own stored value would re-apply the
-   * holiday-hours deduction + weekly accrual on top of an already-derived
-   * balance, double-counting on every save (the self-reference bug).
-   *
-   * The user may override the seeded value via the editable "Previous
-   * balance" input (B-3); only the resulting new balance is persisted.
-   */
-  @property({ attribute: false })
-  previousAccrualBalance: number | undefined = undefined;
-
   @state()
   _values: FormValues = { ...EMPTY_VALUES };
 
@@ -298,12 +276,6 @@ export class PayslipForm extends LitElement {
         seed.regular_hours = regular;
         if (!this._values.shift_hours) seed.shift_hours = regular;
       }
-      // Seed the editable "Previous balance": predecessor's stored balance if
-      // one exists (B-2), else 0 (no seed balance per user request).
-      if (this._values.previous_accrual_balance === undefined || this._values.previous_accrual_balance === '') {
-        seed.previous_accrual_balance =
-          this.previousAccrualBalance !== undefined ? String(this.previousAccrualBalance) : '0';
-      }
       if (Object.keys(seed).length > 0) {
         this._values = { ...this._values, ...seed };
       }
@@ -336,12 +308,6 @@ export class PayslipForm extends LitElement {
       holiday_hours: String(p.holiday_hours),
       public_holiday_hours: String(p.public_holiday_hours),
       personal_leave_hours: String(p.personal_leave_hours),
-      // Seed the editable "Previous balance" from the orchestrator-supplied
-      // predecessor balance (or 0 if this is the first payslip). This row's
-      // own stored balance is the calc OUTPUT and is never re-fed as input.
-      previous_accrual_balance: this.previousAccrualBalance !== undefined
-        ? String(this.previousAccrualBalance)
-        : '0',
     };
   }
 
@@ -480,7 +446,9 @@ export class PayslipForm extends LitElement {
       payg_withholding: Math.max(0, num(v.gross) - num(v.net)),
       superannuation_guarantee: 0,
     };
-    const prevBalance = this._accrualSeed();
+    const prevBalance =
+      this.editPaySlip?.holiday_leave_accrual_hours ??
+      this._rate?.starting_holiday_leave_balance ?? 0;
     const accrualRate = this._rate?.accrual_rate_per_week ?? 2.92;
     const holidayHours = num(v.holiday_hours);
     const accrual = calculateHolidayLeaveAccrual(prevBalance, holidayHours, accrualRate);
@@ -514,22 +482,6 @@ export class PayslipForm extends LitElement {
       holiday_leave_accrual_hours: accrual,
       notes: v.notes.trim() === '' ? null : v.notes,
     };
-  }
-
-  /**
-   * The running-balance seed used to derive this payslip's accrual.
-   *
-   * This is the **editable** "Previous balance" input
-   * (`_values.previous_accrual_balance`). The orchestrator seeds it from the
-   * previous payslip's stored balance (or `0` when there is no prior payslip,
-   * per B-2); the user may override it directly in the form (B-3). This
-   * row's own stored `holiday_leave_accrual_hours` is the *output* of the
-   * calc and must never be its own input — doing so re-applies the
-   * holiday-hours deduction + weekly accrual on every save, inflating the
-   * balance (self-reference bug).
-   */
-  private _accrualSeed(): number {
-    return num(this._values.previous_accrual_balance ?? '0');
   }
 
   private _onCancel(): void {
@@ -704,16 +656,6 @@ export class PayslipForm extends LitElement {
     const holidayHours = num(this._values.holiday_hours);
     const rate = this._rate?.accrual_rate_per_week ?? 2.92;
     return html`
-      <div class="field field-full" data-testid="field-previous_accrual_balance">
-        <label>Previous balance <span style="color:#858585;font-style:normal;">(editable — override if needed)</span></label>
-        <input
-          data-testid="input-previous_accrual_balance"
-          type="number"
-          step="0.01"
-          .value="${this._values.previous_accrual_balance ?? '0'}"
-          @input="${(e: Event) => this._onInput('previous_accrual_balance', e)}"
-        />
-      </div>
       <div class="read-only-row"><span class="label">− Holiday leave taken</span><span class="value">${holidayHours.toFixed(2)} h</span></div>
       <div class="read-only-row"><span class="label">+ Weekly accrual</span><span class="value">${rate} h</span></div>
       <div class="read-only-row" style="border-top:1px solid #3e3e3e;padding-top:6px;margin-top:4px;"><span class="label"><strong>New balance</strong></span><span class="value"><strong data-testid="accrual-new">${newBalance.toFixed(2)} h</strong></span></div>
