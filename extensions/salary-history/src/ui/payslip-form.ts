@@ -89,6 +89,7 @@ interface FormValues {
   holiday_hours: string;
   public_holiday_hours: string;
   personal_leave_hours: string;
+  previous_balance: string;
 }
 
 const EMPTY_VALUES: FormValues = {
@@ -105,10 +106,11 @@ const EMPTY_VALUES: FormValues = {
   holiday_hours: '0',
   public_holiday_hours: '0',
   personal_leave_hours: '0',
+  previous_balance: '0',
 };
 
-function num(v: string): number {
-  if (v.trim() === '') return 0;
+function num(v: string | undefined | null): number {
+  if (v === undefined || v === null || v.trim() === '') return 0;
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
 }
@@ -239,6 +241,9 @@ export class PayslipForm extends LitElement {
   @state()
   _referenceLoaded = false;
 
+  /** Stored `holiday_leave_accrual_hours` of the chronologically previous payslip (edit mode only). */
+  _predecessorBalance: number | null = null;
+
   /**
    * Load the current rate row (for breakdown derivation) and the account
    * list for the Period dropdown. Called once on connect when `finance`
@@ -253,6 +258,21 @@ export class PayslipForm extends LitElement {
     ]);
     const rates = (rateRows as RateRow[]).filter((r) => r.effective_to === null);
     this._rate = rates.length > 0 ? rates[0] : null;
+    if (this.editPaySlip) {
+      const predecessorRows = (await this.finance.db
+        .table('salary_history_pay_slips')
+        .find({
+          account_id: this.editPaySlip.account_id,
+          pay_date: { $lt: this.editPaySlip.pay_date },
+        })) as Array<{ pay_date: string; holiday_leave_accrual_hours: number }>;
+      const predecessor = predecessorRows
+        .slice()
+        .sort((a, b) => (a.pay_date < b.pay_date ? 1 : a.pay_date > b.pay_date ? -1 : 0))[0] as
+        | { pay_date: string; holiday_leave_accrual_hours: number }
+        | undefined;
+      this._predecessorBalance = predecessor ? predecessor.holiday_leave_accrual_hours : null;
+      this._values = { ...this._values, previous_balance: String(this._predecessorBalance ?? 0) };
+    }
     if (this.accounts.length === 0) {
       this.accounts = (accountRows as { id: number; name: string; institution: string | null }[]).map(
         (a) => ({ id: a.id, name: a.name, institution: a.institution }),
@@ -308,6 +328,7 @@ export class PayslipForm extends LitElement {
       holiday_hours: String(p.holiday_hours),
       public_holiday_hours: String(p.public_holiday_hours),
       personal_leave_hours: String(p.personal_leave_hours),
+      previous_balance: '0',
     };
   }
 
@@ -446,7 +467,7 @@ export class PayslipForm extends LitElement {
       payg_withholding: Math.max(0, num(v.gross) - num(v.net)),
       superannuation_guarantee: 0,
     };
-    const prevBalance = this.editPaySlip?.holiday_leave_accrual_hours ?? 0;
+    const prevBalance = num(v.previous_balance);
     const accrualRate = this._rate?.accrual_rate_per_week ?? 2.92;
     const holidayHours = num(v.holiday_hours);
     const accrual = calculateHolidayLeaveAccrual(prevBalance, holidayHours, accrualRate);
@@ -654,6 +675,15 @@ export class PayslipForm extends LitElement {
     const holidayHours = num(this._values.holiday_hours);
     const rate = this._rate?.accrual_rate_per_week ?? 2.92;
     return html`
+      <div class="field field-full"><label>Previous balance <span style="color:#858585;font-style:normal;">(editable — correct if wrong)</span></label>
+        <input
+          data-testid="input-previous_balance"
+          type="number"
+          step="0.01"
+          .value="${this._values.previous_balance ?? '0'}"
+          @input="${(e: Event) => this._onInput('previous_balance', e)}"
+        />
+      </div>
       <div class="read-only-row"><span class="label">− Holiday leave taken</span><span class="value">${holidayHours.toFixed(2)} h</span></div>
       <div class="read-only-row"><span class="label">+ Weekly accrual</span><span class="value">${rate} h</span></div>
       <div class="read-only-row" style="border-top:1px solid #3e3e3e;padding-top:6px;margin-top:4px;"><span class="label"><strong>New balance</strong></span><span class="value"><strong data-testid="accrual-new">${newBalance.toFixed(2)} h</strong></span></div>
