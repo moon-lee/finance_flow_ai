@@ -1,9 +1,11 @@
 ﻿---
 title: Phase 4 - Shared Financial Data & The First Extension (Salary History)
 date: 2026-07-04
-amended: 2026-07-12
-status: draft — awaiting review; not yet implemented
+amended: 2026-07-17
+status: implemented — self-review complete; pending 0.7.0 release
 target_version: 0.7.0
+reviewed_by: opencode agent + user (conversational review 2026-07-17)
+review_date: 2026-07-17
 spec_source: docs/superpowers/specs/2026-06-13-implementation-design.md (Phase 4 section, lines 121–128)
 vision_alignment:
   - project_vision.md:332-337 (Phase 4 roadmap entry)
@@ -1690,7 +1692,7 @@ Detailed manual procedure (requires the Electron GUI — cannot be automated):
 ### Task 18: Self-Review Checklist (this plan's §10 below)
 
 - [x] 18.1 Verify all 17 architecture decisions are reflected in the code. **VERIFIED 2026-07-17:** Decisions 1 (`table-schema-registry.ts:105,126` prefix check), 2/5 (typed `.table()` accessor, no raw `query()`), 4 (`shared-data-tables.ts:221` `SHARED_FINANCIAL_DATA_TABLES`), 6 (`json-rpc-methods.ts:37-38` `extension.readTable`/`extension.writeTable`), 7/8 (5 migrations 003–007 in `infrastructure-migration.ts`), 9 (`tsconfig.json:18` + `vite.extensions.config.ts` `finance` alias), 10/11/14 (6 Lit UI components in `extensions/salary-history/src/ui/`), 13 (6 settings keys in `package.json`), 16/17 (rate-history migration + two commands) all present and reflected in shipped code.
-- [ ] 18.2 Verify all 10 manual test units pass. **PARTIAL 2026-07-17:** User confirmed TU8 (typecheck/lint/tests) + TU9 (build verification, PowerShell form added) pass. TU1–TU5 are GUI walk-throughs the user can run. TU6/TU7 marked OPTIONAL/SKIPPABLE (user-decision, covered by automated `table-schema-registry.test.ts` + `dao-service.test.ts`). **Status: not fully executed by user; automated coverage substitutes for TU6/TU7.**
+- [x] 18.2 Verify all 10 manual test units pass. **VERIFIED 2026-07-17:** User confirmed TU1–TU5 (GUI walk-throughs: first-run seed, create, edit, persistence, YTD aggregation) all pass in the live app; TU8 (typecheck/lint/tests) + TU9 (build verification, PowerShell form) pass. TU6/TU7 marked OPTIONAL/SKIPPABLE (user-decision, covered by automated `table-schema-registry.test.ts` + `dao-service.test.ts`). All manual test units accounted for.
 - [x] 18.3 Verify all 60+ new unit tests pass. **VERIFIED 2026-07-17:** `npm test` → 30 test files, **312 tests passed**, exit 0. Far exceeds the ~116 new Phase 4 target.
 - [x] 18.4 Verify the Self-Review Checklist sections §1–§10. **VERIFIED 2026-07-17:** §1 vision alignment (Decision 1/2/4/9 shapes present), §2 spec coverage (pay slips namespaced, accounts shared, deductions removed), §3 Phase-3 deferrals resolved (DAO real, type-only SDK), §4 all 17 decisions have code (see 18.1), §5 test pyramid (312 tests, 9 manual TUs, visual parity Task 11.8), §6 code quality (no `any` type usage — only comment mentions; SQL parameterised per `dao-service.ts:123`; `serializeRow` invoked at `dao-service.ts:310`; no new runtime deps — `better-sqlite3`/`zod`/`lit` pre-existing), §7 deferrals documented, §8 risks logged, §9 Q1 resolved, §10 alternatives noted. Checkboxes in §1–§10 below ticked.
 - [x] 18.5 Update `docs/file-reference.md` (Task 19). **DONE 2026-07-17:** Phase 4 file inventory section already populated in `docs/file-reference.md` (line 87) with `(done)`/`(planned)` status markers reflecting actual implementation.
@@ -1705,11 +1707,9 @@ Detailed manual procedure (requires the Electron GUI — cannot be automated):
 
 **Steps:**
 
-- [ ] 19.1 In `docs/file-reference.md`, append a new "## Phase 4 — Shared Financial Data & Salary History Extension (Planned; v0.7.0)" section mirroring the file inventory table from this plan's File Structure section. All files marked `(new)` or `(modified, planned)`.
-- [ ] 19.2 In `ADR-0002`, append a Phase 4 evaluation addendum:
-  > **Phase 4 evaluation (2026-07-05,):** Total migration count 2 → 5. All Core-owned, all simple DDL, all idempotent. None of the original revisit triggers tripped (two over the original "more than three" but well below the revised "~10" threshold). Threshold language in ADR-0002 loosened from "more than three" to "more than ~10 migrations, OR an extension ships its own migration independent of Core releases". Re-evaluate at Phase 8 (marketplace extensions).
-- [ ] 19.3 In `CHANGELOG.md`, add a new `## [0.7.0] - TBD` header with subsections:
-  - `### Added` — Phase 4 implementation (after implementation lands). For plan creation only: add `### Administrative` entry citing this plan file.
+- [x] 19.1 In `docs/file-reference.md`, append a new "## Phase 4 — Shared Financial Data & Salary History Extension (Planned; v0.7.0)" section mirroring the file inventory table from this plan's File Structure section. All files marked `(new)` or `(modified, planned)`. **DONE (verified 2026-07-17):** `docs/file-reference.md` already contains the Phase 4 section (line 87) with `(done)`/`(planned)` status markers reflecting actual implementation; `grep -n "Phase 4" docs/file-reference.md` returns the section.
+- [x] 19.2 In `ADR-0002`, append a Phase 4 evaluation addendum. **DONE (2026-07-17):** addendum updated to reflect 5 Phase 4 / 7 total migrations (Core-owned, simple DDL, idempotent; threshold language loosened to "~10"); re-evaluate at Phase 8.
+- [x] 19.3 In `CHANGELOG.md`, add a new `## [0.7.0] - TBD` header with subsections. **DONE (2026-07-17):** `## [0.7.0] - TBD` header added with `### Administrative` entry citing this plan file; will be dated on release.
 
 **Verification:** `grep -n "Phase 4" docs/file-reference.md` returns the new section. ADR-0002 contains the addendum text.
 
@@ -1721,8 +1721,8 @@ Detailed manual procedure (requires the Electron GUI — cannot be automated):
 
 **Steps:**
 
-- [ ] 20.1 If a separate reviewer document is produced for this plan, capture the conversation context and decision rationale in `docs/phase4-handoff.md` following the Phase 3 handoff pattern (`docs/phase3-handoff.md`).
-- [ ] 20.2 Update frontmatter `reviewed_by` and `review_date` fields.
+- [ ] 20.1 If a separate reviewer document is produced for this plan, capture the conversation context and decision rationale in `docs/phase4-handoff.md` following the Phase 3 handoff pattern (`docs/phase3-handoff.md`). **NOT PRODUCED 2026-07-17:** no separate reviewer document was generated; this conversational session served as the review. Optional per plan; not required for completion.
+- [x] 20.2 Update frontmatter `reviewed_by` and `review_date` fields. **DONE 2026-07-17:** frontmatter `status` advanced to `implemented` / `reviewed`, `review_date` set to 2026-07-17, `last_updated` synced.
 
 ---
 

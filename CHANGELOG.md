@@ -1,7 +1,7 @@
 ---
-version: 0.6.0
+version: 0.7.0
 created: 2026-06-14
-last_updated: 2026-07-17T07:30:00+10:00
+last_updated: 2026-07-17T08:00:00+10:00
 ---
 
 # Changelog
@@ -12,6 +12,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [0.7.0] - 2026-07-17
+
 
 ### Added
 - **Phase 4 Task 1: Shared Financial Data constant + accounts manifest** (`src/main/services/shared-data-tables.ts`, ~270 LOC; `tests/unit/services/shared-data-tables.test.ts`, ~125 LOC). First Phase 4 implementation per `docs/superpowers/plans/2026-07-04-phase4-shared-financial-data-salary-history.md` Task 1. Exports the foundational type contracts all subsequent Phase 4 tasks build on: `TableManifest` and `ColumnManifest` interfaces (will be re-exported from `src/types/finance.d.ts` in Task 8), `SHARED_FINANCIAL_DATA_TABLES = ['accounts'] as const` tuple (the read-only allowlist consumed by the Task 5 DAO service), `SharedFinancialDataTable` derived union, and `SHARED_TABLE_MANIFESTS` containing the Phase 4 `accounts` schema per Decision 4 (id PK autoincrement / name / institution nullable / is_active boolean default true / created_at datetime default 'now'). 5 unit tests pass (4 required: constant value, manifest contents, required columns + types, no extension prefix on shared tables; 1 bonus: `institution` column nullable). No version bump — Task 1 of ~20 in Phase 4; remaining tasks land before the 0.7.0 release per the plan's `target_version`.
@@ -143,10 +146,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Task 17 TU6/TU7 marked OPTIONAL / SKIPPABLE for manual runs** (`docs/superpowers/plans/2026-07-04-phase4-shared-financial-data-salary-history.md`, Task 17). Per the 2026-07-17 review: both negative security tests (namespace isolation, shared-table read-only) require DevTools/SQLite-browser/registry manipulation that the user is not comfortable performing. Added a `> **Manual-execution note**` block under each TU stating they are optional to run manually because the `TableAccessDenied` and `SharedTableReadOnly` rejection branches are already covered by automated unit tests (`table-schema-registry.test.ts`, `dao-service.test.ts`). User guidance: run TU1–TU5 (pure GUI walk-throughs) personally; skip TU6/TU7 manual execution. No version bump — plan-doc clarification only, no runtime behavior change.
 - **Task 17 TU9 updated with PowerShell command form** (`docs/superpowers/plans/2026-07-04-phase4-shared-financial-data-salary-history.md`, Task 17). The original TU9 build-guard command `grep "from 'finance'" dist/extensions/salary-history.js → exit code 1` is a Unix form; added a `> **TU9 PowerShell note**` block giving the Windows PowerShell equivalent (`Select-String -Quiet` wrapper making `exit 1` = found/FAIL, `exit 0` = not found/PASS, plus the `require("finance")` variant and a KB size check via `Get-Item`). User confirmed TU8 + TU9 pass on their machine 2026-07-17. No version bump — plan-doc clarification only, no runtime behavior change.
 
-## [0.7.0] - TBD
+
 
 ### Administrative
 - **Phase 4 Self-Review (Task 18) completed 2026-07-17** (`docs/superpowers/plans/2026-07-04-phase4-shared-financial-data-salary-history.md`). 18.1 (all 17 architecture decisions reflected in code — verified against `table-schema-registry.ts`, `dao-service.ts`, `shared-data-tables.ts`, `json-rpc-methods.ts`, `infrastructure-migration.ts` 5 migrations 003–007, `tsconfig.json`/`vite.extensions.config.ts` `finance` alias, 6 Lit UI components, 6 settings keys), 18.3 (`npm test` → 30 files, 312 tests passed, exit 0), 18.4 (Self-Review §1–§10 checkboxes ticked; no `any` type usage, SQL parameterised per `dao-service.ts:123`, `serializeRow` invoked at `dao-service.ts:310`, no new runtime deps), 18.5 (`docs/file-reference.md` Phase 4 inventory already populated), and 18.6 (ADR-0002 Phase 4 addendum updated to reflect 5 Phase 4 / 7 total migrations; this `0.7.0 - TBD` header) all DONE. 18.2 (10 manual TUs) PARTIAL — user confirmed TU8/TU9; TU1–TU5 are GUI walk-throughs; TU6/TU7 marked OPTIONAL/SKIPPABLE (covered by automated tests). 18.7 (E2E suite) NOT RUN — gated by the better-sqlite3 native ABI mismatch (environmental, sandbox-only). Version target for Phase 4 release per plan `target_version`.
+
+
+### Changed
+- **2-decimal display for Gross / Net in the payslip form** (xtensions/salary-history/src/ui/payslip-form.ts). Added a money2() helper and use it to seed the gross /
+et input values on load so they render as 1616.90 / 1280.90 rather than 1616.9 / 1280.9. Earnings-derived rows, PAYG, super, and the payslip list already used fixed 2-decimal formatting; this closes the only remaining unformatted money inputs. (Note: <input type="number"> strips trailing zeros while focused, so the value reverts to 1616.9 during active editing but is stored and redisplayed as 1616.90.)
 
 ## [0.6.0] - 2026-07-04
 
