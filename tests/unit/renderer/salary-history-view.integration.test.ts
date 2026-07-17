@@ -13,7 +13,6 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { PayRateHistoryView } from '../../../extensions/salary-history/src/ui/pay-rate-history-view';
 import { RateRowForm } from '../../../extensions/salary-history/src/ui/rate-row-form';
-import { PayslipForm } from '../../../extensions/salary-history/src/ui/payslip-form';
 import { SalaryHistoryView } from '../../../src/renderer/components/salary-history-view';
 
 const ROW = {

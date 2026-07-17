@@ -14,7 +14,6 @@ import type { PayslipList } from '../../../../../extensions/salary-history/src/u
 import type { PayRateHistoryView } from '../../../../../extensions/salary-history/src/ui/pay-rate-history-view';
 import type { RateRowForm } from '../../../../../extensions/salary-history/src/ui/rate-row-form';
 import type { ReorderSectionsModal } from '../../../../../extensions/salary-history/src/ui/reorder-sections-modal';
-import type { RateRow } from '../../../../../extensions/salary-history/src/dao/pay-rate-history';
 import type { PaySlip } from '../../../../../extensions/salary-history/src/dao/pay-slips';
 
 const MOCK_DIR = resolve(__dirname, '../../../../../docs/design/salary-history-mvp');
