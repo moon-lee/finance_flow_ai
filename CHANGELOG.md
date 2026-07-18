@@ -1,7 +1,7 @@
 ---
 version: 0.7.0
 created: 2026-06-14
-last_updated: 2026-07-18T10:15:00+10:00
+last_updated: 2026-07-18T22:58:00+10:00
 ---
 
 # Changelog
@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Administrative
 - **Phase 5 implementation plan drafted** (`docs/superpowers/plans/2026-07-18-phase5-webviews-multiextension.md`, ~112 KB). **Status: draft — awaiting review, not yet implemented; no version bump until Phase 5 is complete.** Source spec: `docs/superpowers/specs/2026-06-13-implementation-design.md` lines 130–136 (Phase 5 section). Vision alignment cited: `project_vision.md:154-156` (WebviewPanel iframe rendering), `project_vision.md:222-241` (tabs + split-screen groups), `project_vision.md:107-117` (`finance.services.*` Domain Services), `project_vision.md:46` / `project_vision.md:48` (isolation + graceful degradation), `project_vision.md:332-356` (Dashboard as Aggregator Extension). Plan structure: 12 architecture decisions, 20 tasks, 12 manual test units, ~87 new unit tests + 10 new E2E tests, Self-Review Checklist §1–§10. Resolves five Phase 3/4 deferrals: WebviewPanel iframe rendering replaces Phase 4's renderer-side Lit mount; `finance.services.*` cross-extension Domain Services (first consumer: Dashboard); NavigationProvider data-driven sidebar replaces the static `_VIEW_CONTEXT_MAP`; DAO operators `$join` / `$orderBy` / `$limit` / `$offset`; per-extension command + ui-event allowlists on Main. Carries forward 5 additional deferrals: AI Assistant (Phase 6), generic settings UI (Phase 7), Extension Manager UI (Phase 8), full grid split-screen layout (Phase 7+), main-renderer `'unsafe-eval'` CSP removal (Phase 7). Companion documents: ADR-0005 `docs/decisions/0005-domain-service-registry.md` (new), `docs/decisions/README.md` updated, `docs/extension-api.md` to be updated in Task 17, `docs/file-reference.md` Phase 5 inventory appended.
+- **Phase 5 plan updated with review response** — Resolved 8 gaps/improvements from `docs/reviews/Phase5_webview_plan_review.md`: (1) Decision 1 rewritten to use `WebContentsView` (embedded in main window) instead of child `BrowserWindow`, fixing the contradictory "floating window vs embedded iframe" wording. (2) Decision 2 replaced alphabetical activation order with `core.workspace.defaultView` setting. (3) Decision 4 uses structured `{ left, right }` join conditions instead of raw SQL strings. (4) Decision 4 clarifies Dashboard's aggregator uses JavaScript-side merge via `finance.services.pay.*`, not cross-extension `$join`. (5) Decisions 6 and 7 explicitly qualify allowlists as defense-in-depth against developer errors, not full process isolation. (6) Decision 7 routes allowlist denials to panel DevTools via `panel:allowlist-denied` message. (7) Decision 8 adds dirty-state protection (`setDirty`/`autoSaveDraft`) and extends lazy-unmount timeout to 5 minutes. (8) Task 15 loads the extension bundle via `finance-shell://extensions/{extensionId}.js` custom protocol instead of blocking `file://`.
 
 ## [0.7.0] - 2026-07-17
 

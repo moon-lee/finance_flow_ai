@@ -122,46 +122,51 @@ The user-visible deliverable is the **multi-extension workspace + Dashboard + Do
 
 ## Architecture Decisions
 
-### Decision 1: WebviewPanel = Sandboxed Electron `BrowserWindow` Child (not `<iframe>` tag)
+### Decision 1: WebviewPanel = Sandboxed Electron `WebContentsView` (Embedded in Main Window)
 
-> **In plain English:** Each extension's UI runs in its own lightweight Electron window, not in an iframe embedded in the main renderer. The new window is sandboxed, isolated, and talks to the main app via `postMessage` — same security guarantees as if it were an iframe, but with a real `BrowserWindow` lifecycle (we can move, resize, focus, close it independently).
+> **In plain English:** Each extension's UI renders inside a sandboxed webview that is **embedded within the main shell window**, not a separate floating window. It looks and behaves like a tab/pane in the workspace, but it runs in an isolated web content process with its own CSP and preload script.
 
-**Choice:** A `WebviewPanel` in Phase 5 is an Electron `BrowserWindow` opened with:
+**Choice:** A `WebviewPanel` in Phase 5 is an Electron `WebContentsView` (modern Electron 28+ API) that is attached to the main `BrowserWindow` and positioned over a reserved DOM region (the workspace pane). It is configured with:
 
 ```ts
-new BrowserWindow({
-  parent: mainWindow,                // owned by main window
-  width: 800, height: 600,
+const panel = new WebContentsView({
   webPreferences: {
     contextIsolation: true,           // no `window` leakage
     sandbox: true,                     // OS-level sandbox
     nodeIntegration: false,           // no Node in extension UI
-    preload: <panel-specific preload> // contextBridge
+    preload: panelPreloadScriptPath   // contextBridge-provided subset of financeShell
   }
 });
+mainWindow.contentView.addChildView(panel);
+panel.setBounds({ x, y, width, height }); // synced to the workspace pane's DOM bounds
 ```
 
-The panel loads `finance-shell://panel/<extensionId>/<viewId>.html` (a custom protocol registered by Main in Phase 5 Task 2) which serves the extension's bundled UI (`dist/extensions/<extensionId>.js`) plus a small panel-runtime stub that exposes the same `financeShell.*` API the Phase 4 renderer had. The panel communicates with the main renderer via a **Main-side message router** (Task 4): panel → Main → renderer (via `webContents.send`) and renderer → Main → panel (via `webContents.send` to the panel). `postMessage` cross-window is **not** used — every cross-boundary message routes through Main so the per-extension allowlists can gate it.
+The panel loads `finance-shell://panel/<extensionId>/<viewId>.html` (a custom protocol registered by Main in Phase 5 Task 2) which serves the extension's bundled UI (`dist/extensions/<extensionId>.js`) plus a small panel-runtime stub. The panel communicates with the main renderer via a **Main-side message router** (Task 4): panel → Main → renderer and renderer → Main → panel. Every cross-boundary message routes through Main so the per-extension allowlists can gate it.
 
-**Reasoning:** Vision Issue #20 corrected the original "floating WebviewPanel windows" wording to "tabs within editor groups" (`project_vision.md:241`). Phase 4's Decision 11/19 used direct renderer-side Lit mount as a stop-gap (no iframe, no process boundary, but also no CSP escape). Phase 5 must close the `'unsafe-eval'` risk from Phase 4 Decision 19 — the renderer-side dynamic-import of the extension bundle via a blob URL requires `'unsafe-eval'` in the renderer's CSP, which a sandboxed panel can avoid (the panel's CSP does not need `'unsafe-eval'` because the bundle is loaded via a regular `<script>` tag from a `file://` URL).
+**Why `WebContentsView`:**
+- It is the officially supported replacement for the deprecated `<webview>` tag.
+- It is **embeddable** inside the main `BrowserWindow`, so it fits naturally into tabs/splits without floating OS windows or coordinate-sync hacks.
+- It provides full process isolation and the same security knobs as a `BrowserWindow` (`contextIsolation`, `sandbox`, `nodeIntegration: false`).
+- It supports the lifecycle methods Phase 5 needs: `setBounds`, `setVisible`, `focus`, `blur`, `webContents.reload`, and `removeFromParent`.
 
-A `BrowserWindow` child (not the `<webview>` tag) is chosen because:
-- Electron's `<webview>` tag was deprecated in Electron 28+ in favour of `WebContentsView`; a child `BrowserWindow` is the most portable shape today.
-- Child `BrowserWindow` supports the full lifecycle we need (focus, blur, hide, show, reload) without DOM gymnastics.
-- The Phase 7 native webview migration is a one-line swap (`BrowserWindow` → `WebContentsView`) — the panel's IPC contract is unchanged.
+**Why not a separate child `BrowserWindow`:** a separate top-level window cannot be visually clipped, nested, or scrolled inside the main window's DOM elements (tabs/splits). The plan previously described both "child BrowserWindow" and "tabs within editor groups," which was contradictory. `WebContentsView` resolves that contradiction.
+
+**Why not a DOM `<iframe>`:** an `<iframe>` still runs inside the renderer's process and shares the renderer's CSP. It does not provide the process isolation or CSP escape that Phase 5 needs to close the `'unsafe-eval'` risk from Phase 4 Decision 19.
+
+**Why not Phase 4's renderer-side Lit mount:** that approach required loading the extension bundle via a dynamic `import()` of a `blob:` URL, which forced `'unsafe-eval'` into the main renderer's CSP. `WebContentsView` loads the bundle through a regular `<script>` tag from the custom `finance-shell://` protocol, avoiding `'unsafe-eval'` on the panel side.
 
 **Alternatives considered:**
 
-- **`<iframe>` in the renderer DOM.** Simpler, but the iframe runs in the renderer's process — Phase 4's "no isolation" problem persists. Rejected.
-- **Phase 7's `WebContentsView`.** Newer API, but lacks lifecycle methods we need (`setBounds` is OK; `focus` is not). Defer until Electron's `WebContentsView` API stabilises. The Phase 5 child-`BrowserWindow` approach migrates to it in Phase 7 with one constructor swap.
+- **`<iframe>` in the renderer DOM.** Simpler layout, but runs in the renderer's process and shares the renderer CSP. Rejected because it cannot close the `'unsafe-eval'` risk.
+- **Child `BrowserWindow`.** Provides isolation, but is a separate top-level OS window that cannot be embedded as a tab/split inside the main window. Rejected.
 - **Phase 4's renderer-side Lit mount (Decision 11/19).** Already proven, but `'unsafe-eval'` is a real CSP regression. Phase 5 closes it.
 
-**Trade-off:** A child `BrowserWindow` per panel uses ~30-50 MB of RAM per open tab; with 5 open tabs that is 250 MB. Phase 5 mitigates with a **lazy-mount policy**: tabs not visible for >30 seconds are unmounted (the WebviewPanel is destroyed; state is preserved via the extension's `mountData` + the extension's own state persistence). Phase 7 can add a per-extension `state: persist` hint.
+**Trade-off:** A `WebContentsView` per panel uses ~20–40 MB of RAM per open tab (less than a full `BrowserWindow`). Phase 5 mitigates with a **lazy-unmount policy** (see Decision 8). Layout bounds must be synced from the workspace DOM to the `WebContentsView` on resize/scroll/split changes; Task 12 owns this sync.
 
 **Revisit triggers:**
-- Electron's `WebContentsView` gains the lifecycle methods we need → migrate.
-- Memory pressure with >10 open tabs becomes a real complaint (Phase 7 lazy-mount).
-- An extension needs to render a PDF / native dialog → child `BrowserWindow` already supports it (we just `panel.webContents.printToPDF(...)` etc.).
+- Electron's `WebContentsView` API changes significantly or a critical lifecycle method is removed → re-evaluate.
+- Memory pressure with >10 open tabs becomes a real complaint (Phase 7 lazy-mount / pooling).
+- An extension needs to render a PDF or native dialog → `WebContentsView.webContents.printToPDF(...)` supports PDF; native dialogs are still out-of-process and work as normal.
 
 ---
 
@@ -173,10 +178,10 @@ A `BrowserWindow` child (not the `<webview>` tag) is chosen because:
 
 1. App starts → `app.whenReady` → DB + settings init (Phase 4 order).
 2. ExtensionIPC starts → Host announces `host.ready` (Phase 3 order).
-3. **NEW (Phase 5):** Main walks the manifest list and collects all extensions whose `activationEvents` contain `onStartup`.
-4. Main sends `extension.activate` RPC to the Host for each `onStartup` extension, in **manifest-discovery order** (alphabetical on `id` for determinism).
-5. The Host activates each extension in turn. Each activation may call `finance.services.register('pay', ...)` or `finance.ui.requestMount('dashboard-view', ...)`; Main buffers the mount requests and forwards them to the Renderer once the BrowserWindow is ready.
-6. The Renderer mounts the first `onStartup` extension's WebviewPanel as the active tab; subsequent `onStartup` extensions mount as additional tabs (Phase 5 only auto-mounts the **first** `onStartup` extension's primary view — Dashboard's `dashboard-view` — and opens others via Activity Bar / Command Palette).
+3. **NEW (Phase 5):** Main reads the user setting `core.workspace.defaultView` (default `'dashboard'`). It validates that the referenced view is contributed by an extension whose `activationEvents` contain `onStartup`; if not valid, it falls back to the first `onStartup` extension's primary view in manifest-discovery order.
+4. Main sends `extension.activate` RPC to the Host for each `onStartup` extension. Activation order is the default-view extension first, then remaining `onStartup` extensions in manifest-discovery order (alphabetical on `id` for determinism).
+5. The Host activates each extension in turn. Each activation may call `finance.services.register('pay', ...)` or `finance.ui.requestMount('dashboard-view', ...)`; Main buffers the mount requests and forwards them to the Renderer once the workspace is ready.
+6. The Renderer mounts the `core.workspace.defaultView` WebviewPanel as the active tab; subsequent `onStartup` extensions mount as additional background tabs. If there is no `onStartup` extension for the configured default view, the first `onStartup` extension's primary view becomes the active tab.
 
 **Reasoning:** `project_vision.md:332-356` describes Dashboard as the platform's default landing view. Today the workspace ships with a static Dashboard placeholder tab (`src/renderer/components/workspace.ts` defaults `_currentView = 'Dashboard'`). Phase 5 must turn that placeholder into a real extension — and the only way to do that is for Dashboard to auto-activate, because there is no UI affordance to "click Dashboard" if the user cannot reach it before any click.
 
@@ -190,10 +195,12 @@ The Dashboard extension's manifest declares `"activationEvents": ["onStartup"]` 
 
 **Trade-off:** `onStartup` activates an extension before the user has clicked anything, which means a misbehaving `onStartup` extension (one that throws during activation) will keep the shell from booting. Phase 5 mitigates with the Phase 3 hot-disable contract: a `crash_count >= 3` extension is auto-disabled, and the `onStartup` activation goes through `extensions:activate-view` IPC (which routes through `recordCrash` on failure) rather than a fire-and-forget RPC.
 
+A second trade-off is the new `core.workspace.defaultView` setting. If a user disables the extension that contributes the default view and does not change the setting, Main falls back to the first available `onStartup` extension. This is graceful but may surprise users who expected a specific extension to open.
+
 **Revisit triggers:**
-- More than one `onStartup` extension is added (Phase 5 only ships Dashboard) — the manifest-discovery order rule may need to become user-configurable.
+- More than one `onStartup` extension is added (Phase 5 only ships Dashboard) — `core.workspace.defaultView` becomes more valuable and should be surfaced in a Phase 7 settings UI.
 - An `onStartup` extension wants to delay its UI mount (e.g., it needs to load remote data first) → add an `onStartupAfterReady` event in Phase 7+.
-- Phase 8's marketplace ships — `onStartup` extensions must be opt-in (not auto-installed).
+- Phase 8's marketplace ships — `onStartup` extensions must be opt-in (not auto-installed); `core.workspace.defaultView` should validate against installed/enabled extensions.
 
 ---
 
@@ -268,14 +275,14 @@ finance.db.table('salary_history_pay_slips').find(
 
 | Operator | Shape | Notes |
 |----------|-------|-------|
-| `$join` | `{ table, on, type: 'INNER' \| 'LEFT' \| 'RIGHT' }` | `on` is a raw SQL expression in `<left>.<column> = <right>.<column>` form; validated by the DAO service against the two registered tables' column lists to prevent injection. `$join` is allowed **only on shared tables and the calling extension's own tables** — a salary-history extension cannot `$join` salary_history_pay_slips with a non-shared, non-own table. |
+| `$join` | `{ table, on: { left: string, right: string }, type: 'INNER' \| 'LEFT' \| 'RIGHT' }` | `on` is a structured object `{ left: 'from_column', right: 'to_column' }` — no raw SQL string. This is injection-safe by design. The DAO service validates `left` and `right` against the two registered tables' column manifests. `$join` is allowed **only on shared tables and the calling extension's own tables**. |
 | `$orderBy` | `Array<{ column, direction: 'ASC' \| 'DESC' }>` | Column must exist in the (post-join) result set; direction is enum-validated. |
 | `$limit` | `number` (integer, 1..1000) | Hard cap of 1000 (matches Phase 4's default). |
 | `$offset` | `number` (integer, >= 0) | No upper bound (consumer responsibility). |
 
 Operators are added as a **second argument** to `find()` / `findOne()` / `count()`. The first argument remains the WHERE clause (Phase 4 shape). The query envelope `{ rows: ... }` is unchanged.
 
-**Reasoning:** Phase 4 Decision 2 deferred `$join` (Dashboard aggregation), `$orderBy` / `$limit` / `$offset` (sort + paginate) explicitly to Phase 5. The Dashboard's Net Worth card aggregates payslips against accounts; the Last Payslip card sorts by `pay_date DESC` and limits to 1; pagination is needed for users with >1000 payslips.
+**Reasoning:** Phase 4 Decision 2 deferred `$join` (Dashboard aggregation), `$orderBy` / `$limit` / `$offset` (sort + paginate) explicitly to Phase 5. However, cross-extension `$join` is **not** available in Phase 5, so the Dashboard cannot use `$join` to combine payslips with accounts at the SQL level. Instead, the Dashboard's aggregator combines the two reads **in JavaScript** after fetching both via `finance.db.table('accounts')` and `finance.services.pay.*` (see Decision 5). The `$join` operator is only available to extensions that own one of the tables being joined or that join shared tables (`accounts`). A salary-history extension can `$join` its own `salary_history_pay_slips` with `accounts` (shared table) because it owns `salary_history_pay_slips`. The Last Payslip card sorts by `pay_date DESC` and limits to 1; pagination is needed for users with >1000 payslips.
 
 **Why a second argument, not extending the first:** keeping WHERE (filter) and operators (projection) separate matches the SQL mental model and lets the DAO service validate them independently (WHERE columns are table-scoped; `$orderBy` columns are result-set-scoped). It also keeps Phase 4 callers compatible — they pass one arg as before; Phase 5 callers add the second.
 
@@ -285,10 +292,10 @@ Operators are added as a **second argument** to `find()` / `findOne()` / `count(
 - **`$and` operator.** Phase 4 Decision 2 deliberately omitted it (`{ a: 1, b: 2 }` is already AND). No change.
 - **Subqueries / nested `$join`.** Out of scope. Defer until an extension needs them.
 
-**Trade-off:** `$join` with a raw `on` expression is the most flexible shape but requires the DAO to validate the expression against the registered column lists. Phase 5 builds a small parser: `on: 'a.col = b.col'` → split on `=` → validate `a` is the from-table, `b` is the joined table, `col` exists in the respective table manifest. A malformed `on` returns `ValidationFailedError` (existing JSON-RPC error code -32012 from Phase 4 Decision 6).
+**Trade-off:** A structured `{ left: string, right: string }` join condition is injection-safe by design and does not require the small parser from Phase 4's raw-SQL approach. The trade-off is that `left`/`right` must exist in the respective table's column manifest; a `left` column that does not exist is caught at validation time with a `ValidationFailedError` (-32012).
 
 **Revisit triggers:**
-- An extension needs `$join` against an extension table that is not its own (e.g., Dashboard wants to `$join` salary_history_pay_slips). **NOT allowed** in Phase 5 — only `accounts` (shared) and `dashboard_*` (own) can be joined from a Dashboard call. The Dashboard consumes salary data via `finance.services.pay.*` (Decision 5), not via `$join`. If a Phase 6+ consumer needs cross-extension `$join`, that's a Phase 8 ADR (likely: a Core-owned aggregator extension that runs the join, not the calling extension).
+- An extension needs `$join` against an extension table that is not its own (e.g., Dashboard wants to `$join` salary_history_pay_slips). **NOT allowed** in Phase 5 — only `accounts` (shared) can be joined from a Dashboard call. The Dashboard's payslip aggregation occurs **in JavaScript** after calling `finance.services.pay.*`. If a Phase 6+ consumer needs cross-extension `$join` at the SQL level, that's a Phase 8 ADR (likely: a Core-owned aggregator extension that runs the join, not the calling extension).
 - `$join` performance with >10k rows becomes a complaint → migrate to a real query planner in Phase 7+.
 
 ---
@@ -404,7 +411,7 @@ The four methods above are exactly what Dashboard calls. The internal `PayServic
 
    A new `CommandAllowlist` class in `src/main/services/command-allowlist.ts` builds the lookup table from the loaded manifests at startup; the table is rebuilt when the manifest list changes (Phase 8's `onExtensionsChanged` event).
 
-**Reasoning:** Phase 3 Self-Review §7 deferred this to Phase 5; Phase 4 Review Finding 3 reminded that it was still deferred. The allowlist is the load-bearing security boundary between "developer-installed extension can do anything" (Phase 4) and "extension is constrained to a manifest-declared set of actions" (Phase 5).
+**Reasoning:** Phase 3 Self-Review §7 deferred this to Phase 5; Phase 4 Review Finding 3 reminded that it was still deferred. The allowlist is the **first line of defence** against accidental or unprivileged cross-extension command invocation. It is **not** a full security isolation layer — all extensions share one Host process, so a malicious extension could spoof its extension ID or read another extension's registered commands in memory (see Gap 5). The allowlist protects against **developer errors** and **unintentional cross-extension calls**, not against a compromised extension that already runs in the shared Host.
 
 The `allowedCommands` set is **per-extension** because the threat model is per-extension: salary-history is trusted to invoke `salary.show-pay-history`, but Dashboard (a separate, less-trusted extension) is **not** trusted to invoke arbitrary salary-history commands. By listing `salary.show-dashboard` in salary-history's `allowedCommands`, salary-history opts into Dashboard's invocation of that specific command (currently a no-op — it's reserved for a future "Open Salary History" Dashboard command).
 
@@ -450,7 +457,12 @@ The `allowedCommands` set is **per-extension** because the threat model is per-e
    ```ts
    ipcMain.on('extensions:ui-event', (_event, extensionId, eventName, detail) => {
      if (!uiEventAllowlist.isAllowed(extensionId, eventName)) {
-       console.warn(`[extensions] dropped ui-event "${eventName}" from "${extensionId}" — not in allowlist`);
+       const msg = `[extensions] dropped ui-event "${eventName}" from "${extensionId}" — not in allowlist`;
+       console.warn(msg);
+       // Forward the same warning to the originating panel's DevTools console so
+       // extension developers see the violation immediately during development.
+       const panel = webviewPanelManager.findPanelByExtension(extensionId);
+       panel?.webContents.send('panel:allowlist-denied', { kind: 'ui-event', extensionId, eventName, reason: msg });
        return;
      }
      extensionIPC.notify(RPC_METHOD.ExtensionUiEvent, { extensionId, eventName, detail });
@@ -461,6 +473,10 @@ The `allowedCommands` set is **per-extension** because the threat model is per-e
 **Reasoning:** Phase 4 Decision 12 added the `ui-event` channel as a separate writeback path (it does not flow through `commands.execute`). Without this allowlist, a compromised extension could emit any ui-event name (including ones that mimic built-in Core events like `core.toggle-theme`). The allowlist constrains each extension to the event names its UI components actually emit.
 
 **Why silent drop + `console.warn` (not error to renderer):** the ui-event channel is fire-and-forget; the renderer (the WebviewPanel) cannot meaningfully handle "your event was dropped" — by the time the drop happens, the panel may have already re-rendered. A `console.warn` keeps the diagnostic surface for manual testing (visible in main-process terminal) without breaking the renderer's event loop.
+
+**Why also forward the warning to the panel DevTools (Improvement 3 from the plan review):** the main-process terminal is easy to miss during local development. Sending a `panel:allowlist-denied` message to the originating panel lets extension developers see the allowlist violation directly in the panel's DevTools, where they are already debugging.
+
+**Honest threat-model note (Gap 5):** like the command allowlist, the ui-event allowlist is **defense-in-depth** against accidental cross-extension events. It does not prevent a malicious extension already running in the shared Host process from spoofing `extensionId` or from emitting events that mimic Core events without going through the IPC layer. True isolation between extensions (per-extension Host processes) is a Phase 8 ADR.
 
 **Alternatives considered:**
 
@@ -475,44 +491,56 @@ The `allowedCommands` set is **per-extension** because the threat model is per-e
 
 ---
 
-### Decision 8: WebviewPanel Lifecycle — Lazy Mount, Stateful Unmount
+### Decision 8: WebviewPanel Lifecycle — Lazy Unmount with Dirty-State Protection
 
-> **In plain English:** Each tab in the workspace is a WebviewPanel. When the user switches away from a tab for more than 30 seconds, the panel's `BrowserWindow` is destroyed (memory freed); when the user switches back, the panel is re-created from the extension's `mountData` + the extension's own state persistence.
+> **In plain English:** Each tab in the workspace is a WebviewPanel. When the user switches away from a tab for an extended period, the panel's `WebContentsView` is destroyed (memory freed); when the user switches back, the panel is re-created from the extension's `mountData` + the extension's own state persistence. **Panels that hold unsaved user input (dirty state) are never unmounted.**
 
 **Choice:** A new `WebviewPanelManager` class in `src/main/services/webview-panel-manager.ts` owns the panel lifecycle:
 
 ```ts
 class WebviewPanelManager {
   mount(extensionId: string, viewId: string, mountData: object): PanelHandle;
-  unmount(handle: PanelHandle): void;       // destroy BrowserWindow
-  focus(handle: PanelHandle): void;         // switch to tab
-  list(): PanelHandle[];                    // for tab bar
+  unmount(handle: PanelHandle): void;          // destroy the WebContentsView
+  focus(handle: PanelHandle): void;            // switch to tab
+  list(): PanelHandle[];                       // for tab bar
+  setDirty(handle: PanelHandle, dirty: boolean): void;  // extension reports form-dirty
+  autoSaveDraft(handle: PanelHandle): Promise<void>;    // extension persists draft before unmount
 }
 ```
 
 The `mount` flow:
-1. Spawn a child `BrowserWindow` with the panel-specific preload (Decision 1).
-2. Compute the panel's bundle URL: `file://.../dist/extensions/<extensionId>.js`.
+1. Create a `WebContentsView` with the panel-specific preload (Decision 1).
+2. Compute the panel's bundle URL: `finance-shell://extensions/<extensionId>.js` (served by the same custom protocol handler).
 3. Register the panel with the `financeShell.extensions.list()` IPC so the renderer can enumerate open panels.
-4. Load `finance-shell://panel/<extensionId>/<viewId>.html` (custom protocol) which serves the bundle via a `<script>` tag.
-5. Forward the extension's `mountData` to the panel via `webContents.send('panel:init', { extensionId, viewId, mountData })`.
+4. Load `finance-shell://panel/<extensionId>/<viewId>.html` (custom protocol) which serves the HTML template and references the bundle via `<script src="finance-shell://extensions/<extensionId>.js">` (NOT `file://`, see Task 15).
+5. Attach the `WebContentsView` to the main `BrowserWindow.contentView` at the workspace pane's DOM bounds.
+6. Forward the extension's `mountData` to the panel via `webContents.send('panel:init', { extensionId, viewId, mountData })`.
 
-The **lazy-unmount policy**: a `setInterval` (every 10 s) checks each panel's last-focus timestamp; panels unfocused for >30 s are unmounted (their `BrowserWindow` is destroyed; the panel's entry remains in the tab bar with a "Reload" affordance). Switching back to a stubbed panel triggers a re-mount.
+The **lazy-unmount policy**:
+- A `setInterval` (every 30 s) checks each panel's last-focus timestamp and dirty flag.
+- Panels unfocused for more than **5 minutes** AND not dirty are unmounted (the `WebContentsView` is detached and destroyed; the panel's entry remains in the tab bar with a "Reload" affordance).
+- Panels that are **dirty** (`setDirty(true)` was called and not cleared) are exempt from lazy unmount indefinitely.
+- When a panel is about to be unmounted, `WebviewPanelManager` calls `autoSaveDraft()` (which the extension implements via `finance.settings.set`), giving the extension a last chance to persist form state.
+- Switching back to a stubbed panel triggers a re-mount.
 
-**Reasoning:** Decision 1's trade-off (~30-50 MB per open panel) makes naive multi-tab behaviour untenable for power users with 10+ tabs open. Lazy unmount is the standard VS Code pattern (the "close vs hide" decision is deferred to Phase 8's tab-management UI).
+**Dirty-state API:** extensions opt into dirty tracking by calling `finance.ui.setDirty(true)` when a form receives input and `finance.ui.setDirty(false)` when it is saved or cancelled. The Host API forwards both calls to `WebviewPanelManager`.
 
-**State preservation:** the extension itself is responsible for its state (Phase 4 PayService stores YTD summaries in the DB; Phase 5 Dashboard stores card preferences in `dashboard.*` settings). When a panel re-mounts, the extension re-queries the data; no in-Renderer state survives the unmount.
+**Reasoning:** Decision 1's trade-off (~20–40 MB per open `WebContentsView`) makes naive multi-tab behaviour untenable for power users with 10+ tabs open. The 5-minute timeout (up from the original 30 s) plus dirty-state protection balances memory pressure against the common UX complaint of losing half-filled forms. Lazy unmount is the standard VS Code pattern (the "close vs hide" decision is deferred to Phase 8's tab-management UI).
+
+**State preservation:** the extension itself is responsible for its state (Phase 4 PayService stores YTD summaries in the DB; Phase 5 Dashboard stores card preferences in `dashboard.*` settings). When a panel re-mounts, the extension re-queries the data and re-hydrates from any saved draft via `mountData`.
 
 **Alternatives considered:**
 
-- **`hide()` instead of `destroy()`.** Cheaper to re-focus but keeps memory pressure; defeats the lazy-unmount trade-off.
+- **`hide()` instead of `destroy()`.** Cheaper to re-focus but keeps memory pressure; defeats the lazy-unmount trade-off. Rejected.
+- **No dirty-state protection.** Caused the original concern raised in Gap 2 — a half-filled form could be destroyed after 30 s. Rejected.
 - **Per-extension `keepAlive: boolean` manifest hint.** More flexible but adds manifest surface; defer until an extension actually needs persistent state.
 
-**Trade-off:** A 30-second unmount delay means fast tab-switching is free (the panel stays mounted), but a long pause + return costs a re-mount (~500 ms cold-start). The Dashboard's auto-mount-on-startup means its panel is **never** lazily unmounted (it's the active panel until the user switches away for 30 s).
+**Trade-off:** A 5-minute unmount delay for clean panels means fast tab-switching is free (the panel stays mounted), and a long pause + return costs a re-mount (~500 ms cold-start). The Dashboard's auto-mount-on-startup means its panel is **never** lazily unmounted (it's the active panel until the user switches away for 5 min). Dirty panels never unmount regardless of inactivity.
 
 **Revisit triggers:**
 - Re-mount cold-start exceeds 1 second (the user notices the lag) → investigate the bundle size or the panel-runtime stub.
 - A user opens >20 tabs and complains about re-mount latency → expose a per-extension `keepAlive: boolean` in Phase 7+.
+- The auto-save draft flow is too disruptive for a frequently-edited panel → make the auto-save opt-in via a manifest hint.
 
 ---
 
@@ -1131,11 +1159,11 @@ finance-flow_ai/
       <title>Webview Panel</title>
     </head>
     <body>
-      <script type="module" src="file:///path/to/dist/extensions/{extensionId}.js"></script>
+      <script type="module" src="finance-shell://extensions/{extensionId}.js"></script>
     </body>
   </html>
   ```
-  The `{extensionId}` placeholder is replaced by `panel-protocol.ts` at response time.
+  The `{extensionId}` placeholder is replaced by `panel-protocol.ts` at response time. The bundle is served via the **same custom protocol** (`finance-shell://extensions/...`), not via `file://`, because Chromium blocks pages loaded over custom protocols from loading `file://` resources.
 - [ ] 15.2 In `panel-protocol.ts`, ensure the response headers set the CSP meta tag (already in the HTML); add a `Content-Security-Policy` response header as a defense-in-depth.
 - [ ] 15.3 Verify the panel's DevTools console shows no CSP violations when the bundle loads.
 
