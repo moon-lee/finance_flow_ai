@@ -68,7 +68,7 @@ status: active
   - ExtensionRegistry unit tests → **Prerequisite satisfied in Phase 3** (8 new tests shipped)
 - **Deliverable**: app launches, spawns Extension Host, dynamically reads mock manifest, registers views/commands, executes round-trip IPC for both `activateView` and `executeCommand`. Crash isolation verified. Hot-disable contract verified. All 56+ unit tests pass.
 
-### Phase 4: Salary History Extension (Vertical Slice) + First Extension Domain Logic (Est: 6 – 8 Days)
+### Phase 4: Salary History Extension (Vertical Slice) + First Extension Domain Logic (Est: 6 – 8 Days) — **COMPLETE** (shipped_date: 2026-07-17; duration: 2026-07-04 → 2026-07-17, ~13 days; release: 0.7.0)
 
 > *Updated 2026-07-06: aligned with Phase 4 plan Decisions 1, 5, 14, 16, 17 and Plan Amendments 1 & 3. Pay slips are extension-private (not shared); cross-extension `finance.services.*` is deferred to Phase 5; DeductionService removed per Amendment 1.*
 
@@ -78,6 +78,24 @@ status: active
 - **Extension-internal helpers (NOT `finance.services.*`):** PayService for payslip validation/breakdown calculation/aggregation, PayRateService for rate-history CRUD, PAYG validation module. Cross-extension `finance.services.*` is deferred to Phase 5 — the public API gets shaped by Phase 5's consumer call sites, not derived from this internal surface (per Plan Amendment 1 / Phase 4 Decision 5).
 - Extension UI: payslip entry form (minimal entry + derived breakdown preview + PAYG validation), salary history list (with YTD summary footer), pay rate history view (admin via Command Palette), accounts seed modal (first-run), reorder sections modal, rate row form
 - **Deliverable**: Fully functional salary history UI with persistent storage (SQLite via DAO); two views reachable via Activity Bar (pay history) and Command Palette (rate history); derivation-first calculation engine; settings namespace registration (`salary-history.*` keys)
+- **Out of Scope (Explicit Deferrals)** — documented for future phases; NOT shipped in Phase 4:
+  - `WebviewPanel` iframe rendering for extensions → Phase 5 (per Decision 11; Phase 4 mounts UI as Lit elements in the workspace).
+  - `finance.services.*` cross-extension Domain Services → Phase 5 (PayService is a Phase 4 internal helper per Decision 5; the cross-extension contract lands when a second consumer needs it).
+  - NavigationProvider data-driven sidebar → Phase 5.
+  - AI tools for Salary History (`finance.ai.registerTool` wiring) → Phase 6 (Phase 4's `ai.registerTool` remains a no-op stub).
+  - Typed DAO generation from manifest schemas → Phase 7+.
+  - Generic settings UI renderer → Phase 7 (only the reorder modal shipped as a settings surface).
+  - Per-extension command allowlist on Main → Phase 5 (security hardening; Renderer can still drive arbitrary command execution in Phase 4).
+  - `extensions:ui-event` per-extension allowlist on Main → Phase 5 (Decision 12's new writeback IPC bypasses the `executeCommand` path, so Phase 5 hardening must cover two surfaces).
+  - ESM-friendly production source-map stripping → Phase 7.
+  - Umzug migration runner adoption → Phase 8 evaluation (inline runner sufficient at 5 migrations).
+  - Marketplace extension packaging/signing → Phase 8.
+  - Phase 2/3 deferred E2E suite → unchanged (gated by Playwright-electron environmental blocker; tracked separately).
+  - DAO query operators `$and` / `$join` / `$orderBy` / `$limit` / `$offset` → Phase 5+; `$raw` is **never** supported (the reason the DAO exists).
+  - Transaction support → out of scope (extensions cannot begin transactions in Phase 4; atomicity is per-call).
+  - Drizzle / Prisma schema-bound DAO generation → out of scope (Vision Issue #28).
+  - Drag-and-drop reorder, versioned settings, real component library (Storybook/Histoire) → Phase 7+.
+  - Row-level access control (e.g. "Tax can only read salary_history_pay_slips for tax year X") → future ADR.
 
 ### Phase 5: WebviewPanels & Multi-Extension UI (Est: 4 – 6 Days)
 - Split-screen support, tab management
@@ -111,7 +129,7 @@ Based on a single full-time developer or agent working sequentially, the project
 | **Phase 1** | Core Shell Prototype | 1.5 – 2 Days | 0.5 Days | Low |
 | **Phase 2** | Database & Settings Backbone | 2 – 3 Days | 1 Day | Medium |
 | **Phase 3** | Extension Host & IPC Foundation | 5 – 7 Days | ~8 Days (incl. 5 review rounds, ESM bundling fix, post-test bug fixes) | High |
-| **Phase 4** | Salary History Extension (Slice) | 6 – 8 Days | — | Medium |
+| **Phase 4** | Salary History Extension (Slice) | 6 – 8 Days | ~13 Days (2026-07-04 → 2026-07-17, incl. 2 review rounds + doc/self-review) | Medium |
 | **Phase 5** | WebviewPanels & Multi-Extension UI | 4 – 6 Days | — | High |
 | **Phase 6** | AI Assistant (Local-first) | 3 – 5 Days | — | Medium |
 | **Phase 7** | Production Polish & Encryption | 3 – 4 Days | — | Medium |
@@ -125,6 +143,13 @@ Based on a single full-time developer or agent working sequentially, the project
 - Manual testing & bug surfacing (Bug 1 `isTrusted`, Bug 2 idempotency, Issue 1 host.log forwarding, Issue 2 telemetry, Issue 3 nav panel view-id mapping, Test Unit 5 fixes): ~2 Days
 - Lint cleanup + final docs/test wrap-up (Test Unit 3 wording, Test Unit 6 hot-disable contract tests, Test Unit 7 stdout fix, wrap-up commit, design-doc update): ~1 Day
 - Phase 3 overran the 5–7 day estimate by ~1–3 days due to the late-discovered design gaps (renderer-side idempotency guard blocking re-spawn; `console.warn` going to stderr in some terminals; static NavigationPanel labels being misinterpreted as clickable commands). Each gap was a single targeted fix, but the cumulative rework time exceeded the original high-complexity estimate's upper bound.
+
+**Phase 4 actual breakdown** (estimate-vs-actual):
+- Initial implementation (20-task plan: Tasks 1–10 shared-data/DAO/UI foundation, Tasks 11–17 salary-history extension features, migrations 003–007): ~7 Days
+- Review fix integration rounds (Plan Amendments 1–7, Review Findings 1–22, deferral resolutions, ADR-0002 addendum): ~3 Days
+- Manual testing & bug surfacing (TU1–TU5 GUI walk-throughs; TU8 typecheck/lint/tests; TU9 build verification; leave-accrual self-reference fix, 2-decimal display, hour-input persistence, migration 006/007/008 fixes): ~2 Days
+- Doc/self-review wrap-up (Task 18 self-review §1–§10, CHANGELOG 0.7.0 release, file-reference + ADR sync, design-doc update): ~1 Day
+- Phase 4 overran the 6–8 day estimate by ~5 days. The bulk of the overrun was the review-finding churn (7 plan amendments + 22 review findings reshaping the data model, calculation engine, and migration set) and the manual test-unit pass, not the core implementation — the 17 architecture decisions were settled up front, so rework was targeted rather than architectural.
 
 ### Key Complexity & Risk Drivers
 - **Multi-Process IPC Boundary (Phase 3 & 5)**: Routing JSON-RPC requests across isolated Node process wrappers and sandboxed Webview iframes.

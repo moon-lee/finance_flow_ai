@@ -1888,5 +1888,3 @@ Each decision's "Alternatives considered" section enumerates the rejected option
 ---
 
 ## End of Plan
-
-This plan is **draft — awaiting review**. Once approved, the executor follows the 20 tasks in order. Self-Review Checklist §1–§10 verifies completion.
