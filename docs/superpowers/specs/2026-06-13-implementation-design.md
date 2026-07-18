@@ -98,10 +98,17 @@ status: active
   - Row-level access control (e.g. "Tax can only read salary_history_pay_slips for tax year X") → future ADR.
 
 ### Phase 5: WebviewPanels & Multi-Extension UI (Est: 4 – 6 Days)
-- Split-screen support, tab management
-- Dashboard extension (aggregator, reads Shared Data via Domain Services)
-- Navigation providers for sidebar trees
-- **Deliverable**: Multiple tabs with live charts in Dashboard, Domain Services consumed consistently
+
+> *Carries forward 5+ deferred items from Phase 4 (see Phase 4 "Out of Scope" list): `WebviewPanel` rendering, `finance.services.*` Domain Services, NavigationProvider, DAO operators `$join`/`$orderBy`/`$limit`/`$offset`, and two Main-side security allowlists. Scope grew since the original plan — budget accordingly.*
+
+- **WebviewPanel iframe rendering** — replaces Phase 4's Lit-direct-mount approach (Decision 11). Extensions render in sandboxed iframes instead of as Lit elements in the workspace; this removes the `'unsafe-eval'` CSP requirement that Phase 4's blob-URL dynamic import needed (Review Finding 22).
+- **`finance.services.*` cross-extension Domain Services** — promotes Phase 4's internal `PayService` (Decision 5) into a public, cross-extension contract. The Dashboard (and later Tax/Cash Flow) consume Salary History data through this surface rather than reaching into `salary_history_*` tables directly.
+- **Split-screen support, tab management** — multiple extension views open concurrently; workspace becomes a tab host.
+- **Dashboard extension** — aggregator that reads Shared Financial Data (`accounts`) and Phase 4 extension data via Domain Services; live charts.
+- **NavigationProvider data-driven sidebar** — replaces the static id→name map that Phase 3 introduced and Phase 4 extended for `salary-history` view ids; side-panel trees driven by extension contributions.
+- **DAO operator expansion** — implements `$join` (cross-table aggregation for Dashboard), `$orderBy` / `$limit` / `$offset` (sort + paginate; Phase 4 `.find()` only returned PK-DESC). `$raw` remains unsupported.
+- **Security hardening (two surfaces)** — Phase 4 opened a second writeback IPC path (`extensions:ui-event`, Decision 12) alongside `executeCommand`. Phase 5 adds a **per-extension allowlist on Main** for both commands *and* ui-events (closes the Phase 3 §7 / Phase 4 Review Finding 3 deferral).
+- **Deliverable**: Multiple tabs with live charts in Dashboard; Domain Services consumed consistently across extensions; sandboxed WebviewPanel UI; navigation driven by contributions; hardened per-extension IPC allowlists.
 
 ### Phase 6: AI Assistant (Deferred until Phase 5 Complete) (Est: 3 – 5 Days)
 - Ollama integration (default local only)
