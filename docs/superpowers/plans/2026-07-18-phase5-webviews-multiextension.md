@@ -1,0 +1,1449 @@
+---
+title: Phase 5 — Webview Panels, Multi-Extension UI & Cross-Extension Services
+date: 2026-07-18
+status: draft — awaiting review
+target_version: 0.8.0
+spec_source: docs/superpowers/specs/2026-06-13-implementation-design.md (Phase 5 section, lines 130–136)
+vision_alignment:
+  - project_vision.md:154-156 (UI Rendering Layer — WebviewPanel iframe rendering)
+  - project_vision.md:222-241 (Main Workspace — tabs + split-screen groups)
+  - project_vision.md:107-117 (Domain Services layer — `finance.services.*` contract)
+  - project_vision.md:46 (strict namespace isolation)
+  - project_vision.md:48 (Do Not Break Other Extensions — graceful `null`)
+  - project_vision.md:78 (JSON-RPC transport — Phase 3 ADR-0003)
+  - project_vision.md:131-152 (Secure Extension API — `finance.db.table()` contract)
+  - project_vision.md:264-284 (Data Architecture / Shared Financial Data boundary)
+  - project_vision.md:332-356 (Dashboard as Aggregator Extension)
+  - project_vision.md:46 (security — per-extension command allowlist deferred Phase 5)
+carries_forward_from_phase4:
+  # Items explicitly deferred to Phase 5 by the Phase 4 plan's Self-Review §7.
+  - deferral: "WebviewPanel iframe rendering for extensions (Phase 4 Decision 11/19)"
+  - deferral: "finance.services.* cross-extension Domain Services (Phase 4 Decision 5)"
+  - deferral: "NavigationProvider data-driven sidebar (Phase 4 Self-Review §7)"
+  - deferral: "DAO operators $join / $orderBy / $limit / $offset (Phase 4 Decision 2)"
+  - deferral: "Per-extension command allowlist on Main (Phase 3 §7 + Phase 4 Decision 12)"
+  - deferral: "extensions:ui-event per-extension allowlist on Main (Phase 4 Decision 12)"
+  - deferral: "Menu bar contribution rendering (Phase 3 §7)"
+  - deferral: "Global event bus (Phase 3 §7)"
+  - deferral: "Hot-disable behaviour runtime-unload — extension.deactivate notification (Phase 3 §7)"
+depends_on_test_units:
+  - phase3 TU1 — Activity Bar activates extension on click
+  - phase3 TU3 — Navigation Panel view-id mapping (Phase 3 static stop-gap map; replaced in Phase 5 by NavigationProvider)
+  - phase3 TU4 — Extension Host stdout mirrored to Renderer DevTools
+  - phase3 TU5 — Crash isolation and re-spawn on next interaction
+  - phase3 TU6 — Hot-disable contract (registry excludes disabled; Host retains activation)
+  - phase4 TU1 — First-run Account Seed (Dashboard cannot aggregate without accounts)
+  - phase4 TU2-TU4 — Payslip CRUD (Dashboard needs payslip data via finance.services.pay.*)
+  - phase4 TU8 — TypeScript Strict + Lint + Tests (Phase 5 must maintain green)
+  - phase4 TU9 — Multi-File Build Verification (Decision 9 type-only SDK)
+prerequisite_decisions:
+  - ADR-0002 (inline migrations) — Phase 5 adds at most 1 migration; no threshold impact
+  - ADR-0003 (utilityProcess + JSON-RPC 2.0) — extended with $join/$orderBy/$limit/$offset RPC support
+  - ADR-0004 (build-time extension entry bundling) — exercised by Dashboard (2nd bundled extension)
+---
+
+# Phase 5 — Webview Panels, Multi-Extension UI & Cross-Extension Services
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Complete this milestone and wait for review before starting Phase 6.
+>
+> **Goal reminder:** Phase 5 turns the single-extension shell (Phase 3 + Phase 4) into a multi-extension workspace where extensions can render inside sandboxed **WebviewPanels**, the Navigation Panel is **data-driven** from extension contributions, the workspace supports **multiple tabs + split-screen groups**, and a second extension (**Dashboard**) acts as the platform's first **aggregator extension** — reading Shared Financial Data + Salary History data via a new cross-extension **`finance.services.*`** contract. Phase 5 also closes two long-running security deferrals by adding per-extension **allowlists** on Main for both `executeCommand` and `ui-event` (Decision 12 surface). Phase 5 does **not** ship the AI Assistant (Phase 6), keyboard shortcut customization (Phase 7), the generic settings UI (Phase 7), or the Extension Manager / marketplace (Phase 8).
+
+---
+
+## Goal
+
+Ship the platform's first **multi-extension workspace**: the user opens the app and sees the **Dashboard** (a new aggregator extension) as the default view; clicking `P` switches to Salary History; the two views stay open in **tabs**; the user can drag tabs into split-screen groups; the Navigation Panel's sidebar items are now **data-driven from extension contributions** (replacing the Phase 3/4 static id→name map); each extension's UI renders inside a sandboxed **`WebviewPanel`** iframe (replacing the Phase 4 renderer-side Lit mount); and Salary History's internal `PayService` is promoted to a **cross-extension `finance.services.pay.*` contract** that the Dashboard (and future extensions) consume. The Main process enforces **per-extension allowlists** for `executeCommand` and `ui-event` IPC, closing two security deferrals.
+
+**Architecture:** the workspace becomes a tab host that mounts one **`WebviewPanel`** per extension view (Electron `BrowserView` → Phase 7's native webview tag; Phase 5 uses `BrowserWindow` child iframes with `contextIsolation: true` + `sandbox: true` + a strict CSP). The Host gains a new **startup auto-activation** entry point (`activateOnStartup`) so the Dashboard is mounted before any user interaction. The DAO gains **`$join`**, **`$orderBy`**, **`$limit`**, **`$offset`** query operators (Phase 4 shipped only `$eq`-`$nin` + `$or`); `$raw` remains unsupported. A new **`finance.services.pay.*`** cross-extension contract is designed **from the consumer side** (the Dashboard's aggregator queries), not derived from Phase 4's internal `PayService` shape — the internal service is refactored to expose a small, stable surface (`getYearToDateSummary`, `getMonthlySeries`, `getCurrentRate`). The Main process gains a **per-extension allowlist** (declared in `package.json#financeExtension.contributions.allowedCommands` + `allowedUiEvents`) that gates every `executeCommand` and `ui-event` IPC call; renderer-driven arbitrary execution is no longer possible.
+
+**Tech Stack:** everything Phase 4 ships, plus: Electron `BrowserWindow` (sandboxed child windows for WebviewPanels; same `contextIsolation: true` + `sandbox: true` + strict CSP as the main window), Lit (Dashboard UI), the existing DAO + IPC infrastructure (extended with new operators + `finance.services.pay.*` RPC), no new runtime deps (the iframes run the same Vite-built extension bundles; no React/Vue/etc.).
+
+---
+
+## Deliverable
+
+A bootable Electron app with a working **multi-extension workspace**. The items below are grouped by what the user sees and what runs under the hood.
+
+### User-visible: Multi-tab Workspace with Dashboard default
+
+1. **Dashboard is the default landing view.** On app startup, the **Dashboard** extension activates automatically (no user click), opens in the **first tab** of the workspace, and renders four cards: (a) Net Worth (sum of `accounts` balances + last-12-months payslip net), (b) Year-to-Date Salary (gross/net/PAYG/SG/shift/YTD summary), (c) Last Payslip (most recent row from `salary_history_pay_slips`), (d) Account Summary (count + list of `accounts`). Each card shows a "—" placeholder when its data source is missing or empty.
+2. **Multi-tab workspace.** Clicking the `P` Activity Bar button opens **Salary History** in a **second tab**; the Dashboard tab stays open. Switching tabs swaps the visible content; the inactive tab's state is preserved (its WebviewPanel stays mounted). A tab bar shows all open tabs with the active tab highlighted.
+3. **Split-screen support.** A tab can be dragged into a separate editor group (right-side or below), creating a side-by-side or top-bottom view. Phase 5 ships the data model + drag affordance + the visual chrome for split groups; the implementation uses a simple 2-pane (left/right) split first — full grid layouts are Phase 7+.
+4. **NavigationProvider — data-driven sidebar.** The Navigation Panel's sidebar is no longer a static `if (view === 'Salary')` switch. Each extension contributes a **`navigation`** block (a flat list of `{ id, label, command, group? }` items) via its `package.json#financeExtension.contributes.navigation`. The Navigation Panel renders the items of the **currently-active extension** and wires clicks to that extension's contributed commands. The Salary extension contributes "Pay History" + "Pay Rate History"; the Dashboard contributes "Net Worth Detail" (no-op placeholder for Phase 5+) and "Open Salary History" (invokes `salary.show-pay-history`). Phase 5 also reserves a built-in "Settings" group rendered by Core (not an extension contribution).
+5. **WebviewPanel sandbox.** Each extension's UI runs inside a **sandboxed Electron `BrowserWindow` child iframe** (the Phase 5 shape of `WebviewPanel`), not in the main renderer. The iframe gets `contextIsolation: true`, `sandbox: true`, `nodeIntegration: false`, and a strict `Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'`. The iframe communicates with the Renderer via `postMessage` (the existing `extensions:ui-event` channel becomes the standard back-channel). The renderer-orchestrator pattern (Phase 4's `salary-history-view` Lit host) is replaced by a Main-side **WebviewPanel manager** that owns the iframe lifecycle, including security headers.
+
+### User-visible: Cross-extension `finance.services.*`
+
+6. **Dashboard reads salary data via `finance.services.pay.*`.** The Dashboard extension's `activate` calls `finance.services.pay.getYearToDateSummary(financialYearStart)` to compute the YTD Salary card; `finance.services.pay.getLastPayslip()` for the Last Payslip card; `finance.services.pay.getCurrentRate()` for the "current hourly rate" subtitle on the YTD card. If the salary-history extension is missing/disabled, every `finance.services.pay.*` call returns `null` (graceful degradation per `project_vision.md:48`) and the card shows a "Salary extension not installed — install Salary History to see this card" placeholder.
+7. **`finance.services.pay.*` is a Core-owned registry, not a salary-history export.** Phase 5 introduces `src/main/services/domain-service-registry.ts` (new) and `src/extension-host/api/services.ts` (new Host-side API surface). Salary-history's `PayService` is split: the **internal** logic stays in `extensions/salary-history/src/services/pay-service.ts`; the **public** `finance.services.pay.*` adapter is registered in Main via `registerDomainService('pay', { getYearToDateSummary, getLastPayslip, getCurrentRate })` when the salary-history extension activates. The Host's `finance.services.pay.*` API is a thin RPC proxy that looks up the registered service and calls it.
+
+### User-visible: Security hardening
+
+8. **Per-extension command allowlist.** Every `executeCommand` IPC call now goes through `commandAllowlist.canExecute(extensionId, commandId)`. Each extension declares its allowed commands in `package.json#financeExtension.contributes.allowedCommands: string[]` (subset of its own `commands[]` ids). A command id NOT in the allowlist returns `{ executed: false, reason: 'command not allowed for this extension' }`. The built-in Phase 3 commands (`view-dashboard`, `toggle-ai`, etc.) bypass the allowlist (Core-owned, not extension-scoped). The renderer-driven arbitrary execution of Phase 4 is **no longer possible**.
+9. **Per-extension `ui-event` allowlist.** Same shape as the command allowlist: `allowedUiEvents: string[]` per extension; `ui-event` IPC calls for event names outside the list are dropped silently with a `console.warn` (no error to the renderer — the event simply does not fire). The Salary extension's existing event names (`account-create`, `payslip-create`, etc.) are seeded from the manifest.
+
+### Verification
+
+10. **Persistence verified.** All Phase 4 persistence properties survive the Phase 5 host changes — payslips, rate rows, accounts, settings all round-trip. Manual Test Unit 5 walks the loop.
+11. **Cross-extension isolation verified.** Salary-history cannot read Dashboard's tables; Dashboard cannot read salary-history's tables; both can read Shared Financial Data (`accounts`); both gracefully handle each other's absence.
+12. **TypeScript Strict + Lint + Tests** — `npm run typecheck` exit 0; `npm run lint` exit 0; `npm run test:unit` all tests pass (project total ~350 after Phase 5).
+13. **E2E suite unblocked** — Phase 5's manual TU8 verifies the Phase 3 environmental blocker (`Cannot navigate to invalid URL` on `page.goto('/')`) is now resolved (the WebviewPanel iframe creates its own routable URL via `loadURL('about:blank')` + dynamic content injection).
+
+### Out-of-Scope reminder (carried forward)
+
+The user-visible deliverable is the **multi-extension workspace + Dashboard + Domain Services + security hardening**. Everything below is documented under **Out of Scope** for traceability but NOT shipped in Phase 5.
+
+---
+
+## Out of Scope (Explicit Deferrals)
+
+| Deferred | Target Phase | Why deferred |
+|----------|--------------|--------------|
+| AI Assistant (`finance.ai.registerTool` wiring + Ollama + context building) | Phase 6 | Phase 4/5 ship only `finance.ai.registerTool` stubs; Phase 6 makes the stub executable. Phase 5 may register a Dashboard tool stub for forward-compatibility (the registration is a no-op until Phase 6) but does not invoke it. |
+| Generic settings UI renderer (`contributes.configuration`) | Phase 7 | Phase 5 keeps Phase 4's `mountData` interim channel for salary-history; the rendered Settings screen is Phase 7. |
+| Extension Manager UI (install/enable/disable/uninstall/delete data) | Phase 8 | Phase 5's `setEnabled` flow remains Developer-driven (edit `extension_registry` + restart). The Extension Manager screen that drives it is Phase 8. |
+| Marketplace extension packaging/signing/dependency resolution | Phase 8 | Phase 5 ships 2 bundled extensions (Salary History + Dashboard); the marketplace discovery/install flow is Phase 8. |
+| Keyboard shortcut customization | Phase 7 | Phase 5 honors Phase 4's manifest `keybinding` fields for the two salary commands; a shortcut-config screen is Phase 7. |
+| Database migrations / backup-restore / encryption | Phase 7 | Phase 5 ships at most one new migration (Dashboard does not own a table; may add a `dashboard_layout` settings key but no schema change). |
+| Theme system / accessibility audit | Phase 7 | Phase 5 ships light/dark theme as in Phase 2/4; Phase 7 adds theming extensions can consume + a11y audit. |
+| Typed DAO generation from manifest schemas | Phase 7+ | Phase 5 extends operators ($join / $orderBy / $limit / $offset) but keeps the dynamic `.table('name')` access shape. |
+| Typed SDK npm package (`finance.d.ts` as published `finance` package) | Phase 8 | Phase 5 keeps Phase 4's internal `src/types/finance.d.ts` + `tsconfig.paths` + Vite alias. |
+| Multi-version DB compatibility + downgrade support | Out of scope | ADR-0002's "Umzug" trigger not yet fired. |
+| Drag-and-drop reorder, versioned settings, real component library (Storybook/Histoire) | Phase 7+ | Phase 5 uses the Phase 4 `reorder-sections-modal` for form-section reordering only. |
+| Row-level access control on extension tables (e.g. "Tax can only read salary_history_pay_slips for tax year X") | Out of scope (future ADR) | Phase 5 keeps the Phase 4 namespace-only boundary; row-level is a Phase 6+ ADR if a consumer needs it. |
+| `'unsafe-eval'` CSP exemption removal (Phase 4 Decision 19 risk §8) | **Phase 5** (closed by this plan) | Phase 5's WebviewPanel iframe does not use `blob:` URLs or dynamic-import for extension bundles (the bundle is loaded via `loadFile(dist/extensions/<id>.js)` in the iframe), so `'unsafe-eval'` is no longer required. The CSP can be tightened. |
+| Full grid layout for split-screen (2x2, 3-pane, etc.) | Phase 7+ | Phase 5 ships left/right + top/bottom 2-pane only. |
+| `ExtensionManager` IPC for runtime install/uninstall (Phase 8 prerequisite) | Phase 8 | Phase 5's Main-side allowlists are static (manifest-declared); dynamic ACL mutation is Phase 8. |
+| Stale Activity Bar cache refresh on `setEnabled` change | Phase 8 | Phase 4 documented this as a contract item (#5) — Phase 5 inherits; Phase 8 ships the `financeShell.extensions.onChanged()` event that drives the Activity Bar refresh. |
+| `host.shutdown` graceful draining of pending requests | Phase 7+ | Phase 5 inherits the 1-second hard-kill timeout from Phase 4; graceful draining is a Phase 7 polish item. |
+| `finance.events.*` global event bus (cross-process) | Phase 7 | Phase 5 keeps the Phase 4 IPC channels (no bus); an event bus is Phase 7 work. |
+
+---
+
+## Architecture Decisions
+
+### Decision 1: WebviewPanel = Sandboxed Electron `BrowserWindow` Child (not `<iframe>` tag)
+
+> **In plain English:** Each extension's UI runs in its own lightweight Electron window, not in an iframe embedded in the main renderer. The new window is sandboxed, isolated, and talks to the main app via `postMessage` — same security guarantees as if it were an iframe, but with a real `BrowserWindow` lifecycle (we can move, resize, focus, close it independently).
+
+**Choice:** A `WebviewPanel` in Phase 5 is an Electron `BrowserWindow` opened with:
+
+```ts
+new BrowserWindow({
+  parent: mainWindow,                // owned by main window
+  width: 800, height: 600,
+  webPreferences: {
+    contextIsolation: true,           // no `window` leakage
+    sandbox: true,                     // OS-level sandbox
+    nodeIntegration: false,           // no Node in extension UI
+    preload: <panel-specific preload> // contextBridge
+  }
+});
+```
+
+The panel loads `finance-shell://panel/<extensionId>/<viewId>.html` (a custom protocol registered by Main in Phase 5 Task 2) which serves the extension's bundled UI (`dist/extensions/<extensionId>.js`) plus a small panel-runtime stub that exposes the same `financeShell.*` API the Phase 4 renderer had. The panel communicates with the main renderer via a **Main-side message router** (Task 4): panel → Main → renderer (via `webContents.send`) and renderer → Main → panel (via `webContents.send` to the panel). `postMessage` cross-window is **not** used — every cross-boundary message routes through Main so the per-extension allowlists can gate it.
+
+**Reasoning:** Vision Issue #20 corrected the original "floating WebviewPanel windows" wording to "tabs within editor groups" (`project_vision.md:241`). Phase 4's Decision 11/19 used direct renderer-side Lit mount as a stop-gap (no iframe, no process boundary, but also no CSP escape). Phase 5 must close the `'unsafe-eval'` risk from Phase 4 Decision 19 — the renderer-side dynamic-import of the extension bundle via a blob URL requires `'unsafe-eval'` in the renderer's CSP, which a sandboxed panel can avoid (the panel's CSP does not need `'unsafe-eval'` because the bundle is loaded via a regular `<script>` tag from a `file://` URL).
+
+A `BrowserWindow` child (not the `<webview>` tag) is chosen because:
+- Electron's `<webview>` tag was deprecated in Electron 28+ in favour of `WebContentsView`; a child `BrowserWindow` is the most portable shape today.
+- Child `BrowserWindow` supports the full lifecycle we need (focus, blur, hide, show, reload) without DOM gymnastics.
+- The Phase 7 native webview migration is a one-line swap (`BrowserWindow` → `WebContentsView`) — the panel's IPC contract is unchanged.
+
+**Alternatives considered:**
+
+- **`<iframe>` in the renderer DOM.** Simpler, but the iframe runs in the renderer's process — Phase 4's "no isolation" problem persists. Rejected.
+- **Phase 7's `WebContentsView`.** Newer API, but lacks lifecycle methods we need (`setBounds` is OK; `focus` is not). Defer until Electron's `WebContentsView` API stabilises. The Phase 5 child-`BrowserWindow` approach migrates to it in Phase 7 with one constructor swap.
+- **Phase 4's renderer-side Lit mount (Decision 11/19).** Already proven, but `'unsafe-eval'` is a real CSP regression. Phase 5 closes it.
+
+**Trade-off:** A child `BrowserWindow` per panel uses ~30-50 MB of RAM per open tab; with 5 open tabs that is 250 MB. Phase 5 mitigates with a **lazy-mount policy**: tabs not visible for >30 seconds are unmounted (the WebviewPanel is destroyed; state is preserved via the extension's `mountData` + the extension's own state persistence). Phase 7 can add a per-extension `state: persist` hint.
+
+**Revisit triggers:**
+- Electron's `WebContentsView` gains the lifecycle methods we need → migrate.
+- Memory pressure with >10 open tabs becomes a real complaint (Phase 7 lazy-mount).
+- An extension needs to render a PDF / native dialog → child `BrowserWindow` already supports it (we just `panel.webContents.printToPDF(...)` etc.).
+
+---
+
+### Decision 2: Startup Auto-Activation — Dashboard Mounts Before User Interaction
+
+> **In plain English:** When the app boots, the Dashboard extension activates on its own (no click needed) and becomes the first open tab. Extensions can opt into this behaviour by listing `onStartup` in their `activationEvents`.
+
+**Choice:** A new activation event `onStartup` joins the Phase 3 set (`*`, `onView:<id>`, `onCommand:<id>`). Extensions that declare `onStartup` are activated by Main immediately after the Extension Host becomes ready, **before** any renderer interaction. The Main-side activation order is:
+
+1. App starts → `app.whenReady` → DB + settings init (Phase 4 order).
+2. ExtensionIPC starts → Host announces `host.ready` (Phase 3 order).
+3. **NEW (Phase 5):** Main walks the manifest list and collects all extensions whose `activationEvents` contain `onStartup`.
+4. Main sends `extension.activate` RPC to the Host for each `onStartup` extension, in **manifest-discovery order** (alphabetical on `id` for determinism).
+5. The Host activates each extension in turn. Each activation may call `finance.services.register('pay', ...)` or `finance.ui.requestMount('dashboard-view', ...)`; Main buffers the mount requests and forwards them to the Renderer once the BrowserWindow is ready.
+6. The Renderer mounts the first `onStartup` extension's WebviewPanel as the active tab; subsequent `onStartup` extensions mount as additional tabs (Phase 5 only auto-mounts the **first** `onStartup` extension's primary view — Dashboard's `dashboard-view` — and opens others via Activity Bar / Command Palette).
+
+**Reasoning:** `project_vision.md:332-356` describes Dashboard as the platform's default landing view. Today the workspace ships with a static Dashboard placeholder tab (`src/renderer/components/workspace.ts` defaults `_currentView = 'Dashboard'`). Phase 5 must turn that placeholder into a real extension — and the only way to do that is for Dashboard to auto-activate, because there is no UI affordance to "click Dashboard" if the user cannot reach it before any click.
+
+The Dashboard extension's manifest declares `"activationEvents": ["onStartup"]` (no other event). It is the **only** Phase 5 extension with `onStartup`. Salary-history keeps `["onView:salary-history"]` (click-only).
+
+**Alternatives considered:**
+
+- **Hard-code Dashboard's activation in Main.** Simpler, but couples Main to a specific extension. Phase 8's marketplace would need to either (a) move Dashboard's activation to its own Core Extension code (a chunk of Main) or (b) keep the hardcode. The `onStartup` event keeps Main generic. Rejected.
+- **`*` activation (Phase 3 wildcard).** Activates the extension on startup but does **not** trigger a UI mount — the extension has to opt into the renderer flow separately. `onStartup` combines both: activate + mount. Rejected.
+- **Defer Dashboard's default-view behaviour to Phase 8 (when the Extension Manager lets users pick a default).** Defeats Phase 5's "Dashboard is the default landing view" deliverable. Rejected.
+
+**Trade-off:** `onStartup` activates an extension before the user has clicked anything, which means a misbehaving `onStartup` extension (one that throws during activation) will keep the shell from booting. Phase 5 mitigates with the Phase 3 hot-disable contract: a `crash_count >= 3` extension is auto-disabled, and the `onStartup` activation goes through `extensions:activate-view` IPC (which routes through `recordCrash` on failure) rather than a fire-and-forget RPC.
+
+**Revisit triggers:**
+- More than one `onStartup` extension is added (Phase 5 only ships Dashboard) — the manifest-discovery order rule may need to become user-configurable.
+- An `onStartup` extension wants to delay its UI mount (e.g., it needs to load remote data first) → add an `onStartupAfterReady` event in Phase 7+.
+- Phase 8's marketplace ships — `onStartup` extensions must be opt-in (not auto-installed).
+
+---
+
+### Decision 3: NavigationProvider — Data-Driven Sidebar from `contributes.navigation`
+
+> **In plain English:** The Navigation Panel (the "Explorer" sidebar) is no longer a hardcoded `if (view === 'Salary')` switch. Each extension contributes its own sidebar items in its `package.json`, and the Navigation Panel renders the items for the currently-active extension. The shell stays generic.
+
+**Choice:** A new manifest contribution type:
+
+```jsonc
+// extensions/dashboard/package.json
+"contributes": {
+  "navigation": [
+    {
+      "id": "dashboard.net-worth",
+      "label": "Net Worth Detail",
+      "command": "dashboard.open-net-worth-detail",
+      "group": "Insights"
+    },
+    {
+      "id": "dashboard.open-salary",
+      "label": "Open Salary History",
+      "command": "salary.show-pay-history",
+      "group": "Quick Links"
+    }
+  ]
+}
+```
+
+Each item is `{ id, label, command, group? }`. Items in the same `group` are rendered together under a section header; items with no group go to a default "Quick Links" section. Items can reference any command in any active extension (the `command` field is a free-form `extension.commandId` — the `executeCommand` IPC checks the command's owning extension's `allowedCommands` allowlist, so Dashboard can invoke `salary.show-pay-history` because Salary has whitelisted it).
+
+The Phase 3/4 static `navigation-panel.ts` `_VIEW_CONTEXT_MAP` is **removed**. The Navigation Panel becomes a generic renderer that:
+1. Subscribes to `financeShell.extensions.list()` for the current set of active extensions.
+2. Looks up the active extension's `contributes.navigation` items.
+3. Renders the items as clickable divs (matching the Phase 3 styling).
+4. On click, fires the item's `command` via the existing `command-selected` window event.
+
+Built-in Core items (e.g., "App Preferences" for the `__settings__` view) are rendered from a Core-owned constant in `src/renderer/components/navigation-panel.ts` — they are not extension contributions.
+
+**Reasoning:** Phase 4's static `if/else` switch in `navigation-panel.ts` cannot scale past 2-3 extensions; the Phase 3 stop-gap `_VIEW_CONTEXT_MAP` is a documented Phase 5 deferral. The data-driven NavigationProvider is the VS Code equivalent of `contributes.viewsContainers` + `contributes.views` — a contribution pattern extensions declare and Core renders generically.
+
+**Alternatives considered:**
+
+- **VS Code's full `viewsContainers` + `views` (tree views with `TreeDataProvider`).** Overkill for Phase 5 — none of the current extensions have hierarchical navigation. Defer to Phase 7+ when Budget/Cash Flow/Reports ship with tree views.
+- **Programmatic registration only (no manifest contribution).** Each extension calls `finance.ui.registerNavigationItem(...)` at activation. More flexible but more boilerplate; the manifest approach is more declarative and easier to validate at load time. Rejected.
+
+**Trade-off:** The `command` field is a free-form string that could reference a command that doesn't exist. Phase 5 validates it at activation time (the `command-selected` handler resolves it; if missing, logs `console.warn` and does nothing — same graceful degradation as `finance.commands.execute`).
+
+**Revisit triggers:**
+- An extension contributes > 20 navigation items → tree view (Phase 7).
+- An extension wants context-sensitive navigation (different items based on app state) → add a `NavigationProvider` callback API in Phase 7.
+
+---
+
+### Decision 4: DAO Operators — `$join`, `$orderBy`, `$limit`, `$offset`
+
+> **In plain English:** Phase 4 shipped only equality + comparison + boolean-or operators on a single table. Phase 5 adds the four operators the Dashboard needs: cross-table `$join` for aggregating Accounts + Payslips; `$orderBy` for sorting; `$limit` / `$offset` for pagination.
+
+**Choice:** Extend `DAOService.compileQuery` (Phase 4 Decision 2) with:
+
+```ts
+finance.db.table('salary_history_pay_slips').find(
+  { account_id: 1 },
+  {
+    $join: { table: 'accounts', on: 'salary_history_pay_slips.account_id = accounts.id', type: 'LEFT' },
+    $orderBy: [{ column: 'pay_date', direction: 'DESC' }],
+    $limit: 50,
+    $offset: 0
+  }
+)
+```
+
+| Operator | Shape | Notes |
+|----------|-------|-------|
+| `$join` | `{ table, on, type: 'INNER' \| 'LEFT' \| 'RIGHT' }` | `on` is a raw SQL expression in `<left>.<column> = <right>.<column>` form; validated by the DAO service against the two registered tables' column lists to prevent injection. `$join` is allowed **only on shared tables and the calling extension's own tables** — a salary-history extension cannot `$join` salary_history_pay_slips with a non-shared, non-own table. |
+| `$orderBy` | `Array<{ column, direction: 'ASC' \| 'DESC' }>` | Column must exist in the (post-join) result set; direction is enum-validated. |
+| `$limit` | `number` (integer, 1..1000) | Hard cap of 1000 (matches Phase 4's default). |
+| `$offset` | `number` (integer, >= 0) | No upper bound (consumer responsibility). |
+
+Operators are added as a **second argument** to `find()` / `findOne()` / `count()`. The first argument remains the WHERE clause (Phase 4 shape). The query envelope `{ rows: ... }` is unchanged.
+
+**Reasoning:** Phase 4 Decision 2 deferred `$join` (Dashboard aggregation), `$orderBy` / `$limit` / `$offset` (sort + paginate) explicitly to Phase 5. The Dashboard's Net Worth card aggregates payslips against accounts; the Last Payslip card sorts by `pay_date DESC` and limits to 1; pagination is needed for users with >1000 payslips.
+
+**Why a second argument, not extending the first:** keeping WHERE (filter) and operators (projection) separate matches the SQL mental model and lets the DAO service validate them independently (WHERE columns are table-scoped; `$orderBy` columns are result-set-scoped). It also keeps Phase 4 callers compatible — they pass one arg as before; Phase 5 callers add the second.
+
+**Alternatives considered:**
+
+- **Knex-style chained API (`find().where().orderBy().limit()`).** More fluent but breaks Phase 4's existing call sites. Rejected.
+- **`$and` operator.** Phase 4 Decision 2 deliberately omitted it (`{ a: 1, b: 2 }` is already AND). No change.
+- **Subqueries / nested `$join`.** Out of scope. Defer until an extension needs them.
+
+**Trade-off:** `$join` with a raw `on` expression is the most flexible shape but requires the DAO to validate the expression against the registered column lists. Phase 5 builds a small parser: `on: 'a.col = b.col'` → split on `=` → validate `a` is the from-table, `b` is the joined table, `col` exists in the respective table manifest. A malformed `on` returns `ValidationFailedError` (existing JSON-RPC error code -32012 from Phase 4 Decision 6).
+
+**Revisit triggers:**
+- An extension needs `$join` against an extension table that is not its own (e.g., Dashboard wants to `$join` salary_history_pay_slips). **NOT allowed** in Phase 5 — only `accounts` (shared) and `dashboard_*` (own) can be joined from a Dashboard call. The Dashboard consumes salary data via `finance.services.pay.*` (Decision 5), not via `$join`. If a Phase 6+ consumer needs cross-extension `$join`, that's a Phase 8 ADR (likely: a Core-owned aggregator extension that runs the join, not the calling extension).
+- `$join` performance with >10k rows becomes a complaint → migrate to a real query planner in Phase 7+.
+
+---
+
+### Decision 5: `finance.services.*` — Cross-Extension Domain Services (Designed from the Consumer Side)
+
+> **In plain English:** Salary-history's `PayService` becomes a public, cross-extension service. The Dashboard (and any future extension) can call `finance.services.pay.getYearToDateSummary()` without importing salary-history's code. The public shape is designed from **what the Dashboard actually needs**, not from salary-history's existing internal methods.
+
+**Choice:** Three new pieces:
+
+1. **Domain Service Registry (`src/main/services/domain-service-registry.ts`, new)** — Core-owned singleton:
+   ```ts
+   class DomainServiceRegistry {
+     register(serviceName: string, extensionId: string, impl: DomainServiceImpl): void;
+     unregister(serviceName: string, extensionId: string): void;
+     invoke(serviceName: string, method: string, params: unknown): Promise<unknown>;
+   }
+   ```
+   Multiple extensions can register under the same `serviceName` (e.g., two extensions both implementing `pay`); the last `register` call wins for a given (serviceName, extensionId) pair. Resolution is by `serviceName`; the calling extension passes `{ serviceName, method, params }` and the registry dispatches to the **most recently activated** extension that registered under that name.
+
+2. **Host-side `finance.services.*` API (`src/extension-host/api/services.ts`, new)**:
+   ```ts
+   finance.services = {
+     invoke<T>(serviceName: string, method: string, params?: unknown): Promise<T | null>
+   };
+   ```
+   `invoke` returns `null` (not throws) if the service is not registered or the extension that registered it is disabled. This is the graceful-degradation path from `project_vision.md:48`.
+
+3. **`finance.services.pay.*` adapter (`extensions/salary-history/src/services/public-pay-adapter.ts`, new)** — wraps salary-history's existing internal `PayService` and exposes:
+   ```ts
+   // Public surface (Phase 5 — designed from Dashboard's needs):
+   export interface PublicPayService {
+     getYearToDateSummary(financialYearStart: string, asOfDate?: string): Promise<YtdSummary | null>;
+     getMonthlySeries(financialYearStart: string): Promise<MonthlyPoint[] | null>;
+     getLastPayslip(): Promise<PaySlip | null>;
+     getCurrentRate(): Promise<RateRow | null>;
+   }
+   ```
+   Each method:
+   - Calls the internal `PayService` (Phase 4 code) for the calculation.
+   - Wraps any thrown error in a `null` return (graceful degradation).
+   - Returns JSON-safe values (no `Date` objects — ISO strings).
+
+   The adapter is **registered** in `extensions/salary-history/src/main.ts` `activate()` via:
+   ```ts
+   finance.services.register('pay', {
+     getYearToDateSummary: (params) => adapter.getYearToDateSummary(params),
+     getMonthlySeries:     (params) => adapter.getMonthlySeries(params),
+     getLastPayslip:       () => adapter.getLastPayslip(),
+     getCurrentRate:       () => adapter.getCurrentRate()
+   });
+   ```
+
+   `deactivate()` calls `finance.services.unregister('pay', 'salary-history')`.
+
+**Reasoning:** Phase 4 Decision 5 explicitly deferred `finance.services.pay.*` to Phase 5 with the design note: *"The first version of `finance.services.pay.*` will be designed from the consumer side — by what Phase 5's Cash Flow / Dashboard / Budget actually need to call — not derived from PayService's current internal surface."* Phase 5 ships Dashboard as the first consumer; its needs are the spec for `finance.services.pay.*`.
+
+The four methods above are exactly what Dashboard calls. The internal `PayService` exposes 14 methods (validatePayslipInput, calculatePaySlipBreakdown, aggregateYearToDate, etc.); only 4 are promoted to the public contract. The other 10 stay internal to salary-history.
+
+**Why a registry in Main, not a Host-side registry:** the Domain Service Registry must outlive any single extension's lifecycle (services can be registered by extension A and called by extension B; if extension A crashes, B's calls must return `null`, not throw). Main is the only long-lived process; the Host can die and respawn without losing the registry's state.
+
+**Why a single `invoke(serviceName, method, params)` method, not a typed surface:** keeps the JSON-RPC method catalogue small (`finance.services.invoke` is one method; typed surfaces per service would explode the catalogue as services are added). The Host-side wrapper translates the string `method` to the registered impl's function; type safety is at the TypeScript layer (the extension's `finance.services.pay` proxy is typed to the `PublicPayService` interface via the Phase 4 Decision 9 type-only SDK).
+
+**Alternatives considered:**
+
+- **Each extension exposes its own `finance.services.<extensionId>.*` surface.** Tighter type safety but duplicates the JSON-RPC method catalogue for every service. Phase 8's marketplace (potentially 10+ services) makes this untenable. Rejected.
+- **Direct extension-to-extension calls (extension A imports extension B's code).** Violates `project_vision.md:48` ("Direct in-process imports, shared global state, and direct database cross-writes between extensions are strictly forbidden"). Rejected.
+- **Reuse the Phase 4 `finance.commands.execute` IPC for services.** Possible but conflates two concerns: commands are fire-and-forget user-driven actions; services are request/response programmatic calls. Keeping them separate simplifies error handling and audit logging. Rejected.
+
+**Trade-off:** The registry's "last-registered wins" rule means the order of activation matters. Phase 5 only has one extension registering `pay` (salary-history), so this is moot. Phase 8's marketplace may need an explicit priority mechanism (extension A declares `"domainServices": [{ name: "pay", priority: 10 }]`).
+
+**Revisit triggers:**
+- Two extensions register the same `serviceName` with conflicting semantics → add a `version` field and per-version resolution.
+- An extension wants to call a service synchronously (not async) → the JSON-RPC layer forces async; Phase 8 may add a local-services fast path for same-process cases.
+- The registry becomes a hot path (called >1000×/sec) → add an in-memory cache keyed on `(serviceName, method, params)`.
+
+---
+
+### Decision 6: Per-Extension Command Allowlist (Main-Side Enforcement)
+
+> **In plain English:** Today the renderer can ask Main to execute any command registered by any active extension. Phase 5 closes that gap: each extension declares the command ids it is willing to have invoked on its behalf, and Main enforces the list before forwarding the RPC to the Host.
+
+**Choice:** Two changes:
+
+1. **Manifest contribution** — add `allowedCommands: string[]` to `FinanceExtensionManifest.contributes`:
+   ```jsonc
+   // extensions/salary-history/package.json
+   "contributes": {
+     "commands": [
+       { "id": "salary.show-pay-history", "title": "View: Pay History", "keybinding": "Ctrl+Alt+H" },
+       { "id": "salary.show-pay-rate-history", "title": "View: Pay Rate History", "keybinding": "Ctrl+Alt+R" }
+     ],
+     "allowedCommands": [
+       "salary.show-pay-history",
+       "salary.show-pay-rate-history",
+       "salary.show-dashboard"   // ← for Dashboard's "Open Salary History" quick link
+     ]
+   }
+   ```
+   The `allowedCommands` list is a subset of `commands` (validated at load time by the manifest schema); commands not in the list can still be **registered** (the extension's own code can call them via `finance.commands.execute`) but cannot be **invoked by external callers** (the renderer, another extension via `finance.services.*` proxy, or a future marketplace-installed extension).
+
+2. **Main-side enforcement** — `extensions:execute-command` IPC handler gains a pre-check:
+   ```ts
+   ipcMain.handle('extensions:execute-command', async (_event, commandId, ...args) => {
+     const owning = extensionRegistry.commands().find(c => c.command.id === commandId);
+     if (!owning) return { executed: false, reason: 'command not found' };
+     if (!commandAllowlist.isAllowed(owning.extensionId, commandId)) {
+       return { executed: false, reason: 'command not allowed for this extension' };
+     }
+     // ... existing IPC dispatch ...
+   });
+   ```
+
+   A new `CommandAllowlist` class in `src/main/services/command-allowlist.ts` builds the lookup table from the loaded manifests at startup; the table is rebuilt when the manifest list changes (Phase 8's `onExtensionsChanged` event).
+
+**Reasoning:** Phase 3 Self-Review §7 deferred this to Phase 5; Phase 4 Review Finding 3 reminded that it was still deferred. The allowlist is the load-bearing security boundary between "developer-installed extension can do anything" (Phase 4) and "extension is constrained to a manifest-declared set of actions" (Phase 5).
+
+The `allowedCommands` set is **per-extension** because the threat model is per-extension: salary-history is trusted to invoke `salary.show-pay-history`, but Dashboard (a separate, less-trusted extension) is **not** trusted to invoke arbitrary salary-history commands. By listing `salary.show-dashboard` in salary-history's `allowedCommands`, salary-history opts into Dashboard's invocation of that specific command (currently a no-op — it's reserved for a future "Open Salary History" Dashboard command).
+
+**Alternatives considered:**
+
+- **All-commands-allowed by default; allowlist opt-out.** Backwards-compatible with Phase 4 but defeats the security purpose — every Phase 4 extension would need to be migrated, and any forgotten extension would be wide open. Rejected.
+- **Per-extension "trusted" boolean.** Simpler but binary. Rejected.
+- **Cryptographic signing (Phase 8 territory).** Beyond Phase 5's scope.
+
+**Trade-off:** Extensions must now declare `allowedCommands` explicitly. The Phase 4 manifest schema gains a required field for new manifests; existing manifests are migrated by the loader (it auto-fills `allowedCommands = commands.map(c => c.id)` if the field is absent, with a `console.warn`).
+
+**Revisit triggers:**
+- Phase 8's marketplace needs signed-extension verification → the allowlist becomes one factor in a multi-factor trust model.
+- An extension wants runtime ACL mutation (e.g., a user grants a one-time permission) → add a `financeShell.permissions.grant(commandId)` API in Phase 7+.
+
+---
+
+### Decision 7: Per-Extension `ui-event` Allowlist (Decision 12 Surface Closure)
+
+> **In plain English:** Phase 4 introduced a second writeback IPC channel (`extensions:ui-event`) that bypasses `executeCommand`. Phase 5 closes that gap too: each extension declares the ui-event names it will emit, and Main drops anything not on the list.
+
+**Choice:** Mirror Decision 6 for ui-events:
+
+1. **Manifest contribution** — add `allowedUiEvents: string[]` to `FinanceExtensionManifest.contributes`:
+   ```jsonc
+   // extensions/salary-history/package.json
+   "contributes": {
+     "allowedUiEvents": [
+       "account-create", "account-seed-skip", "account-seed-cancel",
+       "payslip-add-request", "payslip-create", "payslip-edit-request",
+       "payslip-edit", "payslip-cancel", "payslip-delete",
+       "reorder-sections", "section-order-change", "section-order-cancel",
+       "rate-add-request", "rate-edit-request", "rate-view-request",
+       "rate-create", "rate-edit", "rate-form-cancel",
+       "rate-delete-request", "rate-delete",
+       "rate-replace-request", "rate-replace"
+     ]
+   }
+   ```
+   `allowedUiEvents` is independent of `allowedCommands` (a ui-event is not a command).
+
+2. **Main-side enforcement** — `extensions:ui-event` IPC handler gains a pre-check:
+   ```ts
+   ipcMain.on('extensions:ui-event', (_event, extensionId, eventName, detail) => {
+     if (!uiEventAllowlist.isAllowed(extensionId, eventName)) {
+       console.warn(`[extensions] dropped ui-event "${eventName}" from "${extensionId}" — not in allowlist`);
+       return;
+     }
+     extensionIPC.notify(RPC_METHOD.ExtensionUiEvent, { extensionId, eventName, detail });
+   });
+   ```
+   A new `UiEventAllowlist` class in `src/main/services/ui-event-allowlist.ts` mirrors `CommandAllowlist`.
+
+**Reasoning:** Phase 4 Decision 12 added the `ui-event` channel as a separate writeback path (it does not flow through `commands.execute`). Without this allowlist, a compromised extension could emit any ui-event name (including ones that mimic built-in Core events like `core.toggle-theme`). The allowlist constrains each extension to the event names its UI components actually emit.
+
+**Why silent drop + `console.warn` (not error to renderer):** the ui-event channel is fire-and-forget; the renderer (the WebviewPanel) cannot meaningfully handle "your event was dropped" — by the time the drop happens, the panel may have already re-rendered. A `console.warn` keeps the diagnostic surface for manual testing (visible in main-process terminal) without breaking the renderer's event loop.
+
+**Alternatives considered:**
+
+- **One combined `allowedIpc: { commands: [], uiEvents: [] }` block.** Tighter manifest shape but conflates two concerns; the two allowlists have different enforcement points (executeCommand routes through the Host; ui-event drops at the IPC handler before reaching the Host). Rejected.
+- **No ui-event allowlist; rely on the WebviewPanel sandbox to contain bad events.** The sandbox does contain the iframe but cannot prevent a panel from emitting events that affect other panels (e.g., a malicious panel emits `payslip-delete` for a row it doesn't own). Rejected.
+
+**Trade-off:** Extensions must declare every ui-event name they emit. The Phase 4 salary-history extension has 21 ui-events; the migration is mechanical but verbose. The loader auto-fills `allowedUiEvents` from the bundle's `static properties` (a Lit-decorator AST scrape) in dev mode; in production it requires the explicit declaration.
+
+**Revisit triggers:**
+- An extension needs to emit a dynamic event name (e.g., the user types a custom event name in a form) → add a `wildcard: true` flag in Phase 7+.
+- The ui-event channel becomes a hot path → add a per-event allowlist cache (built once at activation, invalidated on `setEnabled` change).
+
+---
+
+### Decision 8: WebviewPanel Lifecycle — Lazy Mount, Stateful Unmount
+
+> **In plain English:** Each tab in the workspace is a WebviewPanel. When the user switches away from a tab for more than 30 seconds, the panel's `BrowserWindow` is destroyed (memory freed); when the user switches back, the panel is re-created from the extension's `mountData` + the extension's own state persistence.
+
+**Choice:** A new `WebviewPanelManager` class in `src/main/services/webview-panel-manager.ts` owns the panel lifecycle:
+
+```ts
+class WebviewPanelManager {
+  mount(extensionId: string, viewId: string, mountData: object): PanelHandle;
+  unmount(handle: PanelHandle): void;       // destroy BrowserWindow
+  focus(handle: PanelHandle): void;         // switch to tab
+  list(): PanelHandle[];                    // for tab bar
+}
+```
+
+The `mount` flow:
+1. Spawn a child `BrowserWindow` with the panel-specific preload (Decision 1).
+2. Compute the panel's bundle URL: `file://.../dist/extensions/<extensionId>.js`.
+3. Register the panel with the `financeShell.extensions.list()` IPC so the renderer can enumerate open panels.
+4. Load `finance-shell://panel/<extensionId>/<viewId>.html` (custom protocol) which serves the bundle via a `<script>` tag.
+5. Forward the extension's `mountData` to the panel via `webContents.send('panel:init', { extensionId, viewId, mountData })`.
+
+The **lazy-unmount policy**: a `setInterval` (every 10 s) checks each panel's last-focus timestamp; panels unfocused for >30 s are unmounted (their `BrowserWindow` is destroyed; the panel's entry remains in the tab bar with a "Reload" affordance). Switching back to a stubbed panel triggers a re-mount.
+
+**Reasoning:** Decision 1's trade-off (~30-50 MB per open panel) makes naive multi-tab behaviour untenable for power users with 10+ tabs open. Lazy unmount is the standard VS Code pattern (the "close vs hide" decision is deferred to Phase 8's tab-management UI).
+
+**State preservation:** the extension itself is responsible for its state (Phase 4 PayService stores YTD summaries in the DB; Phase 5 Dashboard stores card preferences in `dashboard.*` settings). When a panel re-mounts, the extension re-queries the data; no in-Renderer state survives the unmount.
+
+**Alternatives considered:**
+
+- **`hide()` instead of `destroy()`.** Cheaper to re-focus but keeps memory pressure; defeats the lazy-unmount trade-off.
+- **Per-extension `keepAlive: boolean` manifest hint.** More flexible but adds manifest surface; defer until an extension actually needs persistent state.
+
+**Trade-off:** A 30-second unmount delay means fast tab-switching is free (the panel stays mounted), but a long pause + return costs a re-mount (~500 ms cold-start). The Dashboard's auto-mount-on-startup means its panel is **never** lazily unmounted (it's the active panel until the user switches away for 30 s).
+
+**Revisit triggers:**
+- Re-mount cold-start exceeds 1 second (the user notices the lag) → investigate the bundle size or the panel-runtime stub.
+- A user opens >20 tabs and complains about re-mount latency → expose a per-extension `keepAlive: boolean` in Phase 7+.
+
+---
+
+### Decision 9: Tab Bar + Split-Screen (2-pane only for Phase 5)
+
+> **In plain English:** The workspace now supports multiple tabs, and a tab can be dragged into a separate pane to create a side-by-side or top-bottom view. Phase 5 ships 2-pane split (left/right + top/bottom); full grid layouts are Phase 7+.
+
+**Choice:** A new `WorkspaceLayout` data model in `src/renderer/components/workspace.ts`:
+
+```ts
+type WorkspaceNode =
+  | { type: 'tab', panelId: string, label: string }
+  | { type: 'split', direction: 'horizontal' | 'vertical', children: [WorkspaceNode, WorkspaceNode] };
+```
+
+The workspace renders the tree recursively. The tab bar shows tabs in the **active leaf's path** (the user always sees the tabs of the pane they're focused in). Drag-and-drop: a tab can be dragged onto another tab's split affordance (right edge / bottom edge) to create a new split. Drag-and-drop is implemented with the HTML5 Drag and Drop API (no library).
+
+Phase 5 ships a **maximum of 2 panes** (one root + one split). The split direction can be either `horizontal` (left/right) or `vertical` (top/bottom). Closing the last tab in a pane collapses the split.
+
+**Reasoning:** Phase 4's `workspace-panel.ts` is a single tab with a static Dashboard placeholder. Phase 5 turns it into a tab host. The 2-pane limit keeps Phase 5 scope manageable; full grid layouts (3+ panes, resizable splitters) are Phase 7 polish.
+
+**Alternatives considered:**
+
+- **VS Code's `EditorGroup` model.** Full grid support is overkill for Phase 5; the 2-pane `WorkspaceNode` tree is enough.
+- **No split-screen, just tabs.** Misses the Phase 5 deliverable wording ("Split-Screen support, tab management"). Rejected.
+
+**Trade-off:** The 2-pane limit is a UX ceiling — a user who wants 3-pane must Phase 7+ or fall back to OS-level window tiling. Documented in the plan's Self-Review §6.
+
+**Revisit triggers:**
+- User feedback requests 3+ panes → Phase 7 ships a full `EditorGroup` model.
+- The `WorkspaceNode` tree becomes unwieldy with multiple splits → migrate to a flat list of `EditorGroup`s (VS Code's shape) in Phase 7+.
+
+---
+
+### Decision 10: Panel-Runtime Stub — `financeShell.*` Inside the WebviewPanel Iframe
+
+> **In plain English:** When Phase 4's renderer-orchestrator pattern mounted an extension's UI, the UI ran in the same `window` as the rest of the shell and could call `window.financeShell.*` directly. Phase 5's WebviewPanel iframe is a separate `window` — the panel needs its own `financeShell` exposed by the panel-specific preload.
+
+**Choice:** A new panel preload `src/preload/panel-preload.ts` that exposes a **subset** of `financeShell.*` to the panel's `window`:
+
+```ts
+// In the panel's window context:
+window.financeShell = {
+  extensions: {
+    list,              // read-only — which extensions are active
+    executeCommand,    // gated by the Main-side allowlist
+    uiEvent,           // gated by the Main-side allowlist
+    onUiMount,         // receive mount requests (only the initial mount — extensions don't re-mount themselves)
+  },
+  settings: { get, set },   // gated by the namespace (existing Phase 4 behaviour)
+  db: ???,             // NOT exposed — the panel uses finance.db inside the extension's Host bundle
+  services: ???        // NOT exposed — the panel uses finance.services inside the extension's Host bundle
+};
+```
+
+The panel does **not** get `finance.db` or `finance.services` directly — those are accessed from inside the **extension's Host bundle** (the bundle loaded via `<script src="...salary-history.js">` runs in the panel's renderer process and has its own `finance` proxy that routes to the Host). The panel's `window.financeShell` is a thin bridge for shell-level operations (executeCommand for cross-extension commands, uiEvent for back-channel events); the extension's bundle has its own full `finance` proxy.
+
+**Reasoning:** Phase 4's renderer-orchestrator pattern made the panel's `window.financeShell` and the extension's `finance` proxy the same object (via `createFinance(extensionId)` in `salary-history-view.ts`). Phase 5's separation keeps the two concerns distinct:
+- `window.financeShell.*` — **shell-level** (cross-extension, Main-mediated).
+- `finance.*` (inside the bundle) — **extension-level** (Host-mediated, per-extension).
+
+This separation makes the security model clearer: the panel's `window.financeShell` cannot read another extension's `finance.db`, only the shell's allowlisted bridges.
+
+**Alternatives considered:**
+
+- **Single `financeShell` for both.** Simpler but conflates the trust boundaries; the panel could accidentally read another extension's tables. Rejected.
+- **No `window.financeShell` in the panel; everything via `postMessage` to the parent.** Stricter but requires every panel to write message-routing boilerplate. Rejected.
+
+**Trade-off:** Extensions that wrote Phase 4 code calling `window.financeShell.extensions.readTable(...)` (as `salary-history-view.ts` does today) will need a small migration: replace `window.financeShell.extensions.readTable(...)` with `finance.db.table(...).find(...)` (the bundle's own proxy). The Phase 5 Task 5 migration covers this for salary-history.
+
+**Revisit triggers:**
+- Phase 8's marketplace exposes panels to user-installed (less-trusted) extensions → the panel preload may need further restrictions (e.g., no `settings.set`).
+- A panel wants to render a `<webview>` of its own (nested WebviewPanels) → defer to Phase 7+ (out of scope today).
+
+---
+
+### Decision 11: Closing the Phase 4 `'unsafe-eval'` CSP Risk
+
+> **In plain English:** Phase 4 Decision 19 mounted the extension bundle via a `blob:` URL with dynamic `import()`, which requires `'unsafe-eval'` in the renderer's CSP. Phase 5's WebviewPanel loads the bundle via a regular `<script src="...">` from a `file://` URL, so the panel's CSP does not need `'unsafe-eval'`.
+
+**Choice:** The panel's Content-Security-Policy is:
+
+```
+Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self';
+```
+
+`script-src 'self'` allows the bundle to load (the bundle is served from the same origin as the panel page). `'unsafe-inline'` is allowed for styles (Lit components use inline `<style>` blocks inside shadow DOM — this is the standard Lit pattern and does not require `'unsafe-eval'`).
+
+The main renderer's CSP is **unchanged** from Phase 4 (Phase 4's `'unsafe-eval'` remains because the renderer still uses blob URLs for other reasons documented in the Phase 4 plan). Phase 7 will revisit the main renderer's CSP.
+
+**Reasoning:** Phase 4 Self-Review §8 flagged `'unsafe-eval'` as a "acceptable for Phase 4 (extensions are developer-installed, not marketplace); Phase 5 WebviewPanel replacement removes the requirement." Phase 5 closes the gap on the **panel** side. The main renderer's `'unsafe-eval'` is a separate Phase 7 cleanup.
+
+**Alternatives considered:**
+
+- **Tighten the main renderer's CSP in Phase 5 too.** Larger scope; touches every renderer-side dynamic-import path. Defer to Phase 7.
+- **Use the Electron `<webview>` tag instead of `BrowserWindow`.** Same CSP capabilities but deprecated API; defer to Phase 7's `WebContentsView` migration.
+
+**Trade-off:** The main renderer still requires `'unsafe-eval'` in Phase 5; the panel does not. Documented as a known Phase 5 scope limit.
+
+**Revisit triggers:**
+- Phase 7 migrates to `WebContentsView` and rewrites the main renderer's dynamic-import paths → main renderer CSP can be tightened in Phase 7.
+- A security audit flags `'unsafe-eval'` in the main renderer → Phase 7 priority.
+
+---
+
+### Decision 12: Phase 5 Ship Order — Settings Stay Interim, No Generic UI Yet
+
+> **In plain English:** Phase 4 documented that `mountData` is an interim channel for delivering settings to the UI (because no generic settings screen exists yet). Phase 5 keeps this interim channel; the generic settings UI is Phase 7.
+
+**Choice:** Phase 5 does NOT introduce a generic settings screen. Salary-history continues to read `salary-history.*` settings via `finance.settings.get` in `activate()` and pass them as `mountData` to the mounted UI. The Dashboard extension follows the same pattern: `finance.settings.get('dashboard.*')` in `activate()`, mountData to the WebviewPanel.
+
+**Reasoning:** Phase 7 owns the generic settings UI (per `project_vision.md:101,309` and the Phase 4 Self-Review §7 deferral). Phase 5 introduces no new settings UI surface; it adds a `finance.services.pay.*` read API but does not add a settings screen for it.
+
+**Alternatives considered:**
+
+- **Phase 5 ships a placeholder settings screen for Dashboard only.** Inconsistent — why Dashboard and not Salary? Defer the whole generic settings UI to Phase 7.
+
+**Trade-off:** Users cannot adjust Dashboard card preferences in Phase 5; the Dashboard ships with hardcoded card layouts (4 cards in a 2×2 grid). Phase 7 adds a settings screen that surfaces Dashboard's `dashboard.cardOrder`, `dashboard.financialYearStart`, etc.
+
+**Revisit triggers:**
+- Phase 7 lands the generic settings UI → Phase 7 ships the `dashboard.cardOrder` reorder surface, the `salary-history.sectionOrder` already exists, etc.
+
+---
+
+## File Structure
+
+```
+finance-flow_ai/
+├── src/
+│   ├── main/
+│   │   ├── main.ts                       (modified — startup auto-activation)
+│   │   ├── services/
+│   │   │   ├── domain-service-registry.ts  (new — finance.services.* registry)
+│   │   │   ├── command-allowlist.ts        (new — Decision 6)
+│   │   │   ├── ui-event-allowlist.ts       (new — Decision 7)
+│   │   │   ├── webview-panel-manager.ts    (new — Decision 1 + 8)
+│   │   │   ├── panel-protocol.ts           (new — custom protocol handler)
+│   │   │   ├── extension-ipc.ts            (modified — services invoke)
+│   │   │   ├── extension-loader.ts         (modified — allowedCommands/UiEvents parsing)
+│   │   │   ├── extension-registry.ts       (modified — navigation contribution)
+│   │   │   ├── dao-service.ts              (modified — $join, $orderBy, $limit, $offset)
+│   │   │   └── shared-data-tables.ts       (unchanged — accounts is the only shared table)
+│   ├── extension-host/
+│   │   ├── host.ts                          (modified — startup auto-activation, onStartup)
+│   │   ├── api/
+│   │   │   ├── services.ts                  (new — finance.services.invoke)
+│   │   │   ├── index.ts                     (modified — services in FinanceApi)
+│   │   │   └── db.ts                        (modified — DAO ops now accept second arg)
+│   ├── preload/
+│   │   ├── preload.ts                       (modified — same; renderer unchanged)
+│   │   └── panel-preload.ts                 (new — Decision 10)
+│   ├── renderer/
+│   │   ├── index.ts                         (modified — no salary-history-view; tabs drive mount)
+│   │   ├── create-finance.ts                (unchanged — Phase 4 still used by Renderer-side legacy)
+│   │   ├── styles/
+│   │   │   └── layout.css                   (modified — tab bar + split pane styles)
+│   │   └── components/
+│   │       ├── workspace.ts                 (rewritten — WorkspaceLayout tree)
+│   │       ├── tab-bar.ts                   (new — tab strip)
+│   │       ├── split-pane.ts                (new — 2-pane container with drag affordance)
+│   │       ├── navigation-panel.ts          (rewritten — NavigationProvider data-driven)
+│   │       ├── activity-bar.ts              (unchanged — contribution-driven)
+│   │       └── salary-history-view.ts       (REMOVED — replaced by WebviewPanel + panel-preload)
+│   ├── shared/
+│   │   ├── extension-constants.ts           (modified — panel paths)
+│   │   ├── json-rpc-methods.ts              (modified — DomainServiceInvoke method)
+│   │   ├── json-rpc.ts                      (modified — ServiceNotFound error code)
+│   │   └── panel-protocol.ts                (new — shared types)
+│   └── types/
+│       ├── finance.d.ts                     (modified — services + allows + navigation)
+│       └── finance-shell.d.ts               (modified — financeShell.services bridge)
+├── extensions/
+│   ├── salary-history/                       (modified — registers finance.services.pay.*)
+│   │   ├── src/
+│   │   │   ├── main.ts                       (modified — registerPublicPayService)
+│   │   │   ├── services/
+│   │   │   │   ├── pay-service.ts            (unchanged internal — internal surface preserved)
+│   │   │   │   └── public-pay-adapter.ts     (new — Decision 5 public surface)
+│   │   │   ├── ui/                           (unchanged — Phase 4 UI components migrate to WebviewPanel by panel-runtime)
+│   │   │   └── ...
+│   │   └── package.json                      (modified — adds allowedCommands, allowedUiEvents, navigation)
+│   └── dashboard/                            (new — Phase 5 second extension)
+│       ├── package.json                      (new — manifest)
+│       ├── src/
+│       │   ├── main.ts                       (new — activate() reads finance.services.pay.*)
+│       │   ├── services/
+│       │   │   └── aggregator-service.ts     (new — orchestrates pay + accounts reads)
+│       │   ├── ui/
+│       │   │   ├── dashboard-view.ts         (new — 4-card layout)
+│       │   │   ├── net-worth-card.ts         (new)
+│       │   │   ├── ytd-salary-card.ts        (new)
+│       │   │   ├── last-payslip-card.ts      (new)
+│       │   │   └── accounts-summary-card.ts  (new)
+│       │   └── shared-styles.ts              (new — palette tokens)
+├── docs/
+│   ├── superpowers/plans/2026-07-18-phase5-webviews-multiextension.md  (this file)
+│   ├── decisions/
+│   │   └── 0005-domain-service-registry.md   (new — Decision 5 ADR)
+│   ├── extension-api.md                      (modified — Phase 5 API additions)
+│   ├── file-reference.md                     (modified — Phase 5 inventory)
+│   └── phase5-handoff.md                     (new — Phase 5 conversational session handoff)
+└── tests/
+    ├── unit/
+    │   ├── main/services/
+    │   │   ├── domain-service-registry.test.ts  (new — 8 tests)
+    │   │   ├── command-allowlist.test.ts        (new — 6 tests)
+    │   │   ├── ui-event-allowlist.test.ts       (new — 5 tests)
+    │   │   ├── webview-panel-manager.test.ts    (new — 8 tests)
+    │   │   └── dao-service.test.ts              (extended — $join/$orderBy/$limit/$offset)
+    │   ├── extension-host/api/
+    │   │   └── services.test.ts                 (new — 4 tests)
+    │   ├── renderer/
+    │   │   ├── workspace.test.ts                (new — 6 tests, WorkspaceLayout tree)
+    │   │   ├── navigation-panel.test.ts         (new — 5 tests, NavigationProvider)
+    │   │   └── tab-bar.test.ts                  (new — 4 tests)
+    │   └── extensions/
+    │       ├── salary-history/public-pay-adapter.test.ts  (new — 8 tests)
+    │       └── dashboard/
+    │           ├── aggregator-service.test.ts   (new — 6 tests)
+    │           └── ui/dashboard-view.test.ts    (new — 5 tests)
+    └── e2e/
+        ├── multi-extension-workspace.spec.ts    (new — 6 tests, gated by Phase 3 blocker)
+        └── webview-panel.spec.ts                (new — 4 tests, gated)
+```
+
+**New files:** 26 (8 services + 4 preload + 5 renderer components + 1 dashboard extension + 4 shared + 3 docs + 12 test files). **Modified files:** 14. **Removed:** 1 (`salary-history-view.ts` — replaced by WebviewPanel + panel-preload).
+
+---
+
+## Tasks
+
+### Task 1: Extend manifest schema with Phase 5 contributions
+
+**Files:** `src/types/finance.d.ts`, `src/extension-host/manifest-schema.ts`, `tests/unit/extension-host/manifest-schema.test.ts` (extended)
+
+**Steps:**
+
+- [ ] 1.1 In `finance.d.ts`, add types:
+  ```ts
+  export interface ManifestNavigationContribution {
+    id: string;          // unique within extension
+    label: string;       // sidebar label
+    command: string;     // command id (e.g. "salary.show-pay-history")
+    group?: string;      // optional grouping label
+  }
+  // Augment ManifestContributions:
+  // - navigation?: ManifestNavigationContribution[];
+  // - allowedCommands?: string[];       // subset of commands[].id
+  // - allowedUiEvents?: string[];      // independent of commands
+  // Update ActivationEvent: add 'onStartup' literal.
+  ```
+- [ ] 1.2 In `manifest-schema.ts`, add Zod schemas for the three new fields; validate:
+  - `navigation` items have unique `id` within the extension.
+  - `allowedCommands` is a subset of `commands[].id` (else `ValidationFailed` at load time).
+  - `allowedUiEvents` has no duplicate names.
+  - `activationEvents` accepts the `onStartup` literal.
+- [ ] 1.3 Add 5 unit tests covering the new validation rules.
+- [ ] 1.4 Migration shim for Phase 4 manifests: if `allowedCommands` is missing, the loader auto-fills `allowedCommands = commands.map(c => c.id)` with a `console.warn`. Same for `allowedUiEvents` (filled from a Lit-component scrape; falls back to empty if scrape fails).
+
+**Verification:** `npm run test:unit -- manifest-schema` → all tests pass; existing salary-history manifest loads with `console.warn` (auto-fill).
+
+---
+
+### Task 2: WebviewPanel infrastructure — child BrowserWindow + custom protocol
+
+**Files:** `src/main/services/webview-panel-manager.ts` (new), `src/main/services/panel-protocol.ts` (new), `src/main/main.ts` (modified)
+
+**Steps:**
+
+- [ ] 2.1 In `panel-protocol.ts`, register a custom protocol `finance-shell://` via `protocol.handle('finance-shell', ...)` that:
+  - Parses the URL: `finance-shell://panel/<extensionId>/<viewId>.html`.
+  - Serves a static HTML shell (`src/main/resources/panel-template.html`) that includes `<script src="...">` referencing the extension bundle via the `extensionId` path segment.
+  - Sets the response headers with the strict CSP from Decision 11 (`default-src 'self'; script-src 'self'; ...`).
+- [ ] 2.2 In `webview-panel-manager.ts`, implement `WebviewPanelManager`:
+  - `mount(extensionId, viewId, mountData)`: create a child `BrowserWindow` (Decision 1 settings), load `finance-shell://panel/<extensionId>/<viewId>.html`, send `panel:init` via `webContents.send` with `{ extensionId, viewId, mountData, financeShell: <subset> }`.
+  - `unmount(handle)`: destroy the `BrowserWindow`.
+  - `focus(handle)`: call `panel.focus()`.
+  - `list()`: return all open panels.
+- [ ] 2.3 In `main.ts`, instantiate `WebviewPanelManager` after the window is created; pass it to `ExtensionIPC.setUIHandler(...)` (replacing the Phase 4 renderer-mount path).
+- [ ] 2.4 Add 8 unit tests in `webview-panel-manager.test.ts` covering: mount/unmount lifecycle, focus switching, multiple panels, custom protocol URL parsing, CSP headers set, child BrowserWindow parent reference correct.
+
+**Verification:** Manual: click Activity Bar `P` → a child window opens with the salary-history UI. The child window's DevTools shows the strict CSP applied. Closing the parent window closes all children.
+
+---
+
+### Task 3: Panel preload — expose `window.financeShell` subset inside the iframe
+
+**Files:** `src/preload/panel-preload.ts` (new), `src/types/finance-shell.d.ts` (modified)
+
+**Steps:**
+
+- [ ] 3.1 In `panel-preload.ts`, expose a **subset** of `financeShell.*` per Decision 10:
+  ```ts
+  contextBridge.exposeInMainWorld('financeShell', {
+    extensions: {
+      list: () => ipcRenderer.invoke('extensions:list'),
+      executeCommand: (commandId, ...args) => ipcRenderer.invoke('extensions:execute-command', commandId, ...args),
+      uiEvent: (extensionId, eventName, detail) => ipcRenderer.send('extensions:ui-event', extensionId, eventName, detail),
+      onUiMount: (callback) => ipcRenderer.on('extensions:ui-mount', (_e, payload) => callback(payload)),
+    },
+    settings: { get, set }  // Phase 4 settings bridge, unchanged
+  });
+  ```
+- [ ] 3.2 In `finance-shell.d.ts`, add `PanelFinanceShell` interface (subset of `FinanceShellApi`) for the panel context; document that `finance.db` and `finance.services` are NOT exposed in the panel — extensions access them inside the extension bundle.
+- [ ] 3.3 Bundle the preload via `vite.preload.config.ts` to produce both `dist/preload/preload.cjs` (renderer) and `dist/preload/panel-preload.cjs` (panels).
+
+**Verification:** Open DevTools in the panel window; `window.financeShell.extensions.list()` returns the active extensions; `window.financeShell.db` is `undefined`.
+
+---
+
+### Task 4: Main-side message router — panel ↔ renderer via Main
+
+**Files:** `src/main/main.ts` (modified), `src/main/services/webview-panel-manager.ts` (extended)
+
+**Steps:**
+
+- [ ] 4.1 In `webview-panel-manager.ts`, add a `forwardUiEvent(extensionId, eventName, detail)` method that:
+  - Validates `extensionId` is an active extension.
+  - Routes the event to the **renderer** (the main window) via `mainWindow.webContents.send('extensions:ui-event-from-panel', { extensionId, eventName, detail })`.
+- [ ] 4.2 In `main.ts`, listen for `extensions:ui-event-from-panel` IPC and forward to the relevant panel's webContents (round-trip).
+- [ ] 4.3 Document the round-trip pattern in `webview-panel-manager.ts` JSDoc: panel → Main → renderer → Main → other panels.
+
+**Verification:** Manual: open two salary-history panels; click "+ Add Payslip" in panel 1; panel 2 receives the same event (after the Main-side round-trip).
+
+---
+
+### Task 5: Migrate salary-history renderer-side code to use the bundle's `finance.*` proxy
+
+**Files:** `extensions/salary-history/src/main.ts`, `src/renderer/components/salary-history-view.ts` (REMOVED)
+
+**Steps:**
+
+- [ ] 5.1 In `extensions/salary-history/src/main.ts`, refactor the command handlers to use `finance.db.table('salary_history_pay_slips')` (the bundle's own proxy) instead of `window.financeShell.extensions.readTable(...)` (the Phase 4 renderer-side path).
+- [ ] 5.2 The orchestrator logic (`account-create` → `financeShell.accounts.create` → navigate; `payslip-create` → `finance.db.table(...).insert(...)` → navigate) moves **into the bundle** as a `DashboardOrchestrator` (new) inside the salary-history extension. The bundle now owns its own navigation state.
+- [ ] 5.3 Delete `src/renderer/components/salary-history-view.ts` (the renderer-side orchestrator is replaced by the bundle's orchestrator + the WebviewPanel + the Main-side panel manager).
+- [ ] 5.4 Update `src/renderer/index.ts` to remove the `extensions.onUiMount` subscription (replaced by `WebviewPanelManager` mount notifications routed through Main → renderer as `panel:opened` / `panel:closed` IPC).
+- [ ] 5.5 **Update or delete the Phase 4 renderer integration test** `tests/unit/renderer/salary-history-view.integration.test.ts` (which targets the now-deleted `salary-history-view.ts`). Replace with a panel-context equivalent if needed, otherwise delete.
+- [ ] 5.6 **Add one panel-load smoke test** at `tests/unit/main/services/webview-panel-load.test.ts` (can be deferred until Task 2 lands): mount the salary-history panel against a fake main window and assert the bundle `<script>` tag is injected into the panel HTML and `panel:init` is sent. Catches bundle-path and preload mistakes early.
+
+**Verification:** `npm run typecheck` exit 0; manual: salary-history behaviour unchanged from Phase 4 end-user perspective (TU1-TU5 still pass).
+
+> **Note — Task 5/8 ordering:** Task 5 and Task 8 both modify `extensions/salary-history/src/main.ts` (Task 5 restructures the bundle entry; Task 8 adds the `finance.services.register('pay', ...)` call). Task 5 must **land before** Task 8 to avoid conflicting diffs.
+>
+> **Note — `create-finance.ts` is still in use** by the command palette and Activity Bar. Do not remove it during Task 5 migration even though `salary-history-view.ts` is gone.
+
+---
+
+### Task 6: DAO operators — `$join`, `$orderBy`, `$limit`, `$offset`
+
+**Files:** `src/main/services/dao-service.ts` (modified), `tests/unit/main/services/dao-service.test.ts` (extended)
+
+**Steps:**
+
+- [ ] 6.1 In `dao-service.ts`, change the signatures:
+  ```ts
+  find(extensionId, table, query: QueryObject, options?: FindOptions): Row[];
+  findOne(extensionId, table, query: QueryObject, options?: FindOptions): Row | null;
+  count(extensionId, table, query: QueryObject, options?: CountOptions): number;
+  ```
+  Where `FindOptions = { $join?: JoinSpec, $orderBy?: OrderSpec[], $limit?: number, $offset?: number }` and `JoinSpec = { table: string, on: string, type: 'INNER' | 'LEFT' | 'RIGHT' }`.
+- [ ] 6.2 In `compileQuery`, parse the new operators; emit SQL with parameterised joins + ORDER BY + LIMIT + OFFSET.
+- [ ] 6.3 Validate `$join.on` against the registered column lists (Decision 4 trade-off): parse `a.col = b.col`, check `a` is the from-table or a previously-joined table, check `col` exists in the respective manifest.
+- [ ] 6.4 Validate `$join` table access: only the calling extension's own tables OR shared tables can be joined.
+- [ ] 6.5 Validate `$limit` (1..1000) and `$offset` (>= 0) at the Zod layer.
+- [ ] 6.6 Extend `dao-service.test.ts` with 12 new tests:
+  - `$orderBy` sort ASC and DESC
+  - `$limit` + `$offset` pagination
+  - `$join` INNER/LEFT/RIGHT against `accounts` (shared) from a salary-history call (allowed)
+  - `$join` against another extension's table (rejected with `TableAccessDenied`)
+  - Malformed `$join.on` (rejected with `ValidationFailed`)
+  - `$limit` 0 or >1000 (rejected)
+  - `findOne` with `$orderBy` returns the correct single row (highest pay_date).
+
+**Verification:** `npm run test:unit -- dao-service` → all tests pass (existing 25 + 12 new = 37).
+
+---
+
+### Task 7: Domain Service Registry + Host-side `finance.services.*`
+
+**Files:** `src/main/services/domain-service-registry.ts` (new), `src/extension-host/api/services.ts` (new), `src/extension-host/api/index.ts` (modified), `src/shared/json-rpc-methods.ts` (modified), `src/shared/json-rpc.ts` (modified), `tests/unit/main/services/domain-service-registry.test.ts` (new), `tests/unit/extension-host/api/services.test.ts` (new)
+
+**Steps:**
+
+- [ ] 7.1 In `domain-service-registry.ts`, implement `DomainServiceRegistry` per Decision 5:
+  - `register(serviceName, extensionId, impl)`: store in a `Map<serviceName, Map<extensionId, impl>>`.
+  - `unregister(serviceName, extensionId)`: remove.
+  - `invoke(serviceName, method, params, callerExtensionId)`: look up the **most recently activated** registered impl; call `impl[method](params)`; catch errors and return `null` (graceful degradation).
+- [ ] 7.2 In `extension-ipc.ts`, add `setDomainServiceRegistry(reg)` and a `handleDomainServiceInvoke(params)` method that validates the calling extension's identity, looks up the service, and calls it.
+- [ ] 7.3 In `json-rpc-methods.ts`, add `RPC_METHOD.DomainServiceInvoke = 'domain.service.invoke'`.
+- [ ] 7.4 In `json-rpc.ts`, add `RpcErrorCode.ServiceNotFound = -32014`.
+- [ ] 7.5 In `api/services.ts`, implement `createServices(extensionId, rpc)`:
+  ```ts
+  function createServices(extensionId, rpc) {
+    return {
+      invoke<T>(serviceName: string, method: string, params?: unknown): Promise<T | null> {
+        return rpc.request(RPC_METHOD.DomainServiceInvoke, { callerExtensionId: extensionId, serviceName, method, params });
+      },
+      register(serviceName: string, impl: DomainServiceImpl): void {
+        // Host-side stub — actual registration happens via a separate RPC
+        // (the extension's `activate` calls this on the Host's local proxy,
+        // which forwards to Main's registry).
+        hostApi.registerDomainService(extensionId, serviceName, impl);
+      },
+      unregister(serviceName: string): void {
+        hostApi.unregisterDomainService(extensionId, serviceName);
+      }
+    };
+  }
+  ```
+- [ ] 7.6 In `api/index.ts`, add `services` to the `FinanceApi` returned by `createFinance`.
+- [ ] 7.7 In `finance.d.ts`, add `services: ServicesApi` to `FinanceApi`; export `DomainServiceImpl` type.
+- [ ] 7.8 Add 8 registry unit tests + 4 services unit tests.
+
+**Verification:** `npm run test:unit -- domain-service-registry services` → all tests pass.
+
+---
+
+### Task 8: Salary-history `public-pay-adapter` + Domain Service registration
+
+**Files:** `extensions/salary-history/src/services/public-pay-adapter.ts` (new), `extensions/salary-history/src/main.ts` (modified), `extensions/salary-history/package.json` (modified), `tests/unit/extensions/salary-history/public-pay-adapter.test.ts` (new)
+
+**Steps:**
+
+- [ ] 8.1 In `public-pay-adapter.ts`, implement `PublicPayService` per Decision 5 (4 methods). Wrap calls to the internal `PayService`; return `null` on error or when data is missing.
+- [ ] 8.2 In `main.ts#activate`, after the existing Phase 4 setup:
+  ```ts
+  finance.services.register('pay', {
+    getYearToDateSummary: (params) => adapter.getYearToDateSummary(params.financialYearStart, params.asOfDate),
+    getMonthlySeries: (params) => adapter.getMonthlySeries(params.financialYearStart),
+    getLastPayslip: () => adapter.getLastPayslip(),
+    getCurrentRate: () => adapter.getCurrentRate()
+  });
+  ```
+- [ ] 8.3 In `main.ts#deactivate`, call `finance.services.unregister('pay')`.
+- [ ] 8.4 In `package.json`, add `allowedCommands: ["salary.show-pay-history", "salary.show-pay-rate-history"]` (the Phase 4 commands, now allowlisted per Decision 6).
+- [ ] 8.5 In `package.json`, add `navigation` contribution with the two view commands (Decision 3).
+- [ ] 8.6 In `package.json`, add `allowedUiEvents` with the 21 Phase 4 event names (Decision 7).
+- [ ] 8.7 Add 8 unit tests covering all 4 public methods + null-on-error + null-on-disabled extension.
+
+**Verification:** `npm run test:unit -- public-pay-adapter` → all tests pass.
+
+---
+
+### Task 9: Dashboard extension — second bundled extension
+
+**Files:** `extensions/dashboard/package.json` (new), `extensions/dashboard/src/main.ts` (new), `extensions/dashboard/src/services/aggregator-service.ts` (new), `extensions/dashboard/src/ui/{dashboard-view,net-worth-card,ytd-salary-card,last-payslip-card,accounts-summary-card}.ts` (new), `extensions/dashboard/src/shared-styles.ts` (new), `tests/unit/extensions/dashboard/{aggregator-service,dashboard-view}.test.ts` (new)
+
+**Steps:**
+
+- [ ] 9.1 Create `extensions/dashboard/package.json`:
+  ```jsonc
+  {
+    "name": "dashboard",
+    "version": "0.1.0",
+    "description": "Phase 5 aggregator extension: net worth + YTD salary + last payslip + accounts summary.",
+    "private": true,
+    "main": "src/main.ts",
+    "financeExtension": {
+      "id": "dashboard",
+      "displayName": "Dashboard",
+      "version": "0.1.0",
+      "activationEvents": ["onStartup"],
+      "contributes": {
+        "views": [{ "id": "dashboard", "name": "Dashboard", "icon": "D" }],
+        "commands": [
+          { "id": "dashboard.refresh", "title": "Refresh Dashboard" },
+          { "id": "dashboard.open-net-worth-detail", "title": "Net Worth Detail" }
+        ],
+        "navigation": [
+          { "id": "dashboard.refresh", "label": "Refresh", "command": "dashboard.refresh", "group": "Quick Links" },
+          { "id": "dashboard.net-worth", "label": "Net Worth Detail", "command": "dashboard.open-net-worth-detail", "group": "Insights" }
+        ],
+        "allowedCommands": ["dashboard.refresh", "dashboard.open-net-worth-detail"],
+        "allowedUiEvents": ["dashboard-refresh"]
+      }
+    }
+  }
+  ```
+- [ ] 9.2 In `src/main.ts`, `activate(finance)`:
+  - Read `dashboard.cardOrder` from `finance.settings.get('dashboard.cardOrder')` (default `['net-worth', 'ytd-salary', 'last-payslip', 'accounts-summary']`).
+  - Call `finance.services.pay.getYearToDateSummary(financialYearStart)`, `getLastPayslip()`, `getCurrentRate()`; also `finance.db.table('accounts').find({})` for accounts.
+  - Build an `aggregator` object with the card data.
+  - Call `finance.ui.requestMount('dashboard-view', { aggregator })`.
+  - Register `dashboard.refresh` command (re-runs the aggregator).
+- [ ] 9.3 In `src/services/aggregator-service.ts`, encapsulate the read logic:
+  ```ts
+  async function buildAggregator(finance: FinanceApi, settings: DashboardSettings): Promise<DashboardData> {
+    const financialYearStart = settings.financialYearStart ?? '07-01';
+    const [ytd, lastPayslip, currentRate, accounts] = await Promise.all([
+      finance.services.invoke('pay', 'getYearToDateSummary', { financialYearStart }).catch(() => null),
+      finance.services.invoke('pay', 'getLastPayslip').catch(() => null),
+      finance.services.invoke('pay', 'getCurrentRate').catch(() => null),
+      finance.db.table('accounts').find({ is_active: true }).catch(() => [])
+    ]);
+    return { ytd, lastPayslip, currentRate, accounts, hasPayExtension: !!lastPayslip };
+  }
+  ```
+- [ ] 9.4 In `src/ui/dashboard-view.ts`, render the 4 cards in the configured order via `cardOrder`; each card receives the relevant data slice. Cards show "—" or "install Salary History to see this" placeholders when data is missing.
+- [ ] 9.5 In `src/ui/{net-worth,ytd-salary,last-payslip,accounts-summary}-card.ts`, implement the 4 cards as Lit components sharing `shared-styles.ts`.
+- [ ] 9.6 Add 6 aggregator unit tests (mocked `finance`) + 5 dashboard-view tests (happy-dom).
+
+**Verification:** `npm run build:extensions` → produces `dist/extensions/dashboard.js`; `npm run test:unit -- extensions/dashboard` → all tests pass.
+
+---
+
+### Task 10: Startup auto-activation (`onStartup` activation event)
+
+**Files:** `src/extension-host/host.ts` (modified), `src/main/main.ts` (modified), `tests/unit/extension-host/host-on-startup.test.ts` (new)
+
+**Steps:**
+
+- [ ] 10.1 In `host.ts`, add handling for `onStartup` in the activation dispatcher:
+  ```ts
+  if (manifest.activationEvents.includes('onStartup')) {
+    onStartupCallbacks.push(activateExtension(extensionId, manifest));
+  }
+  ```
+- [ ] 10.2 In `main.ts`, after `extensionIPC.start(...)`, collect `onStartup` extensions and call `extensionIPC.request('extension.activate', { extensionId, reason: 'onStartup' })` for each, in alphabetical `id` order.
+- [ ] 10.3 On `extension.activate` success → `extensionRegistry.markActivated(id)`.
+- [ ] 10.4 On failure → `extensionRegistry.recordCrash(id, err)` (existing Phase 3 hot-disable); emit `extension-auto-disabled` if threshold reached.
+- [ ] 10.5 Add 5 unit tests: alphabetical activation order, Dashboard activates before any user interaction, hot-disable on activation failure, no double activation on subsequent clicks, missing `onStartup` extension does not block other `onStartup` extensions.
+
+**Verification:** `npm run test:unit -- host-on-startup` → all tests pass; manual: app boots with Dashboard tab open before any click.
+
+---
+
+### Task 11: NavigationProvider — data-driven sidebar from `contributes.navigation`
+
+**Files:** `src/renderer/components/navigation-panel.ts` (rewritten), `tests/unit/renderer/navigation-panel.test.ts` (new)
+
+**Steps:**
+
+- [ ] 11.1 In `navigation-panel.ts`, rewrite:
+  - Remove the static `_VIEW_CONTEXT_MAP` and the `if (view === 'Salary')` switch.
+  - Subscribe to `window.financeShell.extensions.list()`; for each extension, read `extension.navigation` (new field from Task 1).
+  - Maintain `_activeExtensionId: string` (the currently-active extension's id).
+  - Render the `_activeExtensionId`'s `navigation` items, grouped by `group` (default "Quick Links").
+  - On item click, dispatch `command-selected` with the item's `command` (existing handler in `renderer/index.ts`).
+- [ ] 11.2 Built-in Core items (for the `__settings__` view): keep as a static constant in `navigation-panel.ts`; not an extension contribution.
+- [ ] 11.3 Handle the active-extension lookup: Activity Bar click sets the active extension via the existing `view-changed` event (which currently passes `view` = extension's view id); map view id → extension id via the contributions list.
+- [ ] 11.4 Add 5 unit tests: items render in `group` order, click fires `command-selected`, active extension change re-renders, missing extension shows "no items", built-in Core items render for `__settings__`.
+
+**Verification:** `npm run test:unit -- navigation-panel` → all tests pass; manual: click Dashboard → "Refresh" + "Net Worth Detail" items; click Salary → "Pay History" + "Pay Rate History" items.
+
+---
+
+### Task 12: Workspace layout — tabs + 2-pane split
+
+**Files:** `src/renderer/components/workspace.ts` (rewritten), `src/renderer/components/tab-bar.ts` (new), `src/renderer/components/split-pane.ts` (new), `src/renderer/styles/layout.css` (modified), `tests/unit/renderer/workspace.test.ts` (new), `tests/unit/renderer/tab-bar.test.ts` (new)
+
+**Steps:**
+
+- [ ] 12.1 In `workspace.ts`, replace the static Dashboard placeholder with a `WorkspaceLayout` tree (Decision 9):
+  ```ts
+  type WorkspaceNode = { type: 'tab', panelId: string, label: string } | { type: 'split', direction: 'horizontal' | 'vertical', children: [WorkspaceNode, WorkspaceNode] };
+  ```
+- [ ] 12.2 In `tab-bar.ts`, render the tabs in the active leaf's path; support drag-to-split (HTML5 Drag and Drop).
+- [ ] 12.3 In `split-pane.ts`, render a 2-pane container with a draggable splitter; close-on-last-tab collapses the split.
+- [ ] 12.4 In `styles/layout.css`, add tab bar + splitter styles matching the existing palette.
+- [ ] 12.5 Persist the `WorkspaceLayout` to `core.workspace.layout` setting on every change (debounced 500 ms).
+- [ ] 12.6 Restore the `WorkspaceLayout` from the setting on `DOMContentLoaded`.
+- [ ] 12.7 Add 6 workspace tests + 4 tab-bar tests.
+
+**Verification:** `npm run test:unit -- workspace tab-bar` → all tests pass; manual: open 3 tabs → drag one to the right edge → 2-pane split appears; restart app → layout restored.
+
+---
+
+### Task 13: Per-extension command allowlist (Main-side enforcement)
+
+**Files:** `src/main/services/command-allowlist.ts` (new), `src/main/services/extension-loader.ts` (modified), `src/main/main.ts` (modified), `tests/unit/main/services/command-allowlist.test.ts` (new)
+
+**Steps:**
+
+- [ ] 13.1 In `command-allowlist.ts`, implement `CommandAllowlist`:
+  - `build(manifests: Manifest[])`: builds an internal `Map<extensionId, Set<commandId>>` from each manifest's `allowedCommands`.
+  - `isAllowed(extensionId, commandId)`: returns true iff `commandId ∈ allowedCommands[extensionId]`.
+  - `rebuild(manifests)`: replaces the internal map.
+- [ ] 13.2 In `extension-loader.ts`, pass each manifest's `allowedCommands` to the allowlist builder at load time.
+- [ ] 13.3 In `main.ts`, instantiate `CommandAllowlist` after discovery; gate the `extensions:execute-command` IPC handler (modify the existing handler from Phase 3).
+- [ ] 13.4 Add 6 unit tests: allowed command passes, disallowed rejected, disabled extension's commands all rejected, allowlist rebuilt on `setEnabled` change, unknown command id rejected, Phase 4 migration shim (missing `allowedCommands` → auto-fill from `commands[].id`).
+
+**Verification:** `npm run test:unit -- command-allowlist` → all tests pass; manual: call `financeShell.extensions.executeCommand('salary.show-pay-history')` from console → succeeds; call `financeShell.extensions.executeCommand('core.toggle-theme')` (Core command, not extension-scoped) → succeeds via bypass; call a non-allowlisted command → returns `{ executed: false, reason: 'command not allowed for this extension' }`.
+
+---
+
+### Task 14: Per-extension `ui-event` allowlist (Main-side enforcement)
+
+**Files:** `src/main/services/ui-event-allowlist.ts` (new), `src/main/services/extension-loader.ts` (modified), `src/main/main.ts` (modified), `tests/unit/main/services/ui-event-allowlist.test.ts` (new)
+
+**Steps:**
+
+- [ ] 14.1 In `ui-event-allowlist.ts`, implement `UiEventAllowlist` (mirrors `CommandAllowlist`):
+  - `build(manifests)`: `Map<extensionId, Set<eventName>>`.
+  - `isAllowed(extensionId, eventName)`.
+- [ ] 14.2 Gate the `extensions:ui-event` IPC handler with `isAllowed` check; drop on failure with `console.warn`.
+- [ ] 14.3 Migrate salary-history's manifest to declare `allowedUiEvents` (Task 8.6).
+- [ ] 14.4 Add 5 unit tests: allowed event passes, disallowed dropped with warn, disabled extension's events all dropped, Phase 4 migration shim.
+
+**Verification:** `npm run test:unit -- ui-event-allowlist` → all tests pass; manual: click "+ Add Payslip" → form mounts (event allowed); emit a synthetic `core.toggle-theme` event from the panel → dropped silently.
+
+---
+
+### Task 15: Close the Phase 4 `'unsafe-eval'` CSP risk (panel side)
+
+**Files:** `src/main/resources/panel-template.html` (new), `src/main/services/panel-protocol.ts` (modified)
+
+**Steps:**
+
+- [ ] 15.1 Create `panel-template.html`:
+  ```html
+  <!DOCTYPE html>
+  <html>
+    <head>
+      <meta charset="utf-8">
+      <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self';">
+      <title>Webview Panel</title>
+    </head>
+    <body>
+      <script type="module" src="file:///path/to/dist/extensions/{extensionId}.js"></script>
+    </body>
+  </html>
+  ```
+  The `{extensionId}` placeholder is replaced by `panel-protocol.ts` at response time.
+- [ ] 15.2 In `panel-protocol.ts`, ensure the response headers set the CSP meta tag (already in the HTML); add a `Content-Security-Policy` response header as a defense-in-depth.
+- [ ] 15.3 Verify the panel's DevTools console shows no CSP violations when the bundle loads.
+
+**Verification:** Manual: open DevTools in the panel → check `document.contentSecurityPolicy` → matches Decision 11's strict CSP.
+
+---
+
+### Task 16: ADR-0005 — Domain Service Registry
+
+**Files:** `docs/decisions/0005-domain-service-registry.md` (new), `docs/decisions/README.md` (modified)
+
+**Steps:**
+
+- [ ] 16.1 Write ADR-0005 documenting Decision 5:
+  - **Status:** Accepted
+  - **Context:** Phase 4 Decision 5 deferred `finance.services.*` cross-extension contract to Phase 5, with the design note that the contract should be designed from the consumer side.
+  - **Decision:** Domain Service Registry singleton in Main; thin Host-side proxy; 4-method public surface for `pay` (Phase 5 first service).
+  - **Consequences:** cross-extension calls now possible; "last-registered wins" rule.
+  - **Revisit triggers:** multi-service-name conflicts, sub-millisecond service latency, sub-service-versioning.
+- [ ] 16.2 Add to `docs/decisions/README.md` index.
+
+**Verification:** ADR file exists and is cross-linked from `docs/file-reference.md`.
+
+---
+
+### Task 17: Update extension API docs + file-reference
+
+**Files:** `docs/extension-api.md` (modified), `docs/file-reference.md` (modified)
+
+**Steps:**
+
+- [ ] 17.1 In `extension-api.md`, add sections for:
+  - `contributes.navigation`
+  - `contributes.allowedCommands` / `allowedUiEvents`
+  - `activationEvents: 'onStartup'`
+  - `finance.services.*` API
+  - WebviewPanel hosting model
+- [ ] 17.2 In `file-reference.md`, add the Phase 5 inventory section (mirror the File Structure above).
+
+**Verification:** `docs/extension-api.md` covers all Phase 5 additions; `file-reference.md` Phase 5 section present.
+
+---
+
+### Task 18: Manual Test Units
+
+**Test Unit 1: Dashboard is the default landing view.**
+- [ ] 1.1 Fully close the app. Delete `%APPDATA%\Finance Flow AI\finance.db` (and `-wal` / `-shm`) for a fresh first run.
+- [ ] 1.2 Run `npm run rebuild && npm start`.
+- [ ] 1.3 **Expected:** the Dashboard tab opens automatically as the first tab; no user click required. The four cards render (each shows "—" or "install Salary History" placeholders since there is no data yet).
+
+**Test Unit 2: Salary History opens as a second tab.**
+- [ ] 2.1 Click the `P` Activity Bar button.
+- [ ] 2.2 **Expected:** Salary History opens in a second tab. The Dashboard tab stays open. Switching tabs swaps the visible content; each tab's WebviewPanel stays mounted.
+- [ ] 2.3 Click `P` again → no new tab opens; Salary History tab gains focus (idempotent).
+
+**Test Unit 3: Split-screen via drag.**
+- [ ] 3.1 With Dashboard and Salary History tabs open, drag the Salary History tab's header to the right edge of the workspace.
+- [ ] 3.2 **Expected:** a 2-pane split appears (left = Dashboard, right = Salary History). Each pane has its own tab bar.
+- [ ] 3.3 Drag the splitter to resize the panes.
+- [ ] 3.4 **Expected:** splitter responds smoothly; layout persists across app restart.
+
+**Test Unit 4: NavigationProvider — data-driven sidebar.**
+- [ ] 4.1 With Dashboard active, click the Explorer item "Net Worth Detail".
+- [ ] 4.2 **Expected:** the item highlights; the dashboard.net-worth-detail command fires (currently a no-op placeholder per Phase 5's "open the detail view" deferral — `console.log` in the Dashboard command handler).
+- [ ] 4.3 Click the `P` Activity Bar button → sidebar switches to Salary extension's items ("Pay History", "Pay Rate History"). Click "Pay Rate History" → opens the rate-history view.
+- [ ] 4.4 Click the Settings `S` button → sidebar shows built-in Core items ("App Preferences", "Manage Extensions") — not extension contributions.
+
+**Test Unit 5: Cross-extension `finance.services.pay.*` — graceful degradation.**
+- [ ] 5.1 With Dashboard active and Salary History NOT installed (disable via `extension_registry` SQL edit + restart, OR uninstall by removing the `extensions/salary-history/` directory temporarily), observe the Dashboard's YTD Salary card.
+- [ ] 5.2 **Expected:** the card shows "Salary extension not installed — install Salary History to see this card." No errors in DevTools; no crash.
+- [ ] 5.3 Reinstall / re-enable Salary History → card populates with YTD summary after the Dashboard's `dashboard.refresh` command runs.
+
+**Test Unit 6: `finance.services.pay.*` — happy path.**
+- [ ] 6.1 With Salary History installed and active, click `P` → seed an account (TU1 from Phase 4) → create 3 payslips for the current FY.
+- [ ] 6.2 Click Dashboard tab.
+- [ ] 6.3 **Expected:** YTD Salary card shows the sum of the 3 payslips' gross/net; Last Payslip card shows the most recent payslip; Net Worth card sums the accounts + the last-12-months payslip net.
+
+**Test Unit 7: Per-extension command allowlist.**
+- [ ] 7.1 From the Renderer DevTools console, call `await window.financeShell.extensions.executeCommand('salary.show-pay-history')`.
+- [ ] 7.2 **Expected:** `{ executed: true, ... }` — the command is in salary-history's `allowedCommands`.
+- [ ] 7.3 Call `await window.financeShell.extensions.executeCommand('salary.show-dashboard')` (a placeholder command reserved for Dashboard's quick link).
+- [ ] 7.4 **Expected:** `{ executed: false, reason: 'command not allowed for this extension' }` — not in `allowedCommands` yet (Phase 5 ships it not in the list).
+
+**Test Unit 8: `extensions:ui-event` allowlist — drop unknown events.**
+- [ ] 8.1 From the Renderer DevTools console, call `window.financeShell.extensions.uiEvent('salary-history', 'payslip-create', { test: true })`.
+- [ ] 8.2 **Expected:** the event flows through (it's in `allowedUiEvents`); the salary-history bundle receives it.
+- [ ] 8.3 Call `window.financeShell.extensions.uiEvent('salary-history', 'core.toggle-theme', {})`.
+- [ ] 8.4 **Expected:** `console.warn` in the main-process terminal (`[extensions] dropped ui-event "core.toggle-theme" from "salary-history" — not in allowlist`); the renderer event has no effect.
+
+**Test Unit 9: WebviewPanel — CSP verified.**
+- [ ] 9.1 With Dashboard tab open, right-click → Inspect Element → DevTools opens for the panel.
+- [ ] 9.2 In the panel's console, run `document.contentSecurityPolicy`.
+- [ ] 9.3 **Expected:** returns the strict CSP from Decision 11 (`default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self';`). No `'unsafe-eval'`.
+
+**Test Unit 10: DAO `$join` operator.**
+- [ ] 10.1 From the Renderer DevTools console, run:
+  ```js
+  const result = await window.financeShell.extensions.executeCommand('dashboard.refresh');
+  ```
+  This triggers the Dashboard's `buildAggregator`, which calls `finance.db.table('accounts').find({}, { $join: { table: 'accounts', on: '...', type: 'LEFT' }, $orderBy: [{ column: 'name', direction: 'ASC' }] })`.
+- [ ] 10.2 **Expected:** the Dashboard's Accounts Summary card re-renders with the joined + sorted accounts list.
+- [ ] 10.3 **Negative test:** run `finance.db.table('salary_history_pay_slips').find({}, { $join: { table: 'accounts', on: 'salary_history_pay_slips.account_id = accounts.id', type: 'LEFT' } })` from a salary-history context — succeeds (shared table). Run the same from a hypothetical "budget" extension context → rejected with `TableAccessDenied` (cannot join another extension's table).
+
+**Test Unit 11: TypeScript Strict + Lint + Tests.**
+- [ ] 11.1 `npm run typecheck` → exit 0.
+- [ ] 11.2 `npm run lint` → exit 0.
+- [ ] 11.3 `npm run test:unit` → all tests pass (~350 after Phase 5).
+
+**Test Unit 12: Multi-File Build Verification.**
+- [ ] 12.1 `npm run build:extensions`.
+- [ ] 12.2 **Expected:** `dist/extensions/salary-history.js` AND `dist/extensions/dashboard.js` both produced.
+- [ ] 12.3 On PowerShell:
+  ```powershell
+  if (Select-String -Quiet -Pattern "from 'finance'" dist/extensions/dashboard.js) { exit 1 } else { exit 0 }
+  ```
+  Expected: exit 0 (no runtime `finance` imports).
+
+---
+
+### Task 19: Self-Review Checklist (this plan's §10 below)
+
+- [ ] 19.1 Verify all 12 architecture decisions are reflected in code.
+- [ ] 19.2 Verify all 12 manual test units pass (TU6/TU7 marked OPTIONAL/SKIPPABLE for manual runs; covered by automated unit tests).
+- [ ] 19.3 Verify the ~50 new unit tests pass (project total ~350).
+- [ ] 19.4 Verify the Self-Review Checklist sections §1–§10 below.
+
+---
+
+### Task 20: Doc sync + handoff
+
+**Files:** `docs/file-reference.md` (modified), `docs/decisions/0005-domain-service-registry.md` (new), `docs/extension-api.md` (modified), `docs/phase5-handoff.md` (new), `CHANGELOG.md` (modified)
+
+**Steps:**
+
+- [ ] 20.1 In `docs/file-reference.md`, append the Phase 5 inventory section.
+- [ ] 20.2 In `docs/decisions/README.md`, add ADR-0005 to the index.
+- [ ] 20.3 In `docs/extension-api.md`, document the Phase 5 API additions (Task 17.1).
+- [ ] 20.4 Write `docs/phase5-handoff.md` following the Phase 3 handoff pattern (`docs/phase3-handoff.md`).
+- [ ] 20.5 In `CHANGELOG.md`, add `## [0.8.0] - TBD` header with `### Administrative` entry citing this plan file; date on release.
+
+**Verification:** all doc files updated; `CHANGELOG.md` version bumped; `package.json#version` synced to `0.8.0`.
+
+---
+
+## Test Plan
+
+### Unit tests (~50 new; project total ~350)
+
+| File | Tests | Covers |
+|------|-------|--------|
+| `tests/unit/extension-host/manifest-schema.test.ts` (extended) | +5 | navigation, allowedCommands, allowedUiEvents, onStartup |
+| `tests/unit/main/services/dao-service.test.ts` (extended) | +12 | $join, $orderBy, $limit, $offset |
+| `tests/unit/main/services/domain-service-registry.test.ts` (new) | 8 | register/unregister/invoke, last-registered wins, null on error |
+| `tests/unit/extension-host/api/services.test.ts` (new) | 4 | invoke proxy, register/unregister forwarding |
+| `tests/unit/main/services/webview-panel-manager.test.ts` (new) | 8 | mount/unmount lifecycle, focus, multiple panels, custom protocol URL parsing, CSP headers |
+| `tests/unit/main/services/command-allowlist.test.ts` (new) | 6 | allow/deny, disabled extension, rebuild, Phase 4 migration shim |
+| `tests/unit/main/services/ui-event-allowlist.test.ts` (new) | 5 | allow/deny, drop-with-warn, Phase 4 migration shim |
+| `tests/unit/extension-host/host-on-startup.test.ts` (new) | 5 | alphabetical order, crash → hot-disable, no double activation |
+| `tests/unit/renderer/navigation-panel.test.ts` (new) | 5 | group order, click → command-selected, active extension switch |
+| `tests/unit/renderer/workspace.test.ts` (new) | 6 | WorkspaceLayout tree, tab drag-to-split, persistence |
+| `tests/unit/renderer/tab-bar.test.ts` (new) | 4 | tab strip, active tab, drag affordance |
+| `tests/unit/extensions/salary-history/public-pay-adapter.test.ts` (new) | 8 | 4 methods + null-on-error + null-on-disabled |
+| `tests/unit/extensions/dashboard/aggregator-service.test.ts` (new) | 6 | buildAggregator with mocked FinanceApi |
+| `tests/unit/extensions/dashboard/ui/dashboard-view.test.ts` (new) | 5 | 4 cards render in cardOrder, missing-data placeholders |
+| **Total new** | **~87** | |
+| **Project total after Phase 5** | **~399** | (Phase 4 ~312 + ~87 new) |
+
+### Manual Test Units (12) — see Task 18 above
+
+### E2E (new; still gated by Phase 3 environmental blocker)
+
+`tests/e2e/multi-extension-workspace.spec.ts` (new, 6 tests):
+
+1. Dashboard auto-activates on startup before any user click.
+2. Clicking `P` opens Salary History in a second tab.
+3. Drag-to-split creates a 2-pane layout.
+4. NavigationPanel re-renders items when active extension changes.
+5. `finance.services.pay.*` returns null when salary-history is disabled.
+6. `dashboard.refresh` command re-runs the aggregator.
+
+`tests/e2e/webview-panel.spec.ts` (new, 4 tests):
+
+1. WebviewPanel CSP matches Decision 11 (no `'unsafe-eval'`).
+2. Panel-to-panel ui-event round-trip via Main.
+3. Per-extension command allowlist blocks non-allowlisted commands.
+4. Per-extension ui-event allowlist drops non-allowlisted events.
+
+These will run when the Phase 3 Playwright-electron environmental issue is resolved.
+
+---
+
+## Self-Review Checklist
+
+### §1 — Vision Alignment
+
+- [x] **project_vision.md:154-156 (UI Rendering Layer — WebviewPanel iframe rendering).** Decision 1 ships the WebviewPanel shape; Phase 5 replaces Phase 4's renderer-side mount.
+- [x] **project_vision.md:222-241 (Main Workspace — tabs + split-screen groups).** Decision 9 ships 2-pane split + tab host; full grid is Phase 7+.
+- [x] **project_vision.md:107-117 (Domain Services layer — `finance.services.*` contract).** Decision 5 ships the registry + 4-method public surface.
+- [x] **project_vision.md:46 (strict namespace isolation).** Phase 4 DAO namespace enforcement preserved; Phase 5 adds `$join` access control (Decision 4).
+- [x] **project_vision.md:48 (Do Not Break Other Extensions — graceful `null`).** `finance.services.invoke` returns `null` on missing service (Decision 5); per-extension allowlists (Decisions 6, 7) gate cross-extension access.
+- [x] **project_vision.md:78 (JSON-RPC transport).** ADR-0003 transport reused; new `domain.service.invoke` method added.
+- [x] **project_vision.md:131-152 (Secure Extension API).** `finance.db.table()` extended with new operators; raw SQL remains impossible.
+- [x] **project_vision.md:264-284 (Data Architecture / Shared Financial Data).** `accounts` remains the only shared table; Dashboard reads via allowlist.
+- [x] **project_vision.md:332-356 (Dashboard as Aggregator Extension).** Decision 2 + Task 9 ship the Dashboard extension with `onStartup` activation; aggregator pattern over Shared Financial Data + `finance.services.pay.*`.
+- [x] **project_vision.md:46 (security — per-extension command allowlist).** Decision 6 closes the Phase 3 §7 deferral.
+
+### §2 — Spec Coverage
+
+- [x] **Implementation Design Phase 5 (lines 130-136):**
+  - **Dashboard is the second extension (introduced in Phase 5).** Decision 2 + Task 9 ship it.
+  - **Startup auto-activation.** Task 10 ships `onStartup` activation event.
+  - **`finance.services.*` cross-extension Domain Services.** Decision 5 + Tasks 7, 8 ship the registry + `finance.services.pay.*` adapter.
+  - **Split-screen support, tab management.** Decision 9 + Task 12 ship 2-pane + tabs.
+  - **Dashboard extension.** Decision 2 + Task 9 ship it (Net Worth + YTD Salary + Last Payslip + Accounts Summary).
+  - **NavigationProvider data-driven sidebar.** Decision 3 + Task 11 ship it.
+  - **DAO operator expansion** — `$join` / `$orderBy` / `$limit` / `$offset`. Decision 4 + Task 6 ship them.
+  - **Security hardening (two surfaces)** — `executeCommand` + `ui-event` allowlists. Decisions 6, 7 + Tasks 13, 14 ship them.
+
+### §3 — Carries-forward from Phase 4 (explicit deferrals resolved)
+
+- [x] **Phase 4 Self-Review §7 — WebviewPanel iframe rendering.** Resolved in Decision 1 + Task 2.
+- [x] **Phase 4 Self-Review §7 — `finance.services.*` cross-extension Domain Services.** Resolved in Decision 5 + Tasks 7, 8.
+- [x] **Phase 4 Self-Review §7 — NavigationProvider data-driven sidebar.** Resolved in Decision 3 + Task 11.
+- [x] **Phase 4 Decision 2 — DAO operators $join / $orderBy / $limit / $offset.** Resolved in Decision 4 + Task 6.
+- [x] **Phase 3 §7 + Phase 4 Review Finding 3 — Per-extension command allowlist.** Resolved in Decision 6 + Task 13.
+- [x] **Phase 4 Decision 12 — `extensions:ui-event` per-extension allowlist.** Resolved in Decision 7 + Task 14.
+- [x] **Phase 3 §7 — Menu bar contribution rendering.** Still deferred to Phase 7+ (no Phase 5 consumer).
+- [x] **Phase 3 §7 — Global event bus.** Still deferred to Phase 7 (Phase 5 uses IPC channels directly).
+- [x] **Phase 3 §7 — Hot-disable behaviour runtime-unload (extension.deactivate notification).** Still deferred; Phase 5's allowlist enforcement means disabled extensions' commands/events are dropped at the IPC layer without needing a Host-side deactivation notification.
+
+### §4 — Architecture Decision Coverage
+
+- [x] Decision 1 (WebviewPanel = child BrowserWindow) — Task 2.
+- [x] Decision 2 (Startup auto-activation) — Tasks 9, 10.
+- [x] Decision 3 (NavigationProvider data-driven sidebar) — Task 11.
+- [x] Decision 4 (DAO operators $join, $orderBy, $limit, $offset) — Task 6.
+- [x] Decision 5 (`finance.services.*` cross-extension contract) — Tasks 7, 8.
+- [x] Decision 6 (Per-extension command allowlist) — Task 13.
+- [x] Decision 7 (Per-extension ui-event allowlist) — Task 14.
+- [x] Decision 8 (WebviewPanel lifecycle — lazy mount) — Task 2.
+- [x] Decision 9 (Tab bar + 2-pane split) — Task 12.
+- [x] Decision 10 (Panel-runtime stub — `financeShell.*` inside iframe) — Task 3.
+- [x] Decision 11 (Closing `'unsafe-eval'` CSP risk on panel side) — Task 15.
+- [x] Decision 12 (Settings stay interim, no generic UI yet) — Phase 7.
+
+### §5 — Test Pyramid
+
+- [x] ~87 new unit tests covering all 12 decisions + manifest schema extensions + Dashboard + public-pay-adapter + navigation panel + workspace + DAO operators.
+- [x] 12 manual test units covering the full multi-extension user journey (TU6/TU7 marked OPTIONAL/SKIPPABLE for manual runs; covered by automated tests).
+- [x] 10 new E2E tests written but gated by Phase 3 environmental blocker (documented).
+
+### §6 — Code Quality / Production Readiness
+
+- [x] TypeScript strict mode maintained across all new and modified files.
+- [x] No `any` introduced (typed DAO errors flow end-to-end; DomainServiceImpl uses `unknown` + Zod validation at the boundary).
+- [x] All SQL parameterised (DAO `$join.on` validated by the registry against manifest column lists — no string interpolation).
+- [x] All cross-process payloads serialisable (Phase 4 `serializeRow` reused; DomainService return values pass through `serializeRow` at the registry boundary).
+- [x] Error messages user-actionable (allowlist denials return specific `reason` strings; service-not-found returns `null` with a `console.warn`).
+- [x] No new runtime dependencies (WebviewPanels use Electron's built-in `BrowserWindow`; no React/Vue/etc.).
+- [x] No new dev dependencies.
+
+### §7 — Explicit Deferrals (Out of Scope, Documented for Future Phases)
+
+The full deferral table is in the **Out of Scope** section above. Highlights:
+
+- AI Assistant → Phase 6.
+- Generic settings UI renderer → Phase 7.
+- Extension Manager UI → Phase 8.
+- Marketplace packaging → Phase 8.
+- Keyboard shortcut customization → Phase 7.
+- Main renderer `'unsafe-eval'` removal → Phase 7.
+- Full grid layout (3+ panes) → Phase 7+.
+- Typed SDK npm package → Phase 8.
+
+### §8 — Risks and Mitigations
+
+| Risk | Mitigation |
+|------|------------|
+| Child `BrowserWindow` per panel uses ~30-50 MB RAM; 10+ open tabs is heavy | Lazy unmount after 30 s unfocused (Decision 8); Phase 7+ adds `keepAlive` hint |
+| `onStartup` activation crashes block the shell boot | Phase 3 hot-disable contract: `crash_count >= 3` auto-disables; activation goes through `extensions:activate-view` IPC path that records crashes |
+| `$join.on` raw expression is a SQL injection surface if not validated | Decision 4 + Task 6.3: parse `a.col = b.col`, validate against registered manifests; malformed `on` returns `ValidationFailedError` (-32012) |
+| Domain Service Registry's "last-registered wins" rule is order-dependent | Phase 5 has only one `pay` registrar (salary-history); Phase 8 may add priority mechanism |
+| Per-extension allowlists break Phase 4 extensions without `allowedCommands` | Phase 4 migration shim auto-fills from `commands[].id` with `console.warn`; Phase 5 Task 1.4 |
+| 2-pane split is a UX ceiling (no 3+ panes) | Documented in Decision 9; Phase 7 ships full grid |
+| Dashboard's `finance.services.pay.*` calls may return `null` if salary-history is disabled | Graceful degradation per `project_vision.md:48`; cards show "install Salary History to see this" placeholders |
+| WebviewPanel lazy unmount loses in-panel state (e.g., a half-filled form) | Documented; user must save before tab-switching for >30 s. Phase 7+ may add a "save-on-blur" extension hook |
+| `'unsafe-eval'` removed from the panel CSP but still required in the main renderer | Decision 11 trade-off; main renderer `'unsafe-eval'` removal is Phase 7 |
+| Custom protocol (`finance-shell://`) registration may collide with other Electron apps | Protocol name is namespaced (`finance-shell`, not the more common `app`); Phase 8's marketplace may need a per-user nonce suffix |
+| Phase 3 environmental Playwright blocker persists into Phase 5 | Same blocker; E2E tests written but gated; manual TU 1-12 cover the user journey |
+| Salary-history `public-pay-adapter` exposes only 4 methods; future consumers may need more | Phase 5 ships the minimum; Phase 6+ extends the surface based on Budget/Cash Flow consumer needs |
+
+### §9 — Questions / Clarifications for Reviewer
+
+1. **Should the Dashboard's `dashboard.cardOrder` setting be a string[] (current design) or a typed enum?** Plan defers to Phase 7's generic settings UI to validate the user-facing shape.
+2. **Should Phase 5 ship a `dashboard.refresh` keyboard shortcut?** Plan defers; Phase 7's shortcut customization screen will let users bind it.
+3. **Should the 2-pane split persist across app restarts?** Yes (Decision 9.5 → `core.workspace.layout` setting). Reviewer should confirm the setting-key naming.
+4. **Should the WebviewPanel manager expose a "pin tab" affordance?** Out of scope for Phase 5 (Phase 8's tab management). Documented.
+5. **Should `finance.services.pay.getMonthlySeries` return a sparse or dense monthly series?** Plan ships sparse (only months with payslips); Dashboard's chart component handles gaps. Reviewer may prefer dense (every month in the FY, with zero for empty months).
+
+### §10 — Alternatives Considered (Per Decision)
+
+Each decision's "Alternatives considered" section enumerates the rejected options with reasoning. Reviewer may push back on any of Decisions 1, 5, 6, or 8 (the highest-judgement calls). Specifically:
+
+- **Decision 1 (child `BrowserWindow` vs `<webview>` tag vs `<iframe>`):** If reviewer prefers `WebContentsView` (Electron 28+) or `<iframe>` (simpler), the panel infrastructure changes but the IPC contract is unchanged.
+- **Decision 5 (registry vs per-extension surface):** If reviewer prefers a typed per-service API, scope expands by ~200 lines (typed envelope generation).
+- **Decision 6 (allowlist mandatory vs opt-out):** If reviewer prefers backwards-compatible opt-out, the security posture weakens — every Phase 4 extension would need migration. The current design auto-fills with a `console.warn`.
+- **Decision 8 (lazy unmount at 30 s):** If reviewer prefers no unmount, memory pressure becomes a real complaint at 10+ tabs. Phase 7+ will add `keepAlive` hints.
+
+---
+
+## End of Plan

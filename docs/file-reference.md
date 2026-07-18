@@ -161,3 +161,68 @@
 | `tests/unit/renderer/salary-history-view.integration.test.ts` | new (done) | 1 renderer-side integration test (happy-dom): mounts `<salary-history-view>`, drives the Edit flow via the `rate-edit-request` event against an in-memory fake `financeShell`; asserts the orchestrator mounts `rate-row-form` pre-filled from the stored row (`base_hourly_rate`) and shows the "Update Rate" title/button. Registers the three Lit elements directly (in lieu of the host bundle) and points `bundleUrl` at `noop-bundle.mjs`. Regression guard for the double-`mountChild` edit-blank bug. |
 | `tests/unit/renderer/noop-bundle.mjs` | new (done) | Test-only no-op `registerUIComponents()` module consumed via `bundleUrl` by `salary-history-view.integration.test.ts` so the orchestrator's real `mountChild` runs without pulling in the pre-built extension bundle. |
 | `tests/e2e/salary-history.spec.ts` | new (planned) | 6 E2E tests (gated by Phase 3 environmental Playwright-electron blocker): first-run account seed, payslip form submission creates DB row, persistence across reload, Command Palette mounts view, namespace enforcement returns TableAccessDenied, shared accounts read-only returns SharedTableReadOnly |
+
+## Phase 5 — Webview Panels, Multi-Extension UI & Cross-Extension Services (Planned)
+
+> Plan: `docs/superpowers/plans/2026-07-18-phase5-webviews-multiextension.md`. Status: draft — awaiting review. Target: v0.8.0.
+
+| File | Status | Purpose |
+|------|--------|---------|
+| `docs/decisions/0005-domain-service-registry.md` | new | ADR-0005 documenting Decision 5: `finance.services.*` cross-extension Domain Service Registry in Main, thin Host-side proxy, `domain.service.invoke` JSON-RPC method, consumer-driven public `pay` surface. |
+| `src/main/services/domain-service-registry.ts` | new | Core-owned singleton: `register(serviceName, extensionId, impl)`, `unregister(...)`, `invoke(...)`. Survives Host crashes; returns `null` on missing service or thrown error. |
+| `src/main/services/command-allowlist.ts` | new | Builds a per-extension `Map<extensionId, Set<commandId>>` from `manifest.contributes.allowedCommands`; gates every `extensions:execute-command` IPC call. |
+| `src/main/services/ui-event-allowlist.ts` | new | Builds a per-extension `Map<extensionId, Set<eventName>>` from `manifest.contributes.allowedUiEvents`; gates every `extensions:ui-event` IPC call, dropping disallowed events with `console.warn`. |
+| `src/main/services/webview-panel-manager.ts` | new | Owns the lifecycle of one `BrowserWindow` child per WebviewPanel: `mount()`, `unmount()`, `focus()`, `list()`. Implements lazy-unmount policy (30 s unfocused) and panel↔renderer round-trip via Main. |
+| `src/main/services/panel-protocol.ts` | new | Registers the `finance-shell://` custom protocol and serves the panel HTML shell for `finance-shell://panel/<extensionId>/<viewId>.html` with a strict CSP. |
+| `src/main/services/extension-ipc.ts` | modified | Adds `setDomainServiceRegistry()` + `handleDomainServiceInvoke()`; wires `RPC_METHOD.DomainServiceInvoke`. DAOService + settings service interfaces unchanged. |
+| `src/main/services/extension-loader.ts` | modified | Parses new manifest fields `allowedCommands`, `allowedUiEvents`, `navigation`; supplies them to the allowlist builders; auto-fills missing `allowedCommands`/`allowedUiEvents` from Phase 4 manifests with `console.warn`. |
+| `src/main/services/extension-registry.ts` | modified | Adds `navigation()` aggregator returning `{ extensionId, navigation }[]` filtered by `isEnabled()`. |
+| `src/main/services/dao-service.ts` | modified | Extends `find`/`findOne`/`count` with an optional second `options` argument supporting `$join`, `$orderBy`, `$limit`, `$offset`; validates join-table access + `on` expression against registered manifests. |
+| `src/main/main.ts` | modified | Instantiates `WebviewPanelManager`, `CommandAllowlist`, `UiEventAllowlist`, `DomainServiceRegistry`; implements `onStartup` auto-activation order; registers `extensions:execute-command` / `extensions:ui-event` allowlist gates; wires panel↔renderer round-trip. |
+| `src/extension-host/api/services.ts` | new | Host-side `createServices(extensionId, rpc)` factory returning `finance.services.register` / `unregister` / `invoke`. |
+| `src/extension-host/api/index.ts` | modified | Adds `services` to the `FinanceApi` returned by `createFinance`; preserves existing `db`, `commands`, `ai`, `ui`, `settings` surfaces. |
+| `src/extension-host/api/db.ts` | modified | `find`/`findOne` now accept an optional second `options` argument to pass `$join`/`$orderBy`/`$limit`/`$offset` to Main. |
+| `src/extension-host/host.ts` | modified | Implements `onStartup` activation event handling; activates Dashboard automatically after Host ready. |
+| `src/preload/panel-preload.ts` | new | Panel-specific `contextBridge` exposing a subset of `window.financeShell`: extensions (list/executeCommand/uiEvent/onUiMount) + settings (get/set). Does **not** expose `db` or `services` (those live inside the extension bundle's `finance` proxy). |
+| `src/renderer/components/workspace.ts` | rewritten | Replaces single static tab with a `WorkspaceLayout` tree supporting multiple tabs + 2-pane horizontal/vertical split; persists/restores layout to `core.workspace.layout`. |
+| `src/renderer/components/tab-bar.ts` | new | Renders the tab strip for the active leaf; supports drag-to-split affordance. |
+| `src/renderer/components/split-pane.ts` | new | 2-pane container with draggable splitter; collapses when the last tab in a pane closes. |
+| `src/renderer/components/navigation-panel.ts` | rewritten | NavigationProvider: renders `contributes.navigation` items from the active extension, grouped by `group`; built-in Core items remain for `__settings__`. |
+| `src/renderer/components/salary-history-view.ts` | removed | Replaced by WebviewPanel + panel-preload + the extension bundle's own orchestrator. |
+| `src/renderer/index.ts` | modified | Removes `extensions.onUiMount` subscription and `salary-history-view` usage; listens for `panel:opened`/`panel:closed` from Main; keeps command palette / activity bar wiring. |
+| `src/renderer/styles/layout.css` | modified | Adds tab bar + split-pane + panel chrome styles matching the existing palette. |
+| `src/shared/json-rpc-methods.ts` | modified | Adds `DomainServiceInvoke = 'domain.service.invoke'`. |
+| `src/shared/json-rpc.ts` | modified | Adds `RpcErrorCode.ServiceNotFound = -32014`. |
+| `src/shared/extension-constants.ts` | modified | Adds panel-path constants if needed (`PANEL_PROTOCOL`, `PANEL_BUNDLE_DIR`). |
+| `src/shared/panel-protocol.ts` | new | Shared TypeScript types for the panel runtime (panel-init payload, panel IPC messages). |
+| `src/types/finance.d.ts` | modified | Adds `ActivationEvent = 'onStartup'`; adds `ManifestNavigationContribution`; extends `ManifestContributions` with `navigation`, `allowedCommands`, `allowedUiEvents`; adds `ServicesApi` to `FinanceApi`; exports `DomainServiceImpl` type. |
+| `src/types/finance-shell.d.ts` | modified | Adds `PanelFinanceShell` interface (subset of `FinanceShellApi` for the panel context). |
+| `extensions/salary-history/package.json` | modified | Adds `contributes.navigation`, `allowedCommands`, `allowedUiEvents`; keeps existing `views`, `commands`, `configuration`, `tables`. |
+| `extensions/salary-history/src/main.ts` | modified | Registers `finance.services.pay.*` public adapter in `activate()`; unregisters in `deactivate()`; command handlers migrate to use the extension bundle's own `finance.db` proxy. |
+| `extensions/salary-history/src/services/public-pay-adapter.ts` | new | Consumer-driven public surface (4 methods) wrapping the internal `PayService`; returns JSON-safe values and `null` on error. |
+| `extensions/salary-history/src/ui/index.ts` | modified | Exports a bundle-local orchestrator (new or moved from `salary-history-view.ts`) that owns navigation state and dispatches to the panel runtime. |
+| `extensions/dashboard/package.json` | new | Manifest for the Dashboard extension: `activationEvents: ["onStartup"]`, `views`, `commands`, `navigation`, `allowedCommands`, `allowedUiEvents`. |
+| `extensions/dashboard/src/main.ts` | new | Entry point: reads settings, builds aggregator via `finance.services.pay.*` + `finance.db.table('accounts')`, requests mount of `dashboard-view`. |
+| `extensions/dashboard/src/services/aggregator-service.ts` | new | Orchestrates cross-extension reads and Shared Financial Data reads into a `DashboardData` object. |
+| `extensions/dashboard/src/ui/dashboard-view.ts` | new | 4-card layout host; renders cards in `cardOrder`. |
+| `extensions/dashboard/src/ui/{net-worth-card,ytd-salary-card,last-payslip-card,accounts-summary-card}.ts` | new | Individual Lit card components. |
+| `extensions/dashboard/src/ui/shared-styles.ts` | new | Palette tokens + shared card/table/button styles. |
+| `docs/extension-api.md` | modified | Documents Phase 5 API additions: `onStartup`, `contributes.navigation`, `allowedCommands`/`allowedUiEvents`, `finance.services.*`, WebviewPanel hosting model. |
+| `docs/superpowers/plans/2026-07-18-phase5-webviews-multiextension.md` | new | This Phase 5 implementation plan (12 decisions, 20 tasks, 12 manual TUs, ~87 new unit tests + 10 E2E tests). |
+| `docs/phase5-handoff.md` | new | Conversational session handoff capturing decision rationale for future agents (following `docs/phase3-handoff.md` pattern). |
+| `tests/unit/extension-host/manifest-schema.test.ts` | modified | +5 tests covering `navigation`, `allowedCommands`, `allowedUiEvents`, `onStartup` validation. |
+| `tests/unit/main/services/dao-service.test.ts` | modified | +12 tests covering `$join`, `$orderBy`, `$limit`, `$offset`, join access control. |
+| `tests/unit/main/services/domain-service-registry.test.ts` | new | 8 tests covering register/unregister/invoke, null-on-missing, null-on-error, last-registered-wins. |
+| `tests/unit/extension-host/api/services.test.ts` | new | 4 tests covering Host-side invoke proxy + register/unregister forwarding. |
+| `tests/unit/main/services/webview-panel-manager.test.ts` | new | 8 tests covering mount/unmount/focus lifecycle, custom protocol URLs, CSP headers. |
+| `tests/unit/main/services/command-allowlist.test.ts` | new | 6 tests covering allow/deny, disabled extension, rebuild, Phase 4 migration shim. |
+| `tests/unit/main/services/ui-event-allowlist.test.ts` | new | 5 tests covering allow/deny, drop-with-warn, Phase 4 migration shim. |
+| `tests/unit/extension-host/host-on-startup.test.ts` | new | 5 tests covering `onStartup` activation order, crash → hot-disable, no double activation. |
+| `tests/unit/renderer/navigation-panel.test.ts` | new | 5 tests covering grouped items, click → command-selected, active extension switch. |
+| `tests/unit/renderer/workspace.test.ts` | new | 6 tests covering `WorkspaceLayout` tree, drag-to-split, persistence. |
+| `tests/unit/renderer/tab-bar.test.ts` | new | 4 tests covering tab strip, active tab, drag affordance. |
+| `tests/unit/extensions/salary-history/public-pay-adapter.test.ts` | new | 8 tests covering the 4 public methods + null-on-error. |
+| `tests/unit/extensions/dashboard/aggregator-service.test.ts` | new | 6 tests covering `buildAggregator` with mocked `FinanceApi`. |
+| `tests/unit/extensions/dashboard/ui/dashboard-view.test.ts` | new | 5 tests covering card rendering and missing-data placeholders. |
+| `tests/e2e/multi-extension-workspace.spec.ts` | new | 6 E2E tests (gated by Phase 3 Playwright-electron blocker). |
+| `tests/e2e/webview-panel.spec.ts` | new | 4 E2E tests (gated). |
