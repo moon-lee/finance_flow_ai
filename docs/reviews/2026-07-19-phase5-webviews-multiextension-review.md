@@ -22,47 +22,33 @@ If the code uses `BrowserWindow`, the UI will not embed cleanly inside the main 
 
 ### Suggested Improvement
 
-1. **Align Implementation with Decision**
-   - **Modify Task 2**: replace the `BrowserWindow` creation code with `WebContentsView` instantiation, e.g.:
-     ```ts
-     const view = new WebContentsView({ webPreferences: { contextIsolation: true, sandbox: true, nodeIntegration: false, preload: panelPreloadPath } });
-     mainWindow.contentView.addChildView(view);
-     view.setBounds({ x, y, width, height });
-     ```
+1. **Align Implementation with Decision 1**
+   - **Modify Task 2**: replace the `BrowserWindow` creation code with `WebContentsView` instantiation per Decision 1.
    - **Update File Structure** to include `src/main/services/webview-panel-view.ts` that encapsulates the view logic (keeping `webview-panel-manager.ts` as the manager).
-   - **Add migration note** in the plan: *"If the target Electron version does not yet support `WebContentsView`, we will fallback to a child `BrowserWindow` and migrate to `WebContentsView` in Phase 7."*
 
 ### Proposed Changes — Before / After
 
 **Before – Goal section (line ~57):**
 
-```markdown
-  **Architecture:** the workspace becomes a tab host that mounts one **`WebviewPanel`** per extension view
-  (Electron `BrowserView` → Phase 7's native webview tag; Phase 5 uses `BrowserWindow` child iframes
-  with `contextIsolation: true` + `sandbox: true` + a strict CSP).
-```
+> **Architecture:** the workspace becomes a tab host that mounts one **`WebviewPanel`** per extension view
+> (Electron `BrowserView` → Phase 7's native webview tag; Phase 5 uses `BrowserWindow` child iframes
+> with `contextIsolation: true` + `sandbox: true` + a strict CSP).
 
 **After:**
 
-```markdown
-  **Architecture:** the workspace becomes a tab host that mounts one **`WebviewPanel`** per extension view
-  using Electron's `WebContentsView` API (Electron 28+) with `contextIsolation: true` + `sandbox: true` +
-  a strict CSP.
-```
+> **Architecture:** the workspace becomes a tab host that mounts one **`WebviewPanel`** per extension view
+> using Electron's `WebContentsView` API (Electron 28+) with `contextIsolation: true` + `sandbox: true` +
+> a strict CSP.
 
 **Before – Tech Stack section (line ~59):**
 
-```markdown
-  **Tech Stack:** everything Phase 4 ships, plus: Electron `BrowserWindow` (sandboxed child windows for
-  WebviewPanels; same `contextIsolation: true` + `sandbox: true` + strict CSP as the main window),
-```
+> **Tech Stack:** everything Phase 4 ships, plus: Electron `BrowserWindow` (sandboxed child windows for
+> WebviewPanels; same `contextIsolation: true` + `sandbox: true` + strict CSP as the main window),
 
 **After:**
 
-```markdown
-  **Tech Stack:** everything Phase 4 ships, plus: Electron `WebContentsView` (sandboxed embedded views for
-  WebviewPanels; same `contextIsolation: true` + `sandbox: true` + strict CSP as the main window),
-```
+> **Tech Stack:** everything Phase 4 ships, plus: Electron `WebContentsView` (sandboxed embedded views for
+> WebviewPanels; same `contextIsolation: true` + `sandbox: true` + strict CSP as the main window),
 
 **Before – Task 2 Step 2.2 (line ~818):**
 
@@ -103,16 +89,14 @@ Users may lose unsaved state if they step away longer than expected, or the app 
 ### Proposed Changes — Before / After
 
 **Before – Risk table (lines ~1445):**
-```markdown
-  | Child `BrowserWindow` per panel uses ~30-50 MB RAM; 10+ open tabs is heavy |
-  | Lazy unmount after 30 s unfocused (Decision 8); Phase 7+ adds `keepAlive` hint |
-```
+
+> | Child `BrowserWindow` per panel uses ~30-50 MB RAM; 10+ open tabs is heavy |
+> | Lazy unmount after 30 s unfocused (Decision 8); Phase 7+ adds `keepAlive` hint |
 
 **After:**
-```markdown
-  |`WebContentsView` per panel uses ~20-40 MB RAM; 10+ open tabs adds memory pressure |
-  |Lazy unmount after 5 min unfocused, with dirty-state protection (Decision 8); Phase 7+ adds `keepAlive` hint |
-```
+
+> | `WebContentsView` per panel uses ~20-40 MB RAM; 10+ open tabs adds memory pressure |
+> | Lazy unmount after 5 min unfocused, with dirty-state protection (Decision 8); Phase 7+ adds `keepAlive` hint |
 
 ---
 
@@ -285,23 +269,23 @@ If the header is missing, the panel could inherit a weaker CSP from the parent c
 **Before – Task 15 Step 15.1 (lines ~1152-1166):**
 
 ```markdown
-  - [ ] 15.1 Create `panel-template.html`:
-    ```html
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <meta charset="utf-8">
-        <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self';
-          style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self';">
-        <title>Webview Panel</title>
-      </head>
-      <body>
-        <script type="module" src="finance-shell://extensions/{extensionId}.js"></script>
-      </body>
-    </html>
-    ```
-  - [ ] 15.2 In `panel-protocol.ts`, ensure the response headers set the CSP meta tag (already in the
-    HTML); add a `Content-Security-Policy` response header as a defense-in-depth.
+- [ ] 15.1 Create `panel-template.html`:
+  ```html
+  <!DOCTYPE html>
+  <html>
+    <head>
+      <meta charset="utf-8">
+      <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self';
+        style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self';">
+      <title>Webview Panel</title>
+    </head>
+    <body>
+      <script type="module" src="finance-shell://extensions/{extensionId}.js"></script>
+    </body>
+  </html>
+  ```
+- [ ] 15.2 In `panel-protocol.ts`, ensure the response headers set the CSP meta tag (already in the
+  HTML); add a `Content-Security-Policy` response header as a defense-in-depth.
 ```
 
 The meta tag is present, but there is no test that verifies the HTTP response header `Content-Security-Policy` is actually served by the custom protocol handler.
@@ -309,29 +293,29 @@ The meta tag is present, but there is no test that verifies the HTTP response he
 **After:**
 
 ```markdown
-  - [ ] 15.1 Create `panel-template.html`:
-    ```html
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <meta charset="utf-8">
-        <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self';
-          style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self';">
-        <title>Webview Panel</title>
-      </head>
-      <body>
-        <script type="module" src="finance-shell://extensions/{extensionId}.js"></script>
-      </body>
-    </html>
-    ```
-  - [ ] 15.2 In `panel-protocol.ts`, ensure the response headers set the CSP meta tag (already in the
-    HTML); add a `Content-Security-Policy` response header as a defense-in-depth.
-  - [ ] 15.3 Add `tests/unit/main/services/panel-protocol.csp.test.ts` that:
-    - Registers the `finance-shell://` protocol handler.
-    - Issues a request to `finance-shell://panel/test-extension/test-view.html`.
-    - Asserts the response includes an HTTP `Content-Security-Policy` header.
-    - Asserts the header value matches the meta tag from `panel-template.html`.
-    - Asserts the meta tag is present in the HTML body (verified via DOM parser).
+- [ ] 15.1 Create `panel-template.html`:
+  ```html
+  <!DOCTYPE html>
+  <html>
+    <head>
+      <meta charset="utf-8">
+      <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self';
+        style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self';">
+      <title>Webview Panel</title>
+    </head>
+    <body>
+      <script type="module" src="finance-shell://extensions/{extensionId}.js"></script>
+    </body>
+  </html>
+  ```
+- [ ] 15.2 In `panel-protocol.ts`, ensure the response headers set the CSP meta tag (already in the
+  HTML); add a `Content-Security-Policy` response header as a defense-in-depth.
+- [ ] 15.3 Add `tests/unit/main/services/panel-protocol.csp.test.ts` that:
+  - Registers the `finance-shell://` protocol handler.
+  - Issues a request to `finance-shell://panel/test-extension/test-view.html`.
+  - Asserts the response includes an HTTP `Content-Security-Policy` header.
+  - Asserts the header value matches the meta tag from `panel-template.html`.
+  - Asserts the meta tag is present in the HTML body (verified via DOM parser).
 ```
 
 ---
@@ -355,31 +339,31 @@ Reviewers may miss the updated schema, leading to inconsistencies between implem
 ### Proposed Changes — Before / After
 
 **Before – Task 17 Step 17.1 (lines ~1199-1201):**
-```markdown
-  - [ ] 17.1 In `extension-api.md`, add sections for:
-     - `contributes.navigation`
-     - `contributes.allowedCommands` / `allowedUiEvents`
-     - `activationEvents: 'onStartup'`
-     - `finance.services.*` API
-     - WebviewPanel hosting model
-```
+
+> - [ ] 17.1 In `extension-api.md`, add sections for:
+>   - `contributes.navigation`
+>   - `contributes.allowedCommands` / `allowedUiEvents`
+>   - `activationEvents: 'onStartup'`
+>   - `finance.services.*` API
+>   - WebviewPanel hosting model
+
 There is no cross‑reference from the plan to the API docs, and no link from the API docs back to the plan.
 
 **After:**
-```markdown
-   - [ ] 17.1 In `extension-api.md`, add a subsection **"Phase 5 Extensions – New Manifest Fields"** that
-     lists the new fields (`navigation`, `allowedCommands`, `allowedUiEvents`, `onStartup`) and links to
-     the plan: *"See `docs/superpowers/plans/2026-07-18-phase5-webviews-multiextensions.md` for the full
-     architecture."*
-   - [ ] 17.2 In the plan's Task 17, add a reverse cross‑reference: *"See
-     `docs/extension-api.md#phase-5-extensions-new-manifest-fields` for the schema details."*
-   - [ ] 17.3 In `extension-api.md`, add sections for:
-     - `contributes.navigation`
-     - `contributes.allowedCommands` / `allowedUiEvents`
-     - `activationEvents: 'onStartup'`
-     - `finance.services.*` API
-     - WebviewPanel hosting model
-```
+
+> - [ ] 17.1 In `extension-api.md`, add a subsection **"Phase 5 Extensions – New Manifest Fields"** that
+>   lists the new fields (`navigation`, `allowedCommands`, `allowedUiEvents`, `onStartup`) and links to
+>   the plan: *"See `docs/superpowers/plans/2026-07-18-phase5-webviews-multiextensions.md` for the full
+>   architecture."*
+> - [ ] 17.2 In the plan's Task 17, add a reverse cross‑reference: *"See
+>   `docs/extension-api.md#phase-5-extensions-new-manifest-fields` for the schema details."*
+> - [ ] 17.3 In `extension-api.md`, add sections for:
+>   - `contributes.navigation`
+>   - `contributes.allowedCommands` / `allowedUiEvents`
+>   - `activationEvents: 'onStartup'`
+>   - `finance.services.*` API
+>   - WebviewPanel hosting model
+
 ---
 
 ## Gap 8 – User‑visible error handling for `$join`
@@ -448,31 +432,31 @@ Test maintenance overhead and potential false negatives in CI.
 **Before – Test Unit 10 Step 10.1 (lines ~1262-1269):**
 
 ```markdown
-  **Test Unit 10: DAO `$join` operator.**
-  - [ ] 10.1 From the Renderer DevTools console, run:
-    ```js
-    const result = await window.financeShell.extensions.executeCommand('dashboard.refresh');
-    ```
-    This triggers the Dashboard's `buildAggregator`, which calls `finance.db.table('accounts').find(..., {
-    $join: { table: 'accounts', on: '...', type: 'LEFT' },
-    $orderBy: [{ column: 'name', direction: 'ASC' }] }).
-  - [ ] 10.2 **Expected:** the Dashboard's Accounts Summary card re-renders with the joined + sorted
-    accounts list.
+**Test Unit 10: DAO `$join` operator.**
+- [ ] 10.1 From the Renderer DevTools console, run:
+  ```js
+  const result = await window.financeShell.extensions.executeCommand('dashboard.refresh');
+  ```
+  This triggers the Dashboard's `buildAggregator`, which calls `finance.db.table('accounts').find(..., {
+  $join: { table: 'accounts', on: '...', type: 'LEFT' },
+  $orderBy: [{ column: 'name', direction: 'ASC' }] }).
+- [ ] 10.2 **Expected:** the Dashboard's Accounts Summary card re-renders with the joined + sorted
+  accounts list.
 ```
 
 **After:**
 
 ```markdown
-  **Test Unit 10: Dashboard aggregation (JS-side merge, not database $join).**
-  - [ ] 10.1 From the Renderer DevTools console, run:
-    ```js
-    const result = await window.financeShell.extensions.executeCommand('dashboard.refresh');
-    ```
-    This triggers the Dashboard's `buildAggregator`, which reads `accounts` from `finance.db` and
-    payslip data from `finance.services.pay.*`, then merges in JavaScript to compute the net-worth
-    card. The Dashboard does NOT use `$join` (cross-extension joins are not allowed per Decision 4).
-  - [ ] 10.2 **Expected:** the Dashboard's Accounts Summary card shows account data; the Net Worth
-    card displays the JS-merged total (accounts balance + aggregate payslip income).
+**Test Unit 10: Dashboard aggregation (JS-side merge, not database $join).**
+- [ ] 10.1 From the Renderer DevTools console, run:
+  ```js
+  const result = await window.financeShell.extensions.executeCommand('dashboard.refresh');
+  ```
+  This triggers the Dashboard's `buildAggregator`, which reads `accounts` from `finance.db` and
+  payslip data from `finance.services.pay.*`, then merges in JavaScript to compute the net-worth
+  card. The Dashboard does NOT use `$join` (cross-extension joins are not allowed per Decision 4).
+- [ ] 10.2 **Expected:** the Dashboard's Accounts Summary card shows account data; the Net Worth
+  card displays the JS-merged total (accounts balance + aggregate payslip income).
 ```
 
 ---
