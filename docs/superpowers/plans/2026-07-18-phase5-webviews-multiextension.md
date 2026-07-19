@@ -54,9 +54,9 @@ prerequisite_decisions:
 
 Ship the platform's first **multi-extension workspace**: the user opens the app and sees the **Dashboard** (a new aggregator extension) as the default view; clicking `P` switches to Salary History; the two views stay open in **tabs**; the user can drag tabs into split-screen groups; the Navigation Panel's sidebar items are now **data-driven from extension contributions** (replacing the Phase 3/4 static id→name map); each extension's UI renders inside a sandboxed **`WebviewPanel`** iframe (replacing the Phase 4 renderer-side Lit mount); and Salary History's internal `PayService` is promoted to a **cross-extension `finance.services.pay.*` contract** that the Dashboard (and future extensions) consume. The Main process enforces **per-extension allowlists** for `executeCommand` and `ui-event` IPC, closing two security deferrals.
 
-**Architecture:** the workspace becomes a tab host that mounts one **`WebviewPanel`** per extension view (Electron `BrowserView` → Phase 7's native webview tag; Phase 5 uses `BrowserWindow` child iframes with `contextIsolation: true` + `sandbox: true` + a strict CSP). The Host gains a new **startup auto-activation** entry point (`activateOnStartup`) so the Dashboard is mounted before any user interaction. The DAO gains **`$join`**, **`$orderBy`**, **`$limit`**, **`$offset`** query operators (Phase 4 shipped only `$eq`-`$nin` + `$or`); `$raw` remains unsupported. A new **`finance.services.pay.*`** cross-extension contract is designed **from the consumer side** (the Dashboard's aggregator queries), not derived from Phase 4's internal `PayService` shape — the internal service is refactored to expose a small, stable surface (`getYearToDateSummary`, `getMonthlySeries`, `getCurrentRate`). The Main process gains a **per-extension allowlist** (declared in `package.json#financeExtension.contributions.allowedCommands` + `allowedUiEvents`) that gates every `executeCommand` and `ui-event` IPC call; renderer-driven arbitrary execution is no longer possible.
+**Architecture:** the workspace becomes a tab host that mounts one **`WebviewPanel`** per extension view using Electron's `WebContentsView` API (Electron 28+) with `contextIsolation: true` + `sandbox: true` + a strict CSP. The Host gains a new **startup auto-activation** entry point (`activateOnStartup`) so the Dashboard is mounted before any user interaction. The DAO gains **`$join`**, **`$orderBy`**, **`$limit`**, **`$offset`** query operators (Phase 4 shipped only `$eq`-`$nin` + `$or`); `$raw` remains unsupported. A new **`finance.services.pay.*`** cross-extension contract is designed **from the consumer side** (the Dashboard's aggregator queries), not derived from Phase 4's internal `PayService` shape — the internal service is refactored to expose a small, stable surface (`getYearToDateSummary`, `getMonthlySeries`, `getCurrentRate`). The Main process gains a **per-extension allowlist** (declared in `package.json#financeExtension.contributions.allowedCommands` + `allowedUiEvents`) that gates every `executeCommand` and `ui-event` IPC call; renderer-driven arbitrary execution is no longer possible.
 
-**Tech Stack:** everything Phase 4 ships, plus: Electron `BrowserWindow` (sandboxed child windows for WebviewPanels; same `contextIsolation: true` + `sandbox: true` + strict CSP as the main window), Lit (Dashboard UI), the existing DAO + IPC infrastructure (extended with new operators + `finance.services.pay.*` RPC), no new runtime deps (the iframes run the same Vite-built extension bundles; no React/Vue/etc.).
+**Tech Stack:** everything Phase 4 ships, plus: Electron `WebContentsView` (sandboxed embedded views for WebviewPanels; same `contextIsolation: true` + `sandbox: true` + strict CSP as the main window), Lit (Dashboard UI), the existing DAO + IPC infrastructure (extended with new operators + `finance.services.pay.*` RPC), no new runtime deps (the iframes run the same Vite-built extension bundles; no React/Vue/etc.).
 
 ---
 
@@ -804,7 +804,7 @@ finance-flow_ai/
 
 ---
 
-### Task 2: WebviewPanel infrastructure — child BrowserWindow + custom protocol
+### Task 2: WebviewPanel infrastructure — WebContentsView + custom protocol
 
 **Files:** `src/main/services/webview-panel-manager.ts` (new), `src/main/services/panel-protocol.ts` (new), `src/main/main.ts` (modified)
 
@@ -815,9 +815,9 @@ finance-flow_ai/
   - Serves a static HTML shell (`src/main/resources/panel-template.html`) that includes `<script src="...">` referencing the extension bundle via the `extensionId` path segment.
   - Sets the response headers with the strict CSP from Decision 11 (`default-src 'self'; script-src 'self'; ...`).
 - [ ] 2.2 In `webview-panel-manager.ts`, implement `WebviewPanelManager`:
-  - `mount(extensionId, viewId, mountData)`: create a child `BrowserWindow` (Decision 1 settings), load `finance-shell://panel/<extensionId>/<viewId>.html`, send `panel:init` via `webContents.send` with `{ extensionId, viewId, mountData, financeShell: <subset> }`.
-  - `unmount(handle)`: destroy the `BrowserWindow`.
-  - `focus(handle)`: call `panel.focus()`.
+  - `mount(extensionId, viewId, mountData)`: create a `WebContentsView` with the panel's webPreferences (Decision 1), attach it to the main `BrowserWindow.contentView`, load `finance-shell://panel/<extensionId>/<viewId>.html`, send `panel:init` via `webContents.send` with `{ extensionId, viewId, mountData, financeShell: <subset> }`.
+  - `unmount(handle)`: destroy the `WebContentsView`.
+  - `focus(handle)`: call `view.webContents.focus()`.
   - `list()`: return all open panels.
 - [ ] 2.3 In `main.ts`, instantiate `WebviewPanelManager` after the window is created; pass it to `ExtensionIPC.setUIHandler(...)` (replacing the Phase 4 renderer-mount path).
 - [ ] 2.4 Add 8 unit tests in `webview-panel-manager.test.ts` covering: mount/unmount lifecycle, focus switching, multiple panels, custom protocol URL parsing, CSP headers set, child BrowserWindow parent reference correct.
@@ -1396,7 +1396,7 @@ These will run when the Phase 3 Playwright-electron environmental issue is resol
 
 ### §4 — Architecture Decision Coverage
 
-- [x] Decision 1 (WebviewPanel = child BrowserWindow) — Task 2.
+- [x] Decision 1 (WebviewPanel = WebContentsView embedded in main BrowserWindow) — Task 2.
 - [x] Decision 2 (Startup auto-activation) — Tasks 9, 10.
 - [x] Decision 3 (NavigationProvider data-driven sidebar) — Task 11.
 - [x] Decision 4 (DAO operators $join, $orderBy, $limit, $offset) — Task 6.
