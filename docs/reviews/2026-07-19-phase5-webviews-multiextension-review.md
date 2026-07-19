@@ -69,11 +69,11 @@ If the code uses `BrowserWindow`, the UI will not embed cleanly inside the main 
 
 ---
 
-## Gap 2 – Lazy‑unmount timeout (Task 8)
+## Gap 2 – Lazy‑unmount timeout (Decision 8)
 
 ### Gap / Ambiguity
 
-The unmount policy is set to **5 minutes** (Task 8) with a `setInterval` checking every 30 s. No empirical data or user research backs the 5‑minute choice, and there is no UI for users to adjust it.
+The unmount policy is set to **5 minutes** in Decision 8 with a `setInterval` checking every 30 s. However the Risk table (§8) still references the old **30 s** value. No empirical data or user research backs the 5‑minute choice, and there is no UI for users to adjust it.
 
 ### Impact
 
@@ -88,7 +88,7 @@ Users may lose unsaved state if they step away longer than expected, or the app 
 
 ### Proposed Changes — Before / After
 
-**Before – Risk table (lines ~1445):**
+**Before – Risk table row 1 (line ~1445):**
 
 > | Child `BrowserWindow` per panel uses ~30-50 MB RAM; 10+ open tabs is heavy |
 > | Lazy unmount after 30 s unfocused (Decision 8); Phase 7+ adds `keepAlive` hint |
@@ -97,6 +97,22 @@ Users may lose unsaved state if they step away longer than expected, or the app 
 
 > | `WebContentsView` per panel uses ~20-40 MB RAM; 10+ open tabs adds memory pressure |
 > | Lazy unmount after 5 min unfocused, with dirty-state protection (Decision 8); Phase 7+ adds `keepAlive` hint |
+
+**Before – Risk table row 2 (line ~1452):**
+
+> | WebviewPanel lazy unmount loses in-panel state (e.g., a half-filled form) | Documented; user must save before tab-switching for >30 s. Phase 7+ may add a "save-on-blur" extension hook |
+
+**After:**
+
+> | WebviewPanel lazy unmount loses in-panel state (e.g., a half-filled form) | Mitigated by dirty-state protection (Decision 8): dirty panels are never unmounted, and autoSaveDraft is called before unmounting. Phase 7+ may add a "save-on-blur" extension hook |
+
+**Before – Decision 8 Alternatives section (line ~1473):**
+
+> - **Decision 8 (lazy unmount at 30 s):** If reviewer prefers no unmount, memory pressure becomes a real complaint at 10+ tabs. Phase 7+ will add `keepAlive` hints.
+
+**After:**
+
+> - **Decision 8 (lazy unmount at 5 min):** If reviewer prefers no unmount, memory pressure becomes a real complaint at 10+ tabs. Phase 7+ will add `keepAlive` hints.
 
 ---
 
