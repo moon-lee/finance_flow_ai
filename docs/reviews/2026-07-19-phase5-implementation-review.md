@@ -328,4 +328,365 @@ The plan is structurally sound and covers the major architectural moves well. Ho
 
 ---
 
+## How to Apply These Findings to the Phase 5 Plan
+
+Below are the exact text replacements and additions for the plan file. Each entry references the current line numbers in `docs/superpowers/plans/2026-07-18-phase5-webviews-multiextension.md`. Apply in order; Gaps 1, 2, and 9 are implementation blockers and must land before the agentic worker starts Task 1.
+
+---
+
+### Gap 1 — Extension-to-Panel Mount Mechanism
+
+**Where to change:**
+- **Decision 10** (around line 578): extend the `window.financeShell` shape to include `requestMount`.
+- **Task 4** (around line 854): add a step 4.5 that implements the `extension.requestMount` RPC handler and the mount-request buffer described in Decision 2 Step 5.
+- **Task 9.2** (around line 1022): no code change, but the referenced `finance.ui.requestMount` now exists because Decision 10 + Task 4.5 define it.
+
+**Before (Decision 10, line ~586):**
+```ts
+window.financeShell = {
+  extensions: {
+    list, executeCommand, uiEvent, onUiMount,
+  },
+  settings: { get, set },
+};
+```
+
+**After (Decision 10):**
+```ts
+window.financeShell = {
+  extensions: {
+    list,
+    executeCommand,
+    uiEvent,
+    onUiMount,
+    requestMount: (viewId, mountData) => ipcRenderer.invoke('extension:request-mount', viewId, mountData),
+  },
+  settings: { get, set },
+};
+```
+
+**Before (Task 4, end of file ~line 864):** Task 4 ends at step 4.3 with no mount-request handler.
+
+**After (Task 4, add step 4.5):**
+```markdown
+- [ ] 4.5 In `extension-ipc.ts` and `webview-panel-manager.ts`, implement the mount-request path:
+  - Add `ipcMain.handle('extension:request-mount', async (_event, extensionId, viewId, mountData) => { ... })`.
+  - Validate the extension is active, then call `webviewPanelManager.mount(extensionId, viewId, mountData)`.
+  - Main buffers mount requests received during `onStartup` activation (Decision 2 Step 5) and flushes them to the Renderer once the BrowserWindow is ready.
+```
+
+---
+
+### Gap 2 — `$join.on` Shape Inconsistency
+
+**Where to change:**
+- **Decision 4 code example** (line 268).
+- **Task 6.1** (line 903).
+
+**Before (Decision 4, line 268):**
+```ts
+$join: { table: 'accounts', on: 'salary_history_pay_slips.account_id = accounts.id', type: 'LEFT' }
+```
+
+**After (Decision 4, line 268):**
+```ts
+$join: { table: 'accounts', on: { left: 'salary_history_pay_slips.account_id', right: 'accounts.id' }, type: 'LEFT' }
+```
+
+**Before (Task 6.1, line 903):**
+```ts
+JoinSpec = { table: string, on: string, type: 'INNER' | 'LEFT' | 'RIGHT' }
+```
+
+**After (Task 6.1, line 903):**
+```ts
+JoinSpec = { table: string, on: { left: string, right: string }, type: 'INNER' | 'LEFT' | 'RIGHT' }
+```
+
+**Before (Task 6.3, line 905):**
+```markdown
+parse `a.col = b.col`, check `a` is the from-table or a previously-joined table, check `col` exists in the respective manifest.
+```
+
+**After (Task 6.3, line 905):**
+```markdown
+parse `{ left, right }`, check `left` table matches the `$join.table` or a previously-joined table, check `left.column` and `right.column` exist in the respective registered table manifests.
+```
+
+---
+
+### Gap 3 — Domain Service Registry Resolution
+
+**Where to change:**
+- **Decision 5 narrative** (around line 317).
+- **Task 7.1** (around line 930).
+
+**Before (Decision 5, line ~317):**
+```markdown
+Resolution is by `serviceName`; the calling extension passes `{ serviceName, method, params }` and the registry dispatches to the **most recently activated** extension that registered under that name.
+```
+
+**After (Decision 5, line ~317):**
+```markdown
+Resolution is by `serviceName`. When multiple extensions register under the same name, the registry picks the most recently registered implementation (insertion order in the inner `Map`). `unregister()` removes the entry; subsequent `invoke()` picks the next-most-recent registration. If no registrations exist, `invoke()` returns `null`.
+```
+
+**Before (Task 7.1, line ~930):**
+```markdown
+- `invoke(serviceName, method, params, callerExtensionId)`: look up the **most recently activated** registered impl; call `impl[method](params)`; catch errors and return `null` (graceful degradation).
+```
+
+**After (Task 7.1, line ~930):**
+```markdown
+- `invoke(serviceName, method, params, callerExtensionId)`: look up the first entry in the inner `Map` for `serviceName` (most recently registered wins); call `impl[method](params)`; catch errors and return `null` (graceful degradation).
+```
+
+**Add to Task 7.8 (line ~957):**
+```markdown
+  - `unregister` then `invoke` returns `null` when no registrations remain
+```
+
+---
+
+### Gap 4 — `finance.services.invoke` Null Ambiguity
+
+**Where to change:**
+- **Decision 5** (around line 325).
+- **Task 7.1** (around line 930).
+- **Task 9.2** (around line 1032).
+
+**Before (Decision 5, line ~325):**
+```markdown
+`invoke` returns `null` (not throws) if the service is not registered or the extension that registered it is disabled.
+```
+
+**After (Decision 5, line ~325):**
+```markdown
+`invoke` returns `null` (not throws) if the service is not registered or the extension that registered it is disabled. When `null` is returned due to a missing service, the registry emits `console.warn('[services] service not found:', serviceName)`. When `null` is returned because the implementation threw, the registry emits `console.warn('[services] service errored:', serviceName, error.message)`.
+```
+
+**Before (Task 7.1, line ~930):**
+```markdown
+call `impl[method](params)`; catch errors and return `null` (graceful degradation).
+```
+
+**After (Task 7.1, line ~930):**
+```markdown
+call `impl[method](params)`; catch errors, emit `console.warn('[services] service errored:', serviceName, error.message)`, and return `null` (graceful degradation).
+```
+
+**Before (Task 9.2, line ~1032):**
+```ts
+finance.services.invoke('pay', 'getYearToDateSummary', { financialYearStart }).catch(() => null),
+```
+
+**After (Task 9.2, line ~1032):**
+```ts
+finance.services.invoke('pay', 'getYearToDateSummary', { financialYearStart }).catch(() => null),
+// Note: the registry logs a distinct warn for "service not found" vs "service errored".
+// Dashboard shows "Salary extension not installed" only for service-not-found; for service-errored,
+// show "Salary data unavailable — check console for details."
+```
+
+---
+
+### Gap 5 — Test Count Discrepancy
+
+**Where to change:**
+- **Goal / Verification** (line 89).
+- **Self-Review Checklist §5** (line 1414).
+
+**Before (line 89):**
+```markdown
+12. **TypeScript Strict + Lint + Tests** — `npm run typecheck` exit 0; `npm run lint` exit 0; `npm run test:unit` all tests pass (project total ~350 after Phase 5).
+```
+
+**After (line 89):**
+```markdown
+12. **TypeScript Strict + Lint + Tests** — `npm run typecheck` exit 0; `npm run lint` exit 0; `npm run test:unit` all tests pass (project total ~400 after Phase 5).
+```
+
+**Before (Self-Review §5, line 1414):**
+```markdown
+- [x] ~87 new unit tests covering all 12 decisions + manifest schema extensions + Dashboard + public-pay-adapter + navigation panel + workspace + DAO operators.
+```
+
+**After (Self-Review §5, line 1414):**
+```markdown
+- [x] ~87 new unit tests covering all 12 decisions + manifest schema extensions + Dashboard + public-pay-adapter + navigation panel + workspace + DAO operators (project total ~400 after Phase 5).
+```
+
+---
+
+### Gap 6 — `setUIHandler` Interface Undefined
+
+**Where to change:**
+- **Task 2.3** (line 822).
+- **Task 2** (add new step 2.5).
+
+**Before (Task 2.3, line 822):**
+```markdown
+- [ ] 2.3 In `main.ts`, instantiate `WebviewPanelManager` after the window is created; pass it to `ExtensionIPC.setUIHandler(...)` (replacing the Phase 4 renderer-mount path).
+```
+
+**After (Task 2.3, line 822):**
+```markdown
+- [ ] 2.3 In `main.ts`, instantiate `WebviewPanelManager` after the window is created; pass it to `ExtensionIPC.setUIHandler(webviewPanelManager)` (replacing the Phase 4 `extensions.onUiMount` subscription in `renderer/index.ts`).
+```
+
+**Add after Task 2.3 (new step 2.5):**
+```markdown
+- [ ] 2.5 In `extension-ipc.ts`, define `setUIHandler(handler: WebviewPanelUIHandler)` and the `WebviewPanelUIHandler` interface:
+  ```ts
+  interface WebviewPanelUIHandler {
+    onMountRequested(extensionId: string, viewId: string, mountData: object): void;
+    onFocusRequested(panelId: string): void;
+    onUiEvent(extensionId: string, eventName: string, detail: unknown): void;
+    onSetDirty(panelId: string, dirty: boolean): void;
+    onAutoSaveDraft(panelId: string): Promise<void>;
+  }
+  ```
+  Wire the Host's `finance.ui.requestMount`, `finance.ui.setDirty`, and `finance.ui.autoSaveDraft` calls to these handler methods via RPC.
+```
+
+---
+
+### Gap 7 — `autoSaveDraft` Failure Handling
+
+**Where to change:**
+- **Decision 8** (around line 523).
+- **Task 2** (add new step 2.6).
+
+**Before (Decision 8, line ~523):**
+```markdown
+- When a panel is about to be unmounted, `WebviewPanelManager` calls `autoSaveDraft()` (which the extension implements via `finance.settings.set`), giving the extension a last chance to persist form state.
+```
+
+**After (Decision 8, line ~523):**
+```markdown
+- When a panel is about to be unmounted, `WebviewPanelManager` calls `autoSaveDraft()` (which the extension implements via `finance.settings.set`), giving the extension a last chance to persist form state. `autoSaveDraft` has a **500 ms timeout** (configurable in Phase 7). On timeout or rejection: the manager logs `console.error`, proceeds with unmount, and sends a `panel:auto-save-failed` message to the renderer so the user sees a toast: "Your unsaved changes in [Extension Name] were lost."
+```
+
+**Add after Task 2.5 (new step 2.6):**
+```markdown
+- [ ] 2.6 In `webview-panel-manager.ts`, implement the `autoSaveDraft` timeout + failure toast:
+  - Wrap `autoSaveDraft()` in a `Promise.race` with a 500 ms `setTimeout`.
+  - On timeout or rejection: log `console.error`, destroy the `WebContentsView`, and emit `panel:auto-save-failed` to the renderer.
+  - The renderer's workspace component listens for `panel:auto-save-failed` and shows a toast with the extension's display name.
+```
+
+---
+
+### Gap 8 — Manual Test Unit 2 Hardcoded Activity Bar Button
+
+**Where to change:**
+- **Test Unit 2** (line 1218).
+
+**Before (line 1218):**
+```markdown
+- [ ] 2.1 Click the `P` Activity Bar button.
+```
+
+**After (line 1218):**
+```markdown
+- [ ] 2.1 Locate the Activity Bar button for the `salary-history` view (icon from the extension's `views[].icon` manifest field). If the button is not present (e.g., because the extension is disabled), skip this test.
+```
+
+---
+
+### Gap 9 — `Promise.all` vs Sequential Activation Order
+
+**Where to change:**
+- **Task 10.1 / 10.2** (around line 1061).
+
+**Before (Task 10.1, line ~1057):**
+```ts
+if (manifest.activationEvents.includes('onStartup')) {
+  onStartupCallbacks.push(activateExtension(extensionId, manifest));
+}
+```
+
+**After (Task 10.1, line ~1057):**
+```ts
+if (manifest.activationEvents.includes('onStartup')) {
+  onStartupExtensions.push({ id: extensionId, manifest });
+}
+```
+
+**Before (Task 10.2, line ~1061):**
+```markdown
+- [ ] 10.2 In `main.ts`, after `extensionIPC.start(...)`, collect `onStartup` extensions and call `extensionIPC.request('extension.activate', { extensionId, reason: 'onStartup' })` for each, in alphabetical `id` order.
+```
+
+**After (Task 10.2, line ~1061):**
+```markdown
+- [ ] 10.2 In `main.ts`, after `extensionIPC.start(...)`, sort `onStartupExtensions` alphabetically by `id` (default-view extension first, then remaining). Activate them **sequentially** using `for...of` with `await`:
+  ```ts
+  for (const ext of sortedOnStartupExtensions) {
+    await extensionIPC.request('extension.activate', { extensionId: ext.id, reason: 'onStartup' });
+  }
+  ```
+  Do NOT use `Promise.all` — parallel activation breaks the deterministic order required by Decision 2.
+```
+
+---
+
+### Gap 10 — WorkspaceLayout Persistence Schema
+
+**Where to change:**
+- **Decision 9** (add a schema example after line 557).
+- **Task 12.5** (line 1103).
+- **Task 12.6** (line 1104).
+
+**Add after Decision 9 code example (line ~557):**
+```markdown
+**Persistence schema:** `core.workspace.layout` stores the `WorkspaceNode` tree as JSON. Example:
+```json
+{ "type": "split", "direction": "horizontal", "children": [
+  { "type": "tab", "panelId": "panel-dashboard", "label": "Dashboard" },
+  { "type": "tab", "panelId": "panel-salary-history", "label": "Salary History" }
+]}
+```
+On restore, if an extension referenced by `panelId` is missing or disabled, fall back to a single-tab layout with the first available `onStartup` extension active. If the serialized layout exceeds 4 KB, truncate to the active tab only.
+```
+
+**Before (Task 12.5, line 1103):**
+```markdown
+- [ ] 12.5 Persist the `WorkspaceLayout` to `core.workspace.layout` setting on every change (debounced 500 ms).
+```
+
+**After (Task 12.5, line 1103):**
+```markdown
+- [ ] 12.5 Persist the `WorkspaceLayout` to `core.workspace.layout` setting on every change (debounced 500 ms). Guard against settings bloat: if the serialized JSON exceeds 4 KB, truncate to the active tab only.
+```
+
+**Before (Task 12.6, line 1104):**
+```markdown
+- [ ] 12.6 Restore the `WorkspaceLayout` from the setting on `DOMContentLoaded`.
+```
+
+**After (Task 12.6, line 1104):**
+```markdown
+- [ ] 12.6 Restore the `WorkspaceLayout` from the setting on `DOMContentLoaded`. If restoration fails (missing extension, corrupted JSON, size > 4 KB), fall back to a single-tab default layout with the Dashboard active.
+```
+
+---
+
+## Summary of Edits
+
+| Gap | Plan Section | Lines | Type |
+|-----|-------------|-------|------|
+| 1 | Decision 10, Task 4 | ~586, ~854 | **Blocker** — add `requestMount` + RPC handler |
+| 2 | Decision 4, Task 6.1/6.3 | 268, 903, 905 | **Blocker** — align `$join.on` to structured object |
+| 3 | Decision 5, Task 7.1/7.8 | ~317, ~930, ~957 | High — explicit resolution rules + test |
+| 4 | Decision 5, Task 7.1/9.2 | ~325, ~930, ~1032 | High — distinct warns for missing vs errored |
+| 5 | Goal §12, Self-Review §5 | 89, 1414 | Medium — update ~350 → ~400 |
+| 6 | Task 2.3, Task 2.5 | 822, ~864 | Medium — define `WebviewPanelUIHandler` interface |
+| 7 | Decision 8, Task 2.6 | ~523, ~864 | Medium — 500 ms timeout + failure toast |
+| 8 | Test Unit 2 | 1218 | Low — replace hardcoded `P` with view-id lookup |
+| 9 | Task 10.1/10.2 | ~1057, ~1061 | Medium — sequential `for...of` + `await` |
+| 10 | Decision 9, Task 12.5/12.6 | ~557, 1103, 1104 | Medium — schema example + fallback + size guard |
+
+---
+
 *Reviewed by Kilo on 2026-07-19.*
