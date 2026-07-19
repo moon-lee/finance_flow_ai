@@ -86,7 +86,7 @@ A bootable Electron app with a working **multi-extension workspace**. The items 
 
 10. **Persistence verified.** All Phase 4 persistence properties survive the Phase 5 host changes — payslips, rate rows, accounts, settings all round-trip. Manual Test Unit 5 walks the loop.
 11. **Cross-extension isolation verified.** Salary-history cannot read Dashboard's tables; Dashboard cannot read salary-history's tables; both can read Shared Financial Data (`accounts`); both gracefully handle each other's absence.
-12. **TypeScript Strict + Lint + Tests** — `npm run typecheck` exit 0; `npm run lint` exit 0; `npm run test:unit` all tests pass (project total ~350 after Phase 5).
+12. **TypeScript Strict + Lint + Tests** — `npm run typecheck` exit 0; `npm run lint` exit 0; `npm run test:unit` all tests pass (project total ~400 after Phase 5).
 13. **E2E suite unblocked** — Phase 5's manual TU8 verifies the Phase 3 environmental blocker (`Cannot navigate to invalid URL` on `page.goto('/')`) is now resolved (the WebviewPanel iframe creates its own routable URL via `loadURL('about:blank')` + dynamic content injection).
 
 ### Out-of-Scope reminder (carried forward)
@@ -265,7 +265,7 @@ Built-in Core items (e.g., "App Preferences" for the `__settings__` view) are re
 finance.db.table('salary_history_pay_slips').find(
   { account_id: 1 },
   {
-    $join: { table: 'accounts', on: 'salary_history_pay_slips.account_id = accounts.id', type: 'LEFT' },
+    $join: { table: 'accounts', on: { left: 'salary_history_pay_slips.account_id', right: 'accounts.id' }, type: 'LEFT' },
     $orderBy: [{ column: 'pay_date', direction: 'DESC' }],
     $limit: 50,
     $offset: 0
@@ -314,7 +314,7 @@ Operators are added as a **second argument** to `find()` / `findOne()` / `count(
      invoke(serviceName: string, method: string, params: unknown): Promise<unknown>;
    }
    ```
-   Multiple extensions can register under the same `serviceName` (e.g., two extensions both implementing `pay`); the last `register` call wins for a given (serviceName, extensionId) pair. Resolution is by `serviceName`; the calling extension passes `{ serviceName, method, params }` and the registry dispatches to the **most recently activated** extension that registered under that name.
+   Multiple extensions can register under the same `serviceName` (e.g., two extensions both implementing `pay`); the last `register` call wins for a given (serviceName, extensionId) pair. Resolution is by `serviceName`; the calling extension passes `{ serviceName, method, params }` and the registry dispatches to the **most recently registered** implementation (insertion order in the inner `Map`). `unregister()` removes the entry; subsequent `invoke()` picks the next-most-recent registration. If no registrations exist, `invoke()` returns `null`.
 
 2. **Host-side `finance.services.*` API (`src/extension-host/api/services.ts`, new)**:
    ```ts
@@ -322,7 +322,7 @@ Operators are added as a **second argument** to `find()` / `findOne()` / `count(
      invoke<T>(serviceName: string, method: string, params?: unknown): Promise<T | null>
    };
    ```
-   `invoke` returns `null` (not throws) if the service is not registered or the extension that registered it is disabled. This is the graceful-degradation path from `project_vision.md:48`.
+   `invoke` returns `null` (not throws) if the service is not registered or the extension that registered it is disabled. When `null` is returned due to a missing service, the registry emits `console.warn('[services] service not found:', serviceName)`. When `null` is returned because the implementation threw, the registry emits `console.warn('[services] service errored:', serviceName, error.message)`. This distinction lets the caller distinguish "service absent" from "service errored" during debugging.
 
 3. **`finance.services.pay.*` adapter (`extensions/salary-history/src/services/public-pay-adapter.ts`, new)** — wraps salary-history's existing internal `PayService` and exposes:
    ```ts
@@ -520,7 +520,7 @@ The **lazy-unmount policy**:
 - A `setInterval` (every 30 s) checks each panel's last-focus timestamp and dirty flag.
 - Panels unfocused for more than **5 minutes** AND not dirty are unmounted (the `WebContentsView` is detached and destroyed; the panel's entry remains in the tab bar with a "Reload" affordance).
 - Panels that are **dirty** (`setDirty(true)` was called and not cleared) are exempt from lazy unmount indefinitely.
-- When a panel is about to be unmounted, `WebviewPanelManager` calls `autoSaveDraft()` (which the extension implements via `finance.settings.set`), giving the extension a last chance to persist form state.
+- When a panel is about to be unmounted, `WebviewPanelManager` calls `autoSaveDraft()` (which the extension implements via `finance.settings.set`), giving the extension a last chance to persist form state. `autoSaveDraft` has a **500 ms timeout** (configurable in Phase 7). On timeout or rejection: the manager logs `console.error`, proceeds with unmount, and sends a `panel:auto-save-failed` message to the renderer so the user sees a toast: "Your unsaved changes in [Extension Name] were lost."
 - Switching back to a stubbed panel triggers a re-mount.
 
 **Dirty-state API:** extensions opt into dirty tracking by calling `finance.ui.setDirty(true)` when a form receives input and `finance.ui.setDirty(false)` when it is saved or cancelled. The Host API forwards both calls to `WebviewPanelManager`.
@@ -556,6 +556,15 @@ type WorkspaceNode =
   | { type: 'split', direction: 'horizontal' | 'vertical', children: [WorkspaceNode, WorkspaceNode] };
 ```
 
+**Persistence schema:** `core.workspace.layout` stores the `WorkspaceNode` tree as JSON. Example:
+```json
+{ "type": "split", "direction": "horizontal", "children": [
+  { "type": "tab", "panelId": "panel-dashboard", "label": "Dashboard" },
+  { "type": "tab", "panelId": "panel-salary-history", "label": "Salary History" }
+]}
+```
+On restore, if an extension referenced by `panelId` is missing or disabled, fall back to a single-tab layout with the first available `onStartup` extension active. If the serialized layout exceeds 4 KB, truncate to the active tab only.
+
 The workspace renders the tree recursively. The tab bar shows tabs in the **active leaf's path** (the user always sees the tabs of the pane they're focused in). Drag-and-drop: a tab can be dragged onto another tab's split affordance (right edge / bottom edge) to create a new split. Drag-and-drop is implemented with the HTML5 Drag and Drop API (no library).
 
 Phase 5 ships a **maximum of 2 panes** (one root + one split). The split direction can be either `horizontal` (left/right) or `vertical` (top/bottom). Closing the last tab in a pane collapses the split.
@@ -589,6 +598,7 @@ window.financeShell = {
     executeCommand,    // gated by the Main-side allowlist
     uiEvent,           // gated by the Main-side allowlist
     onUiMount,         // receive mount requests (only the initial mount — extensions don't re-mount themselves)
+    requestMount,      // Host -> Main -> Renderer: ask Main to create a WebviewPanel for this extension
   },
   settings: { get, set },   // gated by the namespace (existing Phase 4 behaviour)
   db: ???,             // NOT exposed — the panel uses finance.db inside the extension's Host bundle
@@ -819,8 +829,23 @@ finance-flow_ai/
   - `unmount(handle)`: destroy the `WebContentsView`.
   - `focus(handle)`: call `view.webContents.focus()`.
   - `list()`: return all open panels.
-- [ ] 2.3 In `main.ts`, instantiate `WebviewPanelManager` after the window is created; pass it to `ExtensionIPC.setUIHandler(...)` (replacing the Phase 4 renderer-mount path).
-- [ ] 2.4 Add 8 unit tests in `webview-panel-manager.test.ts` covering: mount/unmount lifecycle, focus switching, multiple panels, custom protocol URL parsing, CSP headers set, child BrowserWindow parent reference correct.
+- [ ] 2.3 In `main.ts`, instantiate `WebviewPanelManager` after the window is created; pass it to `ExtensionIPC.setUIHandler(webviewPanelManager)` (replacing the Phase 4 `extensions.onUiMount` subscription in `renderer/index.ts`).
+- [ ] 2.4 Add 8 unit tests in `webview-panel-manager.test.ts` covering: mount/unmount lifecycle, focus switching, multiple panels, custom protocol URL parsing, CSP headers set, WebContentsView parent reference correct.
+- [ ] 2.5 In `extension-ipc.ts`, define `setUIHandler(handler: WebviewPanelUIHandler)` and the `WebviewPanelUIHandler` interface:
+  ```ts
+  interface WebviewPanelUIHandler {
+    onMountRequested(extensionId: string, viewId: string, mountData: object): void;
+    onFocusRequested(panelId: string): void;
+    onUiEvent(extensionId: string, eventName: string, detail: unknown): void;
+    onSetDirty(panelId: string, dirty: boolean): void;
+    onAutoSaveDraft(panelId: string): Promise<void>;
+  }
+  ```
+  Wire the Host's `finance.ui.requestMount`, `finance.ui.setDirty`, and `finance.ui.autoSaveDraft` calls to these handler methods via RPC.
+- [ ] 2.6 In `webview-panel-manager.ts`, implement the `autoSaveDraft` timeout + failure toast:
+  - Wrap `autoSaveDraft()` in a `Promise.race` with a 500 ms `setTimeout`.
+  - On timeout or rejection: log `console.error`, destroy the `WebContentsView`, and emit `panel:auto-save-failed` to the renderer.
+  - The renderer's workspace component listens for `panel:auto-save-failed` and shows a toast with the extension's display name.
 
 **Verification:** Manual: click Activity Bar `P` → a child window opens with the salary-history UI. The child window's DevTools shows the strict CSP applied. Closing the parent window closes all children.
 
@@ -862,6 +887,10 @@ finance-flow_ai/
   - Routes the event to the **renderer** (the main window) via `mainWindow.webContents.send('extensions:ui-event-from-panel', { extensionId, eventName, detail })`.
 - [ ] 4.2 In `main.ts`, listen for `extensions:ui-event-from-panel` IPC and forward to the relevant panel's webContents (round-trip).
 - [ ] 4.3 Document the round-trip pattern in `webview-panel-manager.ts` JSDoc: panel → Main → renderer → Main → other panels.
+- [ ] 4.5 In `extension-ipc.ts` and `webview-panel-manager.ts`, implement the mount-request path:
+  - Add `ipcMain.handle('extension:request-mount', async (_event, extensionId, viewId, mountData) => { ... })`.
+  - Validate the extension is active, then call `webviewPanelManager.mount(extensionId, viewId, mountData)`.
+  - Main buffers mount requests received during `onStartup` activation (Decision 2 Step 5) and flushes them to the Renderer once the BrowserWindow is ready.
 
 **Verification:** Manual: open two salary-history panels; click "+ Add Payslip" in panel 1; panel 2 receives the same event (after the Main-side round-trip).
 
@@ -900,9 +929,9 @@ finance-flow_ai/
   findOne(extensionId, table, query: QueryObject, options?: FindOptions): Row | null;
   count(extensionId, table, query: QueryObject, options?: CountOptions): number;
   ```
-  Where `FindOptions = { $join?: JoinSpec, $orderBy?: OrderSpec[], $limit?: number, $offset?: number }` and `JoinSpec = { table: string, on: string, type: 'INNER' | 'LEFT' | 'RIGHT' }`.
+  Where `FindOptions = { $join?: JoinSpec, $orderBy?: OrderSpec[], $limit?: number, $offset?: number }` and `JoinSpec = { table: string, on: { left: string, right: string }, type: 'INNER' | 'LEFT' | 'RIGHT' }`.
 - [ ] 6.2 In `compileQuery`, parse the new operators; emit SQL with parameterised joins + ORDER BY + LIMIT + OFFSET.
-- [ ] 6.3 Validate `$join.on` against the registered column lists (Decision 4 trade-off): parse `a.col = b.col`, check `a` is the from-table or a previously-joined table, check `col` exists in the respective manifest.
+- [ ] 6.3 Validate `$join.on` against the registered column lists (Decision 4 trade-off): parse `{ left, right }`, check `left` table matches the `$join.table` or a previously-joined table, check `left.column` and `right.column` exist in the respective registered table manifests.
 - [ ] 6.4 Validate `$join` table access: only the calling extension's own tables OR shared tables can be joined.
 - [ ] 6.5 Validate `$limit` (1..1000) and `$offset` (>= 0) at the Zod layer.
 - [ ] 6.6 Extend `dao-service.test.ts` with 12 new tests:
@@ -927,7 +956,7 @@ finance-flow_ai/
 - [ ] 7.1 In `domain-service-registry.ts`, implement `DomainServiceRegistry` per Decision 5:
   - `register(serviceName, extensionId, impl)`: store in a `Map<serviceName, Map<extensionId, impl>>`.
   - `unregister(serviceName, extensionId)`: remove.
-  - `invoke(serviceName, method, params, callerExtensionId)`: look up the **most recently activated** registered impl; call `impl[method](params)`; catch errors and return `null` (graceful degradation).
+  - `invoke(serviceName, method, params, callerExtensionId)`: look up the **most recently registered** impl (first entry in the inner `Map` for `serviceName`); call `impl[method](params)`; catch errors, emit `console.warn('[services] service errored:', serviceName, error.message)`, and return `null` (graceful degradation).
 - [ ] 7.2 In `extension-ipc.ts`, add `setDomainServiceRegistry(reg)` and a `handleDomainServiceInvoke(params)` method that validates the calling extension's identity, looks up the service, and calls it.
 - [ ] 7.3 In `json-rpc-methods.ts`, add `RPC_METHOD.DomainServiceInvoke = 'domain.service.invoke'`.
 - [ ] 7.4 In `json-rpc.ts`, add `RpcErrorCode.ServiceNotFound = -32014`.
@@ -952,7 +981,12 @@ finance-flow_ai/
   ```
 - [ ] 7.6 In `api/index.ts`, add `services` to the `FinanceApi` returned by `createFinance`.
 - [ ] 7.7 In `finance.d.ts`, add `services: ServicesApi` to `FinanceApi`; export `DomainServiceImpl` type.
-- [ ] 7.8 Add 8 registry unit tests + 4 services unit tests.
+- [ ] 7.8 Add 8 registry unit tests + 4 services unit tests:
+  - register/unregister/invoke happy path
+  - last-registered wins when multiple extensions register the same serviceName
+  - unregister then invoke returns `null` when no registrations remain
+  - invoke returns `null` and emits `console.warn` when the implementation throws
+  - invoke returns `null` and emits `console.warn` when the service is not registered
 
 **Verification:** `npm run test:unit -- domain-service-registry services` → all tests pass.
 
@@ -1038,6 +1072,7 @@ finance-flow_ai/
     return { ytd, lastPayslip, currentRate, accounts, hasPayExtension: !!lastPayslip };
   }
   ```
+  Note: the registry logs a distinct warn for "service not found" vs "service errored". Dashboard shows "Salary extension not installed" only for service-not-found; for service-errored, show "Salary data unavailable — check console for details."
 - [ ] 9.4 In `src/ui/dashboard-view.ts`, render the 4 cards in the configured order via `cardOrder`; each card receives the relevant data slice. Cards show "—" or "install Salary History to see this" placeholders when data is missing.
 - [ ] 9.5 In `src/ui/{net-worth,ytd-salary,last-payslip,accounts-summary}-card.ts`, implement the 4 cards as Lit components sharing `shared-styles.ts`.
 - [ ] 9.6 Add 6 aggregator unit tests (mocked `finance`) + 5 dashboard-view tests (happy-dom).
@@ -1055,10 +1090,16 @@ finance-flow_ai/
 - [ ] 10.1 In `host.ts`, add handling for `onStartup` in the activation dispatcher:
   ```ts
   if (manifest.activationEvents.includes('onStartup')) {
-    onStartupCallbacks.push(activateExtension(extensionId, manifest));
+    onStartupExtensions.push({ id: extensionId, manifest });
   }
   ```
-- [ ] 10.2 In `main.ts`, after `extensionIPC.start(...)`, collect `onStartup` extensions and call `extensionIPC.request('extension.activate', { extensionId, reason: 'onStartup' })` for each, in alphabetical `id` order.
+- [ ] 10.2 In `main.ts`, after `extensionIPC.start(...)`, sort `onStartupExtensions` alphabetically by `id` (default-view extension first, then remaining). Activate them **sequentially** using `for...of` with `await`:
+  ```ts
+  for (const ext of sortedOnStartupExtensions) {
+    await extensionIPC.request('extension.activate', { extensionId: ext.id, reason: 'onStartup' });
+  }
+  ```
+  Do NOT use `Promise.all` — parallel activation breaks the deterministic order required by Decision 2.
 - [ ] 10.3 On `extension.activate` success → `extensionRegistry.markActivated(id)`.
 - [ ] 10.4 On failure → `extensionRegistry.recordCrash(id, err)` (existing Phase 3 hot-disable); emit `extension-auto-disabled` if threshold reached.
 - [ ] 10.5 Add 5 unit tests: alphabetical activation order, Dashboard activates before any user interaction, hot-disable on activation failure, no double activation on subsequent clicks, missing `onStartup` extension does not block other `onStartup` extensions.
@@ -1100,8 +1141,8 @@ finance-flow_ai/
 - [ ] 12.2 In `tab-bar.ts`, render the tabs in the active leaf's path; support drag-to-split (HTML5 Drag and Drop).
 - [ ] 12.3 In `split-pane.ts`, render a 2-pane container with a draggable splitter; close-on-last-tab collapses the split.
 - [ ] 12.4 In `styles/layout.css`, add tab bar + splitter styles matching the existing palette.
-- [ ] 12.5 Persist the `WorkspaceLayout` to `core.workspace.layout` setting on every change (debounced 500 ms).
-- [ ] 12.6 Restore the `WorkspaceLayout` from the setting on `DOMContentLoaded`.
+- [ ] 12.5 Persist the `WorkspaceLayout` to `core.workspace.layout` setting on every change (debounced 500 ms). Guard against settings bloat: if the serialized JSON exceeds 4 KB, truncate to the active tab only.
+- [ ] 12.6 Restore the `WorkspaceLayout` from the setting on `DOMContentLoaded`. If restoration fails (missing extension, corrupted JSON, size > 4 KB), fall back to a single-tab default layout with the Dashboard active.
 - [ ] 12.7 Add 6 workspace tests + 4 tab-bar tests.
 
 **Verification:** `npm run test:unit -- workspace tab-bar` → all tests pass; manual: open 3 tabs → drag one to the right edge → 2-pane split appears; restart app → layout restored.
@@ -1215,7 +1256,7 @@ finance-flow_ai/
 - [ ] 1.3 **Expected:** the Dashboard tab opens automatically as the first tab; no user click required. The four cards render (each shows "—" or "install Salary History" placeholders since there is no data yet).
 
 **Test Unit 2: Salary History opens as a second tab.**
-- [ ] 2.1 Click the `P` Activity Bar button.
+- [ ] 2.1 Click the Activity Bar button for the `salary-history` view (icon from the extension's `views[].icon` manifest field). If the button is not present (e.g., because the extension is disabled), skip this test.
 - [ ] 2.2 **Expected:** Salary History opens in a second tab. The Dashboard tab stays open. Switching tabs swaps the visible content; each tab's WebviewPanel stays mounted.
 - [ ] 2.3 Click `P` again → no new tab opens; Salary History tab gains focus (idempotent).
 
@@ -1411,7 +1452,7 @@ These will run when the Phase 3 Playwright-electron environmental issue is resol
 
 ### §5 — Test Pyramid
 
-- [x] ~87 new unit tests covering all 12 decisions + manifest schema extensions + Dashboard + public-pay-adapter + navigation panel + workspace + DAO operators.
+- [x] ~87 new unit tests covering all 12 decisions + manifest schema extensions + Dashboard + public-pay-adapter + navigation panel + workspace + DAO operators (project total ~400 after Phase 5).
 - [x] 12 manual test units covering the full multi-extension user journey (TU6/TU7 marked OPTIONAL/SKIPPABLE for manual runs; covered by automated tests).
 - [x] 10 new E2E tests written but gated by Phase 3 environmental blocker (documented).
 
