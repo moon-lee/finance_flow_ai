@@ -1442,14 +1442,14 @@ The full deferral table is in the **Out of Scope** section above. Highlights:
 
 | Risk | Mitigation |
 |------|------------|
-| Child `BrowserWindow` per panel uses ~30-50 MB RAM; 10+ open tabs is heavy | Lazy unmount after 30 s unfocused (Decision 8); Phase 7+ adds `keepAlive` hint |
+| `WebContentsView` per panel uses ~20-40 MB RAM; 10+ open tabs adds memory pressure | Lazy unmount after 5 min unfocused, with dirty-state protection (Decision 8); Phase 7+ adds `keepAlive` hint |
 | `onStartup` activation crashes block the shell boot | Phase 3 hot-disable contract: `crash_count >= 3` auto-disables; activation goes through `extensions:activate-view` IPC path that records crashes |
 | `$join.on` raw expression is a SQL injection surface if not validated | Decision 4 + Task 6.3: parse `a.col = b.col`, validate against registered manifests; malformed `on` returns `ValidationFailedError` (-32012) |
 | Domain Service Registry's "last-registered wins" rule is order-dependent | Phase 5 has only one `pay` registrar (salary-history); Phase 8 may add priority mechanism |
 | Per-extension allowlists break Phase 4 extensions without `allowedCommands` | Phase 4 migration shim auto-fills from `commands[].id` with `console.warn`; Phase 5 Task 1.4 |
 | 2-pane split is a UX ceiling (no 3+ panes) | Documented in Decision 9; Phase 7 ships full grid |
 | Dashboard's `finance.services.pay.*` calls may return `null` if salary-history is disabled | Graceful degradation per `project_vision.md:48`; cards show "install Salary History to see this" placeholders |
-| WebviewPanel lazy unmount loses in-panel state (e.g., a half-filled form) | Documented; user must save before tab-switching for >30 s. Phase 7+ may add a "save-on-blur" extension hook |
+| WebviewPanel lazy unmount loses in-panel state (e.g., a half-filled form) | Mitigated by dirty-state protection (Decision 8): dirty panels are never unmounted, and autoSaveDraft is called before unmounting. Phase 7+ may add a "save-on-blur" extension hook |
 | `'unsafe-eval'` removed from the panel CSP but still required in the main renderer | Decision 11 trade-off; main renderer `'unsafe-eval'` removal is Phase 7 |
 | Custom protocol (`finance-shell://`) registration may collide with other Electron apps | Protocol name is namespaced (`finance-shell`, not the more common `app`); Phase 8's marketplace may need a per-user nonce suffix |
 | Phase 3 environmental Playwright blocker persists into Phase 5 | Same blocker; E2E tests written but gated; manual TU 1-12 cover the user journey |
@@ -1470,7 +1470,7 @@ Each decision's "Alternatives considered" section enumerates the rejected option
 - **Decision 1 (child `BrowserWindow` vs `<webview>` tag vs `<iframe>`):** If reviewer prefers `WebContentsView` (Electron 28+) or `<iframe>` (simpler), the panel infrastructure changes but the IPC contract is unchanged.
 - **Decision 5 (registry vs per-extension surface):** If reviewer prefers a typed per-service API, scope expands by ~200 lines (typed envelope generation).
 - **Decision 6 (allowlist mandatory vs opt-out):** If reviewer prefers backwards-compatible opt-out, the security posture weakens — every Phase 4 extension would need migration. The current design auto-fills with a `console.warn`.
-- **Decision 8 (lazy unmount at 30 s):** If reviewer prefers no unmount, memory pressure becomes a real complaint at 10+ tabs. Phase 7+ will add `keepAlive` hints.
+- **Decision 8 (lazy unmount at 5 min):** If reviewer prefers no unmount, memory pressure becomes a real complaint at 10+ tabs. Phase 7+ will add `keepAlive` hints.
 
 ---
 
