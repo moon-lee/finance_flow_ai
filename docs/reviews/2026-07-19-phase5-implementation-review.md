@@ -337,9 +337,10 @@ Below are the exact text replacements and additions for the plan file. Each entr
 ### Gap 1 — Extension-to-Panel Mount Mechanism
 
 **Where to change:**
-- **Decision 10** (around line 578): extend the `window.financeShell` shape to include `requestMount`.
-- **Task 4** (around line 854): add a step 4.5 that implements the `extension.requestMount` RPC handler and the mount-request buffer described in Decision 2 Step 5.
-- **Task 9.2** (around line 1022): no code change, but the referenced `finance.ui.requestMount` now exists because Decision 10 + Task 4.5 define it.
+- **Decision 10** (around line 578): extend the `window.financeShell` shape to include `requestMount`; also document the Host-side `finance.ui.requestMount` path (`activate()` → Host → Main → Renderer).
+- **Task 2** (after step 2.6): add step 2.7 that creates `src/extension-host/api/ui.ts` exposing `requestMount(viewId, mountData)` via the `extension:request-mount` RPC, and wires it into `FinanceApi` in `api/index.ts`.
+- **Task 4** (around line 854): add step 4.5 that implements the `extension:request-mount` RPC handler and the mount-request buffer described in Decision 2 Step 5.
+- **Task 9.2** (around line 1022): no code change — the referenced `finance.ui.requestMount` now exists because Task 2.7 + Task 4.5 define it.
 
 **Before (Decision 10, line ~586):**
 ```ts
@@ -373,6 +374,11 @@ window.financeShell = {
   - Add `ipcMain.handle('extension:request-mount', async (_event, extensionId, viewId, mountData) => { ... })`.
   - Validate the extension is active, then call `webviewPanelManager.mount(extensionId, viewId, mountData)`.
   - Main buffers mount requests received during `onStartup` activation (Decision 2 Step 5) and flushes them to the Renderer once the BrowserWindow is ready.
+```
+
+**After (Task 2, add step 2.7):**
+```markdown
+- [ ] 2.7 In `src/extension-host/api/ui.ts` (new), define `createUi(extensionId, rpc)` that exposes `requestMount(viewId: string, mountData: object): Promise<void>` via the `extension:request-mount` RPC. Add `ui: { requestMount }` to the `FinanceApi` returned by `createFinance` in `api/index.ts`.
 ```
 
 ---
@@ -676,7 +682,7 @@ On restore, if an extension referenced by `panelId` is missing or disabled, fall
 
 | Gap | Plan Section | Lines | Type |
 |-----|-------------|-------|------|
-| 1 | Decision 10, Task 4 | ~586, ~854 | **Blocker** — add `requestMount` + RPC handler |
+| 1 | Decision 10, Task 2.7, Task 4 | ~586, ~848, ~854 | **Blocker** — add `requestMount` to panel preload + Host-side `finance.ui` API + RPC handler |
 | 2 | Decision 4, Task 6.1/6.3 | 268, 903, 905 | **Blocker** — align `$join.on` to structured object |
 | 3 | Decision 5, Task 7.1/7.8 | ~317, ~930, ~957 | High — explicit resolution rules + test |
 | 4 | Decision 5, Task 7.1/9.2 | ~325, ~930, ~1032 | High — distinct warns for missing vs errored |
