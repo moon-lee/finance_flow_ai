@@ -178,7 +178,7 @@ The panel loads `finance-shell://panel/<extensionId>/<viewId>.html` (a custom pr
 
 1. App starts → `app.whenReady` → DB + settings init (Phase 4 order).
 2. ExtensionIPC starts → Host announces `host.ready` (Phase 3 order).
-3. **NEW (Phase 5):** Main reads the user setting `core.workspace.defaultView` (default `'dashboard'`). It validates that the referenced view is contributed by an extension whose `activationEvents` contain `onStartup`; if not valid, it falls back to the first `onStartup` extension's primary view in manifest-discovery order.
+  3. **NEW (Phase 5):** Main reads the user setting `core.workspace.defaultView`. The default value `'dashboard'` is a **code fallback** (not a DB seed) — consistent with the project's existing settings pattern (`getSetting(key) ?? default`). Main validates that the referenced view is contributed by an extension whose `activationEvents` contain `onStartup`; if not valid, it falls back to the first `onStartup` extension's primary view in manifest-discovery order.
 4. Main sends `extension.activate` RPC to the Host for each `onStartup` extension. Activation order is the default-view extension first, then remaining `onStartup` extensions in manifest-discovery order (alphabetical on `id` for determinism).
 5. The Host activates each extension in turn. Each activation may call `finance.services.register('pay', ...)` or `finance.ui.requestMount('dashboard-view', ...)`; Main buffers the mount requests and forwards them to the Renderer once the workspace is ready.
 6. The Renderer mounts the `core.workspace.defaultView` WebviewPanel as the active tab; subsequent `onStartup` extensions mount as additional background tabs. If there is no `onStartup` extension for the configured default view, the first `onStartup` extension's primary view becomes the active tab.
@@ -412,6 +412,8 @@ The four methods above are exactly what Dashboard calls. The internal `PayServic
 
 **Reasoning:** Phase 3 Self-Review §7 deferred this to Phase 5; Phase 4 Review Finding 3 reminded that it was still deferred. The allowlist is the **first line of defence** against accidental or unprivileged cross-extension command invocation. It is **not** a full security isolation layer — all extensions share one Host process, so a malicious extension could spoof its extension ID or read another extension's registered commands in memory (see Gap 5). The allowlist protects against **developer errors** and **unintentional cross-extension calls**, not against a compromised extension that already runs in the shared Host.
 
+**Enforcement semantics:** the allowlist checks the **target command's owning extension**, not the calling extension. When `executeCommand('salary.show-pay-history')` is invoked from the Dashboard navigation panel, Main resolves the owning extension (`salary-history`) and checks `salary-history`'s `allowedCommands`, not Dashboard's. This means an extension cannot grant itself access to another extension's commands — only the owning extension can opt in.
+
 The `allowedCommands` set is **per-extension** because the threat model is per-extension: salary-history is trusted to invoke its own commands internally, but Dashboard (a separate, less-trusted extension) is **not** trusted to invoke arbitrary salary-history commands unless salary-history explicitly opts in. By listing a command in `allowedCommands`, the owning extension says "external callers may invoke this command on my behalf." For example, if salary-history later wants Dashboard to open Salary History, it would add a command like `salary.open` to its own `commands[]` and list it in `allowedCommands`; Dashboard then calls `financeShell.extensions.executeCommand('salary.open')` and Main allows it because salary-history opted in.
 
 **Alternatives considered:**
@@ -504,6 +506,7 @@ class WebviewPanelManager {
   list(): PanelHandle[];                       // for tab bar
   setDirty(handle: PanelHandle, dirty: boolean): void;  // extension reports form-dirty
   autoSaveDraft(handle: PanelHandle): Promise<void>;    // extension persists draft before unmount
+  destroyAll(): void;                          // destroy all WebContentsView instances (app quit)
 }
 ```
 
@@ -513,7 +516,7 @@ The `mount` flow:
 3. Register the panel with the `financeShell.extensions.list()` IPC so the renderer can enumerate open panels.
 4. Load `finance-shell://panel/<extensionId>/<viewId>.html` (custom protocol) which serves the HTML template and references the bundle via `<script src="finance-shell://extensions/<extensionId>.js">` (NOT `file://`, see Task 15).
 5. Attach the `WebContentsView` to the main `BrowserWindow.contentView` at the workspace pane's DOM bounds.
-6. Forward the extension's `mountData` to the panel via `webContents.send('panel:init', { extensionId, viewId, mountData })`.
+6. Forward the extension's `mountData` to the panel via `webContents.send('panel:init', { extensionId, viewId, mountData } as PanelInitPayload)`.
 
 The **lazy-unmount policy**:
 - A `setInterval` (every 30 s) checks each panel's last-focus timestamp and dirty flag.
@@ -527,6 +530,8 @@ The **lazy-unmount policy**:
 **Reasoning:** Decision 1's trade-off (~20–40 MB per open `WebContentsView`) makes naive multi-tab behaviour untenable for power users with 10+ tabs open. The 5-minute timeout (up from the original 30 s) plus dirty-state protection balances memory pressure against the common UX complaint of losing half-filled forms. Lazy unmount is the standard VS Code pattern (the "close vs hide" decision is deferred to Phase 8's tab-management UI).
 
 **State preservation:** the extension itself is responsible for its state (Phase 4 PayService stores YTD summaries in the DB; Phase 5 Dashboard stores card preferences in `dashboard.*` settings). When a panel re-mounts, the extension re-queries the data and re-hydrates from any saved draft via `mountData`.
+
+**Runtime disable / teardown:** Phase 5 does **not** introduce a `deactivate()` lifecycle hook or `WebviewPanelManager.onExtensionDisabled(extensionId)` handler. In Phase 5, disabling an extension requires a restart (`setEnabled` + restart); layout restoration (Decision 9) already falls back to a default layout when a disabled extension is missing. Phase 3 hot-disable (`crash_count >= 3`) fires during `onStartup` activation (Task 10.4) before any panel is mounted, so there is nothing to clean up. A `deactivate` notification and forced unmount path are deferred to Phase 7/8, when the Extension Manager UI introduces runtime enable/disable without restart.
 
 **Alternatives considered:**
 
@@ -562,7 +567,7 @@ type WorkspaceNode =
   { "type": "tab", "panelId": "panel-salary-history", "label": "Salary History" }
 ]}
 ```
-On restore, if an extension referenced by `panelId` is missing or disabled, fall back to a single-tab layout with the first available `onStartup` extension active. If the serialized layout exceeds 4 KB, truncate to the active tab only.
+On restore, if an extension referenced by `panelId` is missing or disabled, fall back to a single-tab layout with the first available `onStartup` extension active. If the serialized layout exceeds 16 KB, truncate to the active tab only.
 
 The workspace renders the tree recursively. The tab bar shows tabs in the **active leaf's path** (the user always sees the tabs of the pane they're focused in). Drag-and-drop: a tab can be dragged onto another tab's split affordance (right edge / bottom edge) to create a new split. Drag-and-drop is implemented with the HTML5 Drag and Drop API (no library).
 
@@ -821,12 +826,13 @@ finance-flow_ai/
 
 **Steps:**
 
-- [ ] 2.1 In `panel-protocol.ts`, register a custom protocol `finance-shell://` via `protocol.handle('finance-shell', ...)` that:
+- [ ] 2.1 In `panel-protocol.ts`, define the shared `PanelInitPayload` interface and register a custom protocol `finance-shell://` via `protocol.handle('finance-shell', ...)` that:
+  - `interface PanelInitPayload { extensionId: string; viewId: string; mountData: object; }` — the typed shape sent via `webContents.send('panel:init', payload)`.
   - Parses the URL: `finance-shell://panel/<extensionId>/<viewId>.html`.
   - Serves a static HTML shell (`src/main/resources/panel-template.html`) that includes `<script src="...">` referencing the extension bundle via the `extensionId` path segment.
   - Sets the response headers with the strict CSP from Decision 11 (`default-src 'self'; script-src 'self'; ...`).
 - [ ] 2.2 In `webview-panel-manager.ts`, implement `WebviewPanelManager`:
-  - `mount(extensionId, viewId, mountData)`: create a `WebContentsView` with the panel's webPreferences (Decision 1), attach it to the main `BrowserWindow.contentView`, load `finance-shell://panel/<extensionId>/<viewId>.html`, send `panel:init` via `webContents.send` with `{ extensionId, viewId, mountData, financeShell: <subset> }`.
+  - `mount(extensionId, viewId, mountData)`: create a `WebContentsView` with the panel's webPreferences (Decision 1), attach it to the main `BrowserWindow.contentView`, load `finance-shell://panel/<extensionId>/<viewId>.html`, send `panel:init` via `webContents.send` with a `PanelInitPayload`.
   - `unmount(handle)`: destroy the `WebContentsView`.
   - `focus(handle)`: call `view.webContents.focus()`.
   - `list()`: return all open panels.
@@ -847,7 +853,18 @@ finance-flow_ai/
   - Wrap `autoSaveDraft()` in a `Promise.race` with a 500 ms `setTimeout`.
   - On timeout or rejection: log `console.error`, destroy the `WebContentsView`, and emit `panel:auto-save-failed` to the renderer.
   - The renderer's workspace component listens for `panel:auto-save-failed` and shows a toast with the extension's display name.
-- [ ] 2.7 In `src/extension-host/api/ui.ts` (new), define `createUi(extensionId, rpc)` that exposes `requestMount(viewId: string, mountData: object): Promise<void>` via the `extension:request-mount` RPC. Add `ui: { requestMount }` to the `FinanceApi` returned by `createFinance` in `api/index.ts`.
+  - Before calling `autoSaveDraft`, also invoke any callbacks registered via `finance.ui.onBeforeUnmount` (the extension's draft-persist hook); collect the results and pass the aggregate to `autoSaveDraft`.
+- [ ] 2.7 In `src/extension-host/api/ui.ts` (new), define `createUi(extensionId, rpc)` that exposes `requestMount`, `setDirty`, `autoSaveDraft`, and `onBeforeUnmount`:
+  ```ts
+  finance.ui = {
+    requestMount(viewId: string, mountData: object): Promise<void>,
+    setDirty(dirty: boolean): void,
+    autoSaveDraft(): Promise<void>,
+    onBeforeUnmount(callback: () => Promise<void>): void  // register a draft-persist hook
+  };
+  ```
+   `requestMount` sends `extension:request-mount` RPC. `setDirty` and `autoSaveDraft` route to `WebviewPanelManager` via `WebviewPanelUIHandler`. `onBeforeUnmount` stores callbacks in a per-extension list; `WebviewPanelManager` drains them before unmounting. Add `ui: { requestMount, setDirty, autoSaveDraft, onBeforeUnmount }` to the `FinanceApi` returned by `createFinance` in `api/index.ts`.
+- [ ] 2.8 In `webview-panel-manager.ts`, add `destroyAll()` that iterates all open panels, calls `autoSaveDraft` + `onBeforeUnmount` callbacks for dirty panels (with timeout), then destroys each `WebContentsView`. In `main.ts`, call `webviewPanelManager.destroyAll()` from the existing `app.on('will-quit', ...)` handler (which already runs `shutdownPersistence`). This prevents Electron leaks on quit.
 
 **Verification:** Manual: click the Activity Bar button for the `salary-history` view → a WebviewPanel opens with the salary-history UI. The panel's DevTools shows the strict CSP applied. Closing the parent window closes all panels.
 
@@ -866,10 +883,13 @@ finance-flow_ai/
       list: () => ipcRenderer.invoke('extensions:list'),
       executeCommand: (commandId, ...args) => ipcRenderer.invoke('extensions:execute-command', commandId, ...args),
       uiEvent: (extensionId, eventName, detail) => ipcRenderer.send('extensions:ui-event', extensionId, eventName, detail),
-      onUiMount: (callback) => ipcRenderer.on('extensions:ui-mount', (_e, payload) => callback(payload)),
+      onUiMount: (callback) => ipcRenderer.on('extensions:ui-mount', (_e, payload: PanelInitPayload) => callback(payload)),
       requestMount: (viewId, mountData) => ipcRenderer.invoke('extension:request-mount', viewId, mountData),
     },
-    settings: { get, set }  // Phase 4 settings bridge, unchanged
+    settings: { get, set },  // Phase 4 settings bridge, unchanged
+    ui: {
+      onBeforeUnmount: (callback) => ipcRenderer.invoke('extension:on-before-unmount', callback)
+    }
   });
   ```
 - [ ] 3.2 In `finance-shell.d.ts`, add `PanelFinanceShell` interface (subset of `FinanceShellApi`) for the panel context; document that `finance.db` and `finance.services` are NOT exposed in the panel — extensions access them inside the extension bundle.
@@ -1059,7 +1079,10 @@ finance-flow_ai/
   Note: Dashboard reads `dashboard.cardOrder` and `dashboard.financialYearStart` via `finance.settings.get` in `activate()` (Task 9.2). No `contributes.configuration` block is declared in Phase 5 because the generic settings UI is deferred to Phase 7 (Decision 12). The keys are used as raw settings without manifest validation; Phase 7 adds the `configuration` schema when the settings screen ships.
 - [ ] 9.2 In `src/main.ts`, `activate(finance)`:
   - Read `dashboard.cardOrder` from `finance.settings.get('dashboard.cardOrder')` (default `['net-worth', 'ytd-salary', 'last-payslip', 'accounts-summary']`).
-  - Call `finance.services.pay.getYearToDateSummary(financialYearStart)`, `getLastPayslip()`, `getCurrentRate()`; also `finance.db.table('accounts').find({})` for accounts.
+  - Call `finance.services.invoke('pay', 'getYearToDateSummary', { financialYearStart })`,
+    `finance.services.invoke('pay', 'getLastPayslip')`,
+    `finance.services.invoke('pay', 'getCurrentRate')`; also
+    `finance.db.table('accounts').find({})` for accounts.
   - Build an `aggregator` object with the card data.
   - Call `finance.ui.requestMount('dashboard-view', { aggregator })`.
   - Register `dashboard.refresh` command (re-runs the aggregator).
@@ -1076,7 +1099,7 @@ finance-flow_ai/
     return { ytd, lastPayslip, currentRate, accounts, hasPayExtension: !!lastPayslip };
   }
   ```
-  Note: the registry logs a distinct warn for "service not found" vs "service errored". Dashboard shows "Salary extension not installed" only for service-not-found; for service-errored, show "Salary data unavailable — check console for details."
+  Note: the registry logs a distinct warn for "service not found" vs "service errored", but `finance.services.invoke` returns `null` in both cases — the panel cannot distinguish them at the API level. Dashboard shows a single generic "Salary data unavailable" placeholder when any `pay` service call returns `null`.
 - [ ] 9.4 In `src/ui/dashboard-view.ts`, render the 4 cards in the configured order via `cardOrder`; each card receives the relevant data slice. Cards show "—" or "install Salary History to see this" placeholders when data is missing.
 - [ ] 9.5 In `src/ui/{net-worth,ytd-salary,last-payslip,accounts-summary}-card.ts`, implement the 4 cards as Lit components sharing `shared-styles.ts`.
 - [ ] 9.6 Add 6 aggregator unit tests (mocked `finance`) + 5 dashboard-view tests (happy-dom).
@@ -1097,7 +1120,11 @@ finance-flow_ai/
     onStartupExtensions.push({ id: extensionId, manifest });
   }
   ```
-- [ ] 10.2 In `main.ts`, after `extensionIPC.start(...)`, sort `onStartupExtensions` alphabetically by `id` (default-view extension first, then remaining). Activate them **sequentially** using `for...of` with `await`:
+- [ ] 10.2 In `main.ts`, after `extensionIPC.start(...)`, read the default view from settings with a code fallback:
+  ```ts
+  const defaultView = getSetting<string>('core.workspace.defaultView') ?? 'dashboard';
+  ```
+  Sort `onStartupExtensions` so the extension contributing `defaultView` comes first (if it is `onStartup`), then remaining `onStartup` extensions in manifest-discovery order (alphabetical on `id` for determinism). Activate them **sequentially** using `for...of` with `await`:
   ```ts
   for (const ext of sortedOnStartupExtensions) {
     await extensionIPC.request('extension.activate', { extensionId: ext.id, reason: 'onStartup' });
@@ -1145,9 +1172,10 @@ finance-flow_ai/
 - [ ] 12.2 In `tab-bar.ts`, render the tabs in the active leaf's path; support drag-to-split (HTML5 Drag and Drop).
 - [ ] 12.3 In `split-pane.ts`, render a 2-pane container with a draggable splitter; close-on-last-tab collapses the split.
 - [ ] 12.4 In `styles/layout.css`, add tab bar + splitter styles matching the existing palette.
-- [ ] 12.5 Persist the `WorkspaceLayout` to `core.workspace.layout` setting on every change (debounced 500 ms). Guard against settings bloat: if the serialized JSON exceeds 4 KB, truncate to the active tab only.
-- [ ] 12.6 Restore the `WorkspaceLayout` from the setting on `DOMContentLoaded`. If restoration fails (missing extension, corrupted JSON, size > 4 KB), fall back to a single-tab default layout with the Dashboard active.
+- [ ] 12.5 Persist the `WorkspaceLayout` to `core.workspace.layout` setting on every change (debounced 500 ms). Guard against settings bloat: if the serialized JSON exceeds 16 KB, truncate to the active tab only.
+- [ ] 12.6 Restore the `WorkspaceLayout` from the setting on `DOMContentLoaded`. If restoration fails (missing extension, corrupted JSON, size > 16 KB), fall back to a single-tab default layout with the Dashboard active.
 - [ ] 12.7 Add 6 workspace tests + 4 tab-bar tests.
+- [ ] 12.8 In `workspace.ts` or `tab-bar.ts`, attach a `ResizeObserver` to the active pane's container. On resize/split changes, compute the container's pixel bounds relative to the main window and send them to Main via a new IPC channel `panel:resize` (`ipcRenderer.send('panel:resize', { panelId, bounds: { x, y, width, height } })`). In `webview-panel-manager.ts`, listen for `panel:resize` and call `view.setBounds(bounds)` on the matching `WebContentsView`. This is the sync mechanism referenced in Decision 1 L164.
 
 **Verification:** `npm run test:unit -- workspace tab-bar` → all tests pass; manual: open 3 tabs → drag one to the right edge → 2-pane split appears; restart app → layout restored.
 

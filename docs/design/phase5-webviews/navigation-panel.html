@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Navigation Panel — Phase 5 Mockup</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #1e1e1e;
+      color: #d4d4d4;
+      margin: 0;
+      padding: 0;
+      line-height: 1.5;
+      font-size: 14px;
+    }
+    .topbar { background: #252526; border-bottom: 1px solid #3e3e3e; padding: 10px 20px; display: flex; align-items: center; gap: 12px; }
+    .topbar a { color: #007acc; text-decoration: none; font-size: 13px; }
+    .topbar a:hover { text-decoration: underline; }
+    .topbar .crumb-sep { color: #858585; }
+    .topbar .crumb-current { color: #d4d4d4; font-weight: 500; }
+
+    .app { display: flex; height: calc(100vh - 41px); }
+    .activity-bar {
+      width: 48px;
+      background: #333333;
+      border-right: 1px solid #3e3e3e;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 8px 0;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+    .activity-item {
+      width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
+      color: #858585; cursor: pointer; border-radius: 4px; font-size: 12px; font-weight: 700;
+      position: relative;
+    }
+    .activity-item:hover { color: #ffffff; }
+    .activity-item.active { color: #ffffff; }
+    .activity-item.active::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 4px;
+      bottom: 4px;
+      width: 2px;
+      background: #007acc;
+      border-radius: 0 1px 1px 0;
+    }
+    .activity-icon { font-size: 18px; }
+
+    .nav-panel {
+      width: 220px;
+      background: #252526;
+      border-right: 1px solid #3e3e3e;
+      padding: 12px 0;
+      flex-shrink: 0;
+      overflow-y: auto;
+    }
+    .nav-header { padding: 4px 16px 8px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #858585; }
+    .nav-group-label { color: #858585; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; padding: 12px 16px 4px; }
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 16px;
+      color: #d4d4d4;
+      cursor: pointer;
+      font-size: 13px;
+      border-left: 2px solid transparent;
+    }
+    .nav-item:hover { background: #2a2a2a; }
+    .nav-item.active { background: #37373d; border-left-color: #007acc; color: #ffffff; }
+    .nav-icon {
+      width: 18px; height: 18px; display: flex; align-items: center; justify-content: center;
+      background: #3c3c3c; border-radius: 3px; font-size: 11px; font-weight: 700; color: #cccccc;
+    }
+    .nav-item.active .nav-icon { background: #007acc; color: #ffffff; }
+
+    .workspace { flex: 1; padding: 24px; overflow-y: auto; }
+    .workspace-placeholder { color: #858585; font-size: 13px; }
+    .workspace-placeholder strong { color: #d4d4d4; }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <a href="index.html">← Back to index</a>
+    <span class="crumb-sep">/</span>
+    <span class="crumb-current">Navigation panel</span>
+  </div>
+
+  <div class="app">
+    <div class="activity-bar">
+      <div class="activity-item active" title="Dashboard">
+        <span class="activity-icon">D</span>
+      </div>
+      <div class="activity-item" title="Salary History">
+        <span class="activity-icon">S</span>
+      </div>
+      <div class="activity-item" title="Settings">
+        <span class="activity-icon">⚙</span>
+      </div>
+    </div>
+
+    <nav class="nav-panel">
+      <div class="nav-header">Explorer</div>
+
+      <div class="nav-group-label">Insights</div>
+      <div class="nav-item active">
+        <span class="nav-icon">D</span>
+        <span>Dashboard</span>
+      </div>
+      <div class="nav-item">
+        <span class="nav-icon">N</span>
+        <span>Net Worth Detail</span>
+      </div>
+
+      <div class="nav-group-label">Quick Links</div>
+      <div class="nav-item">
+        <span class="nav-icon">S</span>
+        <span>Open Salary History</span>
+      </div>
+      <div class="nav-item">
+        <span class="nav-icon">R</span>
+        <span>Refresh</span>
+      </div>
+
+      <div class="nav-group-label" style="margin-top: 24px;">Built-in</div>
+      <div class="nav-item">
+        <span class="nav-icon">⚙</span>
+        <span>Settings</span>
+      </div>
+    </nav>
+
+    <main class="workspace">
+      <div class="workspace-placeholder">
+        <strong>Dashboard</strong> WebviewPanel content renders here. The navigation panel shows items from the active extension's <code>contributes.navigation</code> manifest block, grouped by <code>group</code>. Clicking "Salary History" in Quick Links switches the active extension and re-renders the nav items.
+      </div>
+    </main>
+  </div>
+</body>
+</html>

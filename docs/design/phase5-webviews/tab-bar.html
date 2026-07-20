@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Tab Bar — Phase 5 Mockup</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #1e1e1e;
+      color: #d4d4d4;
+      margin: 0;
+      padding: 0;
+      line-height: 1.5;
+      font-size: 14px;
+    }
+    .topbar { background: #252526; border-bottom: 1px solid #3e3e3e; padding: 10px 20px; display: flex; align-items: center; gap: 12px; }
+    .topbar a { color: #007acc; text-decoration: none; font-size: 13px; }
+    .topbar a:hover { text-decoration: underline; }
+    .topbar .crumb-sep { color: #858585; }
+    .topbar .crumb-current { color: #d4d4d4; font-weight: 500; }
+
+    .app { display: flex; flex-direction: column; height: calc(100vh - 41px); }
+    .tab-bar {
+      display: flex;
+      background: #2d2d30;
+      border-bottom: 1px solid #3e3e3e;
+      height: 35px;
+      overflow-x: auto;
+      flex-shrink: 0;
+    }
+    .tab {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 12px;
+      min-width: 100px;
+      max-width: 200px;
+      height: 100%;
+      background: #2d2d30;
+      color: #858585;
+      border-right: 1px solid #3e3e3e;
+      cursor: pointer;
+      font-size: 13px;
+      user-select: none;
+      position: relative;
+    }
+    .tab:hover { background: #37373d; }
+    .tab.active {
+      background: #1e1e1e;
+      color: #ffffff;
+      border-bottom: 1px solid #1e1e1e;
+      margin-bottom: -1px;
+    }
+    .tab-icon { font-size: 12px; font-weight: 700; }
+    .tab-label { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .tab-close {
+      width: 16px; height: 16px; display: flex; align-items: center; justify-content: center;
+      border-radius: 3px; font-size: 14px; color: #858585; line-height: 1;
+    }
+    .tab-close:hover { background: #3e3e3e; color: #ffffff; }
+    .tab.active .tab-close:hover { background: #007acc; color: #ffffff; }
+
+    .tab-drop-affordance {
+      width: 6px;
+      cursor: col-resize;
+      background: transparent;
+      flex-shrink: 0;
+    }
+    .tab-drop-affordance:hover { background: #007acc; }
+
+    .workspace { flex: 1; background: #1e1e1e; padding: 24px; overflow-y: auto; }
+    .workspace-placeholder { color: #858585; font-size: 13px; }
+    .workspace-placeholder strong { color: #d4d4d4; }
+
+    .split-container { display: flex; flex: 1; overflow: hidden; }
+    .split-pane { flex: 1; overflow-y: auto; padding: 24px; }
+    .splitter {
+      width: 4px;
+      background: #3e3e3e;
+      cursor: col-resize;
+      flex-shrink: 0;
+      position: relative;
+    }
+    .splitter:hover, .splitter.active { background: #007acc; }
+    .splitter::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: -4px;
+      width: 12px;
+      height: 24px;
+      transform: translateY(-50%);
+      border-radius: 2px;
+    }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <a href="index.html">← Back to index</a>
+    <span class="crumb-sep">/</span>
+    <span class="crumb-current">Tab bar</span>
+  </div>
+
+  <div class="app">
+    <div class="tab-bar">
+      <div class="tab active">
+        <span class="tab-icon" style="background:#007acc;color:#fff;border-radius:3px;padding:2px 6px;font-size:11px;">D</span>
+        <span class="tab-label">Dashboard</span>
+        <span class="tab-close">×</span>
+        <div class="tab-drop-affordance" title="Drag to split"></div>
+      </div>
+      <div class="tab">
+        <span class="tab-icon" style="background:#3c3c3c;color:#ccc;border-radius:3px;padding:2px 6px;font-size:11px;">S</span>
+        <span class="tab-label">Salary History</span>
+        <span class="tab-close">×</span>
+        <div class="tab-drop-affordance" title="Drag to split"></div>
+      </div>
+      <div class="tab" style="opacity: 0.6;">
+        <span class="tab-icon" style="background:#3c3c3c;color:#ccc;border-radius:3px;padding:2px 6px;font-size:11px;">+</span>
+        <span class="tab-label">Open additional tab…</span>
+      </div>
+    </div>
+
+    <div class="workspace">
+      <div class="workspace-placeholder">
+        <strong>Dashboard</strong> content area — the active tab's WebviewPanel iframe fills this region.
+        Switch to "Salary History" to see a different panel mounted here.
+      </div>
+    </div>
+  </div>
+</body>
+</html>
