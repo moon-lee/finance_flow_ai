@@ -70,7 +70,7 @@ A bootable Electron app with a working **multi-extension workspace**. The items 
 2. **Multi-tab workspace.** Clicking the Activity Bar button for the `salary-history` view opens **Salary History** in a **second tab**; the Dashboard tab stays open. Switching tabs swaps the visible content; the inactive tab's state is preserved (its WebviewPanel stays mounted). A tab bar shows all open tabs with the active tab highlighted.
 3. **Split-screen support.** A tab can be dragged into a separate editor group (right-side or below), creating a side-by-side or top-bottom view. Phase 5 ships the data model + drag affordance + the visual chrome for split groups; the implementation uses a simple 2-pane (left/right) split first — full grid layouts are Phase 7+.
 4. **NavigationProvider — data-driven sidebar.** The Navigation Panel's sidebar is no longer a static `if (view === 'Salary')` switch. Each extension contributes a **`navigation`** block (a flat list of `{ id, label, command, group? }` items) via its `package.json#financeExtension.contributes.navigation`. The Navigation Panel renders the items of the **currently-active extension** and wires clicks to that extension's contributed commands. The Salary extension contributes "Pay History" + "Pay Rate History"; the Dashboard contributes "Net Worth Detail" (no-op placeholder for Phase 5+) and "Open Salary History" (invokes `salary.show-pay-history`). Phase 5 also reserves a built-in "Settings" group rendered by Core (not an extension contribution).
-5. **WebviewPanel sandbox.** Each extension's UI runs inside a **sandboxed Electron `BrowserWindow` child iframe** (the Phase 5 shape of `WebviewPanel`), not in the main renderer. The iframe gets `contextIsolation: true`, `sandbox: true`, `nodeIntegration: false`, and a strict `Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'`. The iframe communicates with the Renderer via `postMessage` (the existing `extensions:ui-event` channel becomes the standard back-channel). The renderer-orchestrator pattern (Phase 4's `salary-history-view` Lit host) is replaced by a Main-side **WebviewPanel manager** that owns the iframe lifecycle, including security headers.
+5. **WebviewPanel sandbox.** Each extension's UI runs inside a sandboxed Electron `WebContentsView` (the Phase 5 shape of `WebviewPanel`), not in the main renderer. The iframe gets `contextIsolation: true`, `sandbox: true`, `nodeIntegration: false`, and a strict `Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'`. The iframe communicates with the Renderer via `postMessage` (the existing `extensions:ui-event` channel becomes the standard back-channel). The renderer-orchestrator pattern (Phase 4's `salary-history-view` Lit host) is replaced by a Main-side **WebviewPanel manager** that owns the iframe lifecycle, including security headers.
 
 ### User-visible: Cross-extension `finance.services.*`
 
@@ -384,15 +384,14 @@ The four methods above are exactly what Dashboard calls. The internal `PayServic
    ```jsonc
    // extensions/salary-history/package.json
    "contributes": {
-     "commands": [
-       { "id": "salary.show-pay-history", "title": "View: Pay History", "keybinding": "Ctrl+Alt+H" },
-       { "id": "salary.show-pay-rate-history", "title": "View: Pay Rate History", "keybinding": "Ctrl+Alt+R" }
-     ],
-     "allowedCommands": [
-       "salary.show-pay-history",
-       "salary.show-pay-rate-history",
-       "salary.show-dashboard"   // ← for Dashboard's "Open Salary History" quick link
-     ]
+      "commands": [
+        { "id": "salary.show-pay-history", "title": "View: Pay History", "keybinding": "Ctrl+Alt+H" },
+        { "id": "salary.show-pay-rate-history", "title": "View: Pay Rate History", "keybinding": "Ctrl+Alt+R" }
+      ],
+      "allowedCommands": [
+        "salary.show-pay-history",
+        "salary.show-pay-rate-history"
+      ]
    }
    ```
    The `allowedCommands` list is a subset of `commands` (validated at load time by the manifest schema); commands not in the list can still be **registered** (the extension's own code can call them via `finance.commands.execute`) but cannot be **invoked by external callers** (the renderer, another extension via `finance.services.*` proxy, or a future marketplace-installed extension).
@@ -413,7 +412,7 @@ The four methods above are exactly what Dashboard calls. The internal `PayServic
 
 **Reasoning:** Phase 3 Self-Review §7 deferred this to Phase 5; Phase 4 Review Finding 3 reminded that it was still deferred. The allowlist is the **first line of defence** against accidental or unprivileged cross-extension command invocation. It is **not** a full security isolation layer — all extensions share one Host process, so a malicious extension could spoof its extension ID or read another extension's registered commands in memory (see Gap 5). The allowlist protects against **developer errors** and **unintentional cross-extension calls**, not against a compromised extension that already runs in the shared Host.
 
-The `allowedCommands` set is **per-extension** because the threat model is per-extension: salary-history is trusted to invoke `salary.show-pay-history`, but Dashboard (a separate, less-trusted extension) is **not** trusted to invoke arbitrary salary-history commands. By listing `salary.show-dashboard` in salary-history's `allowedCommands`, salary-history opts into Dashboard's invocation of that specific command (currently a no-op — it's reserved for a future "Open Salary History" Dashboard command).
+The `allowedCommands` set is **per-extension** because the threat model is per-extension: salary-history is trusted to invoke its own commands internally, but Dashboard (a separate, less-trusted extension) is **not** trusted to invoke arbitrary salary-history commands unless salary-history explicitly opts in. By listing a command in `allowedCommands`, the owning extension says "external callers may invoke this command on my behalf." For example, if salary-history later wants Dashboard to open Salary History, it would add a command like `salary.open` to its own `commands[]` and list it in `allowedCommands`; Dashboard then calls `financeShell.extensions.executeCommand('salary.open')` and Main allows it because salary-history opted in.
 
 **Alternatives considered:**
 
@@ -631,7 +630,7 @@ This separation makes the security model clearer: the panel's `window.financeShe
 
 ### Decision 11: Closing the Phase 4 `'unsafe-eval'` CSP Risk
 
-> **In plain English:** Phase 4 Decision 19 mounted the extension bundle via a `blob:` URL with dynamic `import()`, which requires `'unsafe-eval'` in the renderer's CSP. Phase 5's WebviewPanel loads the bundle via a regular `<script src="...">` from a `file://` URL, so the panel's CSP does not need `'unsafe-eval'`.
+> **In plain English:** Phase 4 Decision 19 mounted the extension bundle via a `blob:` URL with dynamic `import()`, which requires `'unsafe-eval'` in the renderer's CSP. Phase 5's WebviewPanel loads the bundle via a regular `<script src="...">` from the `finance-shell://` custom protocol, so the panel's CSP does not need `'unsafe-eval'`.
 
 **Choice:** The panel's Content-Security-Policy is:
 
@@ -1057,6 +1056,7 @@ finance-flow_ai/
     }
   }
   ```
+  Note: Dashboard reads `dashboard.cardOrder` and `dashboard.financialYearStart` via `finance.settings.get` in `activate()` (Task 9.2). No `contributes.configuration` block is declared in Phase 5 because the generic settings UI is deferred to Phase 7 (Decision 12). The keys are used as raw settings without manifest validation; Phase 7 adds the `configuration` schema when the settings screen ships.
 - [ ] 9.2 In `src/main.ts`, `activate(finance)`:
   - Read `dashboard.cardOrder` from `finance.settings.get('dashboard.cardOrder')` (default `['net-worth', 'ytd-salary', 'last-payslip', 'accounts-summary']`).
   - Call `finance.services.pay.getYearToDateSummary(financialYearStart)`, `getLastPayslip()`, `getCurrentRate()`; also `finance.db.table('accounts').find({})` for accounts.
@@ -1304,13 +1304,21 @@ finance-flow_ai/
 - [ ] 9.3 **Expected:** returns the strict CSP from Decision 11 (`default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self';`). No `'unsafe-eval'`.
 
 **Test Unit 10: DAO `$join` operator.**
-- [ ] 10.1 From the Renderer DevTools console, run:
+- [ ] 10.1 With Salary History active, run a `$join` query from the salary-history extension context (salary-history may join its own `salary_history_pay_slips` with the shared `accounts` table):
   ```js
-  const result = await window.financeShell.extensions.executeCommand('dashboard.refresh');
+  const result = await finance.db.table('salary_history_pay_slips').find(
+    {},
+    {
+      $join: { table: 'accounts', on: { left: 'salary_history_pay_slips.account_id', right: 'accounts.id' }, type: 'LEFT' },
+      $orderBy: [{ column: 'pay_date', direction: 'DESC' }],
+      $limit: 50
+    }
+  );
   ```
-  This triggers the Dashboard's `buildAggregator`, which calls `finance.db.table('accounts').find({}, { $join: { table: 'accounts', on: '...', type: 'LEFT' }, $orderBy: [{ column: 'name', direction: 'ASC' }] })`.
-- [ ] 10.2 **Expected:** the Dashboard's Accounts Summary card re-renders with the joined + sorted accounts list.
-- [ ] 10.3 **Negative test:** run `finance.db.table('salary_history_pay_slips').find({}, { $join: { table: 'accounts', on: 'salary_history_pay_slips.account_id = accounts.id', type: 'LEFT' } })` from a salary-history context — succeeds (shared table). Run the same from a hypothetical "budget" extension context → rejected with `TableAccessDenied` (cannot join another extension's table).
+  (Run from the Salary History panel's bundle context, or invoke via a temporary salary-history command that performs the query.)
+- [ ] 10.2 **Expected:** the query succeeds and returns payslips joined with account rows. Each result row includes columns from both tables. The list is sorted by `pay_date DESC` and capped at 50 rows.
+- [ ] 10.3 **Negative test (cross-extension access):** from a hypothetical `budget` extension (which does not own `salary_history_pay_slips`), the same `$join` is rejected with `TableAccessDenied`.
+- [ ] 10.4 **Validation test:** run with an invalid `on` shape (raw SQL string, or a non-existent column) → rejected with `ValidationFailed` at the DAO layer.
 
 **Test Unit 11: TypeScript Strict + Lint + Tests.**
 - [ ] 11.1 `npm run typecheck` → exit 0.
@@ -1467,7 +1475,7 @@ These will run when the Phase 3 Playwright-electron environmental issue is resol
 - [x] All SQL parameterised (DAO `$join.on` validated by the registry against manifest column lists — no string interpolation).
 - [x] All cross-process payloads serialisable (Phase 4 `serializeRow` reused; DomainService return values pass through `serializeRow` at the registry boundary).
 - [x] Error messages user-actionable (allowlist denials return specific `reason` strings; service-not-found returns `null` with a `console.warn`).
-- [x] No new runtime dependencies (WebviewPanels use Electron's built-in `BrowserWindow`; no React/Vue/etc.).
+- [x] No new runtime dependencies (WebviewPanels use Electron's built-in `WebContentsView`; no React/Vue/etc.).
 - [x] No new dev dependencies.
 
 ### §7 — Explicit Deferrals (Out of Scope, Documented for Future Phases)
