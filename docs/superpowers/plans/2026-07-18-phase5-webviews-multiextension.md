@@ -456,18 +456,20 @@ The `allowedCommands` set is **per-extension** because the threat model is per-e
 
 2. **Main-side enforcement** — `extensions:ui-event` IPC handler gains a pre-check:
    ```ts
-   ipcMain.on('extensions:ui-event', (_event, extensionId, eventName, detail) => {
-     if (!uiEventAllowlist.isAllowed(extensionId, eventName)) {
-       const msg = `[extensions] dropped ui-event "${eventName}" from "${extensionId}" — not in allowlist`;
-       console.warn(msg);
-       // Forward the same warning to the originating panel's DevTools console so
-       // extension developers see the violation immediately during development.
-       const panel = webviewPanelManager.findPanelByExtension(extensionId);
-       panel?.webContents.send('panel:allowlist-denied', { kind: 'ui-event', extensionId, eventName, reason: msg });
-       return;
-     }
-     extensionIPC.notify(RPC_METHOD.ExtensionUiEvent, { extensionId, eventName, detail });
-   });
+   ipcMain.on('extensions:ui-event', (_event, eventName, detail) => {
+      const senderId = _event.sender.id;
+      const panel = webviewPanelManager.findPanelByWebContentsId(senderId);
+      if (!panel) { console.warn('[extensions] dropped ui-event — sender is not a known panel'); return; }
+      const extensionId = panel.extensionId;
+      if (!uiEventAllowlist.isAllowed(extensionId, eventName)) {
+        const msg = `[extensions] dropped ui-event "${eventName}" from "${extensionId}" — not in allowlist`;
+        console.warn(msg);
+        const panel = webviewPanelManager.findPanelByWebContentsId(senderId);
+        panel?.webContents.send('panel:allowlist-denied', { kind: 'ui-event', extensionId, eventName, reason: msg });
+        return;
+      }
+      extensionIPC.notify(RPC_METHOD.ExtensionUiEvent, { extensionId, eventName, detail });
+    });
    ```
    A new `UiEventAllowlist` class in `src/main/services/ui-event-allowlist.ts` mirrors `CommandAllowlist`.
 
@@ -830,9 +832,12 @@ finance-flow_ai/
   - Serves a static HTML shell (`src/main/resources/panel-template.html`) that includes `<script src="...">` referencing the extension bundle via the `extensionId` path segment.
   - Sets the response headers with the strict CSP from Decision 11 (`default-src 'self'; script-src 'self'; ...`).
 - [ ] 2.2 In `webview-panel-manager.ts`, implement `WebviewPanelManager`:
-  - `mount(extensionId, viewId, mountData)`: create a `WebContentsView` with the panel's webPreferences (Decision 1), attach it to the main `BrowserWindow.contentView`, load `finance-shell://panel/<extensionId>/<viewId>.html`, send `panel:init` via `webContents.send` with a `PanelInitPayload`.
-  - `unmount(handle)`: destroy the `WebContentsView`.
+  - Define `PanelHandle = { panelId: string; extensionId: string; viewId: string; webContents: WebContents; }`. `panelId` is a stable opaque id (e.g. `panel-${extensionId}-${viewId}`) used by the renderer in `panel:resize` and tab-bar focus calls.
+  - Maintain a `Map<number, PanelHandle>` keyed by `webContents.id()` so Main can resolve any incoming panel IPC message to its owning extension without trusting client-supplied parameters.
+  - `mount(extensionId, viewId, mountData)`: create a `WebContentsView` with the panel's webPreferences (Decision 1), attach it to the main `BrowserWindow.contentView`, load `finance-shell://panel/<extensionId>/<viewId>.html`, send `panel:init` via `webContents.send` with a `PanelInitPayload`, register the handle in the `webContents` map.
+  - `unmount(handle)`: remove the handle from the map, remove the `WebContentsView` from its parent, then destroy it.
   - `focus(handle)`: call `view.webContents.focus()`.
+  - `findPanelByWebContentsId(webContentsId: number): PanelHandle | undefined`: lookup by sender id — used by the `extensions:ui-event` handler and the `panel:resize` handler to resolve the owning extension without trusting client-supplied `extensionId`.
   - `list()`: return all open panels.
 - [ ] 2.3 In `main.ts`, instantiate `WebviewPanelManager` after the window is created; pass it to `ExtensionIPC.setUIHandler(webviewPanelManager)` (replacing the Phase 4 `extensions.onUiMount` subscription in `renderer/index.ts`).
 - [ ] 2.4 Add 8 unit tests in `webview-panel-manager.test.ts` covering: mount/unmount lifecycle, focus switching, multiple panels, custom protocol URL parsing, CSP headers set, WebContentsView parent reference correct.
@@ -841,12 +846,12 @@ finance-flow_ai/
   interface WebviewPanelUIHandler {
     onMountRequested(extensionId: string, viewId: string, mountData: object): void;
     onFocusRequested(panelId: string): void;
-    onUiEvent(extensionId: string, eventName: string, detail: unknown): void;
+    onUiEvent(webContentsId: number, eventName: string, detail: unknown): void;
     onSetDirty(panelId: string, dirty: boolean): void;
     onAutoSaveDraft(panelId: string): Promise<void>;
   }
   ```
-  Wire the Host's `finance.ui.requestMount`, `finance.ui.setDirty`, and `finance.ui.autoSaveDraft` calls to these handler methods via RPC.
+  Wire the Host's `finance.ui.requestMount`, `finance.ui.setDirty`, and `finance.ui.autoSaveDraft` calls to these handler methods via RPC. The handler resolves `webContentsId → panelId → extensionId` internally via the manager's `findPanelByWebContentsId` map, so no client-supplied `extensionId` is trusted.
 - [ ] 2.6 In `webview-panel-manager.ts`, implement the `autoSaveDraft` timeout + failure toast:
   - Wrap `autoSaveDraft()` in a `Promise.race` with a 500 ms `setTimeout`.
   - On timeout or rejection: log `console.error`, destroy the `WebContentsView`, and emit `panel:auto-save-failed` to the renderer.
@@ -898,8 +903,9 @@ finance-flow_ai/
 
 **Steps:**
 
-- [ ] 4.1 In `webview-panel-manager.ts`, add a `forwardUiEvent(extensionId, eventName, detail)` method that:
-  - Validates `extensionId` is an active extension.
+- [ ] 4.1 In `webview-panel-manager.ts`, add a `forwardUiEvent(webContentsId, eventName, detail)` method that:
+  - Looks up the panel by `webContentsId` via `findPanelByWebContentsId`; if not found, drops the event with `console.warn` (sender is not a known panel — possible spoofing attempt).
+  - Uses the resolved `panel.extensionId` for the allowlist check and the Host notification. Never trusts a client-supplied `extensionId`.
   - Routes the event to the **Host** via the existing `extensionIPC.notify(RPC_METHOD.ExtensionUiEvent, { extensionId, eventName, detail })` (this is the Phase 4 `extensions:ui-event` back-channel extended to panel-originated events).
 - [ ] 4.2 In `main.ts`, also forward the event to the **main renderer** (`mainWindow.webContents.send('extensions:ui-event-from-panel', { extensionId, eventName, detail })`) so the main window's UI (tab bar, navigation panel, status bar) can update in response to panel actions.
 - [ ] 4.3 Document the two-hop flow in `webview-panel-manager.ts` JSDoc: panel → Main → Host (extension logic) AND panel → Main → renderer (shell UI updates). These are independent parallel paths, not a sequential round-trip.
@@ -1176,7 +1182,7 @@ finance-flow_ai/
 - [ ] 12.5 Persist the `WorkspaceLayout` to `core.workspace.layout` setting on every change (debounced 500 ms). Guard against settings bloat: if the serialized JSON exceeds 16 KB, truncate to the active tab only.
 - [ ] 12.6 Restore the `WorkspaceLayout` from the setting on `DOMContentLoaded`. If restoration fails (missing extension, corrupted JSON, size > 16 KB), fall back to a single-tab default layout with the Dashboard active.
 - [ ] 12.7 Add 6 workspace tests + 4 tab-bar tests.
-- [ ] 12.8 In `workspace.ts` or `tab-bar.ts`, attach a `ResizeObserver` to the active pane's container. On resize/split changes, compute the container's pixel bounds relative to the main window and send them to Main via a new IPC channel `panel:resize` (`ipcRenderer.send('panel:resize', { panelId, bounds: { x, y, width, height } })`). In `webview-panel-manager.ts`, listen for `panel:resize` and call `view.setBounds(bounds)` on the matching `WebContentsView`. This is the sync mechanism referenced in Decision 1 L164.
+- [ ] 12.8 In `workspace.ts` or `tab-bar.ts`, attach a `ResizeObserver` to the active pane's container. Throttle the observer callback with `requestAnimationFrame` so that rapid resize events (e.g., drag-splitter) send at most one `panel:resize` IPC message per frame. On each throttled callback, compute the container's pixel bounds relative to the main window and send them to Main via `ipcRenderer.send('panel:resize', { panelId, bounds: { x, y, width, height } })`. In `webview-panel-manager.ts`, listen for `panel:resize` and call `view.setBounds(bounds)` on the matching `WebContentsView`. This is the sync mechanism referenced in Decision 1 L164.
 
 **Verification:** `npm run test:unit -- workspace tab-bar` → all tests pass; manual: open 3 tabs → drag one to the right edge → 2-pane split appears; restart app → layout restored.
 
