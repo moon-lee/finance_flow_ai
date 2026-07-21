@@ -70,12 +70,12 @@ A bootable Electron app with a working **multi-extension workspace**. The items 
 2. **Multi-tab workspace.** Clicking the Activity Bar button for the `salary-history` view opens **Salary History** in a **second tab**; the Dashboard tab stays open. Switching tabs swaps the visible content; the inactive tab's state is preserved (its WebviewPanel stays mounted). A tab bar shows all open tabs with the active tab highlighted.
 3. **Split-screen support.** A tab can be dragged into a separate editor group (right-side or below), creating a side-by-side or top-bottom view. Phase 5 ships the data model + drag affordance + the visual chrome for split groups; the implementation uses a simple 2-pane (left/right) split first — full grid layouts are Phase 7+.
 4. **NavigationProvider — data-driven sidebar.** The Navigation Panel's sidebar is no longer a static `if (view === 'Salary')` switch. Each extension contributes a **`navigation`** block (a flat list of `{ id, label, command, group? }` items) via its `package.json#financeExtension.contributes.navigation`. The Navigation Panel renders the items of the **currently-active extension** and wires clicks to that extension's contributed commands. The Salary extension contributes "Pay History" + "Pay Rate History"; the Dashboard contributes "Net Worth Detail" (no-op placeholder for Phase 5+) and "Open Salary History" (invokes `salary.show-pay-history`). Phase 5 also reserves a built-in "Settings" group rendered by Core (not an extension contribution).
-5. **WebviewPanel sandbox.** Each extension's UI runs inside a sandboxed Electron `WebContentsView` (the Phase 5 shape of `WebviewPanel`), not in the main renderer. The iframe gets `contextIsolation: true`, `sandbox: true`, `nodeIntegration: false`, and a strict `Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'`. The iframe communicates with the Renderer via `postMessage` (the existing `extensions:ui-event` channel becomes the standard back-channel). The renderer-orchestrator pattern (Phase 4's `salary-history-view` Lit host) is replaced by a Main-side **WebviewPanel manager** that owns the iframe lifecycle, including security headers.
+5. **WebviewPanel sandbox.** Each extension's UI runs inside a sandboxed Electron `WebContentsView` (the Phase 5 shape of `WebviewPanel`), not in the main renderer. The panel gets `contextIsolation: true`, `sandbox: true`, `nodeIntegration: false`, and a strict `Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'`. The panel communicates with the Renderer via `postMessage` (the existing `extensions:ui-event` channel becomes the standard back-channel). The renderer-orchestrator pattern (Phase 4's `salary-history-view` Lit host) is replaced by a Main-side **WebviewPanel manager** that owns the panel lifecycle, including security headers.
 
 ### User-visible: Cross-extension `finance.services.*`
 
-6. **Dashboard reads salary data via `finance.services.pay.*`.** The Dashboard extension's `activate` calls `finance.services.pay.getYearToDateSummary(financialYearStart)` to compute the YTD Salary card; `finance.services.pay.getLastPayslip()` for the Last Payslip card; `finance.services.pay.getCurrentRate()` for the "current hourly rate" subtitle on the YTD card. If the salary-history extension is missing/disabled, every `finance.services.pay.*` call returns `null` (graceful degradation per `project_vision.md:48`) and the card shows a "Salary extension not installed — install Salary History to see this card" placeholder.
-7. **`finance.services.pay.*` is a Core-owned registry, not a salary-history export.** Phase 5 introduces `src/main/services/domain-service-registry.ts` (new) and `src/extension-host/api/services.ts` (new Host-side API surface). Salary-history's `PayService` is split: the **internal** logic stays in `extensions/salary-history/src/services/pay-service.ts`; the **public** `finance.services.pay.*` adapter is registered in Main via `registerDomainService('pay', { getYearToDateSummary, getLastPayslip, getCurrentRate })` when the salary-history extension activates. The Host's `finance.services.pay.*` API is a thin RPC proxy that looks up the registered service and calls it.
+6. **Dashboard reads salary data via `finance.services.invoke('pay', ...)`.** The Dashboard extension's `activate` calls `finance.services.invoke('pay', 'getYearToDateSummary', { financialYearStart })` to compute the YTD Salary card; `finance.services.invoke('pay', 'getLastPayslip')` for the Last Payslip card; `finance.services.invoke('pay', 'getCurrentRate')` for the "current hourly rate" subtitle on the YTD card. If the salary-history extension is missing/disabled, every `finance.services.invoke('pay', ...)` call returns `null` (graceful degradation per `project_vision.md:48`) and the card shows a "Salary extension not installed — install Salary History to see this card" placeholder.
+7. **`finance.services.invoke('pay', ...)` is a Core-owned registry, not a salary-history export.** Phase 5 introduces `src/main/services/domain-service-registry.ts` (new) and `src/extension-host/api/services.ts` (new Host-side API surface). Salary-history's `PayService` is split: the **internal** logic stays in `extensions/salary-history/src/services/pay-service.ts`; the **public** `finance.services.invoke('pay', ...)` adapter is registered in Main via `registerDomainService('pay', { getYearToDateSummary, getLastPayslip, getCurrentRate })` when the salary-history extension activates. The Host's `finance.services.invoke('pay', ...)` API is a thin RPC proxy that looks up the registered service and calls it.
 
 ### User-visible: Security hardening
 
@@ -179,13 +179,13 @@ The panel loads `finance-shell://panel/<extensionId>/<viewId>.html` (a custom pr
 1. App starts → `app.whenReady` → DB + settings init (Phase 4 order).
 2. ExtensionIPC starts → Host announces `host.ready` (Phase 3 order).
   3. **NEW (Phase 5):** Main reads the user setting `core.workspace.defaultView`. The default value `'dashboard'` is a **code fallback** (not a DB seed) — consistent with the project's existing settings pattern (`getSetting(key) ?? default`). Main validates that the referenced view is contributed by an extension whose `activationEvents` contain `onStartup`; if not valid, it falls back to the first `onStartup` extension's primary view in manifest-discovery order.
-4. Main sends `extension.activate` RPC to the Host for each `onStartup` extension. Activation order is the default-view extension first, then remaining `onStartup` extensions in manifest-discovery order (alphabetical on `id` for determinism).
+4. Main sends `extension.activate` RPC to the Host for each `onStartup` extension. Activation order is: **service-providing extensions first** (extensions that register `finance.services.*` implementations), then the default-view extension (Dashboard), then remaining `onStartup` extensions in manifest-discovery order. Within each group, order is alphabetical on `id` for determinism. This guarantees that when Dashboard's `activate()` calls `finance.services.invoke('pay', ...)`, the `pay` service is already registered by salary-history.
 5. The Host activates each extension in turn. Each activation may call `finance.services.register('pay', ...)` or `finance.ui.requestMount('dashboard-view', ...)`; Main buffers the mount requests and forwards them to the Renderer once the workspace is ready.
 6. The Renderer mounts the `core.workspace.defaultView` WebviewPanel as the active tab; subsequent `onStartup` extensions mount as additional background tabs. If there is no `onStartup` extension for the configured default view, the first `onStartup` extension's primary view becomes the active tab.
 
 **Reasoning:** `project_vision.md:332-356` describes Dashboard as the platform's default landing view. Today the workspace ships with a static Dashboard placeholder tab (`src/renderer/components/workspace.ts` defaults `_currentView = 'Dashboard'`). Phase 5 must turn that placeholder into a real extension — and the only way to do that is for Dashboard to auto-activate, because there is no UI affordance to "click Dashboard" if the user cannot reach it before any click.
 
-The Dashboard extension's manifest declares `"activationEvents": ["onStartup"]` (no other event). It is the **only** Phase 5 extension with `onStartup`. Salary-history keeps `["onView:salary-history"]` (click-only).
+The Dashboard and salary-history extensions both declare `"activationEvents": ["onStartup"]`. Dashboard is the **default-view** extension (it mounts as the active tab); salary-history is a **service provider** (it registers `finance.services.pay.*` so Dashboard can consume it). Salary-history keeps its `onView:salary-history` activation as well for lazy re-activation after deactivation, but `onStartup` ensures its service is registered before Dashboard queries it.
 
 **Alternatives considered:**
 
@@ -601,8 +601,6 @@ window.financeShell = {
     list,              // read-only — which extensions are active
     executeCommand,    // gated by the Main-side allowlist
     uiEvent,           // gated by the Main-side allowlist
-    onUiMount,         // receive mount requests (only the initial mount — extensions don't re-mount themselves)
-    requestMount,      // panel-side: re-mount this panel (no args — panel already knows its viewId/mountData); Host-side `finance.ui.requestMount(viewId, mountData)` is defined in Task 2.7
   },
   settings: { get, set },   // gated by the namespace (existing Phase 4 behaviour)
   db: ???,             // NOT exposed — the panel uses finance.db inside the extension's Host bundle
@@ -612,7 +610,7 @@ window.financeShell = {
 
 The panel does **not** get `finance.db` or `finance.services` directly — those are accessed from inside the **extension's Host bundle** (the bundle loaded via `<script src="...salary-history.js">` runs in the panel's renderer process and has its own `finance` proxy that routes to the Host). The panel's `window.financeShell` is a thin bridge for shell-level operations (executeCommand for cross-extension commands, uiEvent for back-channel events); the extension's bundle has its own full `finance` proxy.
 
-The Host bundle exposes `finance.ui.requestMount(viewId, mountData)` as part of the extension's `finance` proxy. When an extension calls `finance.ui.requestMount` from its `activate()` function, the Host forwards an `extension:request-mount` RPC to Main, which calls `WebviewPanelManager.mount()` to create the `WebContentsView` and forwards `panel:init` to the Renderer. This is the primary mount path for extensions that auto-activate on startup (e.g., Dashboard). The panel-side `window.financeShell.extensions.requestMount` (above) is a secondary path for panels that need to request their own mount after initial activation.
+The Host bundle exposes `finance.ui.requestMount(viewId, mountData)` as part of the extension's `finance` proxy. When an extension calls `finance.ui.requestMount` from its `activate()` function, the Host forwards an `extension:request-mount` RPC to Main, which calls `WebviewPanelManager.mount()` to create the `WebContentsView` and forwards `panel:init` to the Renderer. This is the primary mount path for extensions that auto-activate on startup (e.g., Dashboard). The panel receives its initial mount data via `panel:init` IPC from Main (not via a panel-side `requestMount` call).
 
 **Reasoning:** Phase 4's renderer-orchestrator pattern made the panel's `window.financeShell` and the extension's `finance` proxy the same object (via `createFinance(extensionId)` in `salary-history-view.ts`). Phase 5's separation keeps the two concerns distinct:
 - `window.financeShell.*` — **shell-level** (cross-extension, Main-mediated).
@@ -864,7 +862,7 @@ finance-flow_ai/
   };
   ```
    `requestMount` sends `extension:request-mount` RPC. `setDirty` and `autoSaveDraft` route to `WebviewPanelManager` via `WebviewPanelUIHandler`. `onBeforeUnmount` stores callbacks in a per-extension list; `WebviewPanelManager` drains them before unmounting. Add `ui: { requestMount, setDirty, autoSaveDraft, onBeforeUnmount }` to the `FinanceApi` returned by `createFinance` in `api/index.ts`.
-- [ ] 2.8 In `webview-panel-manager.ts`, add `destroyAll()` that iterates all open panels, calls `autoSaveDraft` + `onBeforeUnmount` callbacks for dirty panels (with timeout), then destroys each `WebContentsView`. In `main.ts`, call `webviewPanelManager.destroyAll()` from the existing `app.on('will-quit', ...)` handler (which already runs `shutdownPersistence`). This prevents Electron leaks on quit.
+- [ ] 2.8 In `webview-panel-manager.ts`, add `destroyAll()` that iterates all open panels, calls `autoSaveDraft` + `onBeforeUnmount` callbacks for dirty panels (with timeout), removes each `WebContentsView` from its parent via `BrowserWindow.contentView.removeChildView(view)` (Electron 28+ API), then calls `view.destroy()`. In `main.ts`, call `webviewPanelManager.destroyAll()` from the existing `app.on('will-quit', ...)` handler (which already runs `shutdownPersistence`). This prevents Electron leaks on quit.
 
 **Verification:** Manual: click the Activity Bar button for the `salary-history` view → a WebviewPanel opens with the salary-history UI. The panel's DevTools shows the strict CSP applied. Closing the parent window closes all panels.
 
@@ -878,19 +876,14 @@ finance-flow_ai/
 
 - [ ] 3.1 In `panel-preload.ts`, expose a **subset** of `financeShell.*` per Decision 10:
   ```ts
-  contextBridge.exposeInMainWorld('financeShell', {
-    extensions: {
-      list: () => ipcRenderer.invoke('extensions:list'),
-      executeCommand: (commandId, ...args) => ipcRenderer.invoke('extensions:execute-command', commandId, ...args),
-      uiEvent: (extensionId, eventName, detail) => ipcRenderer.send('extensions:ui-event', extensionId, eventName, detail),
-      onUiMount: (callback) => ipcRenderer.on('extensions:ui-mount', (_e, payload: PanelInitPayload) => callback(payload)),
-      requestMount: (viewId, mountData) => ipcRenderer.invoke('extension:request-mount', viewId, mountData),
-    },
-    settings: { get, set },  // Phase 4 settings bridge, unchanged
-    ui: {
-      onBeforeUnmount: (callback) => ipcRenderer.invoke('extension:on-before-unmount', callback)
-    }
-  });
+   contextBridge.exposeInMainWorld('financeShell', {
+     extensions: {
+       list: () => ipcRenderer.invoke('extensions:list'),
+       executeCommand: (commandId, ...args) => ipcRenderer.invoke('extensions:execute-command', commandId, ...args),
+       uiEvent: (extensionId, eventName, detail) => ipcRenderer.send('extensions:ui-event', extensionId, eventName, detail),
+     },
+     settings: { get, set },  // Phase 4 settings bridge, unchanged
+   });
   ```
 - [ ] 3.2 In `finance-shell.d.ts`, add `PanelFinanceShell` interface (subset of `FinanceShellApi`) for the panel context; document that `finance.db` and `finance.services` are NOT exposed in the panel — extensions access them inside the extension bundle.
 - [ ] 3.3 Bundle the preload via `vite.preload.config.ts` to produce both `dist/preload/preload.cjs` (renderer) and `dist/preload/panel-preload.cjs` (panels).
@@ -907,15 +900,15 @@ finance-flow_ai/
 
 - [ ] 4.1 In `webview-panel-manager.ts`, add a `forwardUiEvent(extensionId, eventName, detail)` method that:
   - Validates `extensionId` is an active extension.
-  - Routes the event to the **renderer** (the main window) via `mainWindow.webContents.send('extensions:ui-event-from-panel', { extensionId, eventName, detail })`.
-- [ ] 4.2 In `main.ts`, listen for `extensions:ui-event-from-panel` IPC and forward to the relevant panel's webContents (round-trip).
-- [ ] 4.3 Document the round-trip pattern in `webview-panel-manager.ts` JSDoc: panel → Main → renderer → Main → other panels.
+  - Routes the event to the **Host** via the existing `extensionIPC.notify(RPC_METHOD.ExtensionUiEvent, { extensionId, eventName, detail })` (this is the Phase 4 `extensions:ui-event` back-channel extended to panel-originated events).
+- [ ] 4.2 In `main.ts`, also forward the event to the **main renderer** (`mainWindow.webContents.send('extensions:ui-event-from-panel', { extensionId, eventName, detail })`) so the main window's UI (tab bar, navigation panel, status bar) can update in response to panel actions.
+- [ ] 4.3 Document the two-hop flow in `webview-panel-manager.ts` JSDoc: panel → Main → Host (extension logic) AND panel → Main → renderer (shell UI updates). These are independent parallel paths, not a sequential round-trip.
 - [ ] 4.5 In `extension-ipc.ts` and `webview-panel-manager.ts`, implement the mount-request path:
   - Add `ipcMain.handle('extension:request-mount', async (_event, extensionId, viewId, mountData) => { ... })`.
   - Validate the extension is active, then call `webviewPanelManager.mount(extensionId, viewId, mountData)`.
   - Main buffers mount requests received during `onStartup` activation (Decision 2 Step 5) and flushes them to the Renderer once the BrowserWindow is ready.
 
-**Verification:** Manual: open two salary-history panels; click "+ Add Payslip" in panel 1; panel 2 receives the same event (after the Main-side round-trip).
+**Verification:** Manual: open two salary-history panels; click "+ Add Payslip" in panel 1; the Host bundle receives the `payslip-create` event via the `extensions:ui-event` → `extension.uiEvent` RPC path, and the main renderer's tab bar/navigation panel updates via the `extensions:ui-event-from-panel` IPC.
 
 ---
 
@@ -925,10 +918,10 @@ finance-flow_ai/
 
 **Steps:**
 
-- [ ] 5.1 In `extensions/salary-history/src/main.ts`, refactor the command handlers to use `finance.db.table('salary_history_pay_slips')` (the bundle's own proxy) instead of `window.financeShell.extensions.readTable(...)` (the Phase 4 renderer-side path).
-- [ ] 5.2 The orchestrator logic (`account-create` → `financeShell.accounts.create` → navigate; `payslip-create` → `finance.db.table(...).insert(...)` → navigate) moves **into the bundle** as an `Orchestrator` (new) inside the salary-history extension. The bundle now owns its own navigation state.
+- [ ] 5.1 In `extensions/salary-history/src/main.ts`, refactor the command handlers to use `finance.db.table('salary_history_pay_slips')` (the bundle's own proxy) instead of any Phase 4 renderer-side `financeShell` paths.
+- [ ] 5.2 The orchestrator logic (`account-create` → `finance.db.table('accounts').insert(...)` → navigate; `payslip-create` → `finance.db.table('salary_history_pay_slips').insert(...)` → navigate) moves **into the bundle** as an `Orchestrator` (new) inside the salary-history extension. The bundle now owns its own navigation state and DAO access.
 - [ ] 5.3 Delete `src/renderer/components/salary-history-view.ts` (the renderer-side orchestrator is replaced by the bundle's orchestrator + the WebviewPanel + the Main-side panel manager).
-- [ ] 5.4 Update `src/renderer/index.ts` to remove the `extensions.onUiMount` subscription (replaced by `WebviewPanelManager` mount notifications routed through Main → renderer as `panel:opened` / `panel:closed` IPC).
+- [ ] 5.4 Update `src/renderer/index.ts` to remove the `extensions.onUiMount` subscription (replaced by `WebviewPanelManager` mount notifications routed through Main → renderer as `panel:init` IPC on mount; unmount is signaled by `panel:auto-save-failed` or by the panel's webContents `did-navigate` / `did-destroy` events if a close channel is added in Task 2.8).
 - [ ] 5.5 **Update or delete the Phase 4 renderer integration test** `tests/unit/renderer/salary-history-view.integration.test.ts` (which targets the now-deleted `salary-history-view.ts`). Replace with a panel-context equivalent if needed, otherwise delete.
 - [ ] 5.6 **Add one panel-load smoke test** at `tests/unit/main/services/webview-panel-load.test.ts` (can be deferred until Task 2 lands): mount the salary-history panel against a fake main window and assert the bundle `<script>` tag is injected into the panel HTML and `panel:init` is sent. Catches bundle-path and preload mistakes early.
 
@@ -936,7 +929,7 @@ finance-flow_ai/
 
 > **Note — Task 5/8 ordering:** Task 5 and Task 8 both modify `extensions/salary-history/src/main.ts` (Task 5 restructures the bundle entry; Task 8 adds the `finance.services.register('pay', ...)` call). Task 5 must **land before** Task 8 to avoid conflicting diffs.
 >
-> **Note — `create-finance.ts` is still in use** by the command palette and Activity Bar. Do not remove it during Task 5 migration even though `salary-history-view.ts` is gone.
+> **Note — `create-finance.ts` is no longer needed** after Task 5.3 removes `salary-history-view.ts`. The command palette and Activity Bar use `financeShell.extensions` directly via the preload bridge; they never called `makeFinance()`. `create-finance.ts` can be deleted in Task 5 or kept as dead code for Phase 4 renderer-side reference — the plan does not require it.
 
 ---
 
@@ -954,7 +947,7 @@ finance-flow_ai/
   ```
   Where `FindOptions = { $join?: JoinSpec, $orderBy?: OrderSpec[], $limit?: number, $offset?: number }` and `JoinSpec = { table: string, on: { left: string, right: string }, type: 'INNER' | 'LEFT' | 'RIGHT' }`.
 - [ ] 6.2 In `compileQuery`, parse the new operators; emit SQL with parameterised joins + ORDER BY + LIMIT + OFFSET.
-- [ ] 6.3 Validate `$join.on` against the registered column lists (Decision 4 trade-off): parse `{ left, right }`, check `left` table matches the `$join.table` or a previously-joined table, check `left.column` and `right.column` exist in the respective registered table manifests.
+  - [ ] 6.3 Validate `$join.on` against the registered column lists (Decision 4 trade-off): parse `{ left, right }`, check `left` column belongs to the calling extension's own table or a previously-joined table, check `right` column belongs to `$join.table`, and verify both columns exist in the respective registered table manifests.
 - [ ] 6.4 Validate `$join` table access: only the calling extension's own tables OR shared tables can be joined.
 - [ ] 6.5 Validate `$limit` (1..1000) and `$offset` (>= 0) at the Zod layer.
 - [ ] 6.6 Extend `dao-service.test.ts` with 12 new tests:
@@ -1032,7 +1025,15 @@ finance-flow_ai/
   });
   ```
 - [ ] 8.3 In `main.ts#deactivate`, call `finance.services.unregister('pay')`.
-- [ ] 8.4 In `package.json`, add `allowedCommands: ["salary.show-pay-history", "salary.show-pay-rate-history"]` (the Phase 4 commands, now allowlisted per Decision 6).
+- [ ] 8.4 In `package.json`, add `commands` with the two existing Phase 4 commands plus a placeholder `salary.show-dashboard` (reserved for Dashboard's quick-link navigation; NOT added to `allowedCommands` so Test Unit 7 can verify allowlist rejection of a registered-but-not-allowlisted command):
+  ```jsonc
+  "commands": [
+    { "id": "salary.show-pay-history", "title": "View: Pay History", "keybinding": "Ctrl+Alt+H" },
+    { "id": "salary.show-pay-rate-history", "title": "View: Pay Rate History", "keybinding": "Ctrl+Alt+R" },
+    { "id": "salary.show-dashboard", "title": "Open Dashboard" }
+  ],
+  "allowedCommands": ["salary.show-pay-history", "salary.show-pay-rate-history"]
+  ```
 - [ ] 8.5 In `package.json`, add `navigation` contribution with the two view commands (Decision 3).
 - [ ] 8.6 In `package.json`, add `allowedUiEvents` with the 21 Phase 4 event names (Decision 7).
 - [ ] 8.7 Add 8 unit tests covering all 4 public methods + null-on-error + null-on-disabled extension.
@@ -1099,7 +1100,7 @@ finance-flow_ai/
     return { ytd, lastPayslip, currentRate, accounts, hasPayExtension: !!lastPayslip };
   }
   ```
-  Note: the registry logs a distinct warn for "service not found" vs "service errored", but `finance.services.invoke` returns `null` in both cases — the panel cannot distinguish them at the API level. Dashboard shows a single generic "Salary data unavailable" placeholder when any `pay` service call returns `null`.
+   Note: Dashboard's `activate()` runs after salary-history's `activate()` (Decision 2 Step 4 activation order: service providers first, then default-view extensions). The `pay` service is therefore guaranteed to be registered when Dashboard calls `finance.services.invoke('pay', ...)` at startup. The `.catch(() => null)` guards remain for runtime errors and for the case where salary-history is disabled.
 - [ ] 9.4 In `src/ui/dashboard-view.ts`, render the 4 cards in the configured order via `cardOrder`; each card receives the relevant data slice. Cards show "—" or "install Salary History to see this" placeholders when data is missing.
 - [ ] 9.5 In `src/ui/{net-worth,ytd-salary,last-payslip,accounts-summary}-card.ts`, implement the 4 cards as Lit components sharing `shared-styles.ts`.
 - [ ] 9.6 Add 6 aggregator unit tests (mocked `finance`) + 5 dashboard-view tests (happy-dom).
@@ -1124,7 +1125,7 @@ finance-flow_ai/
   ```ts
   const defaultView = getSetting<string>('core.workspace.defaultView') ?? 'dashboard';
   ```
-  Sort `onStartupExtensions` so the extension contributing `defaultView` comes first (if it is `onStartup`), then remaining `onStartup` extensions in manifest-discovery order (alphabetical on `id` for determinism). Activate them **sequentially** using `for...of` with `await`:
+   Sort `onStartupExtensions` so the extension contributing `defaultView` comes first (if it is `onStartup`), then remaining `onStartup` extensions in manifest-discovery order (alphabetical on `id` for determinism). If `defaultView` points to a view that is **not** contributed by an `onStartup` extension (e.g. the extension was disabled or the setting is stale), fall back to the first `onStartup` extension's primary view. Activate them **sequentially** using `for...of` with `await`:
   ```ts
   for (const ext of sortedOnStartupExtensions) {
     await extensionIPC.request('extension.activate', { extensionId: ext.id, reason: 'onStartup' });
