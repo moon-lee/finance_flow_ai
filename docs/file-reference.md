@@ -184,13 +184,13 @@
 | `src/extension-host/api/index.ts` | modified | Adds `services` to the `FinanceApi` returned by `createFinance`; preserves existing `db`, `commands`, `ai`, `ui`, `settings` surfaces. |
 | `src/extension-host/api/db.ts` | modified | `find`/`findOne` now accept an optional second `options` argument to pass `$join`/`$orderBy`/`$limit`/`$offset` to Main. |
 | `src/extension-host/host.ts` | modified | Implements `onStartup` activation event handling; activates Dashboard automatically after Host ready. |
-| `src/preload/panel-preload.ts` | new | Panel-specific `contextBridge` exposing a subset of `window.financeShell`: extensions (list/executeCommand/uiEvent/onUiMount) + settings (get/set). Does **not** expose `db` or `services` (those live inside the extension bundle's `finance` proxy). |
+| `src/preload/panel-preload.ts` | new | Panel-specific `contextBridge` exposing a subset of `window.financeShell`: extensions (list/executeCommand/uiEvent) + settings (get/set). Does **not** expose `db` or `services` (those live inside the extension bundle's `finance` proxy). |
 | `src/renderer/components/workspace.ts` | rewritten | Replaces single static tab with a `WorkspaceLayout` tree supporting multiple tabs + 2-pane horizontal/vertical split; persists/restores layout to `core.workspace.layout`. |
 | `src/renderer/components/tab-bar.ts` | new | Renders the tab strip for the active leaf; supports drag-to-split affordance. |
 | `src/renderer/components/split-pane.ts` | new | 2-pane container with draggable splitter; collapses when the last tab in a pane closes. |
 | `src/renderer/components/navigation-panel.ts` | rewritten | NavigationProvider: renders `contributes.navigation` items from the active extension, grouped by `group`; built-in Core items remain for `__settings__`. |
 | `src/renderer/components/salary-history-view.ts` | removed | Replaced by WebviewPanel + panel-preload + the extension bundle's own orchestrator. |
-| `src/renderer/index.ts` | modified | Removes `extensions.onUiMount` subscription and `salary-history-view` usage; listens for `panel:opened`/`panel:closed` from Main; keeps command palette / activity bar wiring. |
+| `src/renderer/index.ts` | modified | Removes `extensions.onUiMount` subscription and `salary-history-view` usage; listens for `panel:init` from Main on mount and `panel:auto-save-failed` on unmount; keeps command palette / activity bar wiring. |
 | `src/renderer/styles/layout.css` | modified | Adds tab bar + split-pane + panel chrome styles matching the existing palette. |
 | `src/shared/json-rpc-methods.ts` | modified | Adds `DomainServiceInvoke = 'domain.service.invoke'`. |
 | `src/shared/json-rpc.ts` | modified | Adds `RpcErrorCode.ServiceNotFound = -32014`. |

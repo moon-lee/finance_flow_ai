@@ -3,7 +3,7 @@ title: Phase 5 — Webview Panels, Multi-Extension UI & Cross-Extension Services
 date: 2026-07-18
 status: draft — awaiting review
 target_version: 0.8.0
-spec_source: docs/superpowers/specs/2026-06-13-implementation-design.md (Phase 5 section, lines 130–136)
+spec_source: docs/superpowers/specs/2026-06-13-implementation-design.md (Phase 5 section, lines 100–113)
 vision_alignment:
   - project_vision.md:154-156 (UI Rendering Layer — WebviewPanel iframe rendering)
   - project_vision.md:222-241 (Main Workspace — tabs + split-screen groups)
