@@ -1,6 +1,6 @@
 # Finance Extension API Reference
 
-> **Status:** Phase 3 skeleton. `finance.db.*` and `finance.ai.*` are stubbed and will fill in during Phase 4 and Phase 6 respectively. Phase 4+ migration notes document the planned API evolution.
+> **Status:** Phase 4 complete (`finance.db.*` is a real DAO). Phase 5 adds `finance.services.*`, `finance.ui.*`, `onStartup`, `navigation`, and per-extension allowlists. `finance.ai.*` remains a stub until Phase 6.
 
 ## Manifest schema
 
@@ -11,8 +11,8 @@ Every extension declares a `financeExtension` block in its `package.json`. The c
 | `id` | `string` | Lowercase alphanumeric/hyphen; must match `package.json#name`. |
 | `displayName` | `string` | Human-readable name shown in the Extension Manager. |
 | `version` | `string` | Semver (e.g. `0.1.0`). |
-| `activationEvents` | `ActivationEvent[]` | At least one. `*` activates on startup; `onView:<id>` and `onCommand:<id>` are lazy. |
-| `contributions` | `ManifestContributions` | `views`, `commands`, `menus`, `configuration`. |
+| `activationEvents` | `ActivationEvent[]` | At least one. `*` activates on startup; `onStartup` activates on startup and triggers a UI mount; `onView:<id>` and `onCommand:<id>` are lazy. |
+| `contributions` | `ManifestContributions` | `views`, `commands`, `menus`, `configuration`, `navigation`, `allowedCommands`, `allowedUiEvents`. |
 | `main` | `string` | Path to the bundled ESM entry (relative to package root). |
 
 ### `contributes.views`
@@ -22,6 +22,49 @@ Each view contributes one Activity Bar button. Phase 3 renders the icon as a sin
 ### `contributes.commands`
 
 Each command registers a Palette entry. Phase 3 wires execution end-to-end; the renderer invokes commands via `window.financeShell.extensions.executeCommand(id, ...args)`.
+
+### `contributes.navigation` (Phase 5)
+
+Each extension contributes sidebar items for the Navigation Panel:
+
+```jsonc
+"contributes": {
+  "navigation": [
+    {
+      "id": "salary.pay-history",
+      "label": "Pay History",
+      "command": "salary.show-pay-history",
+      "group": "Salary"
+    }
+  ]
+}
+```
+
+Each item is `{ id, label, command, group? }`. Items in the same `group` are rendered under a section header. Items can reference any command in any active extension.
+
+### `contributes.allowedCommands` (Phase 5)
+
+A subset of `commands[].id` that external callers (other extensions, the renderer) are allowed to invoke on this extension's behalf. Commands not in this list are rejected by Main's `CommandAllowlist` before reaching the Host. The extension's own code can still call `finance.commands.execute()` for any of its registered commands internally.
+
+```jsonc
+"contributes": {
+  "allowedCommands": ["salary.show-pay-history", "salary.show-pay-rate-history"]
+}
+```
+
+### `contributes.allowedUiEvents` (Phase 5)
+
+The event names this extension's UI is allowed to emit via `financeShell.extensions.uiEvent()` (or the Host-side equivalent). Events not in this list are silently dropped by Main's `UiEventAllowlist` with a `console.warn`.
+
+```jsonc
+"contributes": {
+  "allowedUiEvents": [
+    "payslip-create",
+    "payslip-edit",
+    "payslip-delete"
+  ]
+}
+```
 
 ### `contributes.menus` (deferred)
 
@@ -34,6 +77,7 @@ Schema is defined; the generic settings UI renderer is deferred to Phase 7.
 ## Activation events
 
 - `*` — load immediately on app start.
+- `onStartup` — load immediately on app start and mount as a WebviewPanel. Use for extensions that should be visible on first launch (e.g. Dashboard). Only one `onStartup` extension should be the default view; the rest mount as background tabs.
 - `onView:<viewId>` — load when the user activates the named view.
 - `onCommand:<commandId>` — load when the named command is invoked.
 
@@ -49,9 +93,50 @@ Register a command. Throws if `id` is already registered. `keybinding` is stored
 
 Execute a command. Returns `null` if the command is missing (graceful degradation per `project_vision.md:46`). Never throws.
 
-### `finance.db.table(name)` (Phase 3 stub)
+### `finance.db.table(name)` (Phase 4 — real DAO)
 
-Returns an empty queryable. Phase 4 wires real access via the Core DAO.
+Returns a typed `TableAccessor` whose `find` / `findOne` / `count` / `insert` / `update` / `delete` methods call through to the Core DAO with structural namespace enforcement (`<extensionId>_<table>` for extension tables; shared tables like `accounts` are read-only for extensions). Phase 5 extends `find` / `findOne` / `count` with an optional second `options` argument supporting `$join`, `$orderBy`, `$limit`, `$offset`.
+
+### `finance.services.invoke(serviceName, method, params?)` (Phase 5)
+
+Call a cross-extension domain service registered by another extension. Returns `null` if the service is not registered or the implementing extension is disabled or errored. Never throws.
+
+```ts
+const ytd = await finance.services.invoke('pay', 'getYearToDateSummary', { financialYearStart });
+const lastPayslip = await finance.services.invoke('pay', 'getLastPayslip');
+```
+
+### `finance.services.register(serviceName, impl)` (Phase 5 — extension-internal)
+
+Register this extension's implementation of a domain service. Called in `activate()`; unregister in `deactivate()`. The `impl` object's method names become the callable `method` strings for `finance.services.invoke`.
+
+```ts
+finance.services.register('pay', {
+  getYearToDateSummary: (params) => adapter.getYearToDateSummary(params),
+  getLastPayslip: () => adapter.getLastPayslip(),
+  getCurrentRate: () => adapter.getCurrentRate()
+});
+```
+
+### `finance.services.unregister(serviceName)` (Phase 5 — extension-internal)
+
+Remove this extension's service registration. Called in `deactivate()`.
+
+### `finance.ui.requestMount(viewId, mountData)` (Phase 5)
+
+Request that Main mount this extension's view as a WebviewPanel. Called from `activate()` for `onStartup` extensions, or from command handlers for lazy views. `mountData` is an opaque object forwarded to the panel via `panel:init`.
+
+### `finance.ui.setDirty(dirty)` (Phase 5)
+
+Tell Main that this panel has unsaved changes. Main shows the dirty indicator in the tab bar and defers auto-unmount.
+
+### `finance.ui.autoSaveDraft()` (Phase 5)
+
+Trigger a draft save before the panel is unmounted. Main enforces a 500 ms timeout; on failure the panel is destroyed and a toast is shown.
+
+### `finance.ui.onBeforeUnmount(callback)` (Phase 5)
+
+Register a hook that Main drains before unmounting the panel. Use to persist form state. Callbacks are called in registration order; their aggregated result is passed to `autoSaveDraft`.
 
 ### `finance.ai.registerTool(definition)` (Phase 3 stub)
 
@@ -60,31 +145,38 @@ Stores the tool definition and forwards it to Main. Phase 6 wires execution.
 ## Lifecycle hooks
 
 - `activate(finance)` — called when an activation event fires. Required export.
-- `deactivate()` — called when the Extension Host shuts down (graceful shutdown only). Optional.
+- `deactivate()` — called when the Extension Host shuts down (graceful shutdown only) or the extension is disabled. Optional. Use to unregister services and clean up timers.
 
 ## Loading mechanism
 
-Extension entries are bundled to `dist/extensions/<id>.js` by `vite.extensions.config.ts` (per ADR-0004 and Decision 10). The Extension Host loads the bundle via dynamic `import()`. Extensions are authored in TypeScript but authors do not need to know about the bundler.
+Extension entries are bundled to `dist/extensions/<id>.js` by `vite.extensions.config.ts` (per ADR-0004 and Decision 10). The extension UI bundle is loaded inside a sandboxed Electron `WebContentsView` via a `<script>` tag from the `finance-shell://` custom protocol. The Extension Host loads the Host-side bundle via dynamic `import()`. Extensions are authored in TypeScript but authors do not need to know about the bundler.
 
 ## Error handling
 
 - Manifest validation failures are skipped at the discovery boundary with a console warning; the shell stays alive.
 - Activation failures increment the registry's `crash_count` and auto-disable at `AUTO_DISABLE_CRASH_THRESHOLD = 3`.
-- Command execution returns `{ executed: false, reason }` on transport failures; the renderer surfaces the reason in the status bar.
+- `finance.services.invoke` returns `null` (not throws) if the service is not registered or the implementing extension is disabled. The registry logs a distinct warning for "service not found" vs "service errored".
+- Command execution returns `{ executed: false, reason }` on transport failures or allowlist rejection; the renderer surfaces the reason in the status bar.
+- `finance.ui.autoSaveDraft` has a 500 ms timeout; on timeout the panel is destroyed and a `panel:auto-save-failed` toast is shown.
 
 ## Security model
 
 - Extensions run in an isolated `utilityProcess` (no shared in-process module graph with Main or Renderer).
-- All cross-extension traffic routes through Main via `finance.commands.execute()` and returns `null` on missing target.
+- All cross-extension traffic routes through Main via `finance.commands.execute()` or `finance.services.invoke()` and returns `null` on missing target.
 - Direct database writes across extension boundaries are structurally impossible (DAO namespace enforcement).
-- **Phase 5 hardening:** a per-extension command allowlist on the Main side (see `project_vision.md:46` and Self-Review §7).
+- **Phase 5 hardening:** a per-extension command allowlist on the Main side gates every `executeCommand` IPC call (see `project_vision.md:46` and Self-Review §7).
+- **Phase 5 hardening:** a per-extension `ui-event` allowlist on the Main side gates every `ui-event` IPC call; disallowed events are dropped with a `console.warn` (see Decision 7).
 
 ## Working example
 
-See [`extensions/salary-history/`](../extensions/salary-history/) — the Phase 3 mock extension declares one view (`salary-history`), two commands (`salary.showPayHistory`, `salary.showDeductions`), and activates on `onView:salary-history`. Phase 4 replaces the stub handlers with real payslip form logic.
+See [`extensions/salary-history/`](../extensions/salary-history/) — the Phase 4 implementation declares one view (`salary-history`), two commands (`salary.show-pay-history`, `salary.show-pay-rate-history`), and activates on `onView:salary-history`. Phase 5 adds `allowedCommands`, `allowedUiEvents`, and a `finance.services.pay.*` public adapter registered in `activate()`.
 
 ## Phase 4+ migration notes
 
 - `import * as finance from 'finance'` becomes available in Phase 4 when a multi-file extension is first built. The `FinanceApi` type contract in `src/types/finance.d.ts` is unchanged.
-- `finance.db.table()` becomes a real DAO in Phase 4 with structural namespace enforcement (`finance.db.table('<extensionId>_<table>')`). No `finance.extensions.<id>.db.*` wrapper — the DAO path itself enforces isolation per Phase 4 Decision 1 (`docs/superpowers/plans/2026-07-04-phase4-shared-financial-data-salary-history.md`).
+- `finance.db.table()` becomes a real DAO in Phase 4 with structural namespace enforcement (`finance.db.table('<extensionId>_<table>')`). No `finance.extensions.<id>.db.*` wrapper — the DAO path itself enforces isolation per Phase 4 Decision 1 (`docs/superpowers/plans/2026-07-04-phase4-shared-financial-data-salary-history.md`). Phase 5 extends `find`/`findOne`/`count` with `$join`, `$orderBy`, `$limit`, `$offset`.
+- `finance.services.invoke()` and `finance.services.register()` are new in Phase 5. Extensions that want to expose data to other extensions register a service in `activate()` and unregister in `deactivate()`.
+- `finance.ui.requestMount`, `finance.ui.setDirty`, `finance.ui.autoSaveDraft`, and `finance.ui.onBeforeUnmount` are new in Phase 5. Extensions that render inside a WebviewPanel use these to coordinate their lifecycle with Main.
+- `onStartup` is a new activation event in Phase 5. Extensions that declare it are activated and mounted automatically on app boot, before any user interaction.
+- `contributes.navigation`, `contributes.allowedCommands`, and `contributes.allowedUiEvents` are new manifest fields in Phase 5.
 - `finance.ai.registerTool()` becomes executable in Phase 6 with tool-call routing through the AI Assistant panel.
