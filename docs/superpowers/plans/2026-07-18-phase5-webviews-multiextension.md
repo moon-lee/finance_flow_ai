@@ -820,6 +820,43 @@ finance-flow_ai/
 
 ---
 
+## Suggested Implementation Order
+
+The task list below (1–20) is organized for document clarity, not execution sequence. Implementers should follow the dependency-aware order below to avoid circular dependencies and unnecessary merge conflicts.
+
+**Stage 1 — Foundation (Main-side only, no UI dependencies)**
+1. **Task 1** — manifest schema (`navigation`, `allowedCommands`, `allowedUiEvents`, `onStartup`). Prerequisite for all manifest-parsing tasks.
+2. **Task 13** — command allowlist. Main-side only; closes a Phase 3/4 security deferral.
+3. **Task 14** — ui-event allowlist. Mirrors Task 13's structure; closes the second Phase 3/4 deferral.
+4. **Task 7** — Domain Service Registry + Host-side `finance.services.*` proxy. Main-side only; no panel or UI dependencies.
+
+**Stage 2 — Salary-history + Dashboard extensions**
+5. **Task 5** — migrate renderer-side salary-history code into the bundle (delete `salary-history-view.ts`, update `main.ts`). Must land before Task 8 to avoid conflicting diffs on `main.ts`.
+6. **Task 8** — public-pay-adapter + `finance.services.register('pay', ...)` in `activate()`. Depends on Tasks 5 and 7.
+7. **Task 10** — `onStartup` activation mechanism in Host + Main. Must land before Task 9 so the service-provider-first activation order is enforced.
+8. **Task 9** — Dashboard extension (aggregator, 4 cards, `onStartup` manifest). Depends on Tasks 7, 8, and 10.
+
+**Stage 3 — Panel infrastructure (Main + renderer coupling)**
+9. **Task 2** — WebviewPanel infrastructure (`WebviewPanelManager`, custom protocol, `destroyAll`). No dependency on Phase 2 tasks.
+10. **Task 3** — panel preload (`window.financeShell` subset inside the iframe). Depends on Task 2.
+11. **Task 4** — Main-side message router (panel ↔ renderer via Main, sender-identity verification). Depends on Task 2.
+
+**Stage 4 — UI (renderer) + DAO**
+12. **Task 11** — NavigationProvider (data-driven sidebar). Depends on Task 1's `navigation` manifest field.
+13. **Task 12** — Workspace layout (tabs + 2-pane split). Depends on Task 2's `WebContentsView` infrastructure and `panel:resize` IPC.
+14. **Task 6** — DAO operators (`$join`, `$orderBy`, `$limit`, `$offset`). Independent of Tasks 2–4; can be done in parallel with UI work.
+
+**Stage 5 — Finishing touches**
+15. **Task 15** — CSP closure (panel HTML shell, no `'unsafe-eval'`). Depends on Task 2's protocol.
+16. **Task 16** — ADR-0005 for Domain Service Registry. Documentation; depends on Task 7.
+17. **Task 17** — update `extension-api.md` + `file-reference.md`. Documentation; depends on all implementation tasks.
+18. **Task 18** — Manual Test Units (12 manual tests + E2E).
+19. **Task 19** — Self-Review Checklist verification.
+20. **Task 20** — CHANGELOG `[0.8.0]` header, `package.json#version` sync, handoff doc.
+
+
+---
+
 ## Tasks
 
 ### Task 1: Extend manifest schema with Phase 5 contributions
