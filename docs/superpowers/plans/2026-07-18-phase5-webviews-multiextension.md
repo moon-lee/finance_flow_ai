@@ -54,7 +54,7 @@ prerequisite_decisions:
 
 Ship the platform's first **multi-extension workspace**: the user opens the app and sees the **Dashboard** (a new aggregator extension) as the default view; clicking the Activity Bar button for the `salary-history` view switches to Salary History; the two views stay open in **tabs**; the user can drag tabs into split-screen groups; the Navigation Panel's sidebar items are now **data-driven from extension contributions** (replacing the Phase 3/4 static id→name map); each extension's UI renders inside a sandboxed **`WebviewPanel`** iframe (replacing the Phase 4 renderer-side Lit mount); and Salary History's internal `PayService` is promoted to a **cross-extension `finance.services.pay.*` contract** that the Dashboard (and future extensions) consume. The Main process enforces **per-extension allowlists** for `executeCommand` and `ui-event` IPC, closing two security deferrals.
 
-**Architecture:** the workspace becomes a tab host that mounts one **`WebviewPanel`** per extension view using Electron's `WebContentsView` API (Electron 28+) with `contextIsolation: true` + `sandbox: true` + a strict CSP. The Host gains a new **startup auto-activation** entry point (`activateOnStartup`) so the Dashboard is mounted before any user interaction. The DAO gains **`$join`**, **`$orderBy`**, **`$limit`**, **`$offset`** query operators (Phase 4 shipped only `$eq`-`$nin` + `$or`); `$raw` remains unsupported. A new **`finance.services.pay.*`** cross-extension contract is designed **from the consumer side** (the Dashboard's aggregator queries), not derived from Phase 4's internal `PayService` shape — the internal service is refactored to expose a small, stable surface (`getYearToDateSummary`, `getMonthlySeries`, `getCurrentRate`). The Main process gains a **per-extension allowlist** (declared in `package.json#financeExtension.contributions.allowedCommands` + `allowedUiEvents`) that gates every `executeCommand` and `ui-event` IPC call; renderer-driven arbitrary execution is no longer possible.
+**Architecture:** the workspace becomes a tab host that mounts one **`WebviewPanel`** per extension view using Electron's `WebContentsView` API (Electron 28+) with `contextIsolation: true` + `sandbox: true` + a strict CSP. The Host gains a new **startup auto-activation** activation event (`onStartup`) so the Dashboard is mounted before any user interaction. The DAO gains **`$join`**, **`$orderBy`**, **`$limit`**, **`$offset`** query operators (Phase 4 shipped only `$eq`-`$nin` + `$or`); `$raw` remains unsupported. A new **`finance.services.pay.*`** cross-extension contract is designed **from the consumer side** (the Dashboard's aggregator queries), not derived from Phase 4's internal `PayService` shape — the internal service is refactored to expose a small, stable surface (`getYearToDateSummary`, `getLastPayslip`, `getCurrentRate`). The Main process gains a **per-extension allowlist** (declared in `package.json#financeExtension.contributions.allowedCommands` + `allowedUiEvents`) that gates every `executeCommand` and `ui-event` IPC call; renderer-driven arbitrary execution is no longer possible.
 
 **Tech Stack:** everything Phase 4 ships, plus: Electron `WebContentsView` (sandboxed embedded views for WebviewPanels; same `contextIsolation: true` + `sandbox: true` + strict CSP as the main window), Lit (Dashboard UI), the existing DAO + IPC infrastructure (extended with new operators + `finance.services.pay.*` RPC), no new runtime deps (the iframes run the same Vite-built extension bundles; no React/Vue/etc.).
 
@@ -86,7 +86,7 @@ A bootable Electron app with a working **multi-extension workspace**. The items 
 
 10. **Persistence verified.** All Phase 4 persistence properties survive the Phase 5 host changes — payslips, rate rows, accounts, settings all round-trip. Manual Test Unit 5 walks the loop.
 11. **Cross-extension isolation verified.** Salary-history cannot read Dashboard's tables; Dashboard cannot read salary-history's tables; both can read Shared Financial Data (`accounts`); both gracefully handle each other's absence.
-12. **TypeScript Strict + Lint + Tests** — `npm run typecheck` exit 0; `npm run lint` exit 0; `npm run test:unit` all tests pass (project total ~400 after Phase 5).
+12. **TypeScript Strict + Lint + Tests** — `npm run typecheck` exit 0; `npm run lint` exit 0; `npm run test:unit` all tests pass (project total ~399 after Phase 5).
 13. **E2E suite unblocked** — Phase 5's manual TU8 verifies the Phase 3 environmental blocker (`Cannot navigate to invalid URL` on `page.goto('/')`) is now resolved (the WebviewPanel iframe creates its own routable URL via `loadURL('about:blank')` + dynamic content injection).
 
 ### Out-of-Scope reminder (carried forward)
@@ -326,14 +326,13 @@ Operators are added as a **second argument** to `find()` / `findOne()` / `count(
 
 3. **`finance.services.pay.*` adapter (`extensions/salary-history/src/services/public-pay-adapter.ts`, new)** — wraps salary-history's existing internal `PayService` and exposes:
    ```ts
-   // Public surface (Phase 5 — designed from Dashboard's needs):
-   export interface PublicPayService {
-     getYearToDateSummary(financialYearStart: string, asOfDate?: string): Promise<YtdSummary | null>;
-     getMonthlySeries(financialYearStart: string): Promise<MonthlyPoint[] | null>;
-     getLastPayslip(): Promise<PaySlip | null>;
-     getCurrentRate(): Promise<RateRow | null>;
-   }
-   ```
+    // Public surface (Phase 5 — designed from Dashboard's needs):
+    export interface PublicPayService {
+      getYearToDateSummary(financialYearStart: string, asOfDate?: string): Promise<YtdSummary | null>;
+      getLastPayslip(): Promise<PaySlip | null>;
+      getCurrentRate(): Promise<RateRow | null>;
+    }
+    ```
    Each method:
    - Calls the internal `PayService` (Phase 4 code) for the calculation.
    - Wraps any thrown error in a `null` return (graceful degradation).
@@ -341,19 +340,18 @@ Operators are added as a **second argument** to `find()` / `findOne()` / `count(
 
    The adapter is **registered** in `extensions/salary-history/src/main.ts` `activate()` via:
    ```ts
-   finance.services.register('pay', {
-     getYearToDateSummary: (params) => adapter.getYearToDateSummary(params),
-     getMonthlySeries:     (params) => adapter.getMonthlySeries(params),
-     getLastPayslip:       () => adapter.getLastPayslip(),
-     getCurrentRate:       () => adapter.getCurrentRate()
-   });
+    finance.services.register('pay', {
+      getYearToDateSummary: (params) => adapter.getYearToDateSummary(params),
+      getLastPayslip:       () => adapter.getLastPayslip(),
+      getCurrentRate:       () => adapter.getCurrentRate()
+    });
    ```
 
    `deactivate()` calls `finance.services.unregister('pay', 'salary-history')`.
 
 **Reasoning:** Phase 4 Decision 5 explicitly deferred `finance.services.pay.*` to Phase 5 with the design note: *"The first version of `finance.services.pay.*` will be designed from the consumer side — by what Phase 5's Cash Flow / Dashboard / Budget actually need to call — not derived from PayService's current internal surface."* Phase 5 ships Dashboard as the first consumer; its needs are the spec for `finance.services.pay.*`.
 
-The four methods above are exactly what Dashboard calls. The internal `PayService` exposes 14 methods (validatePayslipInput, calculatePaySlipBreakdown, aggregateYearToDate, etc.); only 4 are promoted to the public contract. The other 10 stay internal to salary-history.
+The three methods above are exactly what Dashboard calls. The internal `PayService` exposes 14 methods (validatePayslipInput, calculatePaySlipBreakdown, aggregateYearToDate, etc.); only 3 are promoted to the public contract. The other 11 stay internal to salary-history.
 
 **Why a registry in Main, not a Host-side registry:** the Domain Service Registry must outlive any single extension's lifecycle (services can be registered by extension A and called by extension B; if extension A crashes, B's calls must return `null`, not throw). Main is the only long-lived process; the Host can die and respawn without losing the registry's state.
 
@@ -1025,7 +1023,6 @@ finance-flow_ai/
   ```ts
   finance.services.register('pay', {
     getYearToDateSummary: (params) => adapter.getYearToDateSummary(params.financialYearStart, params.asOfDate),
-    getMonthlySeries: (params) => adapter.getMonthlySeries(params.financialYearStart),
     getLastPayslip: () => adapter.getLastPayslip(),
     getCurrentRate: () => adapter.getCurrentRate()
   });
@@ -1131,7 +1128,7 @@ finance-flow_ai/
   ```ts
   const defaultView = getSetting<string>('core.workspace.defaultView') ?? 'dashboard';
   ```
-   Sort `onStartupExtensions` so the extension contributing `defaultView` comes first (if it is `onStartup`), then remaining `onStartup` extensions in manifest-discovery order (alphabetical on `id` for determinism). If `defaultView` points to a view that is **not** contributed by an `onStartup` extension (e.g. the extension was disabled or the setting is stale), fall back to the first `onStartup` extension's primary view. Activate them **sequentially** using `for...of` with `await`:
+    Sort `onStartupExtensions` into three groups: **service-providing extensions first** (extensions that register `finance.services.*` implementations), then the extension contributing `defaultView` (if it is `onStartup`), then remaining `onStartup` extensions in manifest-discovery order (alphabetical on `id` for determinism). If `defaultView` points to a view that is **not** contributed by an `onStartup` extension (e.g. the extension was disabled or the setting is stale), fall back to the first `onStartup` extension's primary view. Activate them **sequentially** using `for...of` with `await`:
   ```ts
   for (const ext of sortedOnStartupExtensions) {
     await extensionIPC.request('extension.activate', { extensionId: ext.id, reason: 'onStartup' });
@@ -1215,7 +1212,7 @@ finance-flow_ai/
 - [ ] 14.1 In `ui-event-allowlist.ts`, implement `UiEventAllowlist` (mirrors `CommandAllowlist`):
   - `build(manifests)`: `Map<extensionId, Set<eventName>>`.
   - `isAllowed(extensionId, eventName)`.
-- [ ] 14.2 Gate the `extensions:ui-event` IPC handler with `isAllowed` check; drop on failure with `console.warn`.
+- [ ] 14.2 Gate the `extensions:ui-event` IPC handler with `isAllowed` check; on failure, drop with `console.warn` in the main-process terminal AND forward the violation to the originating panel's DevTools via `panel.webContents.send('panel:allowlist-denied', { kind: 'ui-event', extensionId, eventName, reason: msg })` so extension developers see the violation immediately during development.
 - [ ] 14.3 Migrate salary-history's manifest to declare `allowedUiEvents` (Task 8.6).
 - [ ] 14.4 Add 5 unit tests: allowed event passes, disallowed dropped with warn, disabled extension's events all dropped, Phase 4 migration shim.
 
@@ -1324,7 +1321,7 @@ finance-flow_ai/
 **Test Unit 7: Per-extension command allowlist.**
 - [ ] 7.1 From the Renderer DevTools console, call `await window.financeShell.extensions.executeCommand('salary.show-pay-history')`.
 - [ ] 7.2 **Expected:** `{ executed: true, ... }` — the command is in salary-history's `allowedCommands`.
-- [ ] 7.3 Call `await window.financeShell.extensions.executeCommand('salary.show-dashboard')` (a placeholder command reserved for Dashboard's quick link).
+- [ ] 7.3 Call `await window.financeShell.extensions.executeCommand('salary.show-dashboard')` (a deliberately disallowed command — registered in salary-history's `commands[]` but absent from `allowedCommands` so TU7 can verify allowlist rejection).
 - [ ] 7.4 **Expected:** `{ executed: false, reason: 'command not allowed for this extension' }` — not in `allowedCommands` yet (Phase 5 ships it not in the list).
 
 **Test Unit 8: `extensions:ui-event` allowlist — drop unknown events.**
@@ -1358,7 +1355,7 @@ finance-flow_ai/
 **Test Unit 11: TypeScript Strict + Lint + Tests.**
 - [ ] 11.1 `npm run typecheck` → exit 0.
 - [ ] 11.2 `npm run lint` → exit 0.
-- [ ] 11.3 `npm run test:unit` → all tests pass (~400 after Phase 5).
+- [ ] 11.3 `npm run test:unit` → all tests pass (~399 after Phase 5).
 
 **Test Unit 12: Multi-File Build Verification.**
 - [ ] 12.1 `npm run build:extensions`.
@@ -1375,7 +1372,7 @@ finance-flow_ai/
 
 - [ ] 19.1 Verify all 12 architecture decisions are reflected in code.
 - [ ] 19.2 Verify all 12 manual test units pass (TU6/TU7 marked OPTIONAL/SKIPPABLE for manual runs; covered by automated unit tests).
-- [ ] 19.3 Verify the ~50 new unit tests pass (project total ~400).
+- [ ] 19.3 Verify the ~87 new unit tests pass (project total ~399).
 - [ ] 19.4 Verify the Self-Review Checklist sections §1–§10 below.
 
 ---
@@ -1398,7 +1395,7 @@ finance-flow_ai/
 
 ## Test Plan
 
-### Unit tests (~50 new; project total ~400)
+### Unit tests (~87 new; project total ~399)
 
 | File | Tests | Covers |
 |------|-------|--------|
@@ -1499,7 +1496,7 @@ These will run when the Phase 3 Playwright-electron environmental issue is resol
 
 ### §5 — Test Pyramid
 
-- [x] ~87 new unit tests covering all 12 decisions + manifest schema extensions + Dashboard + public-pay-adapter + navigation panel + workspace + DAO operators (project total ~400 after Phase 5).
+- [x] ~87 new unit tests covering all 12 decisions + manifest schema extensions + Dashboard + public-pay-adapter + navigation panel + workspace + DAO operators (project total ~399 after Phase 5).
 - [x] 12 manual test units covering the full multi-extension user journey (TU6/TU7 marked OPTIONAL/SKIPPABLE for manual runs; covered by automated tests).
 - [x] 10 new E2E tests written but gated by Phase 3 environmental blocker (documented).
 
@@ -1549,7 +1546,7 @@ The full deferral table is in the **Out of Scope** section above. Highlights:
 2. **Should Phase 5 ship a `dashboard.refresh` keyboard shortcut?** Plan defers; Phase 7's shortcut customization screen will let users bind it.
 3. **Should the 2-pane split persist across app restarts?** Yes (Decision 9.5 → `core.workspace.layout` setting). Reviewer should confirm the setting-key naming.
 4. **Should the WebviewPanel manager expose a "pin tab" affordance?** Out of scope for Phase 5 (Phase 8's tab management). Documented.
-5. **Should `finance.services.pay.getMonthlySeries` return a sparse or dense monthly series?** Plan ships sparse (only months with payslips); Dashboard's chart component handles gaps. Reviewer may prefer dense (every month in the FY, with zero for empty months).
+5. **Should `finance.services.pay.getCurrentRate` return the raw rate row or a simplified shape?** Plan ships the raw `RateRow` (matches `salary_history_rate_history` schema); Dashboard's card renders the fields it needs.
 
 ### §10 — Alternatives Considered (Per Decision)
 
