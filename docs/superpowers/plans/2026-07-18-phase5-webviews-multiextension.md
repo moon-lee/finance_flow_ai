@@ -1,7 +1,8 @@
 ---
 title: Phase 5 — Webview Panels, Multi-Extension UI & Cross-Extension Services
 date: 2026-07-18
-status: draft — awaiting review
+last_updated: 2026-07-22T13:19:27+10:00
+status: review finished — awaiting implementation
 target_version: 0.8.0
 spec_source: docs/superpowers/specs/2026-06-13-implementation-design.md (Phase 5 section, lines 100–113)
 vision_alignment:
