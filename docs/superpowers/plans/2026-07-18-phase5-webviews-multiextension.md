@@ -569,7 +569,7 @@ type WorkspaceNode =
   { "type": "tab", "panelId": "panel-salary-history", "label": "Salary History" }
 ]}
 ```
-On restore, if an extension referenced by `panelId` is missing or disabled, fall back to a single-tab layout with the first available `onStartup` extension active. If the serialized layout exceeds 16 KB, truncate to the active tab only.
+On restore, if an extension referenced by `panelId` is missing or disabled, fall back to a single-tab layout with the first available `onStartup` extension active. If the serialized layout exceeds 16 KB, truncate to the active tab only. **Why 16 KB:** it accommodates ~50 tabs/splits with typical-length extension/view ids; the earlier 4 KB cap proposed in review was too restrictive for realistic multi-tab layouts.
 
 The workspace renders the tree recursively. The tab bar shows tabs in the **active leaf's path** (the user always sees the tabs of the pane they're focused in). Drag-and-drop: a tab can be dragged onto another tab's split affordance (right edge / bottom edge) to create a new split. Drag-and-drop is implemented with the HTML5 Drag and Drop API (no library).
 
@@ -1031,7 +1031,7 @@ finance-flow_ai/
   });
   ```
 - [ ] 8.3 In `main.ts#deactivate`, call `finance.services.unregister('pay')`.
-- [ ] 8.4 In `package.json`, add `commands` with the two existing Phase 4 commands plus a placeholder `salary.show-dashboard` (reserved for Dashboard's quick-link navigation; NOT added to `allowedCommands` so Test Unit 7 can verify allowlist rejection of a registered-but-not-allowlisted command):
+- [ ] 8.4 In `package.json`, add `commands` with the two existing Phase 4 commands plus a deliberately disallowed `salary.show-dashboard` (exists so Manual Test Unit 7 can verify allowlist rejection of a registered-but-not-allowlisted command; Dashboard's own navigation uses `dashboard.refresh` and `dashboard.open-net-worth-detail`):
   ```jsonc
   "commands": [
     { "id": "salary.show-pay-history", "title": "View: Pay History", "keybinding": "Ctrl+Alt+H" },
