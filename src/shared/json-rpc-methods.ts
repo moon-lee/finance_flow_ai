@@ -52,6 +52,11 @@ export const RPC_METHOD = {
   // over the same Host→Main RPC boundary.
   ExtensionGetSetting: 'extension.getSetting',
   ExtensionSetSetting: 'extension.setSetting',
+
+  // Phase 5 Task 7 — cross-extension domain service registry. A single
+  // method covers register / unregister / invoke so the JSON-RPC catalogue
+  // stays flat as new services are added.
+  DomainServiceInvoke: 'domain.service.invoke',
 } as const;
 
 export type RpcMethodName = (typeof RPC_METHOD)[keyof typeof RPC_METHOD];

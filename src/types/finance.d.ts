@@ -17,6 +17,7 @@
 
 export type ActivationEvent =
   | '*'
+  | 'onStartup'
   | `onView:${string}`
   | `onCommand:${string}`;
 
@@ -77,11 +78,21 @@ export interface ManifestConfigurationContribution {
   enumOptions?: string[];
 }
 
+export interface ManifestNavigationContribution {
+  id: string;
+  label: string;
+  command: string;
+  group?: string;
+}
+
 export interface ManifestContributions {
   views?: ManifestViewContribution[];
   commands?: ManifestCommandContribution[];
   menus?: ManifestMenuContribution[];
   configuration?: ManifestConfigurationContribution[];
+  navigation?: ManifestNavigationContribution[];
+  allowedCommands?: string[];
+  allowedUiEvents?: string[];
 }
 
 export interface FinanceExtensionManifest {

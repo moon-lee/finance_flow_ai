@@ -11,6 +11,7 @@ import { resolveHostBundlePath } from '../../shared/extension-paths';
 import type { FinanceExtensionManifest } from '../../types/finance';
 import type { DAOService, QueryObject } from './dao-service';
 import { getSetting, setSetting } from './settings-service';
+import { DomainServiceRegistry } from './domain-service-registry';
 
 interface PendingRequest {
   resolve: (value: unknown) => void;
@@ -113,6 +114,7 @@ export class ExtensionIPC {
    * surfaces loudly during boot rather than as silent query failures.
    */
   private dao: DAOService | null = null;
+  private domainServiceRegistry: DomainServiceRegistry | null = null;
 
   constructor(options: ExtensionIPCOptions = {}) {
     this.requestTimeoutMs = options.requestTimeoutMs ?? 10_000;
@@ -336,10 +338,19 @@ export class ExtensionIPC {
   }
 
   /**
-   * Phase 4 Task 14.1 — register the UI-mount handler. Called by Main so
-   * that when an extension requests a mount (`extension.ui-mount`), Main
-   * can forward it to the Renderer. Returns an unsubscribe function.
+   * Phase 5 Task 7 — inject the domain service registry so
+   * `domain.service.invoke` requests from the Host are dispatched to the
+   * real `DomainServiceRegistry`. Must be called before `start()`.
    */
+  setDomainServiceRegistry(registry: DomainServiceRegistry): void {
+    this.domainServiceRegistry = registry;
+  }
+
+  /**
+    * Phase 4 Task 14 — register the UI-mount handler. Called by Main so
+    * that when an extension requests a mount (`extension.ui-mount`), Main
+    * can forward it to the Renderer. Returns an unsubscribe function.
+    */
   setUIHandler(handler: (extensionId: string, mountRequest: UiMountRequest) => void): () => void {
     this.uiHandler = handler;
     return () => {
@@ -382,7 +393,7 @@ export class ExtensionIPC {
   }
 
   /**
-   * Phase 4 Task 16 — namespace guard for extension settings. The settings
+   * Phase 4 Task 6.3 — namespace guard for extension settings. The settings
    * service stores keys verbatim; this prevents an extension from reading
    * or writing a key outside its `<extensionId>.` prefix (e.g. salary-history
    * cannot set `tax.financialYearStart`). Throws on violation.
@@ -393,6 +404,41 @@ export class ExtensionIPC {
         `Setting key "${key}" is outside the extension's namespace "${extensionId}."`
       );
     }
+  }
+
+  /**
+   * Phase 5 Task 7 — handle `domain.service.invoke` from the Host.
+   *
+   * Payload shape (Decision 5):
+   *   `{ callerExtensionId, serviceName, method, params }`
+   *
+   * The registry routes by `serviceName` and dispatches to the most
+   * recently registered implementation. `register` / `unregister` are
+   * also sent through this method with `method` = `__register` /
+   * `__unregister`.
+   */
+  handleDomainServiceInvoke(payload: unknown): unknown {
+    if (!this.domainServiceRegistry) {
+      throw new Error('ExtensionIPC.handleDomainServiceInvoke: DomainServiceRegistry not wired. Call setDomainServiceRegistry() first.');
+    }
+    const { callerExtensionId, serviceName, method, params } = payload as {
+      callerExtensionId: string;
+      serviceName: string;
+      method: string;
+      params: unknown;
+    };
+
+    if (method === '__register') {
+      // The Host sends this when an extension calls `finance.services.register`.
+      // We don't receive the impl on Main — the Host holds it. We just ack.
+      return { registered: true };
+    }
+    if (method === '__unregister') {
+      this.domainServiceRegistry.unregister(serviceName, callerExtensionId);
+      return { unregistered: true };
+    }
+
+    return this.domainServiceRegistry.invoke(serviceName, method, params);
   }
 
   /**
@@ -533,6 +579,9 @@ export class ExtensionIPC {
           break;
         case RPC_METHOD.ExtensionSetSetting:
           result = this.handleSetSetting(req.params);
+          break;
+        case RPC_METHOD.DomainServiceInvoke:
+          result = this.handleDomainServiceInvoke(req.params);
           break;
         default:
           this.process.postMessage({

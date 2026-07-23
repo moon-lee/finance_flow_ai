@@ -99,6 +99,20 @@ export function discoverExtensions(
       continue;
     }
 
+    // Phase 5 Task 1 — auto-fill missing Phase 4 manifest fields so older
+    // extensions remain loadable. We backfill `allowedCommands` from the
+    // declared `commands[]` (all commands are allowed by default if the
+    // extension does not opt into allowlisting) and `allowedUiEvents` from
+    // an empty array (no ui-events allowed by default unless listed).
+    const manifest = validation.manifest;
+    if (!manifest.contributions.allowedCommands && manifest.contributions.commands) {
+      manifest.contributions.allowedCommands = manifest.contributions.commands.map(c => c.id);
+      console.warn(`[loader] auto-filled allowedCommands for "${manifest.id}" from commands[]`);
+    }
+    if (!manifest.contributions.allowedUiEvents) {
+      manifest.contributions.allowedUiEvents = [];
+    }
+
     // Phase 4 Task 9.1 — register extension-owned tables with the schema
     // registry immediately after manifest validation succeeds. The DAO
     // service cannot process reads/writes for a table that has not been

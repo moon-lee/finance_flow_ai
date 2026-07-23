@@ -53,7 +53,10 @@ export const RpcErrorCode = {
   TableNotFound: -32010,
   TableAccessDenied: -32011,
   ValidationFailed: -32012,
-  SharedTableReadOnly: -32013
+  SharedTableReadOnly: -32013,
+
+  // Phase 5 Task 7 — domain service registry.
+  ServiceNotFound: -32014
 } as const;
 
 let nextId = 1;

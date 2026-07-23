@@ -62,9 +62,10 @@ function makeFinance(): { finance: FinanceApi; state: TableState } {
         } as any;
       },
     },
-    commands: { registerCommand: () => {}, execute: async () => null },
-    ai: { registerTool: () => {} },
-  };
+     commands: { registerCommand: () => {}, execute: async () => null },
+     ai: { registerTool: () => {} },
+     services: { register: () => {}, unregister: () => {}, invoke: async () => null },
+   };
   return { finance, state };
 }
 

@@ -214,6 +214,11 @@ async function handleRequest(req: JsonRpcRequest): Promise<void> {
         respond(req.id, result);
         return;
       }
+      case RPC_METHOD.DomainServiceInvoke: {
+        const result = await requestMain<unknown>(req.method, req.params);
+        respond(req.id, result);
+        return;
+      }
       default:
         respondError(req.id, RpcErrorCode.MethodNotFound, `Unknown method: ${req.method}`);
     }

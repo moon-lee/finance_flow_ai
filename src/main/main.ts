@@ -10,6 +10,9 @@ import { RPC_METHOD } from '../shared/json-rpc-methods';
 import { TableSchemaRegistry } from './services/table-schema-registry';
 import { DAOService } from './services/dao-service';
 import { SHARED_TABLE_MANIFESTS } from './services/shared-data-tables';
+import { CommandAllowlist } from './services/command-allowlist';
+import { UiEventAllowlist } from './services/ui-event-allowlist';
+import { DomainServiceRegistry } from './services/domain-service-registry';
 
 const mainDir = fileURLToPath(new URL('.', import.meta.url));
 const rendererDevUrl = process.env.ELECTRON_RENDERER_URL;
@@ -32,6 +35,9 @@ let extensionRegistry: ExtensionRegistry | null = null;
 let extensionIPC: ExtensionIPC | null = null;
 let tableSchemaRegistry: TableSchemaRegistry | null = null;
 let daoService: DAOService | null = null;
+let commandAllowlist: CommandAllowlist | null = null;
+let uiEventAllowlist: UiEventAllowlist | null = null;
+let domainServiceRegistry: DomainServiceRegistry | null = null;
 
 function resolvePreloadPath(): string {
   return join(mainDir, '../preload/preload.cjs');
@@ -248,10 +254,21 @@ function registerIpcHandlers(): void {
   // forwarding extension command execution to the Host. The Host handler is a
   // thin wrapper around the existing `finance.commands.execute` stub. Phase 5
   // will swap the stub for real execution; the Main-side handler is unchanged.
+  // Phase 5 Task 13 adds a per-extension command allowlist gate.
   ipcMain.handle(
     'extensions:execute-command',
     async (_event, commandId: string, ...args: unknown[]) => {
-      if (!extensionIPC) return { executed: false, reason: 'host not running' };
+      if (!extensionIPC || !extensionRegistry) return { executed: false, reason: 'host not running' };
+
+      // Find the owning extension for the command.
+      const owning = extensionRegistry.commands().find(c => c.command.id === commandId);
+      if (!owning) return { executed: false, reason: 'command not found' };
+
+      // Phase 5 Task 13 — gate on the owning extension's allowlist.
+      if (commandAllowlist && !commandAllowlist.isAllowed(owning.extensionId, commandId)) {
+        return { executed: false, reason: 'command not allowed for this extension' };
+      }
+
       try {
         const result = await extensionIPC.request<{ executed: boolean; result: unknown }>(
           'extension.executeCommand',
@@ -279,8 +296,19 @@ function registerIpcHandlers(): void {
 
   // Phase 4 Task 14 (Decision 12) — renderer pushes a component event back
   // to the Host via a notification (no response expected).
+  // Phase 5 Task 14 adds a per-extension ui-event allowlist gate.
   ipcMain.on('extensions:ui-event', (_event, extensionId: string, eventName: string, detail: unknown) => {
     if (!extensionIPC) return;
+
+    // Phase 5 Task 14 — drop disallowed ui-events at the Main boundary.
+    if (uiEventAllowlist && !uiEventAllowlist.isAllowed(extensionId, eventName)) {
+      const msg = `[extensions] dropped ui-event "${eventName}" from "${extensionId}" — not in allowlist`;
+      console.warn(msg);
+      // Notify the sender (panel) so DevTools shows the violation.
+      _event.sender.send('panel:allowlist-denied', { kind: 'ui-event', extensionId, eventName, reason: msg });
+      return;
+    }
+
     extensionIPC.notify(RPC_METHOD.ExtensionUiEvent, { extensionId, eventName, detail });
   });
 
@@ -367,30 +395,48 @@ app.whenReady().then(() => {
       console.log(`[extensions] skipped "${skipped.directory}": ${skipped.reason}`);
     }
 
+    // Phase 5 Task 13 — per-extension command allowlist. Built from the
+    // discovered manifests; the loader auto-fills missing `allowedCommands`
+    // from `commands[]` with a console.warn.
+    commandAllowlist = new CommandAllowlist();
+    commandAllowlist.rebuild(discovery.extensions.map(e => e.manifest));
+
+    // Phase 5 Task 14 — per-extension ui-event allowlist.
+    uiEventAllowlist = new UiEventAllowlist();
+    uiEventAllowlist.rebuild(discovery.extensions.map(e => e.manifest));
+
+    // Phase 5 Task 7 — cross-extension domain service registry.
+    domainServiceRegistry = new DomainServiceRegistry();
+
     extensionIPC = new ExtensionIPC();
 
-    // Phase 4 Task 9.3 — wire the DAO service into ExtensionIPC so the
-    // Host's `extension.readTable` / `extension.writeTable` RPCs are
-    // handled by the DAO service rather than returning a "not wired"
-    // error. This MUST happen before `extensionIPC.start()` so the
-    // message handlers are ready when the Host sends its first request.
-    extensionIPC.setDAOService(daoService);
+  // Phase 4 Task 9.3 — wire the DAO service into ExtensionIPC so the
+  // Host's `extension.readTable` / `extension.writeTable` RPCs are
+  // handled by the DAO service rather than returning a "not wired"
+  // error. This MUST happen before `extensionIPC.start()` so the
+  // message handlers are ready when the Host sends its first request.
+  extensionIPC.setDAOService(daoService);
 
-    // Phase 4 Task 14.1 — forward extension UI-mount requests to the
-    // Renderer so it can dynamically import the bundle and mount the
-    // element. The Host has no DOM, so this Main→Renderer hop is the
-    // only way to realise a UI mount.
-    extensionIPC.setUIHandler((extensionId, mountRequest) => {
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        // Resolve the built UI bundle's absolute file:// URL so the Renderer
-        // can import it directly. The renderer page sits in `dist/renderer/`
-        // but the bundle is emitted to `dist/extensions/<id>.js`; a relative
-        // path from the renderer would 404 and the mount would fail silently.
-        const bundleAbs = join(mainDir, '..', 'extensions', `${extensionId}.js`);
-        const bundleUrl = pathToFileURL(bundleAbs).href;
-        mainWindow.webContents.send('extensions:ui-mount', { ...mountRequest, bundleUrl });
-      }
-    });
+  // Phase 5 Task 7 — wire the domain service registry into ExtensionIPC
+  // so `domain.service.invoke` RPCs from the Host are handled by the
+  // Core-owned registry.
+  extensionIPC.setDomainServiceRegistry(domainServiceRegistry);
+
+  // Phase 4 Task 14.1 — forward extension UI-mount requests to the
+  // Renderer so it can dynamically import the bundle and mount the
+  // element. The Host has no DOM, so this Main→Renderer hop is the
+  // only way to realise a UI mount.
+  extensionIPC.setUIHandler((extensionId, mountRequest) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      // Resolve the built UI bundle's absolute file:// URL so the Renderer
+      // can import it directly. The renderer page sits in `dist/renderer/`
+      // but the bundle is emitted to `dist/extensions/<id>.js`; a relative
+      // path from the renderer would 404 and the mount would fail silently.
+      const bundleAbs = join(mainDir, '..', 'extensions', `${extensionId}.js`);
+      const bundleUrl = pathToFileURL(bundleAbs).href;
+      mainWindow.webContents.send('extensions:ui-mount', { ...mountRequest, bundleUrl });
+    }
+  });
 
     extensionIPC.start(extensionRegistry.list()).catch((err) => {
       // [Review fix §2.2] Replace fire-and-forget `void` with an explicit

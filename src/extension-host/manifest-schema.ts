@@ -3,6 +3,7 @@ import type { FinanceExtensionManifest, TableManifest, ColumnManifest } from '..
 
 const activationEventSchema = z.union([
   z.literal('*'),
+  z.literal('onStartup'),
   z.string().regex(/^onView:[a-z0-9-]+$/, 'must match onView:<id>'),
   z.string().regex(/^onCommand:[a-z0-9.-]+$/, 'must match onCommand:<id>')
 ]);
@@ -36,11 +37,21 @@ export const configurationContributionSchema = z.object({
   { message: 'enum type requires enumOptions', path: ['enumOptions'] }
 );
 
+export const navigationContributionSchema = z.object({
+  id: z.string().regex(/^[a-z0-9-]+$/, 'navigation id must be lowercase alphanumeric/hyphen'),
+  label: z.string().min(1),
+  command: z.string().min(1),
+  group: z.string().optional()
+});
+
 export const manifestContributionsSchema = z.object({
   views: z.array(viewContributionSchema).optional(),
   commands: z.array(commandContributionSchema).optional(),
   menus: z.array(menuContributionSchema).optional(),
-  configuration: z.array(configurationContributionSchema).optional()
+  configuration: z.array(configurationContributionSchema).optional(),
+  navigation: z.array(navigationContributionSchema).optional(),
+  allowedCommands: z.array(z.string().regex(/^[a-z0-9.-]+$/, 'command id must be lowercase with dots/hyphens')).optional(),
+  allowedUiEvents: z.array(z.string().regex(/^[a-z0-9-]+$/, 'event name must be lowercase alphanumeric/hyphen')).optional()
 }).strict(); // reject unknown contribution keys
 
 // ---------------------------------------------------------------------------

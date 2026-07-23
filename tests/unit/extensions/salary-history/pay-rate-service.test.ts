@@ -91,6 +91,7 @@ function makeFinance(initialRows: RateRow[] = []): {
       execute: async () => null,
     },
     ai: { registerTool: () => {} },
+    services: { register: () => {}, unregister: () => {}, invoke: async () => null },
   };
 
   return { finance, state, calls };

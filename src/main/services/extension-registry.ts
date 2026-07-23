@@ -218,6 +218,18 @@ export class ExtensionRegistry {
     return out;
   }
 
+  /** Aggregate all enabled extensions' navigation items. */
+  navigation(): Array<{ extensionId: string; navigation: NonNullable<FinanceExtensionManifest['contributions']['navigation']>[number] }> {
+    const out: Array<{ extensionId: string; navigation: NonNullable<FinanceExtensionManifest['contributions']['navigation']>[number] }> = [];
+    for (const { manifest } of this.byId.values()) {
+      if (!this.isEnabled(manifest.id)) continue;
+      for (const nav of manifest.contributions.navigation ?? []) {
+        out.push({ extensionId: manifest.id, navigation: nav });
+      }
+    }
+    return out;
+  }
+
   get(extensionId: string): FinanceExtensionManifest | undefined {
     return this.byId.get(extensionId)?.manifest;
   }
