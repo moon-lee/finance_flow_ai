@@ -1,0 +1,56 @@
+{
+  "name": "dashboard",
+  "version": "0.1.0",
+  "description": "Dashboard extension (Phase 5: aggregator landing view).",
+  "private": true,
+  "main": "src/main.ts",
+  "financeExtension": {
+    "id": "dashboard",
+    "displayName": "Dashboard",
+    "version": "0.1.0",
+    "description": "Default landing view aggregating net worth, YTD salary, last payslip, and accounts.",
+    "activationEvents": ["onStartup"],
+    "dependencies": ["salary-history"],
+    "contributions": {
+      "views": [
+        {
+          "id": "dashboard",
+          "name": "Dashboard",
+          "icon": "D"
+        }
+      ],
+      "commands": [
+        {
+          "id": "dashboard.refresh",
+          "title": "Refresh Dashboard"
+        },
+        {
+          "id": "dashboard.open-net-worth-detail",
+          "title": "Net Worth Detail"
+        }
+      ],
+      "navigation": [
+        {
+          "id": "dashboard.refresh",
+          "label": "Refresh",
+          "command": "dashboard.refresh",
+          "group": "Quick Links"
+        },
+        {
+          "id": "dashboard.net-worth",
+          "label": "Net Worth Detail",
+          "command": "dashboard.open-net-worth-detail",
+          "group": "Insights"
+        },
+        {
+          "id": "dashboard.open-salary",
+          "label": "Open Salary History",
+          "command": "salary.show-pay-history",
+          "group": "Insights"
+        }
+      ],
+      "allowedCommands": ["dashboard.refresh", "dashboard.open-net-worth-detail"],
+      "allowedUiEvents": ["dashboard-refresh"]
+    }
+  }
+}

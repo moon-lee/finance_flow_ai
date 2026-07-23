@@ -157,6 +157,16 @@ async function handleRequest(req: JsonRpcRequest): Promise<void> {
             await activateExtension(id, '*');
           }
         }
+        // Phase 5 Task 10 — activate `onStartup` extensions in dependency order
+        // so service providers (e.g. salary-history) are ready before
+        // default-view extensions (e.g. dashboard) activate and query services.
+        const startupManifests = Array.from(activeExtensions.values())
+          .filter(ext => ext.manifest.activationEvents.includes('onStartup'))
+          .map(ext => ext.manifest);
+        const sorted = sortByDependencies(startupManifests);
+        for (const manifest of sorted) {
+          await activateExtension(manifest.id, 'onStartup');
+        }
         respond(req.id, { accepted: manifests.length });
         console.log(`[host] responded to host.initialize (id=${req.id})`);
         return;
@@ -229,6 +239,27 @@ async function handleRequest(req: JsonRpcRequest): Promise<void> {
       err instanceof Error ? err.message : String(err)
     );
   }
+}
+
+// Phase 5 Task 10 — topological sort so dependent extensions activate
+// after their dependencies. Cycles are broken by original order.
+function sortByDependencies(manifests: FinanceExtensionManifest[]): FinanceExtensionManifest[] {
+  const byId = new Map(manifests.map(m => [m.id, m]));
+  const visited = new Set<string>();
+  const sorted: FinanceExtensionManifest[] = [];
+
+  function visit(manifest: FinanceExtensionManifest): void {
+    if (visited.has(manifest.id)) return;
+    visited.add(manifest.id);
+    for (const dep of manifest.dependencies ?? []) {
+      const depManifest = byId.get(dep);
+      if (depManifest) visit(depManifest);
+    }
+    sorted.push(manifest);
+  }
+
+  for (const manifest of manifests) visit(manifest);
+  return sorted;
 }
 
 async function activateExtension(extensionId: string, reason: string): Promise<boolean> {

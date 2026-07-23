@@ -1,21 +1,20 @@
 /**
- * Phase 4 Task 12 — salary-history extension entry point.
+ * Phase 5 Task 8 — salary-history extension entry point.
  *
  * Wires the extension to the host:
  *  1. Registers the six UI custom elements (via ./ui/index.js).
  *  2. Registers the two commands (Decision 17): `salary.show-pay-history`
  *     and `salary.show-pay-rate-history`.
  *  3. (Task 16.1) Reads namespace-scoped settings with safe defaults.
+ *  4. (Phase 5) Registers the public `finance.services.pay.*` adapter
+ *     so other extensions (e.g. Dashboard) can read salary data.
  *
  * The `finance` API passed to `activate` is the per-extension `FinanceApi`
- * (`db` + `commands` + `ai` + optional `ui`/`settings`). The Host process
- * has no DOM, so the command handlers request a UI mount over IPC
- * (`finance.ui.requestMount`) — Main forwards it to the Renderer, which
- * dynamically imports the extension bundle and mounts the named element.
- * Direct DOM creation here would fail at runtime (Node `utilityProcess`).
+ * (`db` + `commands` + `ai` + `services` + optional `ui`/`settings`).
  */
 
-import type { FinanceApi } from 'finance';
+import type { FinanceApi, DomainServiceImpl } from 'finance';
+import { createPublicPayAdapter } from './services/public-pay-adapter.js';
 
 /**
  * Register the extension's custom elements. The Extension Host runs in a
@@ -70,6 +69,10 @@ export async function activate(finance: FinanceApi): Promise<void> {
     (await finance.settings?.get('salary-history.financialYearStart')) ?? '07-01';
   const mountData = { defaultCurrency, financialYearStart };
 
+  // Phase 5 Task 8 — register the public `finance.services.pay.*` adapter.
+  const payAdapter = createPublicPayAdapter(finance);
+  finance.services?.register('pay', payAdapter as unknown as DomainServiceImpl);
+
   // Decision 17 — two commands, one existing + one new.
   finance.commands.registerCommand('salary.show-pay-history', 'View: Pay History', () =>
     openPayHistory(finance, mountData).catch((e) =>
@@ -88,7 +91,22 @@ export async function activate(finance: FinanceApi): Promise<void> {
   );
 }
 
-export function deactivate(): void {
+let _registeredFinance: FinanceApi | null = null;
+
+export function deactivate(finance?: FinanceApi): void {
+  // Phase 5 Task 8 — unregister the public pay adapter so the domain
+  // service registry removes our implementation. Subsequent
+  // `finance.services.invoke('pay', ...)` calls from other extensions
+  // return `null` (graceful degradation per project_vision.md:48).
+  const api = finance ?? _registeredFinance;
+  if (api) {
+    try {
+      api.services?.unregister('pay');
+    } catch (err) {
+      console.error('[salary-history] failed to unregister pay service:', err);
+    }
+  }
+
   // Review Finding 13 cleanup contract: unsubscribe from any ui-event
   // listeners and release the `finance` reference. Task 12 has no active
   // subscriptions yet (the ui-event back-channel arrives with the Task 14

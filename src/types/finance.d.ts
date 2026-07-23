@@ -28,6 +28,7 @@ export type ActivationEvent =
 // `src/main/services/shared-data-tables.ts` so the registry, DAO, and
 // extension authors all share one schema.
 export type { TableManifest, ColumnManifest, ColumnType } from '../main/services/shared-data-tables';
+export type { DomainServiceImpl } from '../main/services/domain-service-registry';
 
 // Re-export the public per-extension API contract so extension authors can
 // write `import type { FinanceApi } from 'finance'` (Phase 4 Decision 9 — the
