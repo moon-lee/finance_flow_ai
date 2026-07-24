@@ -7,11 +7,11 @@ export interface ServicesApi {
   invoke<T = unknown>(serviceName: string, method: string, params?: unknown): Promise<T | null>;
 }
 
+const registered = new Map<string, DomainServiceImpl>();
+
 export function createServices(extensionId: string, rpc: {
   request<T = unknown>(method: string, params?: unknown): Promise<T>;
 }): ServicesApi {
-  const registered = new Map<string, DomainServiceImpl>();
-
   return {
     register(serviceName: string, impl: DomainServiceImpl): void {
       registered.set(serviceName, impl);
@@ -25,7 +25,19 @@ export function createServices(extensionId: string, rpc: {
       if (method === '__register' || method === '__unregister') {
         throw new Error('invalid internal method');
       }
+      const impl = registered.get(serviceName);
+      if (impl) {
+        const fn = impl[method];
+        if (typeof fn === 'function') {
+          return fn(params) as Promise<T | null>;
+        }
+        return null;
+      }
       return rpc.request<T | null>(RPC_METHOD.DomainServiceInvoke, { extensionId, serviceName, method, params });
     }
   };
+}
+
+export function _clearServiceRegistryForTests(): void {
+  registered.clear();
 }

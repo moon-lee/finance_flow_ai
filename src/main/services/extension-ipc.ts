@@ -596,7 +596,7 @@ export class ExtensionIPC {
           result = this.handleSetSetting(req.params);
           break;
         case RPC_METHOD.DomainServiceInvoke:
-          result = this.handleDomainServiceInvoke(req.params);
+            result = await this.handleDomainServiceInvoke(req.params);
           break;
         default:
           this.process.postMessage({

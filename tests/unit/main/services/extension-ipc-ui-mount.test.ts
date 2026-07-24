@@ -9,8 +9,9 @@
  * manual verification step (Test Unit per plan).
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { ExtensionIPC } from '../../../../src/main/services/extension-ipc';
+import { DomainServiceRegistry } from '../../../../src/main/services/domain-service-registry';
 
 const noopHandler = {
   onMountRequested: () => {},
@@ -84,5 +85,37 @@ describe('ExtensionIPC settings namespace enforcement (Task 16)', () => {
     expect(() =>
       ipc.handleGetSetting({ extensionId: 'salary-history', key: 'salary-history.defaultCurrency' })
     ).not.toThrow(/namespace/);
+  });
+});
+
+describe('ExtensionIPC domain-service responses', () => {
+  it('awaits domain service results before posting them back to the Host', async () => {
+    const ipc = new ExtensionIPC();
+    const postMessage = vi.fn();
+    const registry = new DomainServiceRegistry();
+    registry.register('pay', 'salary-history', {
+      getCurrentRate: vi.fn().mockResolvedValue({ effective_from: '2026-07-01' })
+    });
+
+    ipc.setDomainServiceRegistry(registry);
+    (ipc as any).process = { postMessage };
+
+    await (ipc as any).dispatchHostRequest({
+      jsonrpc: '2.0',
+      id: 7,
+      method: 'domain.service.invoke',
+      params: {
+        callerExtensionId: 'dashboard',
+        serviceName: 'pay',
+        method: 'getCurrentRate',
+        params: {}
+      }
+    });
+
+    expect(postMessage).toHaveBeenCalledWith({
+      jsonrpc: '2.0',
+      id: 7,
+      result: { effective_from: '2026-07-01' }
+    });
   });
 });

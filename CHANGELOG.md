@@ -1,7 +1,7 @@
 ---
 version: 0.7.0
 created: 2026-06-14
-last_updated: 2026-07-24T21:45:00+10:00
+last_updated: 2026-07-25T00:00:00+10:00
 ---
 
 # Changelog
@@ -32,6 +32,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Task 8.4–8.6 — salary-history manifest updated** (`extensions/salary-history/package.json`). Added `allowedCommands` (`salary.show-pay-history`, `salary.show-pay-rate-history`), `navigation` (Pay History + Pay Rate History entries), and `allowedUiEvents` (16 UI event names) to `financeExtension.contributions`.
 
 ### Fixed
+
+- **Domain service responses are now awaited before Main posts them back to the Host** (`src/main/services/extension-ipc.ts`). `domain.service.invoke` now awaits the service result before calling `postMessage`, so Main no longer tries to structured-clone a pending `Promise` when the Dashboard activates and calls the `pay` service. This fixes the `An object could not be cloned (code -32603)` crash during dashboard startup.
+
+- **`finance.services.invoke` now dispatches locally from the Extension Host registry** (`src/extension-host/api/services.ts`). Service implementations are JavaScript functions that cannot cross the Host→Main IPC boundary, so the previous architecture stored impls in Main's `DomainServiceRegistry` which was always empty. `invoke` now checks a shared module-level registry first and calls the registered implementation directly, falling back to RPC only if the service is not found locally. This prevents the `[services] service not found: pay` warning when extensions call `finance.services.invoke('pay', ...)` after salary-history has registered the adapter. 6 unit tests updated + pass.
+
+- **salary-history manifest now activates on `onStartup`** (`extensions/salary-history/package.json`). Added `onStartup` to `activationEvents` so the `pay` service is registered before Dashboard queries it during startup. Previously only `onView:salary-history` was present, so salary-history never activated at startup and the `pay` service was missing when Dashboard's `buildAggregator` called `finance.services.invoke('pay', ...)`. This was the root cause of the `[services] service not found: pay` warning.
 
 - **Task 7.3 — `_registeredFinance` bug in salary-history `deactivate()`** (`extensions/salary-history/src/main.ts`). Added `_registeredFinance = finance;` in `activate()` so `deactivate()` can fall back to the stored reference when called without arguments, allowing `unregister('pay')` to actually execute.
 
