@@ -15,7 +15,7 @@
     "contributions": {
       "views": [
         {
-          "id": "dashboard",
+          "id": "dashboard-view",
           "name": "Dashboard",
           "icon": "D"
         }
