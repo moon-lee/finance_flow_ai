@@ -167,10 +167,15 @@ export class WebviewPanelManager {
       handles.map(async (handle) => {
         try {
           if (this.uiHandler) {
-            await this.uiHandler.onAutoSaveDraft(handle.panelId);
+            await Promise.race([
+              this.uiHandler.onAutoSaveDraft(handle.panelId),
+              new Promise<void>((_, reject) =>
+                setTimeout(() => reject(new Error('autoSaveDraft timed out')), 500)
+              )
+            ]);
           }
-        } catch {
-          // Best-effort; quit must not be blocked.
+        } catch (err) {
+          console.warn(`[webview-panel] autoSaveDraft failed for ${handle.panelId}:`, err);
         }
         const view = handle.view;
         if (!(view as unknown as { isDestroyed(): boolean }).isDestroyed()) {

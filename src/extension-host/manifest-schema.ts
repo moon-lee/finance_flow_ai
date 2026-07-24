@@ -52,7 +52,30 @@ export const manifestContributionsSchema = z.object({
   navigation: z.array(navigationContributionSchema).optional(),
   allowedCommands: z.array(z.string().regex(/^[a-z0-9.-]+$/, 'command id must be lowercase with dots/hyphens')).optional(),
   allowedUiEvents: z.array(z.string().regex(/^[a-z0-9-]+$/, 'event name must be lowercase alphanumeric/hyphen')).optional()
-}).strict(); // reject unknown contribution keys
+}).strict() // reject unknown contribution keys
+  .refine(
+    (data) => {
+      if (!data.navigation) return true;
+      const ids = data.navigation.map((n) => n.id);
+      return ids.length === new Set(ids).size;
+    },
+    { message: 'navigation items must have unique ids', path: ['navigation'] }
+  )
+  .refine(
+    (data) => {
+      if (!data.allowedCommands || !data.commands) return true;
+      const commandIds = new Set(data.commands.map((c) => c.id));
+      return data.allowedCommands.every((cmd) => commandIds.has(cmd));
+    },
+    { message: 'allowedCommands must reference commands defined in commands[]', path: ['allowedCommands'] }
+  )
+  .refine(
+    (data) => {
+      if (!data.allowedUiEvents) return true;
+      return data.allowedUiEvents.length === new Set(data.allowedUiEvents).size;
+    },
+    { message: 'allowedUiEvents must not contain duplicate entries', path: ['allowedUiEvents'] }
+  );
 
 // ---------------------------------------------------------------------------
 // Table manifest schemas (Phase 4 Task 8 / Decision 3)

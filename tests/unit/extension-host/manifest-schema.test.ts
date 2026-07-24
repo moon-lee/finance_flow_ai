@@ -185,6 +185,72 @@ describe('validateManifest (tables[] — Phase 4 Task 8)', () => {
     }
   });
 
+  // ---- Phase 5 Task 1.2–1.3: navigation, allowedCommands, allowedUiEvents refinements ----
+
+  it('accepts onStartup activation event', () => {
+    const result = validateManifest({
+      ...validManifest,
+      activationEvents: ['onStartup']
+    });
+    expect(result.ok).toBe(true);
+  });
+
+  it('accepts valid navigation contribution', () => {
+    const result = validateManifest({
+      ...validManifest,
+      contributions: {
+        navigation: [
+          { id: 'monthly-budget', label: 'Monthly Budget', command: 'budget.open' },
+          { id: 'categories', label: 'Categories', command: 'budget.categories' }
+        ]
+      }
+    });
+    expect(result.ok).toBe(true);
+  });
+
+  it('rejects duplicate navigation ids', () => {
+    const result = validateManifest({
+      ...validManifest,
+      contributions: {
+        navigation: [
+          { id: 'monthly-budget', label: 'Monthly Budget', command: 'budget.open' },
+          { id: 'monthly-budget', label: 'Duplicate', command: 'budget.dup' }
+        ]
+      }
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.errors.some((e) => /navigation/.test(e) && /unique/.test(e))).toBe(true);
+    }
+  });
+
+  it('rejects allowedCommands referencing a command not in commands[]', () => {
+    const result = validateManifest({
+      ...validManifest,
+      contributions: {
+        commands: [{ id: 'budget.open', title: 'Open Budget' }],
+        allowedCommands: ['budget.open', 'budget.missing']
+      }
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.errors.some((e) => /allowedCommands/.test(e))).toBe(true);
+    }
+  });
+
+  it('rejects duplicate allowedUiEvents entries', () => {
+    const result = validateManifest({
+      ...validManifest,
+      contributions: {
+        allowedUiEvents: ['budget-updated', 'budget-updated']
+      }
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.errors.some((e) => /allowedUiEvents/.test(e) && /duplicate/.test(e))).toBe(true);
+    }
+  });
+
   it('rejects an invalid table name (must be lowercase snake_case)', () => {
     // The plan calls this "no prefix match"; the schema's interpretation
     // is the SQL-identifier safety check (lowercase letter start,

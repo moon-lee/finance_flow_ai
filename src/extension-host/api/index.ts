@@ -21,6 +21,7 @@ import * as commandsApi from './commands';
 import * as aiApi from './ai';
 import { createDb, type DbAccessor, type DbRpcClient } from './db';
 import { createServices, type ServicesApi } from './services';
+import { createUi, type UiApi, type RpcClient } from './ui';
 import { RPC_METHOD } from '../../shared/json-rpc-methods';
 
 // ---------------------------------------------------------------------------
@@ -40,8 +41,9 @@ import { RPC_METHOD } from '../../shared/json-rpc-methods';
  *                    wrapper around `requestMain` from host.ts; tests
  *                    pass a stub.
  */
-export function createFinance(extensionId: string, rpc: DbRpcClient): FinanceApi {
+export function createFinance(extensionId: string, rpc: DbRpcClient & RpcClient): FinanceApi {
   const services = createServices(extensionId, rpc);
+  const ui = createUi(extensionId, rpc);
   return {
     db: createDb(extensionId, rpc),
     commands: {
@@ -52,10 +54,7 @@ export function createFinance(extensionId: string, rpc: DbRpcClient): FinanceApi
       registerTool: aiApi.registerTool
     },
     services,
-    ui: {
-      requestMount: (componentTag: string, mountData?: Record<string, unknown>) =>
-        rpc.request(RPC_METHOD.ExtensionUiMount, { extensionId, componentTag, mountData })
-    },
+    ui,
     settings: {
       get: async (key: string) => {
         const res = (await rpc.request(RPC_METHOD.ExtensionGetSetting, { extensionId, key })) as {
@@ -118,16 +117,10 @@ export interface FinanceApi {
   };
   services: ServicesApi;
   /**
-    * Phase 4 Task 14 — request that the Renderer mount one of this
-    * extension's custom elements. The Host process has no DOM, so the
-    * extension cannot render directly; it asks Main to forward a mount
-    * request to the Renderer, which dynamically imports the extension
-    * bundle and mounts the named element. Optional because legacy/test
-    * `FinanceApi` mocks may not provide it.
+    * Phase 5 Task 2.7 — extension UI surface: requestMount, setDirty,
+    * autoSaveDraft, onBeforeUnmount. Optional for legacy/test mocks.
     */
-  ui?: {
-    requestMount: (componentTag: string, mountData?: Record<string, unknown>) => Promise<unknown>;
-  };
+  ui?: UiApi;
   /**
     * Phase 4 Task 16 — extension-scoped settings read/write. Keys are
     * namespace-prefixed by Main (`<extensionId>.`), so an extension can

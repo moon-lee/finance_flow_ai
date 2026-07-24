@@ -77,11 +77,13 @@ export class WorkspacePanel extends LitElement {
     super.connectedCallback();
     this._restoreLayout();
     this._refreshPanels();
+    this._attachResizeObserver();
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
     if (this._saveTimer) clearTimeout(this._saveTimer);
+    if (this._resizeObserver) this._resizeObserver.disconnect();
   }
 
   private _getLeafTabs(node: WorkspaceNode): Tab[] {
@@ -235,17 +237,20 @@ export class WorkspacePanel extends LitElement {
     this._refreshPanels();
   }
 
+  private _resizeObserver: ResizeObserver | null = null;
+
   private _attachResizeObserver() {
     const content = this.renderRoot.querySelector('.content') as HTMLElement | null;
     if (!content) return;
-    const observer = new ResizeObserver((entries) => {
+    if (this._resizeObserver) this._resizeObserver.disconnect();
+    this._resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
         const { width, height } = entry.contentRect;
         const bounds = { x: 0, y: 0, width: Math.round(width), height: Math.round(height) };
-        this.dispatchEvent(new CustomEvent('workspace:resize', { detail: { panelId: this._activePanelId, bounds }, bubbles: true, composed: true }));
+        window.financeShell?.panel?.resize(this._activePanelId, bounds);
       }
     });
-    observer.observe(content);
+    this._resizeObserver.observe(content);
   }
 
   render() {

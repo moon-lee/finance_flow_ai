@@ -95,6 +95,10 @@ export interface FinanceShellApi {
   settings: SettingsApi;
   extensions: ExtensionsApi;
   accounts: AccountsApi;
+  panel: {
+    focus: (panelId: string) => void;
+    resize: (panelId: string, bounds: { x: number; y: number; width: number; height: number }) => void;
+  };
 }
 
 /**

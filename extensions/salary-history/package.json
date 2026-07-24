@@ -30,6 +30,39 @@
           "keybinding": "Ctrl+Alt+R"
         }
       ],
+      "allowedCommands": ["salary.show-pay-history", "salary.show-pay-rate-history"],
+      "navigation": [
+        {
+          "id": "salary.pay-history",
+          "label": "Pay History",
+          "command": "salary.show-pay-history",
+          "group": "Salary"
+        },
+        {
+          "id": "salary.pay-rate-history",
+          "label": "Pay Rate History",
+          "command": "salary.show-pay-rate-history",
+          "group": "Salary"
+        }
+      ],
+      "allowedUiEvents": [
+        "account-create",
+        "account-seed-skip",
+        "account-seed-cancel",
+        "payslip-add-request",
+        "payslip-create",
+        "payslip-edit-request",
+        "payslip-edit",
+        "payslip-cancel",
+        "payslip-delete",
+        "rate-edit-request",
+        "rate-view-request",
+        "rate-add-request",
+        "rate-create",
+        "rate-edit",
+        "rate-form-cancel",
+        "section-order-change"
+      ],
       "configuration": [
         { "key": "salary-history.defaultCurrency", "type": "string", "label": "Default Currency", "default": "AUD" },
         { "key": "salary-history.financialYearStart", "type": "string", "label": "Financial Year Start (MM-DD)", "default": "07-01" },

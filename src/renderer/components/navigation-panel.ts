@@ -78,6 +78,11 @@ export class NavigationPanel extends LitElement {
     }));
   }
 
+  private static readonly _coreItems: NavItem[] = [
+    { extensionId: 'core', id: 'app-preferences', label: 'App Preferences', command: 'core.appPreferences', group: 'Settings' },
+    { extensionId: 'core', id: 'manage-extensions', label: 'Manage Extensions', command: 'core.manageExtensions', group: 'Settings' },
+  ];
+
   private _groupedItems(): Map<string | undefined, NavItem[]> {
     const groups = new Map<string | undefined, NavItem[]>();
     for (const item of this._items) {
@@ -88,8 +93,20 @@ export class NavigationPanel extends LitElement {
     return groups;
   }
 
+  private _getVisibleItems(): NavItem[] {
+    if (this._currentView === '__settings__') {
+      return [...NavigationPanel._coreItems];
+    }
+    return this._items;
+  }
+
   render() {
-    const grouped = this._groupedItems();
+    const grouped = this._getVisibleItems().reduce<Map<string | undefined, NavItem[]>>((map, item) => {
+      const g = map.get(item.group) ?? [];
+      g.push(item);
+      map.set(item.group, g);
+      return map;
+    }, new Map());
     const sections = Array.from(grouped.entries()).map(([group, items]) => {
       const title = group ?? 'General';
       const children = items.map(item => html`

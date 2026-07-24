@@ -53,6 +53,10 @@ export const RPC_METHOD = {
   ExtensionGetSetting: 'extension.getSetting',
   ExtensionSetSetting: 'extension.setSetting',
 
+  // Phase 5 Task 2.6 — UI dirty-state and auto-save.
+  ExtensionUiSetDirty: 'extension.ui-setDirty',
+  ExtensionUiAutoSaveDraft: 'extension.ui-autoSaveDraft',
+
   // Phase 5 Task 7 — cross-extension domain service registry. A single
   // method covers register / unregister / invoke so the JSON-RPC catalogue
   // stays flat as new services are added.

@@ -1,7 +1,7 @@
 ---
 version: 0.7.0
 created: 2026-06-14
-last_updated: 2026-07-24T02:57:22+10:00
+last_updated: 2026-07-24T21:45:00+10:00
 ---
 
 # Changelog
@@ -12,6 +12,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+### Added
+
+- **Task 2.6 — `destroyAll()` autoSaveDraft 500ms timeout** (`src/main/services/webview-panel-manager.ts`). `onAutoSaveDraft()` calls in `destroyAll()` are now wrapped in `Promise.race` with a 500ms timeout. If auto-save takes longer or rejects, the error is logged and panel destruction continues unblocked. Prevents a slow or broken extension from blocking app quit.
+
+- **Task 2.7 — `finance.ui` expanded API surface** (`src/extension-host/api/ui.ts` new, `src/extension-host/api/index.ts` updated, `src/shared/json-rpc-methods.ts` updated). New `createUi(extensionId, rpc)` factory exports `requestMount`, `setDirty`, `autoSaveDraft`, and `onBeforeUnmount`. `setDirty` and `autoSaveDraft` route via new RPC methods (`ExtensionUiSetDirty`, `ExtensionUiAutoSaveDraft`); `onBeforeUnmount` stores callbacks in a per-extension list with `drainUnmountCallbacks` helper. `createFinance` now delegates to `createUi` instead of an inline `ui` object.
+
+- **Manifest schema cross-field refinements** (`src/extension-host/manifest-schema.ts`, `tests/unit/extension-host/manifest-schema.test.ts`). Three Zod `.refine()` checks on `manifestContributionsSchema`: (1) `navigation` items must have unique `id` values within an extension; (2) `allowedCommands` entries must reference command ids present in `commands[]`; (3) `allowedUiEvents` must not contain duplicate entries. All refinements are conditional — they skip validation when the relevant array is absent. 5 new unit tests cover: valid `onStartup` activation event, valid navigation contribution, duplicate navigation id rejection, missing allowedCommand rejection, and duplicate allowedUiEvents rejection. 20/20 tests pass.
+
+- **Task 11.3 — NavigationPanel Settings group** (`src/renderer/components/navigation-panel.ts`). Added static `_coreItems` array with "App Preferences" and "Manage Extensions" items under a "Settings" group. New `_getVisibleItems()` method renders `_coreItems` when `_currentView === '__settings__'`, otherwise renders extension items. Data-driven sidebar now shows Core-owned Settings items.
+
+- **Task 12.8 — ResizeObserver sends `panel:resize` IPC** (`src/renderer/components/workspace.ts`). `_attachResizeObserver()` now called in `connectedCallback()` so it runs on mount. Resize handler sends `window.financeShell?.panel?.resize(panelId, bounds)` to Main via IPC. Added `panel: { focus, resize }` to `FinanceShellApi` in `src/types/finance-shell.d.ts`. Added `disconnect()` cleanup in `disconnectedCallback()`.
+
+- **Task 15 — CSP meta tag added to panel template** (`src/main/resources/panel-template.html`). Added `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'self'">`. `style-src` uses `'unsafe-inline'` to support Lit shadow DOM inline `<style>` blocks.
+
+- **Phase 5 unit test suite** (8 new test files, 46 tests total). New tests: `domain-service-registry.test.ts` (8), `services.test.ts` (4), `aggregator-service.test.ts` (5), `command-allowlist.test.ts` (6), `ui-event-allowlist.test.ts` (5), `host-on-startup.test.ts` (5), `navigation-panel.test.ts` (5), plus 5 additional tests in `webview-panel-manager.test.ts`. All 46 tests pass.
+
+- **Task 8.4–8.6 — salary-history manifest updated** (`extensions/salary-history/package.json`). Added `allowedCommands` (`salary.show-pay-history`, `salary.show-pay-rate-history`), `navigation` (Pay History + Pay Rate History entries), and `allowedUiEvents` (16 UI event names) to `financeExtension.contributions`.
+
+### Fixed
+
+- **Task 7.3 — `_registeredFinance` bug in salary-history `deactivate()`** (`extensions/salary-history/src/main.ts`). Added `_registeredFinance = finance;` in `activate()` so `deactivate()` can fall back to the stored reference when called without arguments, allowing `unregister('pay')` to actually execute.
+
+- **ESM `require('electron')` crash** (`src/main/services/panel-protocol.ts`). Replaced `require('electron')` with ESM `import { protocol } from 'electron'`. Replaced `declare const __dirname` with `const __dirname = fileURLToPath(new URL('.', import.meta.url))` for ESM compatibility. Moved `registerPanelProtocol()` from module scope into `app.whenReady()` block in `src/main/main.ts` since `protocol.handle` requires the default session to be ready.
 
 ### Administrative
 

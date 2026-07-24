@@ -59,6 +59,10 @@ async function openPayHistory(
 }
 
 export async function activate(finance: FinanceApi): Promise<void> {
+  // Capture the finance reference so deactivate() can use it as a fallback
+  // when called without arguments (Task 7.3 — _registeredFinance bug fix).
+  _registeredFinance = finance;
+
   // Task 16.1 — read extension-scoped settings (namespace-enforced by Main),
   // falling back to defaults when unset. Forwarded as mount data so the
   // Renderer can surface them (e.g. the currency selector) once the
