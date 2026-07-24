@@ -8,6 +8,7 @@
     "id": "dashboard",
     "displayName": "Dashboard",
     "version": "0.1.0",
+    "main": "src/main.ts",
     "description": "Default landing view aggregating net worth, YTD salary, last payslip, and accounts.",
     "activationEvents": ["onStartup"],
     "dependencies": ["salary-history"],
@@ -31,19 +32,19 @@
       ],
       "navigation": [
         {
-          "id": "dashboard.refresh",
+          "id": "dashboard-refresh",
           "label": "Refresh",
           "command": "dashboard.refresh",
           "group": "Quick Links"
         },
         {
-          "id": "dashboard.net-worth",
+          "id": "dashboard-net-worth",
           "label": "Net Worth Detail",
           "command": "dashboard.open-net-worth-detail",
           "group": "Insights"
         },
         {
-          "id": "dashboard.open-salary",
+          "id": "dashboard-open-salary",
           "label": "Open Salary History",
           "command": "salary.show-pay-history",
           "group": "Insights"

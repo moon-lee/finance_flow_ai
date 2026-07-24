@@ -33,13 +33,13 @@
       "allowedCommands": ["salary.show-pay-history", "salary.show-pay-rate-history"],
       "navigation": [
         {
-          "id": "salary.pay-history",
+          "id": "salary-pay-history",
           "label": "Pay History",
           "command": "salary.show-pay-history",
           "group": "Salary"
         },
         {
-          "id": "salary.pay-rate-history",
+          "id": "salary-pay-rate-history",
           "label": "Pay Rate History",
           "command": "salary.show-pay-rate-history",
           "group": "Salary"
