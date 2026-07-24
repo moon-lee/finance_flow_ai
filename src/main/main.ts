@@ -390,11 +390,6 @@ async function shutdownPersistence(): Promise<void> {
 
 registerAllMigrations();
 
-// Phase 5 Task 2.1 — register the `finance-shell://` custom protocol BEFORE
-// any WebContentsView tries to load a panel URL. Electron requires protocol
-// registration to happen before `app.whenReady()`.
-registerPanelProtocol();
-
 // SINGLE POINT OF REGISTRATION. Do not invoke registerIpcHandlers() anywhere
 // else in this file or in any module imported during bootstrap. Duplicate
 // registration throws ERR_DLOPEN_FAILED-style errors from ipcMain.handle.
@@ -404,6 +399,11 @@ registerIpcHandlers();
 
 app.whenReady().then(async () => {
   try {
+    // Phase 5 Task 2.1 — register the `finance-shell://` custom protocol
+    // before any WebContentsView tries to load a panel URL. `protocol.handle`
+    // requires the app to be ready (needs the default session).
+    registerPanelProtocol();
+
     const dbPath = resolveDatabasePath();
     // [Review fix §3.5] Log the resolved database path so Test Unit 6 (and
     // any future manual debugging) knows where the SQLite file lives without

@@ -17,13 +17,12 @@
  * All other paths return 404.
  */
 
+import { protocol } from 'electron';
 import { join } from 'node:path';
 import { readFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const { protocol } = require('electron') as typeof import('electron');
-
-declare const __dirname: string;
+const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const DIST_EXTENSIONS_DIR = join(__dirname, '..', '..', '..', 'dist', 'extensions');
 const PANEL_TEMPLATE_PATH = join(__dirname, '..', 'resources', 'panel-template.html');
 
