@@ -2,7 +2,9 @@
 // `finance.d.ts` instead of redeclaring them here. A shape change in the
 // canonical type now propagates automatically; the previous redeclaration
 // was a latent drift bug if the types ever diverged.
-import type { ManifestViewContribution, ManifestCommandContribution } from './finance';
+import type { ManifestViewContribution, ManifestCommandContribution, ManifestNavigationContribution } from './finance';
+
+export type { ManifestNavigationContribution } from './finance';
 
 export interface SettingsApi {
   get: (key: string) => Promise<unknown>;
@@ -13,6 +15,7 @@ export interface ExtensionsApi {
   list: () => Promise<{
     views: Array<{ extensionId: string; view: ManifestViewContribution }>;
     commands: Array<{ extensionId: string; command: ManifestCommandContribution }>;
+    navigation: Array<{ extensionId: string; navigation: ManifestNavigationContribution }>;
   }>;
   activateView: (viewId: string) => Promise<{ activated: boolean; reason?: string }>;
   // [Review fix §4.6] Wires the renderer to call extension commands through the
@@ -52,6 +55,13 @@ export interface ExtensionsApi {
   // Phase 4 Task 14 (Decision 12) — push a component-emitted event back to
   // the Extension Host.
   uiEvent: (extensionId: string, eventName: string, detail: unknown) => void;
+  // Phase 5 Task 4 — subscribe to ui-events forwarded from panels through Main.
+  onUiEventFromPanel: (callback: (payload: { extensionId: string; eventName: string; detail: unknown }) => void) => () => void;
+  // Phase 5 Task 12 — workspace panel controls (focus + resize).
+  panel: {
+    focus: (panelId: string) => void;
+    resize: (panelId: string, bounds: { x: number; y: number; width: number; height: number }) => void;
+  };
 }
 
 /** [Fix] One log entry forwarded from the Extension Host. See
@@ -85,6 +95,28 @@ export interface FinanceShellApi {
   settings: SettingsApi;
   extensions: ExtensionsApi;
   accounts: AccountsApi;
+}
+
+/**
+ * Phase 5 Task 3 — subset of `FinanceShellApi` exposed inside WebviewPanels.
+ *
+ * Panels run the extension's bundled UI code, which accesses `finance.db`,
+ * `finance.services`, etc. via the extension host (not via this bridge).
+ * The panel preload only exposes the shell-surface APIs the rendered UI
+ * needs to interact with the host shell: listing extensions, executing
+ * commands, sending UI events, and reading/writing settings.
+ */
+export interface PanelFinanceShellApi {
+  settings: SettingsApi;
+  extensions: {
+    list: () => Promise<{
+      views: Array<{ extensionId: string; view: { id: string; name: string; icon: string } }>;
+      commands: Array<{ extensionId: string; command: { id: string; title: string; keybinding?: string } }>;
+      navigation: Array<{ extensionId: string; navigation: { id: string; label: string; command: string; group?: string } }>;
+    }>;
+    executeCommand: (commandId: string, ...args: unknown[]) => Promise<{ executed: boolean; reason?: string }>;
+    uiEvent: (extensionId: string, eventName: string, detail: unknown) => void;
+  };
 }
 
 declare global {

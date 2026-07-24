@@ -1,6 +1,6 @@
 import { app, BrowserWindow, ipcMain, screen, dialog } from 'electron';
 import { join } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 import { initializeDatabase, registerAllMigrations, closeDatabase, getDatabase } from './services/database-service';
 import { initializeSettings, closeSettings, getSetting, setSetting, registerExtensionNamespace } from './services/settings-service';
 import { discoverExtensions } from './services/extension-loader';
@@ -13,6 +13,8 @@ import { SHARED_TABLE_MANIFESTS } from './services/shared-data-tables';
 import { CommandAllowlist } from './services/command-allowlist';
 import { UiEventAllowlist } from './services/ui-event-allowlist';
 import { DomainServiceRegistry } from './services/domain-service-registry';
+import { registerPanelProtocol } from './services/panel-protocol';
+import { WebviewPanelManager } from './services/webview-panel-manager';
 
 const mainDir = fileURLToPath(new URL('.', import.meta.url));
 const rendererDevUrl = process.env.ELECTRON_RENDERER_URL;
@@ -25,6 +27,7 @@ const rendererDevUrl = process.env.ELECTRON_RENDERER_URL;
 // is only honoured for packaged builds; for unpackaged dev we must
 // override explicitly. Pairing `productName` (for production) with
 // `app.setName(...)` (for dev) keeps userData identical in both
+
 // modes so the Phase 2 plan's expected path matches reality.
 app.setName('Finance Flow AI');
 
@@ -38,6 +41,7 @@ let daoService: DAOService | null = null;
 let commandAllowlist: CommandAllowlist | null = null;
 let uiEventAllowlist: UiEventAllowlist | null = null;
 let domainServiceRegistry: DomainServiceRegistry | null = null;
+let webviewPanelManager: WebviewPanelManager | null = null;
 
 function resolvePreloadPath(): string {
   return join(mainDir, '../preload/preload.cjs');
@@ -190,10 +194,11 @@ function registerIpcHandlers(): void {
   });
 
   ipcMain.handle('extensions:list', () => {
-    if (!extensionRegistry) return { views: [], commands: [] };
+    if (!extensionRegistry) return { views: [], commands: [], navigation: [] };
     return {
       views: extensionRegistry.views(),
-      commands: extensionRegistry.commands()
+      commands: extensionRegistry.commands(),
+      navigation: extensionRegistry.navigation()
     };
   });
 
@@ -296,20 +301,60 @@ function registerIpcHandlers(): void {
 
   // Phase 4 Task 14 (Decision 12) — renderer pushes a component event back
   // to the Host via a notification (no response expected).
-  // Phase 5 Task 14 adds a per-extension ui-event allowlist gate.
-  ipcMain.on('extensions:ui-event', (_event, extensionId: string, eventName: string, detail: unknown) => {
+  // Phase 5 Task 4.1 — delegate to WebviewPanelManager.forwardUiEvent which
+  // performs sender-identity verification via findPanelByWebContentsId and
+  // forwards to Host + renderer in parallel.
+  ipcMain.on('extensions:ui-event', (_event, payloadExtensionId: string, eventName: string, detail: unknown) => {
     if (!extensionIPC) return;
-
-    // Phase 5 Task 14 — drop disallowed ui-events at the Main boundary.
-    if (uiEventAllowlist && !uiEventAllowlist.isAllowed(extensionId, eventName)) {
-      const msg = `[extensions] dropped ui-event "${eventName}" from "${extensionId}" — not in allowlist`;
-      console.warn(msg);
-      // Notify the sender (panel) so DevTools shows the violation.
-      _event.sender.send('panel:allowlist-denied', { kind: 'ui-event', extensionId, eventName, reason: msg });
+    const senderId = _event.sender.id;
+    const panel = webviewPanelManager?.findPanelByWebContentsId(senderId);
+    if (!panel && mainWindow && senderId !== mainWindow.webContents.id) {
+      console.warn(`[extensions] dropped ui-event from unknown sender ${senderId}`);
       return;
     }
+    const resolvedExtensionId = panel?.extensionId ?? payloadExtensionId;
+    if (uiEventAllowlist && !uiEventAllowlist.isAllowed(resolvedExtensionId, eventName)) {
+      const msg = `[extensions] dropped ui-event "${eventName}" from "${resolvedExtensionId}" — not in allowlist`;
+      console.warn(msg);
+      _event.sender.send('panel:allowlist-denied', { kind: 'ui-event', extensionId: resolvedExtensionId, eventName, reason: msg });
+      return;
+    }
+    const forwarded = webviewPanelManager?.forwardUiEvent(senderId, eventName, detail);
+    extensionIPC.notify(RPC_METHOD.ExtensionUiEvent, { extensionId: forwarded?.extensionId ?? resolvedExtensionId, eventName, detail });
+  });
 
-    extensionIPC.notify(RPC_METHOD.ExtensionUiEvent, { extensionId, eventName, detail });
+  // Phase 5 Task 4.5 — extension:request-mount IPC. Extensions (or the Host on
+  // their behalf) can request a WebContentsView mount for a view. Main validates
+  // the extension is enabled and mounts via WebviewPanelManager.
+  ipcMain.handle('extension:request-mount', async (_event, extensionId: string, viewId: string, mountData?: object) => {
+    if (!extensionRegistry || !webviewPanelManager) {
+      return { mounted: false, reason: 'host not running' };
+    }
+    if (!extensionRegistry.isEnabled(extensionId)) {
+      return { mounted: false, reason: 'extension not enabled' };
+    }
+    const owning = extensionRegistry.views().find(v => v.view.id === viewId && v.extensionId === extensionId);
+    if (!owning) {
+      return { mounted: false, reason: 'view not found for extension' };
+    }
+    const handle = webviewPanelManager.requestMount(extensionId, viewId, mountData);
+    if (!handle) {
+      return { mounted: false, reason: 'main window not ready' };
+    }
+    return { mounted: true, panelId: handle.panelId };
+  });
+
+  ipcMain.handle('panel:list', () => {
+    if (!webviewPanelManager) return [];
+    return webviewPanelManager.list().map(h => ({ panelId: h.panelId, extensionId: h.extensionId, viewId: h.viewId }));
+  });
+
+  ipcMain.handle('panel:focus', (_event, panelId: string) => {
+    webviewPanelManager?.focus(panelId);
+  });
+
+  ipcMain.on('panel:resize', (_event, panelId: string, bounds: { x: number; y: number; width: number; height: number }) => {
+    webviewPanelManager?.resize(panelId, bounds);
   });
 
   // Phase 4 Task 17 (Test Unit 1) — Core-owned account creation. The `accounts`
@@ -330,18 +375,25 @@ function registerIpcHandlers(): void {
   });
 }
 
-function shutdownPersistence(): void {
+async function shutdownPersistence(): Promise<void> {
   dbClosed = true;
   clearWindowStateSaveTimer();
+  await webviewPanelManager?.destroyAll().catch((err) => console.error('Panel destroy failed:', err));
   void extensionIPC?.stop().catch((err) => console.error('Extension IPC shutdown failed:', err));
   extensionIPC = null;
   daoService = null;
   tableSchemaRegistry = null;
+  webviewPanelManager = null;
   closeSettings();
   closeDatabase();
 }
 
 registerAllMigrations();
+
+// Phase 5 Task 2.1 — register the `finance-shell://` custom protocol BEFORE
+// any WebContentsView tries to load a panel URL. Electron requires protocol
+// registration to happen before `app.whenReady()`.
+registerPanelProtocol();
 
 // SINGLE POINT OF REGISTRATION. Do not invoke registerIpcHandlers() anywhere
 // else in this file or in any module imported during bootstrap. Duplicate
@@ -350,7 +402,7 @@ registerAllMigrations();
 // this comment marks the single legitimate call site. See [Review fix §HOST-5].
 registerIpcHandlers();
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   try {
     const dbPath = resolveDatabasePath();
     // [Review fix §3.5] Log the resolved database path so Test Unit 6 (and
@@ -422,20 +474,36 @@ app.whenReady().then(() => {
   // Core-owned registry.
   extensionIPC.setDomainServiceRegistry(domainServiceRegistry);
 
-  // Phase 4 Task 14.1 — forward extension UI-mount requests to the
-  // Renderer so it can dynamically import the bundle and mount the
-  // element. The Host has no DOM, so this Main→Renderer hop is the
-  // only way to realise a UI mount.
-  extensionIPC.setUIHandler((extensionId, mountRequest) => {
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      // Resolve the built UI bundle's absolute file:// URL so the Renderer
-      // can import it directly. The renderer page sits in `dist/renderer/`
-      // but the bundle is emitted to `dist/extensions/<id>.js`; a relative
-      // path from the renderer would 404 and the mount would fail silently.
-      const bundleAbs = join(mainDir, '..', 'extensions', `${extensionId}.js`);
-      const bundleUrl = pathToFileURL(bundleAbs).href;
-      mainWindow.webContents.send('extensions:ui-mount', { ...mountRequest, bundleUrl });
-    }
+  // Phase 5 Task 2 — wire WebviewPanelManager as the UI mount handler.
+  // Replaces the Phase 4 `extensions:ui-mount` → renderer dynamic-import
+  // path: Main now creates a WebContentsView per mount request and sends
+  // `panel:init` over the panel's own IPC channel.
+  webviewPanelManager = new WebviewPanelManager();
+  webviewPanelManager.setUIHandler({
+    onMountRequested: (extensionId, viewId, mountData) => {
+      webviewPanelManager?.mount(extensionId, viewId, mountData);
+    },
+    onFocusRequested: (panelId) => {
+      webviewPanelManager?.focus(panelId);
+    },
+    onUiEvent: (webContentsId, eventName, detail) => {
+      const panel = webviewPanelManager?.findPanelByWebContentsId(webContentsId);
+      if (!panel) {
+        console.warn(`[panels] ui-event from unknown webContents ${webContentsId} — dropped`);
+        return;
+      }
+      const extensionId = panel.extensionId;
+      if (uiEventAllowlist && !uiEventAllowlist.isAllowed(extensionId, eventName)) {
+        const msg = `[extensions] dropped ui-event "${eventName}" from "${extensionId}" — not in allowlist`;
+        console.warn(msg);
+        panel.view.webContents.send('panel:allowlist-denied', { kind: 'ui-event', extensionId, eventName, reason: msg });
+        return;
+      }
+      extensionIPC?.notify(RPC_METHOD.ExtensionUiEvent, { extensionId, eventName, detail });
+      mainWindow?.webContents.send('extensions:ui-event-from-panel', { extensionId, eventName, detail });
+    },
+    onSetDirty: () => {},
+    onAutoSaveDraft: async () => {}
   });
 
     extensionIPC.start(extensionRegistry.list()).catch((err) => {
@@ -466,7 +534,10 @@ app.whenReady().then(() => {
       }
     });
 
-    void createWindow();
+    await createWindow();
+    if (mainWindow) {
+      webviewPanelManager?.setMainWindow(mainWindow);
+    }
   } catch (err) {
     console.error('Fatal error during app initialization:', err);
     dialog.showErrorBox(
@@ -478,7 +549,9 @@ app.whenReady().then(() => {
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      void createWindow();
+      void createWindow().then(() => {
+        if (mainWindow) webviewPanelManager?.setMainWindow(mainWindow);
+      });
     }
   });
 });

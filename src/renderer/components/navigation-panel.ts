@@ -1,6 +1,14 @@
 import { LitElement, css, html } from 'lit';
 import { customElement } from 'lit/decorators.js';
 
+export interface NavItem {
+  extensionId: string;
+  id: string;
+  label: string;
+  command: string;
+  group?: string;
+}
+
 @customElement('navigation-panel')
 export class NavigationPanel extends LitElement {
   static styles = css`
@@ -34,7 +42,7 @@ export class NavigationPanel extends LitElement {
       padding: 5px 8px;
       border-radius: 4px;
       color: #d4d4d4;
-      cursor: default;
+      cursor: pointer;
       font-size: 13px;
     }
 
@@ -49,51 +57,20 @@ export class NavigationPanel extends LitElement {
   `;
 
   private _currentView = 'Dashboard';
-  private _activeCmd = '';
-
-  /**
-   * [Fix] Map extension view `id` (what the activity-bar dispatches in
-   * `view-changed.detail.view`) to the view's display `name` (what this
-   * component's hardcoded render branches check against). Without this,
-   * clicking the `P` button sets `_currentView` to `'salary-history'`
-   * which doesn't match any of the `=== 'Salary'` / `=== 'Budget'` /
-   * `=== 'Tax'` branches and falls through to the generic
-   * "App Preferences / Manage Extensions" section. The proper fix is
-   * the data-driven NavigationProvider pattern deferred to Phase 5
-   * (Self-Review §7); this mapping is the minimum change to make
-   * Phase 3 Test Unit 3's "Navigation Panel updates to reflect the
-   * active view" expectation pass.
-   */
-  private static readonly _VIEW_CONTEXT_MAP: Record<string, string> = {
-    'salary-history': 'Salary',
-    '__settings__': 'Settings',
-  };
+  private _items: NavItem[] = [];
 
   setView(view: string) {
-    this._currentView = NavigationPanel._VIEW_CONTEXT_MAP[view] ?? view;
+    this._currentView = view;
     this.requestUpdate();
   }
 
-  /**
-   * Navigate by running an extension command, exactly like the Command
-   * Palette does. The Salary extension contributes `salary.show-pay-history`
-   * (mounts the payslip list) and `salary.show-pay-rate-history` (mounts the
-   * rate-history view); both are reachable from the Explorer's "Salary"
-   * section. `command-selected` is handled in `src/renderer/index.ts`, which
-   * forwards it to `extensions.executeCommand`.
-   */
+  setNavigation(items: NavItem[]) {
+    this._items = items;
+    this.requestUpdate();
+  }
+
   private _onNav(cmd: string) {
     if (!cmd) return;
-    this._activeCmd = cmd;
-    this.requestUpdate();
-    // Highlight the Activity Bar's launcher button for the active extension
-    // view while navigating within it from the Explorer. `activateView` is
-    // idempotent (Host guard), so re-firing it here is a no-op for mounting.
-    this.dispatchEvent(new CustomEvent('view-changed', {
-      detail: { view: 'salary-history', source: 'extension' },
-      bubbles: true,
-      composed: true,
-    }));
     this.dispatchEvent(new CustomEvent('command-selected', {
       detail: { command: cmd, extensionCommand: true },
       bubbles: true,
@@ -101,33 +78,34 @@ export class NavigationPanel extends LitElement {
     }));
   }
 
-  private _navItem(label: string, cmd: string, testid: string): unknown {
-    const active = this._activeCmd === cmd ? 'active' : '';
-    return html`<div class="nav-item ${active}" data-testid="${testid}" @click="${() => this._onNav(cmd)}">${label}</div>`;
+  private _groupedItems(): Map<string | undefined, NavItem[]> {
+    const groups = new Map<string | undefined, NavItem[]>();
+    for (const item of this._items) {
+      const g = groups.get(item.group) ?? [];
+      g.push(item);
+      groups.set(item.group, g);
+    }
+    return groups;
   }
 
   render() {
+    const grouped = this._groupedItems();
+    const sections = Array.from(grouped.entries()).map(([group, items]) => {
+      const title = group ?? 'General';
+      const children = items.map(item => html`
+        <div class="nav-item" data-testid="nav-${item.id}" @click="${() => this._onNav(item.command)}">${item.label}</div>
+      `);
+      return html`
+        <div class="nav-section">
+          <div class="nav-title">${title}</div>
+          ${children}
+        </div>
+      `;
+    });
+
     return html`
       <h2>Explorer</h2>
-      <div class="nav-section">
-        <div class="nav-title">${this._currentView}</div>
-        ${this._currentView === 'Dashboard' ? html`
-          <div class="nav-item">Net Worth</div>
-          <div class="nav-item">Monthly Overview</div>
-        ` : this._currentView === 'Salary' ? html`
-          ${this._navItem('Pay History', 'salary.show-pay-history', 'nav-pay-history')}
-          ${this._navItem('Pay Rate History', 'salary.show-pay-rate-history', 'nav-pay-rate-history')}
-        ` : this._currentView === 'Budget' ? html`
-          <div class="nav-item">Monthly Targets</div>
-          <div class="nav-item">Spending Envelopes</div>
-        ` : this._currentView === 'Tax' ? html`
-          <div class="nav-item">Tax Workbook</div>
-          <div class="nav-item">Deductions Ledger</div>
-        ` : html`
-          <div class="nav-item">App Preferences</div>
-          <div class="nav-item">Manage Extensions</div>
-        `}
-      </div>
+      ${sections}
       <div class="nav-section">
         <div class="nav-title">Recent</div>
         <div class="nav-item">No recent items</div>
@@ -135,3 +113,4 @@ export class NavigationPanel extends LitElement {
     `;
   }
 }
+

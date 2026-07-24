@@ -5,9 +5,12 @@ export default defineConfig({
     outDir: 'dist/preload',
     emptyOutDir: true,
     lib: {
-      entry: 'src/preload/preload.ts',
+      entry: {
+        preload: 'src/preload/preload.ts',
+        'panel-preload': 'src/preload/panel-preload.ts'
+      },
       formats: ['cjs'],
-      fileName: () => 'preload.cjs'
+      fileName: '[name]'
     },
     rollupOptions: {
       external: ['electron']

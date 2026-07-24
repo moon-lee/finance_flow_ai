@@ -7,11 +7,11 @@ import './components/salary-history-view';
 import type { ActivityView } from './components/activity-bar';
 import type { PaletteCommand } from './components/command-palette';
 import type { HostLogEntry, HostStatus } from '../types/finance-shell';
-import type { SalaryHistoryView } from './components/salary-history-view';
+import type { NavigationPanel } from './components/navigation-panel';
 
 const app = document.querySelector<HTMLElement>('#app');
 const commandPalette = document.querySelector<HTMLElement & { focusInput(): void; extensionCommands: PaletteCommand[] }>('#command-palette');
-const navigationPanel = document.querySelector<HTMLElement & { setView(view: string): void }>('#navigation-panel');
+const navigationPanel = document.querySelector<NavigationPanel>('#navigation-panel');
 const activityBar = document.querySelector<HTMLElement & { views: ActivityView[]; activeView: string }>('#activity-bar');
 
 // [Fix] Mirror Host stdout (and extension `console.log` calls) into the
@@ -31,6 +31,16 @@ if (window.financeShell?.extensions?.onHostLog) {
     if (entry.level === 'error') console.error(tag, ...entry.args);
     else if (entry.level === 'warn') console.warn(tag, ...entry.args);
     else console.log(tag, ...entry.args);
+  });
+}
+
+if (window.financeShell?.extensions?.onUiEventFromPanel) {
+  window.financeShell.extensions.onUiEventFromPanel((payload: { extensionId: string; eventName: string; detail: unknown }) => {
+    const { extensionId, eventName, detail } = payload;
+    const mount = document.querySelector(`[data-ext-root][data-extension-id="${extensionId}"][data-view-id]`) as HTMLElement | null;
+    if (mount) {
+      mount.dispatchEvent(new CustomEvent(eventName, { detail, bubbles: true, composed: true }));
+    }
   });
 }
 
@@ -60,24 +70,24 @@ function setCommandPaletteVisible(visible: boolean): void {
   if (visible) commandPalette?.focusInput();
 }
 
+// Phase 5 Task 12 — workspace integration. The WebviewPanel system lives in
+// Main; the renderer only manages the layout tree and forwards resize/focus
+// events to Main via the preload bridge.
+window.addEventListener('workspace:focus-panel', (event: Event) => {
+  const customEvent = event as CustomEvent<{ panelId: string }>;
+  window.financeShell?.extensions?.panel?.focus?.(customEvent.detail.panelId);
+});
+
+window.addEventListener('workspace:resize', (event: Event) => {
+  const customEvent = event as CustomEvent<{ panelId: string; bounds: { x: number; y: number; width: number; height: number } }>;
+  window.financeShell?.extensions?.panel?.resize?.(customEvent.detail.panelId, customEvent.detail.bounds);
+});
+
 // Phase 4 Task 14.5 — mount an extension's UI element into the workspace
 // when Main forwards a UI-mount request. The extension (running in the
 // Host) has no DOM, so the Renderer performs the actual mount here.
-if (window.financeShell?.extensions?.onUiMount) {
-  window.financeShell.extensions.onUiMount((payload) => {
-    const workspace = document.querySelector<HTMLElement>('#workspace');
-    if (!workspace) {
-      console.error('[renderer] no #workspace element to mount extension UI into');
-      return;
-    }
-    const view = document.createElement('salary-history-view') as SalaryHistoryView;
-    view.extensionId = payload.extensionId;
-    view.componentTag = payload.componentTag;
-    view.mountData = payload.mountData ?? {};
-    view.bundleUrl = payload.bundleUrl ?? '';
-    workspace.replaceChildren(view);
-  });
-}
+// Phase 5 replaces this with WebContentsView-based panels; the handler
+// remains as a no-op fallback for any legacy callers.
 
 function toggleAiPanel(): void {
   app?.classList.toggle('ai-collapsed');
@@ -108,6 +118,15 @@ async function loadExtensionContributions(): Promise<void> {
         extensionCommand: true,
         keybinding: c.command.keybinding
       }));
+    }
+    if (navigationPanel) {
+      navigationPanel.setNavigation((contributions.navigation ?? []).map(n => ({
+        extensionId: n.extensionId,
+        id: n.navigation.id,
+        label: n.navigation.label,
+        command: n.navigation.command,
+        group: n.navigation.group
+      })));
     }
   } catch (err) {
     console.error('Failed to load extension contributions:', err);

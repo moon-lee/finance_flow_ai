@@ -249,6 +249,13 @@ export interface FindOptions {
   offset?: number;
   /** Order-by clause. Column names only (validated against schema). */
   orderBy?: { column: string; direction: 'ASC' | 'DESC' };
+  /** Phase 5 Task 6 — join another table. Only INNER JOIN is supported. */
+  join?: {
+    table: string;
+    on: string;
+    alias?: string;
+    columns?: string[];
+  };
 }
 
 /**
@@ -284,24 +291,51 @@ export class DAOService {
     this.assertReadable(callerExtensionId, table);
     const { sql: whereSql, params } = compileQuery(query);
 
-    let sql = `SELECT * FROM ${table} WHERE ${whereSql}`;
+    let selectColumns = '*';
+    let fromSql = table;
     const finalParams = [...params];
 
+    if (options.join) {
+      const joinTable = options.join.table;
+      const joinOn = options.join.on;
+      const joinAlias = options.join.alias;
+      const joinColumns = options.join.columns ?? ['*'];
+      this.assertReadable(callerExtensionId, joinTable);
+      const tableAlias = `${table} AS t1`;
+      const joinAliasStr = joinAlias ? ` AS ${joinAlias}` : '';
+      fromSql = `${tableAlias} INNER JOIN ${joinTable}${joinAliasStr} ON ${joinOn}`;
+      if (joinColumns.includes('*')) {
+        selectColumns = 't1.*';
+      } else {
+        selectColumns = joinColumns
+          .map((col) => {
+            if (col.startsWith(`${table}.`) || col.startsWith('t1.')) return col;
+            if (joinAlias && col.startsWith(`${joinAlias}.`)) return col;
+            return `t1.${col}`;
+          })
+          .join(', ');
+      }
+    }
+
+    let sql = `SELECT ${selectColumns} FROM ${fromSql} WHERE ${whereSql}`;
+
     if (options.orderBy) {
-      this.assertValidColumn(table, options.orderBy.column);
-      sql += ` ORDER BY ${options.orderBy.column} ${options.orderBy.direction}`;
+      if (options.orderBy.column.includes('.')) {
+        sql += ` ORDER BY ${options.orderBy.column} ${options.orderBy.direction}`;
+      } else {
+        this.assertValidColumn(table, options.orderBy.column);
+        sql += ` ORDER BY ${options.orderBy.column} ${options.orderBy.direction}`;
+      }
     } else {
-      // Default order: by primary key DESC for stable pagination.
-      // All Phase 4 migrations use `id INTEGER PRIMARY KEY AUTOINCREMENT`.
-      sql += ` ORDER BY id DESC`;
+      sql += ' ORDER BY id DESC';
     }
 
     if (options.limit !== undefined) {
-      sql += ` LIMIT ?`;
+      sql += ' LIMIT ?';
       finalParams.push(options.limit);
     }
     if (options.offset !== undefined) {
-      sql += ` OFFSET ?`;
+      sql += ' OFFSET ?';
       finalParams.push(options.offset);
     }
 

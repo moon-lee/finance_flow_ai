@@ -50,22 +50,24 @@ export interface ExtensionIPCOptions {
 
 /**
  * Phase 4 Task 14 — a request from an extension (running in the Host) to
- * have the Renderer mount one of its custom elements. `extensionId` is the
- * calling extension; `componentTag` is the registered custom-element name
- * (e.g. `payslip-list`); `mountData` is an opaque payload the extension
- * wants the Renderer to forward to the mounted element (e.g. settings).
+ * have Main mount a WebviewPanel for one of its contributed views.
+ * `extensionId` is the calling extension; `viewId` is the contributed
+ * view id (e.g. `salary-history`, `dashboard`); `mountData` is an opaque
+ * payload the extension wants forwarded to the panel (e.g. aggregator data).
+ *
+ * Phase 5 rename: `componentTag` → `viewId`. The Host still sends the
+ * old field name during the transition; `handleUiMount` normalises it.
  */
 export interface UiMountRequest {
   extensionId: string;
-  componentTag: string;
+  viewId: string;
   mountData?: Record<string, unknown>;
-  /**
-   * Absolute `file://` URL of the extension's built UI bundle, computed by
-   * Main. The Renderer imports this directly so it does not have to guess
-   * the bundle location (the renderer page lives in `dist/renderer/` while
-   * the bundle lives in `dist/extensions/`, so a relative path would 404).
-   */
   bundleUrl?: string;
+  /**
+   * Backward-compat alias used by the Phase 4 Host. If `viewId` is absent
+   * the handler falls back to `componentTag`.
+   */
+  componentTag?: string;
 }
 
 /**
@@ -97,7 +99,13 @@ export class ExtensionIPC {
    * mount (`extension.ui-mount`). Main registers this so it can forward the
    * request to the Renderer over `webContents.send('extensions:ui-mount')`.
    */
-  private uiHandler: ((extensionId: string, mountRequest: UiMountRequest) => void) | null = null;
+  private uiHandler: {
+    onMountRequested(extensionId: string, viewId: string, mountData?: object): void;
+    onFocusRequested(panelId: string): void;
+    onUiEvent(webContentsId: number, eventName: string, detail: unknown): void;
+    onSetDirty(panelId: string, dirty: boolean): void;
+    onAutoSaveDraft(panelId: string): Promise<void>;
+  } | null = null;
   private readonly requestTimeoutMs: number;
   private readonly hostPath: string;
   private initialManifests: FinanceExtensionManifest[] = [];
@@ -347,11 +355,17 @@ export class ExtensionIPC {
   }
 
   /**
-    * Phase 4 Task 14 — register the UI-mount handler. Called by Main so
-    * that when an extension requests a mount (`extension.ui-mount`), Main
-    * can forward it to the Renderer. Returns an unsubscribe function.
-    */
-  setUIHandler(handler: (extensionId: string, mountRequest: UiMountRequest) => void): () => void {
+   * Phase 5 Task 2 — register the panel UI handler. Called by Main so
+   * that when an extension requests a mount (`extension.ui-mount`), Main
+   * can forward it to `WebviewPanelManager`. Returns an unsubscribe function.
+   */
+  setUIHandler(handler: {
+    onMountRequested(extensionId: string, viewId: string, mountData?: object): void;
+    onFocusRequested(panelId: string): void;
+    onUiEvent(webContentsId: number, eventName: string, detail: unknown): void;
+    onSetDirty(panelId: string, dirty: boolean): void;
+    onAutoSaveDraft(panelId: string): Promise<void>;
+  } | null): () => void {
     this.uiHandler = handler;
     return () => {
       if (this.uiHandler === handler) this.uiHandler = null;
@@ -359,14 +373,15 @@ export class ExtensionIPC {
   }
 
   /**
-   * Phase 4 Task 14 — invoked by `dispatchHostRequest` when the Host
-   * forwards an `extension.ui-mount` request. Calls the registered UI
-   * handler so Main can forward the request to the Renderer.
+   * Phase 5 Task 2 — invoked by `dispatchHostRequest` when the Host
+   * forwards an `extension.ui-mount` request. Normalises the legacy
+   * `componentTag` field to `viewId` and delegates to the panel UI handler.
    */
   handleUiMount(params: unknown): void {
     if (!this.uiHandler) return;
-    const { extensionId, componentTag, mountData } = params as UiMountRequest;
-    this.uiHandler(extensionId, { extensionId, componentTag, mountData });
+    const { extensionId, viewId, componentTag, mountData } = params as UiMountRequest;
+    const resolvedViewId = viewId ?? componentTag ?? 'unknown';
+    this.uiHandler.onMountRequested(extensionId, resolvedViewId, mountData as object | undefined);
   }
 
   /**

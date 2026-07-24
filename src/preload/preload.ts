@@ -18,6 +18,7 @@ const shellApi = {
     list: async (): Promise<{
       views: Array<{ extensionId: string; view: { id: string; name: string; icon: string } }>;
       commands: Array<{ extensionId: string; command: { id: string; title: string; keybinding?: string } }>;
+      navigation: Array<{ extensionId: string; navigation: { id: string; label: string; command: string; group?: string } }>;
     }> => ipcRenderer.invoke('extensions:list'),
     activateView: async (viewId: string): Promise<{ activated: boolean; reason?: string }> =>
       ipcRenderer.invoke('extensions:activate-view', viewId),
@@ -79,6 +80,19 @@ const shellApi = {
     // name + detail back to the Host so the extension can react.
     uiEvent: (extensionId: string, eventName: string, detail: unknown): void => {
       ipcRenderer.send('extensions:ui-event', extensionId, eventName, detail);
+    },
+    // Phase 5 Task 4 - subscribe to ui-events that come back from panels
+    // via Main.
+    onUiEventFromPanel: (callback: (payload: { extensionId: string; eventName: string; detail: unknown }) => void): (() => void) => {
+      const listener = (_event: IpcRendererEvent, payload: { extensionId: string; eventName: string; detail: unknown }): void => callback(payload);
+      ipcRenderer.on('extensions:ui-event-from-panel', listener);
+      return () => { ipcRenderer.off('extensions:ui-event-from-panel', listener); };
+    },
+    // Phase 5 Task 12 — workspace panel controls.
+    panel: {
+      focus: (panelId: string): void => ipcRenderer.send('panel:focus', panelId),
+      resize: (panelId: string, bounds: { x: number; y: number; width: number; height: number }): void =>
+        ipcRenderer.send('panel:resize', panelId, bounds)
     }
   }
 };
