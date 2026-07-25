@@ -77,7 +77,11 @@ export class WorkspacePanel extends LitElement {
     super.connectedCallback();
     this._restoreLayout();
     this._refreshPanels();
+  }
+
+  firstUpdated() {
     this._attachResizeObserver();
+    this._sendBoundsToPanel(this._activePanelId);
   }
 
   disconnectedCallback() {
@@ -166,6 +170,8 @@ export class WorkspacePanel extends LitElement {
         this._layout = { type: 'tab', panelId: tabs[0].panelId, label: tabs[0].label };
         this._scheduleSave();
       }
+      // Ensure panels get properly sized after discovery
+      requestAnimationFrame(() => this._sendBoundsToPanel(this._activePanelId));
     } catch {
       // ignore
     }
@@ -253,12 +259,10 @@ export class WorkspacePanel extends LitElement {
     const content = this.renderRoot.querySelector('.content') as HTMLElement | null;
     if (!content) return;
     if (this._resizeObserver) this._resizeObserver.disconnect();
-    this._resizeObserver = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        const rect = content.getBoundingClientRect();
-        const bounds = { x: Math.round(rect.x), y: Math.round(rect.y), width: Math.round(rect.width), height: Math.round(rect.height) };
-        window.financeShell?.panel?.resize(this._activePanelId, bounds);
-      }
+    this._resizeObserver = new ResizeObserver(() => {
+      const rect = content.getBoundingClientRect();
+      const bounds = { x: Math.round(rect.x), y: Math.round(rect.y), width: Math.round(rect.width), height: Math.round(rect.height) };
+      window.financeShell?.panel?.resize(this._activePanelId, bounds);
     });
     this._resizeObserver.observe(content);
   }

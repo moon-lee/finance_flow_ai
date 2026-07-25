@@ -30,14 +30,29 @@ async function readSettings(finance: FinanceApi): Promise<DashboardSettings> {
   return { cardOrder, financialYearStart };
 }
 
-export async function activate(finance: FinanceApi): Promise<void> {
+export async function activate(finance: FinanceApi, hostMountData?: Record<string, unknown>): Promise<void> {
   const settings = await readSettings(finance);
   const aggregator = await buildAggregator(finance, settings);
+  const mountData = { aggregator, cardOrder: settings.cardOrder };
 
-  finance.ui?.requestMount('dashboard-view', {
-    aggregator,
-    cardOrder: settings.cardOrder
-  });
+  // Panel renderer context — mount dashboard-view directly into #app.
+  // Distinguished from the Host (Node) context by the presence of the panel's
+  // `<div id="app">` container element. The Host has no DOM; happy-dom test
+  // environments define HTMLElement but lack the panel's DOM structure.
+  if (typeof HTMLElement !== 'undefined' && document.getElementById('app')) {
+    await import('./ui/index.js');
+    const container = document.getElementById('app');
+    if (container) {
+      const el = document.createElement('dashboard-view');
+      (el as unknown as Record<string, unknown>).aggregator = aggregator;
+      (el as unknown as Record<string, unknown>).cardOrder = settings.cardOrder;
+      container.appendChild(el);
+    }
+    return;
+  }
+
+  // Host context (Node) — request mount via IPC.
+  finance.ui?.requestMount('dashboard-view', mountData);
 
   finance.commands.registerCommand('dashboard.refresh', 'View: Refresh Dashboard', () => {
     return buildAggregator(finance, settings)

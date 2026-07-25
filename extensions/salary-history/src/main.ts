@@ -69,8 +69,16 @@ async function openPayHistory(
  *
  * 2. **Panel renderer context** (browser): register UI components, create
  *    the Orchestrator, and render the initial view directly in the DOM.
+ *
+ * @param finance  Per-extension FinanceApi surface.
+ * @param hostMountData  Optional mount data from the Host (via panel:init IPC).
+ *                       Used in the panel renderer context; the Host context
+ *                       derives its own mountData from settings.
  */
-export async function activate(finance: FinanceApi): Promise<void> {
+export async function activate(
+  finance: FinanceApi,
+  hostMountData?: Record<string, unknown>
+): Promise<void> {
   // Capture the finance reference so deactivate() can use it as a fallback
   // when called without arguments (Task 7.3 — _registeredFinance bug fix).
   _registeredFinance = finance;
@@ -79,7 +87,7 @@ export async function activate(finance: FinanceApi): Promise<void> {
     (await finance.settings?.get('salary-history.defaultCurrency')) ?? 'AUD';
   const financialYearStart =
     (await finance.settings?.get('salary-history.financialYearStart')) ?? '07-01';
-  const mountData = { defaultCurrency, financialYearStart };
+  const settingsMountData = { defaultCurrency, financialYearStart };
 
   // Panel renderer context — create the Orchestrator for direct DOM rendering.
   // Distinguished from the Host (Node) context by the presence of the panel's
@@ -89,13 +97,16 @@ export async function activate(finance: FinanceApi): Promise<void> {
     await registerUIComponents();
     const container = document.getElementById('app');
     if (container) {
+      // Merge: Host-provided mountData takes precedence over settings-derived
+      const mountData = { ...settingsMountData, ...hostMountData };
       _orchestrator = new Orchestrator(finance, container, mountData);
       await _orchestrator.init();
       // Determine the initial view: account seed modal if no accounts exist,
-      // otherwise payslip list.
+      // otherwise payslip list. Use the Orchestrator's navigate() so the
+      // element gets proper finance/sectionOrder/mountData properties.
       const accounts = (await finance.db.table('accounts').find({ is_active: true })) as Array<{ id: number }>;
       const initialTag = accounts.length === 0 ? 'accounts-seed-modal' : 'payslip-list';
-      container.replaceChildren(document.createElement(initialTag));
+      _orchestrator.navigate(initialTag, mountData);
     }
     return;
   }
@@ -105,15 +116,15 @@ export async function activate(finance: FinanceApi): Promise<void> {
   finance.services?.register('pay', payAdapter as unknown as DomainServiceImpl);
 
   finance.commands.registerCommand('salary.show-pay-history', 'View: Pay History', () =>
-    openPayHistory(finance, mountData).catch((e) =>
+    openPayHistory(finance, settingsMountData).catch((e) =>
       console.error('[salary-history] openPayHistory failed', e),
     ),
   );
   finance.commands.registerCommand('salary.show-pay-rate-history', 'View: Pay Rate History', () =>
-    openView(finance, 'pay-rate-history-view', mountData),
+    openView(finance, 'pay-rate-history-view', settingsMountData),
   );
 
-  openPayHistory(finance, mountData).catch((e) =>
+  openPayHistory(finance, settingsMountData).catch((e) =>
     console.error('[salary-history] openPayHistory (activation) failed', e),
   );
 }

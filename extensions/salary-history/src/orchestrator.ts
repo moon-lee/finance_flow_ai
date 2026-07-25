@@ -93,7 +93,7 @@ export class Orchestrator {
 
   // ── Navigation ─────────────────────────────────────────────────────
 
-  private navigate(
+  navigate(
     tag: string,
     mountData: Record<string, unknown> = {},
     editPaySlip: Record<string, unknown> | null = null,
