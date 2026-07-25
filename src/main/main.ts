@@ -169,13 +169,17 @@ export async function createWindow(): Promise<BrowserWindow> {
 }
 
 function registerIpcHandlers(): void {
-  ipcMain.handle('shell:get-version', () => app.getVersion());
+  ipcMain.handle('shell:get-version', () => {
+    console.log('[ipcMain] shell:get-version called');
+    return app.getVersion();
+  });
 
   // Settings IPC handlers log service errors before returning them to
   // the renderer. `get` collapses to `undefined` because the renderer
   // treats it as "missing"; `set` rethrows so persistence failures are
   // visible to callers and tests.
   ipcMain.handle('settings:get', (_event, key: string) => {
+    console.log(`[ipcMain] settings:get called for key: ${key}`);
     try {
       return getSetting(key);
     } catch (err) {
@@ -185,6 +189,7 @@ function registerIpcHandlers(): void {
   });
 
   ipcMain.handle('settings:set', (_event, key: string, value: unknown) => {
+    console.log(`[ipcMain] settings:set called for key: ${key}, value: ${value}`);
     try {
       setSetting(key, value);
     } catch (err) {
@@ -194,6 +199,7 @@ function registerIpcHandlers(): void {
   });
 
   ipcMain.handle('extensions:list', () => {
+    console.log('[ipcMain] extensions:list called');
     if (!extensionRegistry) return { views: [], commands: [], navigation: [] };
     return {
       views: extensionRegistry.views(),
@@ -260,40 +266,42 @@ function registerIpcHandlers(): void {
   // thin wrapper around the existing `finance.commands.execute` stub. Phase 5
   // will swap the stub for real execution; the Main-side handler is unchanged.
   // Phase 5 Task 13 adds a per-extension command allowlist gate.
-  ipcMain.handle(
-    'extensions:execute-command',
+ipcMain.handle('extensions:execute-command',
     async (_event, commandId: string, ...args: unknown[]) => {
-      if (!extensionIPC || !extensionRegistry) return { executed: false, reason: 'host not running' };
+        console.log(`[ipcMain] extensions:execute-command called for commandId: ${commandId}`);
+        if (!extensionIPC || !extensionRegistry) return { executed: false, reason: 'host not running' };
 
-      // Find the owning extension for the command.
-      const owning = extensionRegistry.commands().find(c => c.command.id === commandId);
-      if (!owning) return { executed: false, reason: 'command not found' };
+        // Find the owning extension for the command.
+        const owning = extensionRegistry.commands().find(c => c.command.id === commandId);
+        if (!owning) return { executed: false, reason: 'command not found' };
 
-      // Phase 5 Task 13 — gate on the owning extension's allowlist.
-      if (commandAllowlist && !commandAllowlist.isAllowed(owning.extensionId, commandId)) {
-        return { executed: false, reason: 'command not allowed for this extension' };
-      }
+        // Phase 5 Task 13 â€” gate on the owning extension's allowlist.
+        if (commandAllowlist && !commandAllowlist.isAllowed(owning.extensionId, commandId)) {
+            return { executed: false, reason: 'command not allowed for this extension' };
+        }
 
-      try {
-        const result = await extensionIPC.request<{ executed: boolean; result: unknown }>(
-          'extension.executeCommand',
-          { commandId, args }
-        );
-        return result;
-      } catch (err) {
-        return { executed: false, reason: err instanceof Error ? err.message : String(err) };
-      }
+        try {
+            const result = await extensionIPC.request<{ executed: boolean; result: unknown }>(
+                'extension.executeCommand',
+                { commandId, args }
+            );
+            return result;
+        } catch (err) {
+            return { executed: false, reason: err instanceof Error ? err.message : String(err) };
+        }
     }
-  );
+);
+
 
   // Phase 4 Task 14 — renderer-side DB proxy. The mounted extension UI
   // (running in the Renderer) reads/writes its tables through these
   // channels; Main forwards each call to the Host (which relays to the
   // DAO service), reusing the exact envelope the extension's own code uses.
-  ipcMain.handle('extensions:read-table', async (_event, params) => {
+ipcMain.handle('extensions:read-table', async (_event, params) => {
+    console.log('[ipcMain] extensions:read-table called');
     if (!extensionIPC) return null;
     return extensionIPC.request(RPC_METHOD.ExtensionReadTable, params);
-  });
+});
   ipcMain.handle('extensions:write-table', async (_event, params) => {
     if (!extensionIPC) return null;
     return extensionIPC.request(RPC_METHOD.ExtensionWriteTable, params);
