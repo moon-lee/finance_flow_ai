@@ -98,15 +98,50 @@ export class WebviewPanelManager {
     console.log(
     `[webview-panel] Created WebContentsView (webContentsId=${view.webContents.id})`,);
 
-    const panelUrl = `finance-shell://panel/${encodeURIComponent(extensionId)}/${encodeURIComponent(viewId)}.html`;
-    console.log(`[webview-panel] Loading URL: ${panelUrl}`);
-    
-    view.webContents.loadURL(panelUrl);
 
-    view.webContents.on("did-finish-load", () => {
-      view.webContents.send("panel:init", { extensionId, viewId, mountData });
+    // Debug WebContents lifecycle
+    view.webContents.on("did-start-loading", () => {
+      console.log(`[webview-panel] ${panelId} did-start-loading`);
     });
 
+    view.webContents.on("dom-ready", () => {
+      console.log(`[webview-panel] ${panelId} dom-ready`);
+    });
+
+    view.webContents.on("did-finish-load", () => {
+      console.log(`[webview-panel] ${panelId} did-finish-load`);
+
+      view.webContents.send("panel:init", {
+        extensionId,
+        viewId,
+        mountData,
+      });
+    });
+
+    view.webContents.on(
+      "did-fail-load",
+      (_event, errorCode, errorDescription, validatedURL) => {
+        console.error(`[webview-panel] ${panelId} did-fail-load`, {
+          errorCode,
+          errorDescription,
+          validatedURL,
+        });
+      }
+    );
+
+
+    console.log(`[webview-panel] loading ${panelId}`);
+    const panelUrl = `finance-shell://panel/${encodeURIComponent(extensionId)}/${encodeURIComponent(viewId)}.html`;
+    console.log(`[webview-panel] Loading URL: ${panelUrl}`);
+    view.webContents.openDevTools({ mode: "detach" });
+
+    view.webContents.loadURL(panelUrl);
+
+/*     view.webContents.on("did-finish-load", () => {
+      console.log(`[webview-panel] ${panelId} did-finish-load`);
+      view.webContents.send("panel:init", { extensionId, viewId, mountData });
+    });
+ */
     this.mainWindow.contentView.addChildView(view);
 
     const { width, height } = this.mainWindow.getContentBounds();
