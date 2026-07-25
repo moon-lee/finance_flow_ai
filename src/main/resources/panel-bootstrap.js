@@ -7,7 +7,7 @@ async function mountPanelComponent(payload) {
     if (typeof bundle.registerUIComponents === 'function') {
       bundle.registerUIComponents(financeShell);
     }
-    const tagName = `panel-${viewId}`;
+    const tagName = viewId;
     const el = document.createElement(tagName);
     if (mountData && typeof mountData === 'object') {
       el.setAttribute('data-mount', JSON.stringify(mountData));
