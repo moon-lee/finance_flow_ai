@@ -10,7 +10,7 @@
  *      to load. The template also declares a strict CSP that closes the
  *      Phase 4 `'unsafe-eval'` regression.
  *
- *   2. `finance-shell://bootstrap.js`
+ *   2. `finance-shell://panel/bootstrap.js`
  *      The panel bootstrap script. It runs in the panel renderer process,
  *      subscribes to `panel:init` (using cached payload if the event already
  *      fired before the module script executed), dynamically imports the
@@ -46,10 +46,13 @@ export function registerPanelProtocol(): void {
     // Custom protocols (finance-shell://) parse the first path segment
     // as the host/authority, stripping it from pathname:
     //   finance-shell://panel/ext/view.html  → host='panel', pathname='/ext/view.html'
-    //   finance-shell://bootstrap.js          → host='bootstrap.js', pathname=''
+    //   finance-shell://panel/bootstrap.js       → host='panel', pathname='/bootstrap.js'
     // Reconstruct the logical path by joining host + pathname.
     const pathname = url.host ? `/${url.host}${url.pathname}` : url.pathname;
 
+    if (pathname === '/panel/bootstrap.js') {
+      return servePanelBootstrap();
+    }
     if (pathname.startsWith('/panel/')) {
       return servePanelShell(pathname.slice('/panel/'.length));
     }
@@ -97,13 +100,13 @@ async function servePanelShell(path: string): Promise<Response> {
       // CSP-nonce we don't generate because the panel template has no
       // inline handlers.
       'Content-Security-Policy':
-        "default-src 'none'; " +
-        "script-src 'self'  'unsafe-inline' finance-shell:; " +
-        "style-src 'self' 'unsafe-inline'; " +
-        "img-src 'self' data:; " +
-        "font-src 'self'; " +
-        "connect-src 'self'; " +
-        "frame-ancestors 'self'",
+        "default-src 'none' ; " +
+        "script-src 'self' finance-shell:; " +
+        "script-src-elem 'self' finance-shell:; " +
+        "style-src 'self' 'unsafe-inline' finance-shell:; " +
+        "img-src 'self' data: finance-shell:; " +
+        "font-src 'self' finance-shell:; " +
+        "connect-src 'self' finance-shell:; ",
       'X-Content-Type-Options': 'nosniff',
       'X-Frame-Options': 'SAMEORIGIN'
     }
@@ -111,7 +114,7 @@ async function servePanelShell(path: string): Promise<Response> {
 }
 
 /**
- * Serve the panel bootstrap script at `/bootstrap.js`.
+ * Serve the panel bootstrap script at `/panel/bootstrap.js`.
  * This script runs in the panel's renderer process, subscribes to `panel:init`
  * (using the cached payload if the event already fired), dynamically imports
  * the extension bundle, registers components, and mounts the view into `#app`.
@@ -119,6 +122,7 @@ async function servePanelShell(path: string): Promise<Response> {
 async function servePanelBootstrap(): Promise<Response> {
   try {
     const data = await readFile(PANEL_BOOTSTRAP_PATH, 'utf-8');
+    console.log("[protocol] serving bootstrap.js");
     return new Response(data, {
       status: 200,
       headers: {

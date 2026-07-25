@@ -19,6 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Panel bootstrap URL moved under `panel/` path** (`src/main/services/panel-protocol.ts`, `src/main/resources/panel-template.html`, `docs/file-reference.md`, `src/main/resources/panel-bootstrap.ts`). The bootstrap script is now served at `finance-shell://panel/bootstrap.js` instead of `finance-shell://bootstrap.js`. The protocol handler routes `/panel/bootstrap.js` before the generic `/panel/` shell router, and the HTML template loads the new path. Context docs and in-file comments updated accordingly.
+
 ### Added
 
 - **Task 16 — Panel renderer context detection and dual-context activation** (`extensions/dashboard/src/main.ts`, `extensions/salary-history/src/main.ts`, `extensions/salary-history/src/orchestrator.ts`). Extensions' `activate(finance, hostMountData?)` now receives optional mount data from the Host via the panel bootstrap IPC. Extensions detect the panel renderer context (`typeof HTMLElement !== 'undefined' && document.getElementById('app')`) vs the Host context (Node, no DOM). In the panel renderer context, the extension creates the Orchestrator, calls `navigate()` for initial view selection, and renders directly into the DOM. In the Host context, `finance.ui.requestMount()` continues to work as before. The `Orchestrator.navigate()` method was made public (was `private`) so that `activate()` can call it for initial navigation instead of using `container.replaceChildren()`, which ensures the element gets proper `finance`/`sectionOrder`/`mountData` properties.
