@@ -20,8 +20,9 @@
 
 import { BrowserWindow, WebContentsView } from 'electron';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-declare const __dirname: string;
+const __dirname = fileURLToPath(new URL('.', import.meta.url));
 
 export interface PanelHandle {
   panelId: string;
