@@ -30,7 +30,7 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
-const DIST_EXTENSIONS_DIR = join(__dirname, '..', '..', '..', 'dist', 'extensions');
+const DIST_EXTENSIONS_DIR = join(__dirname, '..', 'extensions');
 const PANEL_TEMPLATE_PATH = join(__dirname, '..', 'resources', 'panel-template.html');
 const PANEL_BOOTSTRAP_PATH = join(__dirname, '..', 'resources', 'panel-bootstrap.js');
 
@@ -43,9 +43,12 @@ export function registerPanelProtocol(): void {
   protocol.handle('finance-shell', async (request) => {
     const url = new URL(request.url);
 
-    // Strip the leading scheme so paths look like `/panel/...`,
-    // `/bootstrap.js`, or `/extensions/...`.
-    const pathname = url.pathname;
+    // Custom protocols (finance-shell://) parse the first path segment
+    // as the host/authority, stripping it from pathname:
+    //   finance-shell://panel/ext/view.html  → host='panel', pathname='/ext/view.html'
+    //   finance-shell://bootstrap.js          → host='bootstrap.js', pathname=''
+    // Reconstruct the logical path by joining host + pathname.
+    const pathname = url.host ? `/${url.host}${url.pathname}` : url.pathname;
 
     if (pathname.startsWith('/panel/')) {
       return servePanelShell(pathname.slice('/panel/'.length));

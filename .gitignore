@@ -67,4 +67,6 @@ kimch*.html
 # Explicit ignore for skill.md files
 /.claude/skills/gitnexus/*/skill.md
 /.kilo/
+notes.md
+
 

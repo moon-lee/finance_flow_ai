@@ -85,6 +85,9 @@ export class WebviewPanelManager {
 
     this.mainWindow.contentView.addChildView(view);
 
+    const { width, height } = this.mainWindow.getContentBounds();
+    view.setBounds({ x: 0, y: 0, width, height: 0 });
+
     const handle: PanelHandle = { panelId, extensionId, viewId, view };
     const webContentsId = view.webContents.id;
     this.panels.set(webContentsId, handle);

@@ -1,7 +1,7 @@
 ---
 version: 0.7.0
 created: 2026-06-14
-last_updated: 2026-07-25T17:55:00+10:00
+last_updated: 2026-07-25T19:55:00+10:00
 ---
 
 # Changelog
@@ -40,6 +40,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`extensionIPC.setUIHandler()` was never wired** (`src/main/main.ts`). The `ExtensionIPC` class had a `setUIHandler()` method and a `handleUiMount()` dispatcher, but `main.ts` never called `setUIHandler()`. When an extension called `finance.ui.requestMount()` (via the Host), the `extension.ui-mount` RPC reached Main's `handleUiMount()`, which silently returned because `this.uiHandler` was `null` — even though it sent `{ mounted: true }` back to the Host, making it think the mount succeeded. Added the missing `extensionIPC.setUIHandler(...)` call that delegates to `webviewPanelManager.mount()`, completing the Host→Main→WebviewPanelManager mount pipeline.
 
 - **`__dirname` not defined in `webview-panel-manager.ts`** (`src/main/services/webview-panel-manager.ts`). Vite bundles the main process as ESM, so `declare const __dirname` is undefined at runtime. `panel-protocol.ts` already solved this with `fileURLToPath(new URL('.', import.meta.url))`; applied the same fix to `webview-panel-manager.ts`. This was causing `Fatal error during app initialization: ReferenceError: __dirname is not defined` at `WebviewPanelManager.mount()`.
+
+- **`WebContentsView` created with zero bounds** (`src/main/services/webview-panel-manager.ts`). `mount()` added the view to `mainWindow.contentView` but never called `view.setBounds()`, so the panel was 0×0 (invisible). The renderer's `ResizeObserver` only fires for `_activePanelId`, which is the previously active panel — not the newly mounted one. Added `view.setBounds()` using `mainWindow.getContentBounds()` at mount time so the panel fills the window from the start.
+
+- **`DIST_EXTENSIONS_DIR` resolved outside project** (`src/main/services/panel-protocol.ts`). After the ESM `__dirname` fix, `join(__dirname, '..', '..', '..', 'dist', 'extensions')` resolved to `D:\dist\extensions` (one level too many `..`). The `dist/main/` path is only 2 levels deep from project root, not 3. Fixed to `join(__dirname, '..', 'extensions')` → `dist/extensions/`.
+
+- **`build:resources` template wiped by Vite** (`package.json`). The `cpSync` ran BEFORE `vite build`, but `emptyOutDir: true` in `vite.panel-resources.config.ts` wiped `dist/resources/` on each build, deleting the just-copied `panel-template.html`. Swapped the order so Vite builds first, then `cpSync` copies the template.
+
+- **`finance-shell://` protocol URL parsing** (`src/main/services/panel-protocol.ts`). Custom protocols parse the first path segment as the host/authority: `finance-shell://panel/ext/view.html` → `host='panel'`, `pathname='/ext/view.html'`. The `/panel/` segment was consumed, so `pathname.startsWith('/panel/')` was always false and every panel returned 404 "Not Found". Fixed by reconstructing: `pathname = host ? /${host}${pathname} : pathname`.
+
+- **Panel setBounds covered entire window** (`src/main/services/webview-panel-manager.ts`, `src/renderer/components/workspace.ts`). `mount()` used `mainWindow.getContentBounds()` which made the WebContentsView cover the activity bar, nav panel, and everything. Changed to `height: 0` at mount (invisible until renderer sends correct bounds). Workspace `ResizeObserver` now uses `getBoundingClientRect()` instead of hardcoded `x:0, y:0`, and `_sendBoundsToPanel()` sends correct workspace-area bounds on panel focus/add.
 
 - **Domain service responses are now awaited before Main posts them back to the Host** (`src/main/services/extension-ipc.ts`). `domain.service.invoke` now awaits the service result before calling `postMessage`, so Main no longer tries to structured-clone a pending `Promise` when the Dashboard activates and calls the `pay` service. This fixes the `An object could not be cloned (code -32603)` crash during dashboard startup.
 

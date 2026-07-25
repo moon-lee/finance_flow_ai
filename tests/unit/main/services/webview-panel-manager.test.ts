@@ -9,6 +9,7 @@ vi.mock('electron', () => ({
     destroy: () => void;
     setVisible: () => void;
     focus: () => void;
+    setBounds: () => void;
     constructor() {
       mockIdCounter++;
       this.webContents = { id: mockIdCounter, send: () => {}, on: () => {}, loadURL: () => {} };
@@ -16,6 +17,7 @@ vi.mock('electron', () => ({
       this.destroy = () => {};
       this.setVisible = () => {};
       this.focus = () => {};
+      this.setBounds = () => {};
     }
   }
 }));
@@ -49,7 +51,8 @@ describe('WebviewPanelManager sender-identity (Task 4.1)', () => {
       contentView: {
         addChildView: () => {},
         removeChildView: () => {}
-      }
+      },
+      getContentBounds: () => ({ x: 0, y: 0, width: 1024, height: 768 })
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any);
 
@@ -68,7 +71,8 @@ describe('WebviewPanelManager sender-identity (Task 4.1)', () => {
     const manager = new WebviewPanelManager();
     manager.setUIHandler({ ...noopUIHandler, onMountRequested: () => {} });
     manager.setMainWindow({
-      contentView: { addChildView: () => {}, removeChildView: () => {} }
+      contentView: { addChildView: () => {}, removeChildView: () => {} },
+      getContentBounds: () => ({ x: 0, y: 0, width: 1024, height: 768 })
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any);
     const unknown = manager.findPanelByWebContentsId(9999);
@@ -84,7 +88,8 @@ describe('WebviewPanelManager lifecycle (Phase 5 additional tests)', () => {
       contentView: {
         addChildView: () => {},
         removeChildView: () => {}
-      }
+      },
+      getContentBounds: () => ({ x: 0, y: 0, width: 1024, height: 768 })
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any);
     return manager;
@@ -117,7 +122,8 @@ describe('WebviewPanelManager lifecycle (Phase 5 additional tests)', () => {
     const manager = new WebviewPanelManager();
     manager.setUIHandler(noopUIHandler);
     manager.setMainWindow({
-      contentView: { addChildView: () => {}, removeChildView: () => {} }
+      contentView: { addChildView: () => {}, removeChildView: () => {} },
+      getContentBounds: () => ({ x: 0, y: 0, width: 1024, height: 768 })
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any);
 
@@ -146,7 +152,8 @@ describe('WebviewPanelManager lifecycle (Phase 5 additional tests)', () => {
     const manager = new WebviewPanelManager();
     manager.setUIHandler(noopUIHandler);
     manager.setMainWindow({
-      contentView: { addChildView: () => {}, removeChildView: () => {} }
+      contentView: { addChildView: () => {}, removeChildView: () => {} },
+      getContentBounds: () => ({ x: 0, y: 0, width: 1024, height: 768 })
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any);
 

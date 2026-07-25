@@ -203,7 +203,16 @@ export class WorkspacePanel extends LitElement {
     this._activePanelId = panelId;
     this._layout = this._setActive(this._layout, panelId);
     this._scheduleSave();
+    this._sendBoundsToPanel(panelId);
     this.dispatchEvent(new CustomEvent('workspace:focus-panel', { detail: { panelId }, bubbles: true, composed: true }));
+  }
+
+  private _sendBoundsToPanel(panelId: string) {
+    const content = this.renderRoot.querySelector('.content') as HTMLElement | null;
+    if (!content) return;
+    const rect = content.getBoundingClientRect();
+    const bounds = { x: Math.round(rect.x), y: Math.round(rect.y), width: Math.round(rect.width), height: Math.round(rect.height) };
+    window.financeShell?.panel?.resize(panelId, bounds);
   }
 
   private _addPanel(panelId: string, label: string) {
@@ -211,6 +220,7 @@ export class WorkspacePanel extends LitElement {
     this._layout = this._addTab(this._layout, panelId, label);
     this._activePanelId = panelId;
     this._scheduleSave();
+    requestAnimationFrame(() => this._sendBoundsToPanel(panelId));
   }
 
   private _closePanel(panelId: string) {
@@ -245,8 +255,8 @@ export class WorkspacePanel extends LitElement {
     if (this._resizeObserver) this._resizeObserver.disconnect();
     this._resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
-        const { width, height } = entry.contentRect;
-        const bounds = { x: 0, y: 0, width: Math.round(width), height: Math.round(height) };
+        const rect = content.getBoundingClientRect();
+        const bounds = { x: Math.round(rect.x), y: Math.round(rect.y), width: Math.round(rect.width), height: Math.round(rect.height) };
         window.financeShell?.panel?.resize(this._activePanelId, bounds);
       }
     });
