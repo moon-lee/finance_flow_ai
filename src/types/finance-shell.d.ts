@@ -120,7 +120,11 @@ export interface PanelFinanceShellApi {
     }>;
     executeCommand: (commandId: string, ...args: unknown[]) => Promise<{ executed: boolean; reason?: string }>;
     uiEvent: (extensionId: string, eventName: string, detail: unknown) => void;
+    readTable: (params: unknown) => Promise<unknown>;
+    writeTable: (params: unknown) => Promise<unknown>;
   };
+  accounts: AccountsApi;
+  onPanelInit: (callback: (payload: unknown) => void) => () => void;
 }
 
 declare global {

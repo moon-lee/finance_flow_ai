@@ -29,6 +29,10 @@ const panelApi = {
     readTable: (params: unknown): Promise<unknown> => ipcRenderer.invoke('extensions:read-table', params),
     writeTable: (params: unknown): Promise<unknown> => ipcRenderer.invoke('extensions:write-table', params),
   },
+  accounts: {
+    create: (input: { name: string; institution: string | null }): Promise<{ id: number }> =>
+      ipcRenderer.invoke('accounts:create', input),
+  },
   settings: {
     get: async (key: string): Promise<unknown> => ipcRenderer.invoke('settings:get', key),
     set: (key: string, value: unknown): Promise<void> => ipcRenderer.invoke('settings:set', key, value)

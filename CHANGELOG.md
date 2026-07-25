@@ -1,7 +1,7 @@
 ---
 version: 0.7.0
 created: 2026-06-14
-last_updated: 2026-07-25T13:20:00+10:00
+last_updated: 2026-07-25T17:55:00+10:00
 ---
 
 # Changelog
@@ -34,6 +34,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Task 8.4–8.6 — salary-history manifest updated** (`extensions/salary-history/package.json`). Added `allowedCommands` (`salary.show-pay-history`, `salary.show-pay-rate-history`), `navigation` (Pay History + Pay Rate History entries), and `allowedUiEvents` (16 UI event names) to `financeExtension.contributions`.
 
 ### Fixed
+
+- **Panel bootstrap: 4-bug fix** (`src/main/resources/panel-bootstrap.ts` [new TS rewrite], `src/main/resources/panel-bootstrap.js` [deleted], `src/preload/panel-preload.ts`, `src/types/finance-shell.d.ts`, `vite.panel-resources.config.ts` [new], `package.json`). (1) `registerUIComponents()` now awaited — Lit `@customElement` decorators fire before `document.createElement(viewId)`, preventing `HTMLUnknownElement`; (2) bootstrap rewritten from JS to TypeScript; (3) 16 extension UI events (e.g. `payslip-create`, `rate-edit`) now forwarded from panel DOM to Main via `financeShell.extensions.uiEvent()`, plus `account-create` routed through `financeShell.accounts.create()` IPC; (4) `accounts.create` bridge exposed in panel preload. Vite config compiles TS → `dist/resources/panel-bootstrap.js`; `build:resources` copies template + builds bootstrap; `dev:panel-resources` added to dev pipeline. 307/307 non-database tests pass.
 
 - **Domain service responses are now awaited before Main posts them back to the Host** (`src/main/services/extension-ipc.ts`). `domain.service.invoke` now awaits the service result before calling `postMessage`, so Main no longer tries to structured-clone a pending `Promise` when the Dashboard activates and calls the `pay` service. This fixes the `An object could not be cloned (code -32603)` crash during dashboard startup.
 
