@@ -1,7 +1,7 @@
 ---
 version: 0.7.1
 created: 2026-06-14
-last_updated: 2026-07-26T04:46:00+10:00
+last_updated: 2026-07-26T05:14:00+10:00
 ---
 
 # Changelog
@@ -58,6 +58,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Task 5 — Salary-history bundle migration** (`extensions/salary-history/src/main.ts`, `src/renderer/components/salary-history-view.ts` [deleted], `src/renderer/index.ts`). Extension's renderer-side code now runs inside the WebviewPanel's bundle context (panel renderer) rather than the main renderer. `activate()` uses dual-context detection (`document.getElementById('app')`) to determine whether it's running in the Host or panel context: Host registers commands/services; panel renderer creates the Orchestrator and renders initial UI directly.
 
 - **Task 5.6 — Panel-load smoke test** (`tests/unit/main/services/webview-panel-load.test.ts`). 3 tests verifying finance-shell URL load, `panel:init` IPC on did-finish-load, and WebContentsView creation with sandbox/contextIsolation. Mocks Electron with a class-based `WebContentsView` constructor.
+
+- **Dashboard extension exports `registerUIComponents`** (`extensions/dashboard/src/main.ts`). The dashboard extension was missing the `registerUIComponents` export that the panel bootstrap expects, causing a warning in the panel renderer. Added the export following the same pattern as the salary-history extension — it dynamically imports `./ui/index.js` only in a DOM environment (`typeof HTMLElement !== 'undefined'` guard).
 
 ### Fixed
 
