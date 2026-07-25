@@ -19,6 +19,17 @@ import { buildAggregator, type DashboardData, type DashboardSettings } from './s
 
 const DEFAULT_CARD_ORDER = ['net-worth', 'ytd-salary', 'last-payslip', 'accounts-summary'];
 
+/**
+ * Register the extension's custom elements. The Extension Host runs in a
+ * Node `utilityProcess` with no DOM, so Lit components MUST NOT be loaded
+ * there. The Renderer (browser) calls this once per mount and awaits it
+ * before creating an element.
+ */
+export async function registerUIComponents(): Promise<void> {
+  if (typeof HTMLElement === 'undefined') return;
+  await import('./ui/index.js');
+}
+
 async function readSettings(finance: FinanceApi): Promise<DashboardSettings> {
   const cardOrderRaw = await finance.settings?.get('dashboard.cardOrder');
   const cardOrder = Array.isArray(cardOrderRaw)

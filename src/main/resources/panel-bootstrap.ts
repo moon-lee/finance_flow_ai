@@ -138,7 +138,14 @@ async function mountPanelComponent(payload: PanelPayload): Promise<void> {
     // The extension detects the panel context (document.getElementById('app'))
     // and creates the Orchestrator which owns navigation and DOM lifecycle.
     const finance = createPanelFinanceApi(extensionId);
-    await bundle.registerUIComponents();
+    
+    if (typeof bundle.registerUIComponents === "function") {
+      await bundle.registerUIComponents();
+    } else {
+      console.warn(`[panel bootstrap] ${extensionId} does not implement registerUIComponents`);
+    }
+    
+    //await bundle.registerUIComponents();
     await bundle.activate(finance, mountData ?? {});
   } catch (err) {
     console.error('[panel bootstrap] failed to mount component:', err);
