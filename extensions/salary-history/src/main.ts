@@ -88,7 +88,7 @@ export async function activate(
   const financialYearStart =
     (await finance.settings?.get('salary-history.financialYearStart')) ?? '07-01';
   const settingsMountData = { defaultCurrency, financialYearStart };
-
+   console.log('[salary-history] activate', { defaultCurrency, financialYearStart });
   // Panel renderer context — create the Orchestrator for direct DOM rendering.
   // Distinguished from the Host (Node) context by the presence of the panel's
   // `<div id="app">` container element. The Host has no DOM; happy-dom test

@@ -133,9 +133,11 @@ export class WebviewPanelManager {
     console.log(`[webview-panel] loading ${panelId}`);
     const panelUrl = `finance-shell://panel/${encodeURIComponent(extensionId)}/${encodeURIComponent(viewId)}.html`;
     console.log(`[webview-panel] Loading URL: ${panelUrl}`);
-    view.webContents.openDevTools({ mode: "detach" });
+
 
     view.webContents.loadURL(panelUrl);
+
+    view.webContents.openDevTools({ mode: "detach" });
 
 /*     view.webContents.on("did-finish-load", () => {
       console.log(`[webview-panel] ${panelId} did-finish-load`);
@@ -143,6 +145,8 @@ export class WebviewPanelManager {
     });
  */
     this.mainWindow.contentView.addChildView(view);
+    console.log("[webview-panel] children:",this.mainWindow.contentView.children.length);
+
 
     const { width, height } = this.mainWindow.getContentBounds();
     console.log(`[webview-panel] Initial bounds: x=0 y=0 width=${width} height=${height}`,);

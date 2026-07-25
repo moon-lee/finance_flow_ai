@@ -54,18 +54,17 @@ const FORWARDED_EVENTS = [
  */
 function createPanelFinanceApi(extensionId: string): FinanceApi {
   const noop = () => {};
-  const noopAsync = async () => {};
-  const rpcStub = async () => ({});
+  const noopAsync = async <T = unknown>(): Promise<T | null> => null;
 
-  return {
+  const finance: FinanceApi = {
     db: {
       table: (name: string) => ({
         find: async (query?: Record<string, unknown>) => {
-          const res = await financeShell.extensions.readTable({ op: 'find', extensionId, table: name, query: query ?? {} }) as { rows: unknown[] };
+          const res = await financeShell.extensions.readTable({ op: 'find', extensionId, table: name, query: query ?? {} }) as { rows: Record<string, unknown>[] };
           return res.rows ?? [];
         },
         findOne: async (query: Record<string, unknown>) => {
-          const res = await financeShell.extensions.readTable({ op: 'findOne', extensionId, table: name, query }) as { row: unknown };
+          const res = await financeShell.extensions.readTable({ op: 'findOne', extensionId, table: name, query }) as { row: Record<string, unknown> | null };
           return res.row ?? null;
         },
         count: async (query?: Record<string, unknown>) => {
@@ -74,7 +73,7 @@ function createPanelFinanceApi(extensionId: string): FinanceApi {
         },
         insert: async (payload: Record<string, unknown>) => {
           const res = await financeShell.extensions.writeTable({ op: 'insert', extensionId, table: name, payload }) as { row: unknown };
-          return res.row ?? {};
+          return (res.row ?? {}) as Record<string, unknown>;
         },
         update: async (payload: Record<string, unknown>, query: Record<string, unknown>) => {
           const res = await financeShell.extensions.writeTable({ op: 'update', extensionId, table: name, payload, query }) as { affected: number };
@@ -88,9 +87,11 @@ function createPanelFinanceApi(extensionId: string): FinanceApi {
     },
     commands: { registerCommand: noop, execute: noopAsync },
     ai: { registerTool: noop },
-    services: { register: noop, unregister: noopAsync, invoke: rpcStub },
+    services: { register: noop, unregister: noop, invoke: noopAsync },
     settings: financeShell.settings,
-  } as FinanceApi;
+  };
+
+  return finance;
 }
 
 async function mountPanelComponent(payload: PanelPayload): Promise<void> {

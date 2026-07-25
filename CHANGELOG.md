@@ -1,7 +1,7 @@
 ---
-version: 0.7.0
+version: 0.7.1
 created: 2026-06-14
-last_updated: 2026-07-25T21:45:00+10:00
+last_updated: 2026-07-26T03:40:59.2481916+10:00
 ---
 
 # Changelog
@@ -10,6 +10,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.7.1] - 2026-07-26
+
+### Fixed
+
+- **Panel bootstrap FinanceApi adapter typing** (`src/main/resources/panel-bootstrap.ts`). Tightened the panel-side `FinanceApi` wrapper so `db.table(...).find(...)` and `db.table(...).findOne(...)` return properly typed `Promise<Record<string, unknown>[]>` and `Promise<Record<string, unknown> | null>` respectively (was `Promise<unknown[]>` / `Promise<unknown | null>` due to incorrect `as` casts), `db.table(...).insert(...)` returns a proper `Record<string, unknown>`, and the no-op async stubs match the expected `FinanceApi` signatures. This resolves the TypeScript conversion error at the panel bootstrap cast site.
 
 ## [Unreleased]
 
