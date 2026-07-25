@@ -3,7 +3,6 @@ import './components/navigation-panel';
 import './components/workspace';
 import './components/ai-panel';
 import './components/command-palette';
-import './components/salary-history-view';
 import type { ActivityView } from './components/activity-bar';
 import type { PaletteCommand } from './components/command-palette';
 import type { HostLogEntry, HostStatus } from '../types/finance-shell';

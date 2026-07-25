@@ -1,7 +1,7 @@
 ---
 version: 0.7.0
 created: 2026-06-14
-last_updated: 2026-07-25T19:55:00+10:00
+last_updated: 2026-07-25T21:45:00+10:00
 ---
 
 # Changelog
@@ -33,6 +33,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Task 8.4–8.6 — salary-history manifest updated** (`extensions/salary-history/package.json`). Added `allowedCommands` (`salary.show-pay-history`, `salary.show-pay-rate-history`), `navigation` (Pay History + Pay Rate History entries), and `allowedUiEvents` (16 UI event names) to `financeExtension.contributions`.
 
+- **Task 5.2 — Orchestrator** (`extensions/salary-history/src/orchestrator.ts`). Plain class that replaces the Phase 4 `SalaryHistoryView` LitElement host. Manages navigation state, binds 21 UI events, accesses DAO via `finance.db.table()`, persists section order, and controls DOM lifecycle by swapping child components with `container.replaceChildren()`.
+
+- **Task 5 — Salary-history bundle migration** (`extensions/salary-history/src/main.ts`, `src/renderer/components/salary-history-view.ts` [deleted], `src/renderer/index.ts`). Extension's renderer-side code now runs inside the WebviewPanel's bundle context (panel renderer) rather than the main renderer. `activate()` uses dual-context detection (`document.getElementById('app')`) to determine whether it's running in the Host or panel context: Host registers commands/services; panel renderer creates the Orchestrator and renders initial UI directly.
+
+- **Task 5.6 — Panel-load smoke test** (`tests/unit/main/services/webview-panel-load.test.ts`). 3 tests verifying finance-shell URL load, `panel:init` IPC on did-finish-load, and WebContentsView creation with sandbox/contextIsolation. Mocks Electron with a class-based `WebContentsView` constructor.
+
 ### Fixed
 
 - **Panel bootstrap: 4-bug fix** (`src/main/resources/panel-bootstrap.ts` [new TS rewrite], `src/main/resources/panel-bootstrap.js` [deleted], `src/preload/panel-preload.ts`, `src/types/finance-shell.d.ts`, `vite.panel-resources.config.ts` [new], `package.json`). (1) `registerUIComponents()` now awaited — Lit `@customElement` decorators fire before `document.createElement(viewId)`, preventing `HTMLUnknownElement`; (2) bootstrap rewritten from JS to TypeScript; (3) 16 extension UI events (e.g. `payslip-create`, `rate-edit`) now forwarded from panel DOM to Main via `financeShell.extensions.uiEvent()`, plus `account-create` routed through `financeShell.accounts.create()` IPC; (4) `accounts.create` bridge exposed in panel preload. Vite config compiles TS → `dist/resources/panel-bootstrap.js`; `build:resources` copies template + builds bootstrap; `dev:panel-resources` added to dev pipeline. 307/307 non-database tests pass.
@@ -56,6 +62,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`finance.services.invoke` now dispatches locally from the Extension Host registry** (`src/extension-host/api/services.ts`). Service implementations are JavaScript functions that cannot cross the Host→Main IPC boundary, so the previous architecture stored impls in Main's `DomainServiceRegistry` which was always empty. `invoke` now checks a shared module-level registry first and calls the registered implementation directly, falling back to RPC only if the service is not found locally. This prevents the `[services] service not found: pay` warning when extensions call `finance.services.invoke('pay', ...)` after salary-history has registered the adapter. 6 unit tests updated + pass.
 
 - **CSP `style-src 'unsafe-inline'` added to HTTP response header in `panel-protocol.ts`**. The HTML `<meta>` CSP tag included `'unsafe-inline'` for `style-src` to support Lit shadow DOM inline `<style>` blocks, but the HTTP response header sent alongside the HTML was missing `'unsafe-inline'`. Since HTTP headers and `<meta>` tags are both enforced (AND of both policies), the missing `'unsafe-inline'` in the header was overriding the meta tag's allowance, blocking Lit components from injecting shadow DOM styles and preventing panel components from rendering. Fixed by adding `'unsafe-inline'` to the `style-src` directive in `panel-protocol.ts` response headers.
+
+- **CSP HTTP header `script-src` blocks `finance-shell:` scripts** (`src/main/services/panel-protocol.ts`). The `servePanelShell()` HTTP response header still had `script-src 'self'` after the meta-tag removal. Since `finance-shell://` custom protocol URLs have opaque origins, `'self'` matches nothing and all panel scripts were blocked. Fixed by adding `finance-shell:` to `script-src` and retaining `'unsafe-inline'` for Lit bootstrap.
+
+- **`listeners['panel:init']` undefined in panel preload** (`src/preload/panel-preload.ts`). The `listeners['panel:init']` Set was not pre-initialized, so when `panel:init` IPC arrived, `listeners['panel:init'].clear()` threw `Cannot read properties of undefined`. Fixed by initializing `listeners['panel:init'] = new Set()` at declaration.
+
+- **Salary-history integration test Shadow DOM query** (`tests/unit/renderer/salary-history-view.integration.test.ts`). The `waitFor` predicate used `container.querySelector('[data-testid]')` which cannot pierce Shadow DOM boundaries. Fixed by querying through `view.shadowRoot.querySelector('[data-testid]')` instead.
 
 - **`finance.services.invoke` now spreads `params` into individual positional arguments** (`src/main/services/domain-service-registry.ts`, `src/extension-host/api/services.ts`). Previously `invoke` passed the entire `params` object as a single argument (e.g. `fn({ financialYearStart: '07-01' })`), but implementations expect individual parameters (e.g. `fn(financialYearStart, asOfDate?)`). Fixed by spreading: `Array.isArray(params) ? fn(...params) : fn(...Object.values(params))`. This fixes the `[public-pay-adapter] getYearToDateSummary failed: TypeError: t.split is not a function` crash. Updated 2 unit tests in `domain-service-registry.test.ts` to assert spread arguments.
 

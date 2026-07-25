@@ -1,6 +1,8 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
-const listeners: { [channel: string]: Set<(payload: unknown) => void> } = {};
+const listeners: { [channel: string]: Set<(payload: unknown) => void> } = {
+  'panel:init': new Set(),
+};
 const cachedPayloads: { [channel: string]: unknown } = {};
 
 ipcRenderer.on('panel:init', (_event, payload: unknown) => {

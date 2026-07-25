@@ -98,7 +98,7 @@ async function servePanelShell(path: string): Promise<Response> {
       // inline handlers.
       'Content-Security-Policy':
         "default-src 'none'; " +
-        "script-src 'self'; " +
+        "script-src 'self' finance-shell: 'unsafe-inline'; " +
         "style-src 'self' 'unsafe-inline'; " +
         "img-src 'self' data:; " +
         "font-src 'self'; " +

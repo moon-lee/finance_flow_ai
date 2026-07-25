@@ -1,19 +1,16 @@
 // @vitest-environment happy-dom
 /**
- * Integration regression test for the salary-history navigation orchestrator.
+ * Integration regression test for the salary-history Orchestrator.
  * Reproduces the double-mount bug: clicking "Edit" on a rate row must open
  * `rate-row-form` pre-filled from the stored row (not a blank add form).
  *
- * The UI custom elements are registered from source; `bundleUrl` points at a
- * local no-op `registerUIComponents` module so the orchestrator's real
- * `mountChild` runs without pulling in the fragile pre-built bundle.
+ * The UI custom elements are registered from source; the Orchestrator
+ * manages navigation and DAO access directly.
  */
 import { describe, expect, it, beforeEach, vi } from 'vitest';
-import path from 'node:path';
-import { pathToFileURL } from 'node:url';
 import { PayRateHistoryView } from '../../../extensions/salary-history/src/ui/pay-rate-history-view';
 import { RateRowForm } from '../../../extensions/salary-history/src/ui/rate-row-form';
-import { SalaryHistoryView } from '../../../src/renderer/components/salary-history-view';
+import { Orchestrator } from '../../../extensions/salary-history/src/orchestrator';
 
 const ROW = {
   id: 5,
@@ -31,8 +28,6 @@ const ROW = {
   notes: null,
 };
 
-const NOOP_BUNDLE = pathToFileURL(path.resolve('tests/unit/renderer/noop-bundle.mjs')).href;
-
 function tick(ms = 30): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
@@ -47,30 +42,41 @@ async function waitFor(pred: () => boolean, timeoutMs = 3000, step = 10): Promis
   }
 }
 
-describe('salary-history-view orchestrator', () => {
+function createMockFinance() {
+  const store = { salary_history_rate_history: [ROW] };
+  return {
+    db: {
+      table: (name: string) => ({
+        find: async () => ((store as Record<string, unknown[]>)[name] ?? []),
+        findOne: async (query: Record<string, unknown>) => {
+          const rows = (store as Record<string, unknown[]>)[name] ?? [];
+          return rows.find((x) => (x as { id: number }).id === query.id) ?? null;
+        },
+        count: async () => 0,
+        insert: async () => ({}),
+        update: async () => 1,
+        delete: async () => 1,
+      }),
+    },
+    settings: { get: async () => undefined, set: async () => {} },
+    commands: { registerCommand: () => {}, execute: async () => null },
+  } as unknown as import('finance').FinanceApi;
+}
+
+describe('salary-history Orchestrator', () => {
+  let container: HTMLDivElement;
+
   beforeEach(() => {
-    // In the real renderer these elements are registered by the host bundle's
-    // `registerUIComponents()`. The test environment registers them directly
-    // so the orchestrator's dynamic-import mount path can be exercised without
-    // the pre-built bundle.
-    if (!customElements.get('salary-history-view')) customElements.define('salary-history-view', SalaryHistoryView);
     if (!customElements.get('pay-rate-history-view')) customElements.define('pay-rate-history-view', PayRateHistoryView);
     if (!customElements.get('rate-row-form')) customElements.define('rate-row-form', RateRowForm);
-    const store = { salary_history_rate_history: [ROW] };
+    container = document.createElement('div');
+    document.body.appendChild(container);
     (window as unknown as { financeShell: unknown }).financeShell = {
+      accounts: { create: async () => ({ id: 1 }) },
       extensions: {
-        readTable: async ({ table, op, query }: { table: string; op: string; query: { id: number } }) => {
-          const rows = (store as Record<string, unknown[]>)[table] ?? [];
-          if (op === 'find') return { rows };
-          if (op === 'findOne') {
-            const r = rows.find((x) => (x as { id: number }).id === query.id) ?? null;
-            return { row: r };
-          }
-          return { rows: [] };
-        },
-        writeTable: async () => ({ affected: 1, row: null }),
         list: async () => ({ views: [], commands: [] }),
-        onUiMount: () => {},
+        readTable: async () => ({ rows: [] }),
+        writeTable: async () => ({ affected: 1, row: null }),
       },
       settings: { get: async () => undefined, set: async () => {} },
     };
@@ -78,23 +84,17 @@ describe('salary-history-view orchestrator', () => {
 
   it('edit opens rate-row-form pre-filled from the stored row', async () => {
     const errSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
-    const view = document.createElement('salary-history-view') as SalaryHistoryView;
-    (view as unknown as { extensionId: string }).extensionId = 'salary-history';
-    (view as unknown as { bundleUrl: string }).bundleUrl = NOOP_BUNDLE;
-    (view as unknown as { componentTag: string }).componentTag = 'pay-rate-history-view';
-    (view as unknown as { mountData: Record<string, unknown> }).mountData = {};
-    document.body.appendChild(view as unknown as Node);
+    const finance = createMockFinance();
+    const orch = new Orchestrator(finance, container, {});
+    await orch.init();
 
-    // Wait for the orchestrator to mount the list child (mounting is async:
-    // updated() → mountChild() → dynamic import() → appendChild).
-    await waitFor(() => view.querySelector('[data-ext-root]') !== null, 3000);
-    const list = view.querySelector('[data-ext-root]') as HTMLElement;
-    expect(list.localName, 'list is pay-rate-history-view').toBe('pay-rate-history-view');
+    // Start on the rate history view.
+    const view = document.createElement('pay-rate-history-view');
+    container.replaceChildren(view);
+    await waitFor(() => (view as HTMLElement & { shadowRoot: ShadowRoot }).shadowRoot?.querySelector('[data-testid]') !== null, 3000);
 
-    // Drive the edit flow the way the list's Edit button does: dispatch the
-    // event the orchestrator listens for. (Avoids depending on the list's
-    // async row rendering in the test environment.)
-    list.dispatchEvent(new CustomEvent('rate-edit-request', {
+    // Simulate the edit button click by dispatching the event.
+    container.dispatchEvent(new CustomEvent('rate-edit-request', {
       detail: { id: ROW.id },
       bubbles: true,
       composed: true,
@@ -102,19 +102,21 @@ describe('salary-history-view orchestrator', () => {
 
     // Orchestrator fetches the row and mounts rate-row-form.
     await waitFor(() => {
-      const root = view.querySelector('[data-ext-root]');
-      return root !== null && root.localName === 'rate-row-form';
+      const child = container.firstElementChild;
+      return child !== null && child.localName === 'rate-row-form';
     }, 3000);
 
-    const form = view.querySelector('[data-ext-root]') as HTMLElement;
-    const input = (form.shadowRoot as ShadowRoot).querySelector('[data-testid="input-base_hourly_rate"]') as HTMLInputElement | null;
+    const form = container.firstElementChild as HTMLElement;
+    const shadow = form.shadowRoot as ShadowRoot;
+    const input = shadow.querySelector('[data-testid="input-base_hourly_rate"]') as HTMLInputElement | null;
     expect(input, 'base_hourly_rate input present').toBeTruthy();
     expect(input!.value, 'edit form pre-fills base_hourly_rate').toBe('40');
-    const title = (form.shadowRoot as ShadowRoot).querySelector('[data-testid="rate-form-title"]');
+    const title = shadow.querySelector('[data-testid="rate-form-title"]');
     expect(title?.textContent?.trim(), 'edit mode title is Update Rate').toBe('Update Rate');
-    const submit = (form.shadowRoot as ShadowRoot).querySelector('[data-testid="rate-submit"]');
+    const submit = shadow.querySelector('[data-testid="rate-submit"]');
     expect(submit?.textContent?.trim(), 'edit mode submit button is Update Rate').toBe('Update Rate');
     expect(errSpy.mock.calls.length, 'no mount errors').toBe(0);
     errSpy.mockRestore();
+    orch.destroy();
   });
 });

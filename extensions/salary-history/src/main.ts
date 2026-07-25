@@ -15,6 +15,9 @@
 
 import type { FinanceApi, DomainServiceImpl } from 'finance';
 import { createPublicPayAdapter } from './services/public-pay-adapter.js';
+import { Orchestrator } from './orchestrator.js';
+
+let _orchestrator: Orchestrator | null = null;
 
 /**
  * Register the extension's custom elements. The Extension Host runs in a
@@ -58,26 +61,49 @@ async function openPayHistory(
   }
 }
 
+/**
+ * Activate the extension. Called in two contexts:
+ *
+ * 1. **Host context** (Node, `typeof HTMLElement === 'undefined'`): register
+ *    commands, the public pay adapter, and open views via IPC.
+ *
+ * 2. **Panel renderer context** (browser): register UI components, create
+ *    the Orchestrator, and render the initial view directly in the DOM.
+ */
 export async function activate(finance: FinanceApi): Promise<void> {
   // Capture the finance reference so deactivate() can use it as a fallback
   // when called without arguments (Task 7.3 — _registeredFinance bug fix).
   _registeredFinance = finance;
 
-  // Task 16.1 — read extension-scoped settings (namespace-enforced by Main),
-  // falling back to defaults when unset. Forwarded as mount data so the
-  // Renderer can surface them (e.g. the currency selector) once the
-  // components consume them.
   const defaultCurrency =
     (await finance.settings?.get('salary-history.defaultCurrency')) ?? 'AUD';
   const financialYearStart =
     (await finance.settings?.get('salary-history.financialYearStart')) ?? '07-01';
   const mountData = { defaultCurrency, financialYearStart };
 
-  // Phase 5 Task 8 — register the public `finance.services.pay.*` adapter.
+  // Panel renderer context — create the Orchestrator for direct DOM rendering.
+  // Distinguished from the Host (Node) context by the presence of the panel's
+  // `<div id="app">` container element. The Host has no DOM; happy-dom test
+  // environments define HTMLElement but lack the panel's DOM structure.
+  if (typeof HTMLElement !== 'undefined' && document.getElementById('app')) {
+    await registerUIComponents();
+    const container = document.getElementById('app');
+    if (container) {
+      _orchestrator = new Orchestrator(finance, container, mountData);
+      await _orchestrator.init();
+      // Determine the initial view: account seed modal if no accounts exist,
+      // otherwise payslip list.
+      const accounts = (await finance.db.table('accounts').find({ is_active: true })) as Array<{ id: number }>;
+      const initialTag = accounts.length === 0 ? 'accounts-seed-modal' : 'payslip-list';
+      container.replaceChildren(document.createElement(initialTag));
+    }
+    return;
+  }
+
+  // Host context (Node) — register commands + services, open views via IPC.
   const payAdapter = createPublicPayAdapter(finance);
   finance.services?.register('pay', payAdapter as unknown as DomainServiceImpl);
 
-  // Decision 17 — two commands, one existing + one new.
   finance.commands.registerCommand('salary.show-pay-history', 'View: Pay History', () =>
     openPayHistory(finance, mountData).catch((e) =>
       console.error('[salary-history] openPayHistory failed', e),
@@ -87,9 +113,6 @@ export async function activate(finance: FinanceApi): Promise<void> {
     openView(finance, 'pay-rate-history-view', mountData),
   );
 
-  // Activating the extension via its activity-bar view ("P") should open the
-  // primary view, not just register commands. Mount it on activation so the
-  // "P" icon is immediately usable.
   openPayHistory(finance, mountData).catch((e) =>
     console.error('[salary-history] openPayHistory (activation) failed', e),
   );
@@ -98,10 +121,11 @@ export async function activate(finance: FinanceApi): Promise<void> {
 let _registeredFinance: FinanceApi | null = null;
 
 export function deactivate(finance?: FinanceApi): void {
-  // Phase 5 Task 8 — unregister the public pay adapter so the domain
-  // service registry removes our implementation. Subsequent
-  // `finance.services.invoke('pay', ...)` calls from other extensions
-  // return `null` (graceful degradation per project_vision.md:48).
+  if (_orchestrator) {
+    _orchestrator.destroy();
+    _orchestrator = null;
+  }
+
   const api = finance ?? _registeredFinance;
   if (api) {
     try {
@@ -110,9 +134,4 @@ export function deactivate(finance?: FinanceApi): void {
       console.error('[salary-history] failed to unregister pay service:', err);
     }
   }
-
-  // Review Finding 13 cleanup contract: unsubscribe from any ui-event
-  // listeners and release the `finance` reference. Task 12 has no active
-  // subscriptions yet (the ui-event back-channel arrives with the Task 14
-  // UI mount); this is the hook those listeners will be torn down from.
 }
