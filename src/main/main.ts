@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, screen, dialog } from "electron";
+import { app, BrowserWindow, ipcMain, protocol, screen, dialog } from "electron";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -504,6 +504,21 @@ async function shutdownPersistence(): Promise<void> {
 }
 
 registerAllMigrations();
+
+// Register the finance-shell scheme as privileged before app.whenReady().
+// This is required by Electron for custom protocols to support standard
+// fetching and the fetch API in renderer processes.
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: 'finance-shell',
+    privileges: { 
+      standard: true,
+      secure: true,
+      corsEnabled: true, 
+      supportFetchAPI: true 
+    },
+  },
+]);
 
 // SINGLE POINT OF REGISTRATION. Do not invoke registerIpcHandlers() anywhere
 // else in this file or in any module imported during bootstrap. Duplicate

@@ -35,9 +35,13 @@ const PANEL_TEMPLATE_PATH = join(__dirname, '..', 'resources', 'panel-template.h
 const PANEL_BOOTSTRAP_PATH = join(__dirname, '..', 'resources', 'panel-bootstrap.js');
 
 /**
- * Register `finance-shell://` as a privileged Electron protocol with
- * `standard: true` + `supportFetchAPI: true`. Must be called before
- * `app.whenReady()` per Electron docs.
+ * Register `finance-shell://` as a custom Electron protocol handler.
+ *
+ * The scheme must be registered as privileged (with `standard: true` and
+ * `supportFetchAPI: true`) in main.ts via `protocol.registerSchemesAsPrivileged`
+ * before `app.whenReady()`. This function registers the request handler.
+ *
+ * Serves three kinds of resources:
  */
 export function registerPanelProtocol(): void {
   protocol.handle('finance-shell', async (request) => {
