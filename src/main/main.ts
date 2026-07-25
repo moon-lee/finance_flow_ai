@@ -506,6 +506,36 @@ app.whenReady().then(async () => {
     onAutoSaveDraft: async () => {}
   });
 
+  // Wire the ExtensionIPC UI handler so Host→Main extension.ui-mount RPC
+  // requests reach WebviewPanelManager.mount(). Without this, handleUiMount
+  // silently drops the mount (this.uiHandler is null).
+  extensionIPC.setUIHandler({
+    onMountRequested: (extensionId, viewId, mountData) => {
+      webviewPanelManager?.mount(extensionId, viewId, mountData);
+    },
+    onFocusRequested: (panelId) => {
+      webviewPanelManager?.focus(panelId);
+    },
+    onUiEvent: (webContentsId, eventName, detail) => {
+      const panel = webviewPanelManager?.findPanelByWebContentsId(webContentsId);
+      if (!panel) {
+        console.warn(`[panels] ui-event from unknown webContents ${webContentsId} — dropped`);
+        return;
+      }
+      const extensionId = panel.extensionId;
+      if (uiEventAllowlist && !uiEventAllowlist.isAllowed(extensionId, eventName)) {
+        const msg = `[extensions] dropped ui-event "${eventName}" from "${extensionId}" — not in allowlist`;
+        console.warn(msg);
+        panel.view.webContents.send('panel:allowlist-denied', { kind: 'ui-event', extensionId, eventName, reason: msg });
+        return;
+      }
+      extensionIPC?.notify(RPC_METHOD.ExtensionUiEvent, { extensionId, eventName, detail });
+      mainWindow?.webContents.send('extensions:ui-event-from-panel', { extensionId, eventName, detail });
+    },
+    onSetDirty: () => {},
+    onAutoSaveDraft: async () => {}
+  });
+
     extensionIPC.start(extensionRegistry.list()).catch((err) => {
       // [Review fix §2.2] Replace fire-and-forget `void` with an explicit
       // .catch() so startup failures (missing bundle, sandbox restrictions,
