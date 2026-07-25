@@ -13,6 +13,7 @@
  *   6. Handles Core-owned events (e.g. `account-create`) via IPC.
  */
 
+import type { FinanceApi } from '../../types/finance';
 import type { PanelFinanceShellApi } from '../../types/finance-shell';
 
 declare const financeShell: PanelFinanceShellApi;
@@ -51,7 +52,7 @@ const FORWARDED_EVENTS = [
  * The extension's `activate(finance)` uses this to access the database
  * (via readTable/writeTable IPC), settings, and account creation.
  */
-function createPanelFinanceApi(extensionId: string): Parameters<Parameters<typeof import('finance').then>[0]>[0] {
+function createPanelFinanceApi(extensionId: string): FinanceApi {
   const noop = () => {};
   const noopAsync = async () => {};
   const rpcStub = async () => ({});
@@ -89,11 +90,11 @@ function createPanelFinanceApi(extensionId: string): Parameters<Parameters<typeo
     ai: { registerTool: noop },
     services: { register: noop, unregister: noopAsync, invoke: rpcStub },
     settings: financeShell.settings,
-  } as Parameters<typeof import('finance').then>[0] extends (infer T)[] ? T : never;
+  } as FinanceApi;
 }
 
 async function mountPanelComponent(payload: PanelPayload): Promise<void> {
-  const { extensionId, viewId, mountData } = payload;
+  const { extensionId, mountData } = payload;
   const bundleUrl = `finance-shell://extensions/${extensionId}.js`;
 
   try {

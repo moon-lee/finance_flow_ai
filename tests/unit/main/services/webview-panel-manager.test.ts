@@ -4,20 +4,14 @@ let mockIdCounter = 0;
 vi.mock('electron', () => ({
   BrowserWindow: class {},
   WebContentsView: class {
-    webContents: { id: number; send: () => void; on: () => void; loadURL: () => void };
-    isDestroyed: () => boolean;
-    destroy: () => void;
-    setVisible: () => void;
-    focus: () => void;
+    webContents: { id: number; send: () => void; on: () => void; loadURL: () => void; isDestroyed: () => boolean; destroy: () => void };
     setBounds: () => void;
+    focus: () => void;
     constructor() {
       mockIdCounter++;
-      this.webContents = { id: mockIdCounter, send: () => {}, on: () => {}, loadURL: () => {} };
-      this.isDestroyed = () => false;
-      this.destroy = () => {};
-      this.setVisible = () => {};
-      this.focus = () => {};
+      this.webContents = { id: mockIdCounter, send: () => {}, on: () => {}, loadURL: () => {}, isDestroyed: () => false, destroy: () => {} };
       this.setBounds = () => {};
+      this.focus = () => {};
     }
   }
 }));
@@ -160,9 +154,9 @@ describe('WebviewPanelManager lifecycle (Phase 5 additional tests)', () => {
     manager.mount('dashboard', 'dashboard-view');
     manager.mount('salary-history', 'pay-history');
 
-    // Patch the destroy method on the views
+    // Patch the destroy method on the views' webContents
     for (const panel of manager.list()) {
-      (panel.view as any).destroy = destroySpy;
+      (panel.view.webContents as any).destroy = destroySpy;
     }
 
     await manager.destroyAll();

@@ -15,14 +15,15 @@
  *   - Mount requests arriving before the main window is ready are buffered
  *     and replayed when `setMainWindow` is called. This handles the
  *     `onStartup` activation race where extensions request mounts before
- *     the BrowserWindow exists.
+ *     the BrowserWinimport { BrowserWimport { BrowserWindow, WebContentsView } from "electron";
+ * 
  */
 
 import { BrowserWindow, WebContentsView } from 'electron';
-import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const __dirname = fileURLToPath(new URL('.', import.meta.url));
+const __dirname = fileURLToPath(new URL(".", import.meta.url));
 
 export interface PanelHandle {
   panelId: string;
@@ -32,7 +33,11 @@ export interface PanelHandle {
 }
 
 export interface WebviewPanelUIHandler {
-  onMountRequested(extensionId: string, viewId: string, mountData?: object): void;
+  onMountRequested(
+    extensionId: string,
+    viewId: string,
+    mountData?: object,
+  ): void;
   onFocusRequested(panelId: string): void;
   onUiEvent(webContentsId: number, eventName: string, detail: unknown): void;
   onSetDirty(panelId: string, dirty: boolean): void;
@@ -52,6 +57,7 @@ export class WebviewPanelManager {
   private readonly mountBuffer: MountRequest[] = [];
 
   setMainWindow(window: BrowserWindow): void {
+    console.log("[setMainWindow]", this);
     this.mainWindow = window;
     this.flushMountBuffer();
   }
@@ -60,51 +66,85 @@ export class WebviewPanelManager {
     this.uiHandler = handler;
   }
 
-  mount(extensionId: string, viewId: string, mountData?: object): PanelHandle | null {
+  mount(
+    extensionId: string,
+    viewId: string,
+    mountData?: object,
+  ): PanelHandle | null {
+
+    console.log("[webview-panel] mount() called", {
+    extensionId,
+    viewId,
+    hasMainWindow: !!this.mainWindow,
+    });
+
     if (!this.mainWindow) {
+      console.log("[webview-panel] Main window not ready. Buffering mount request.");
       this.mountBuffer.push({ extensionId, viewId, mountData });
       return null;
     }
 
     const panelId = `panel-${extensionId}-${viewId}`;
+    console.log(`[webview-panel] Creating panel: ${panelId}`);
+
     const view = new WebContentsView({
       webPreferences: {
         contextIsolation: true,
         sandbox: true,
         nodeIntegration: false,
-        preload: join(__dirname, '..', 'preload', 'panel-preload.cjs')
-      }
+        preload: join(__dirname, "..", "preload", "panel-preload.cjs"),
+      },
     });
+    console.log(
+    `[webview-panel] Created WebContentsView (webContentsId=${view.webContents.id})`,);
 
     const panelUrl = `finance-shell://panel/${encodeURIComponent(extensionId)}/${encodeURIComponent(viewId)}.html`;
+    console.log(`[webview-panel] Loading URL: ${panelUrl}`);
+    
     view.webContents.loadURL(panelUrl);
 
-    view.webContents.on('did-finish-load', () => {
-      view.webContents.send('panel:init', { extensionId, viewId, mountData });
+    view.webContents.on("did-finish-load", () => {
+      view.webContents.send("panel:init", { extensionId, viewId, mountData });
     });
 
     this.mainWindow.contentView.addChildView(view);
 
     const { width, height } = this.mainWindow.getContentBounds();
-    view.setBounds({ x: 0, y: 0, width, height: 0 });
+    console.log(`[webview-panel] Initial bounds: x=0 y=0 width=${width} height=${height}`,);
+    view.setBounds({ x: 0, y: 0, width, height });
 
     const handle: PanelHandle = { panelId, extensionId, viewId, view };
     const webContentsId = view.webContents.id;
     this.panels.set(webContentsId, handle);
 
+    console.log(`[webview-panel] Mounted ${panelId} (webContentsId=${webContentsId})`,);
+    console.log(`[webview-panel] Active panels: ${this.panels.size}`,);
+
     return handle;
   }
 
   unmount(panelId: string): void {
-    const entry = Array.from(this.panels.entries()).find(([, h]) => h.panelId === panelId);
+    const entry = Array.from(this.panels.entries()).find(
+      ([, h]) => h.panelId === panelId,
+    );
     if (!entry) return;
     const [webContentsId, handle] = entry;
     this.panels.delete(webContentsId);
+    
     const view = handle.view;
-    if (!(view as unknown as { isDestroyed(): boolean }).isDestroyed()) {
+    try {
+      console.log(`[webview-panel] unmounting panel ${handle.panelId}`);
       this.mainWindow?.contentView.removeChildView(view);
-      (view as unknown as { destroy(): void }).destroy();
+      if (!view.webContents.isDestroyed()) {
+        view.webContents.close();
+      }
+    } catch (err) {
+      console.warn(
+        `[webview-panel] failed to unmount panel ${handle.panelId}:`,
+        err,
+      );
     }
+
   }
 
   focus(panelId: string): void {
@@ -118,38 +158,67 @@ export class WebviewPanelManager {
     return this.panels.get(webContentsId);
   }
 
-  forwardUiEvent(webContentsId: number, eventName: string, detail: unknown): { extensionId: string } | null {
+  forwardUiEvent(
+    webContentsId: number,
+    eventName: string,
+    detail: unknown,
+  ): { extensionId: string } | null {
     const panel = this.panels.get(webContentsId);
     if (!panel) {
-      console.warn(`[webview-panel] dropped ui-event from unknown sender ${webContentsId}`);
+      console.warn(
+        `[webview-panel] dropped ui-event from unknown sender ${webContentsId}`,
+      );
       return null;
     }
     const extensionId = panel.extensionId;
     if (this.uiHandler) {
       this.uiHandler.onUiEvent(webContentsId, eventName, detail);
     }
-    this.mainWindow?.webContents.send('extensions:ui-event-from-panel', { extensionId, eventName, detail });
+    this.mainWindow?.webContents.send("extensions:ui-event-from-panel", {
+      extensionId,
+      eventName,
+      detail,
+    });
     return { extensionId };
   }
 
-  requestMount(extensionId: string, viewId: string, mountData?: object): PanelHandle | null {
+  requestMount(
+    extensionId: string,
+    viewId: string,
+    mountData?: object,
+  ): PanelHandle | null {
     if (this.mainWindow) {
       return this.mount(extensionId, viewId, mountData);
     }
     return null;
   }
 
-  resize(panelId: string, bounds: { x: number; y: number; width: number; height: number }): void {
+  resize(
+    panelId: string,
+    bounds: { x: number; y: number; width: number; height: number },
+  ): void {
     const handle = this.findByPanelId(panelId);
     if (!handle) return;
+
+    
     const view = handle.view;
-    if (!(view as unknown as { isDestroyed(): boolean }).isDestroyed()) {
+    try {
+      console.log(`[webview-panel] resizing panel ${handle.panelId}`);
+
+      if (!view.webContents.isDestroyed()) {
       view.setBounds(bounds);
     }
+    } catch (err) {
+      console.warn(
+        `[webview-panel] failed to resize panel ${handle.panelId}:`,
+        err,
+      );
+    }
+
   }
 
   findByPanelId(panelId: string): PanelHandle | undefined {
-    return Array.from(this.panels.values()).find(h => h.panelId === panelId);
+    return Array.from(this.panels.values()).find((h) => h.panelId === panelId);
   }
 
   list(): PanelHandle[] {
@@ -174,19 +243,34 @@ export class WebviewPanelManager {
             await Promise.race([
               this.uiHandler.onAutoSaveDraft(handle.panelId),
               new Promise<void>((_, reject) =>
-                setTimeout(() => reject(new Error('autoSaveDraft timed out')), 500)
-              )
+                setTimeout(
+                  () => reject(new Error("autoSaveDraft timed out")),
+                  500,
+                ),
+              ),
             ]);
           }
         } catch (err) {
-          console.warn(`[webview-panel] autoSaveDraft failed for ${handle.panelId}:`, err);
+          console.warn(
+            `[webview-panel] autoSaveDraft failed for ${handle.panelId}:`,
+            err,
+          );
         }
         const view = handle.view;
-        if (!(view as unknown as { isDestroyed(): boolean }).isDestroyed()) {
+
+        try {
+          console.log(`[webview-panel] destroying panel ${handle.panelId}`);
           this.mainWindow?.contentView.removeChildView(view);
-          (view as unknown as { destroy(): void }).destroy();
+          if (!view.webContents.isDestroyed()) {
+            view.webContents.close();
+          }
+        } catch (err) {
+          console.warn(
+            `[webview-panel] failed to destroy panel ${handle.panelId}:`,
+            err,
+          );
         }
-      })
+      }),
     );
   }
 }
