@@ -29,7 +29,13 @@ export function createServices(extensionId: string, rpc: {
       if (impl) {
         const fn = impl[method];
         if (typeof fn === 'function') {
-          return fn(params) as Promise<T | null>;
+          const args =
+            params === undefined || params === null
+              ? []
+              : Array.isArray(params)
+                ? params
+                : Object.values(params as object);
+          return fn(...args) as Promise<T | null>;
         }
         return null;
       }

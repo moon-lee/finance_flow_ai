@@ -1,7 +1,7 @@
 /**
  * Phase 5 Stage 3 Task 2.1 — custom `finance-shell://` protocol handler.
  *
- * Serves two kinds of resources:
+ * Serves three kinds of resources:
  *
  *   1. `finance-shell://panel/<extensionId>/<viewId>.html`
  *      The HTML shell that bootstraps one WebviewPanel. The protocol handler
@@ -10,7 +10,14 @@
  *      to load. The template also declares a strict CSP that closes the
  *      Phase 4 `'unsafe-eval'` regression.
  *
- *   2. `finance-shell://extensions/<extensionId>.js`
+ *   2. `finance-shell://bootstrap.js`
+ *      The panel bootstrap script. It runs in the panel renderer process,
+ *      subscribes to `panel:init` (using cached payload if the event already
+ *      fired before the module script executed), dynamically imports the
+ *      extension bundle, calls `registerUIComponents()`, and mounts the
+ *      component into `#app`.
+ *
+ *   3. `finance-shell://extensions/<extensionId>.js`
  *      The extension's Vite-built ESM bundle. Main resolves the absolute
  *      `file://` path under `dist/extensions/` and streams the bytes.
  *
@@ -25,6 +32,7 @@ import { fileURLToPath } from 'node:url';
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const DIST_EXTENSIONS_DIR = join(__dirname, '..', '..', '..', 'dist', 'extensions');
 const PANEL_TEMPLATE_PATH = join(__dirname, '..', 'resources', 'panel-template.html');
+const PANEL_BOOTSTRAP_PATH = join(__dirname, '..', 'resources', 'panel-bootstrap.js');
 
 /**
  * Register `finance-shell://` as a privileged Electron protocol with
@@ -35,11 +43,15 @@ export function registerPanelProtocol(): void {
   protocol.handle('finance-shell', async (request) => {
     const url = new URL(request.url);
 
-    // Strip the leading scheme so paths look like `/panel/...` or `/extensions/...`.
+    // Strip the leading scheme so paths look like `/panel/...`,
+    // `/bootstrap.js`, or `/extensions/...`.
     const pathname = url.pathname;
 
     if (pathname.startsWith('/panel/')) {
       return servePanelShell(pathname.slice('/panel/'.length));
+    }
+    if (pathname === '/bootstrap.js') {
+      return servePanelBootstrap();
     }
     if (pathname.startsWith('/extensions/')) {
       return serveExtensionBundle(pathname.slice('/extensions/'.length));
@@ -77,13 +89,14 @@ async function servePanelShell(path: string): Promise<Response> {
     headers: {
       'Content-Type': 'text/html; charset=utf-8',
       // Strict CSP: no `'unsafe-eval'` (closes Phase 4 CSP regression),
-      // only same-origin scripts (the bundle is fetched from this same
-      // protocol origin), no inline scripts except the CSP-nonce we don't
-      // generate because the panel template has no inline handlers.
+      // only same-origin scripts (the bundle and bootstrap are fetched
+      // from this same protocol origin), no inline scripts except the
+      // CSP-nonce we don't generate because the panel template has no
+      // inline handlers.
       'Content-Security-Policy':
         "default-src 'none'; " +
         "script-src 'self'; " +
-        "style-src 'self'; " +
+        "style-src 'self' 'unsafe-inline'; " +
         "img-src 'self' data:; " +
         "font-src 'self'; " +
         "connect-src 'self'; " +
@@ -92,6 +105,27 @@ async function servePanelShell(path: string): Promise<Response> {
       'X-Frame-Options': 'SAMEORIGIN'
     }
   });
+}
+
+/**
+ * Serve the panel bootstrap script at `/bootstrap.js`.
+ * This script runs in the panel's renderer process, subscribes to `panel:init`
+ * (using the cached payload if the event already fired), dynamically imports
+ * the extension bundle, registers components, and mounts the view into `#app`.
+ */
+async function servePanelBootstrap(): Promise<Response> {
+  try {
+    const data = await readFile(PANEL_BOOTSTRAP_PATH, 'utf-8');
+    return new Response(data, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/javascript; charset=utf-8',
+        'Cache-Control': 'no-cache',
+      },
+    });
+  } catch {
+    return new Response('Panel bootstrap not found', { status: 404 });
+  }
 }
 
 /**

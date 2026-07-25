@@ -1,7 +1,7 @@
 ---
 version: 0.7.0
 created: 2026-06-14
-last_updated: 2026-07-25T00:00:00+10:00
+last_updated: 2026-07-25T13:20:00+10:00
 ---
 
 # Changelog
@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
+- **Panel system bootstrap** (`src/main/resources/panel-bootstrap.js`, `src/main/resources/panel-template.html`, `src/main/services/panel-protocol.ts`, `src/preload/panel-preload.ts`). The panel system was incomplete: `WebviewPanelManager.mount()` created a `WebContentsView` and loaded `panel-template.html`, the template loaded the extension bundle via a `<script>` tag, but nothing instantiated or mounted the Lit component into `#app`. The root cause was a timing race: `panel:init` IPC from Main fires during `did-finish-load` (which fires before deferred module scripts execute), so a bootstrap module script that subscribes to `onPanelInit` in its top-level code arrives too late and misses the event. Fix: (1) `panel-preload.ts` now caches the `panel:init` payload in `cachedPayloads['panel:init']`; `onPanelInit(callback)` checks the cache first — if payload already arrived, calls callback immediately (handles late-subscribing late module); (2) `panel-bootstrap.js` (served at `finance-shell://bootstrap.js`) runs in the panel renderer, subscribes to `panel:init` via `window.financeShell.onPanelInit` which delivers cached payloads to late subscribers, then dynamically `import()`s the extension bundle from `finance-shell://extensions/{extensionId}.js`, calls `registerUIComponents()`, creates the component element matching `viewId`, injects `finance` proxy + `mountData`, and appends to `#app`; (3) `panel-preload.ts` also added `readTable`/`writeTable` bridge methods so panel-mounted components can access extension-namespaced DB; (4) `panel-template.html` loads only `finance-shell://bootstrap.js` (the dynamic import handles loading the extension bundle); (5) `panel-protocol.ts` serves `/bootstrap.js` from resources.
 
 - **Task 2.6 — `destroyAll()` autoSaveDraft 500ms timeout** (`src/main/services/webview-panel-manager.ts`). `onAutoSaveDraft()` calls in `destroyAll()` are now wrapped in `Promise.race` with a 500ms timeout. If auto-save takes longer or rejects, the error is logged and panel destruction continues unblocked. Prevents a slow or broken extension from blocking app quit.
 
@@ -36,6 +38,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Domain service responses are now awaited before Main posts them back to the Host** (`src/main/services/extension-ipc.ts`). `domain.service.invoke` now awaits the service result before calling `postMessage`, so Main no longer tries to structured-clone a pending `Promise` when the Dashboard activates and calls the `pay` service. This fixes the `An object could not be cloned (code -32603)` crash during dashboard startup.
 
 - **`finance.services.invoke` now dispatches locally from the Extension Host registry** (`src/extension-host/api/services.ts`). Service implementations are JavaScript functions that cannot cross the Host→Main IPC boundary, so the previous architecture stored impls in Main's `DomainServiceRegistry` which was always empty. `invoke` now checks a shared module-level registry first and calls the registered implementation directly, falling back to RPC only if the service is not found locally. This prevents the `[services] service not found: pay` warning when extensions call `finance.services.invoke('pay', ...)` after salary-history has registered the adapter. 6 unit tests updated + pass.
+
+- **CSP `style-src 'unsafe-inline'` added to HTTP response header in `panel-protocol.ts`**. The HTML `<meta>` CSP tag included `'unsafe-inline'` for `style-src` to support Lit shadow DOM inline `<style>` blocks, but the HTTP response header sent alongside the HTML was missing `'unsafe-inline'`. Since HTTP headers and `<meta>` tags are both enforced (AND of both policies), the missing `'unsafe-inline'` in the header was overriding the meta tag's allowance, blocking Lit components from injecting shadow DOM styles and preventing panel components from rendering. Fixed by adding `'unsafe-inline'` to the `style-src` directive in `panel-protocol.ts` response headers.
+
+- **`finance.services.invoke` now spreads `params` into individual positional arguments** (`src/main/services/domain-service-registry.ts`, `src/extension-host/api/services.ts`). Previously `invoke` passed the entire `params` object as a single argument (e.g. `fn({ financialYearStart: '07-01' })`), but implementations expect individual parameters (e.g. `fn(financialYearStart, asOfDate?)`). Fixed by spreading: `Array.isArray(params) ? fn(...params) : fn(...Object.values(params))`. This fixes the `[public-pay-adapter] getYearToDateSummary failed: TypeError: t.split is not a function` crash. Updated 2 unit tests in `domain-service-registry.test.ts` to assert spread arguments.
 
 - **salary-history manifest now activates on `onStartup`** (`extensions/salary-history/package.json`). Added `onStartup` to `activationEvents` so the `pay` service is registered before Dashboard queries it during startup. Previously only `onView:salary-history` was present, so salary-history never activated at startup and the `pay` service was missing when Dashboard's `buildAggregator` called `finance.services.invoke('pay', ...)`. This was the root cause of the `[services] service not found: pay` warning.
 

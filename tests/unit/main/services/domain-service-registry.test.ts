@@ -23,7 +23,7 @@ describe('DomainServiceRegistry', () => {
     const result = await registry.invoke('pay', 'getSummary', { year: '2026' });
 
     expect(result).toEqual({ gross: 5000 });
-    expect(impl.getSummary).toHaveBeenCalledWith({ year: '2026' });
+    expect(impl.getSummary).toHaveBeenCalledWith('2026');
   });
 
   it('invoke() returns null when service not registered', async () => {
@@ -71,7 +71,7 @@ describe('DomainServiceRegistry', () => {
     const params = { income: 80000, deductions: 10000 };
     await registry.invoke('tax', 'calculate', params);
 
-    expect(impl.calculate).toHaveBeenCalledWith(params);
+    expect(impl.calculate).toHaveBeenCalledWith(80000, 10000);
   });
 
   it('invoke() returns null on missing method', async () => {

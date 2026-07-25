@@ -35,7 +35,13 @@ export class DomainServiceRegistry {
       if (typeof fn !== 'function') {
         throw new Error(`method "${method}" not found on service "${serviceName}"`);
       }
-      return await fn(params);
+      const args =
+        params === undefined || params === null
+          ? []
+          : Array.isArray(params)
+            ? params
+            : Object.values(params as object);
+      return await fn(...args);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       console.warn('[services] service errored:', serviceName, message);
