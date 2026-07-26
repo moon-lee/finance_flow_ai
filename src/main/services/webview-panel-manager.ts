@@ -147,7 +147,10 @@ export class WebviewPanelManager {
  */
     this.mainWindow.contentView.addChildView(view);
     console.log("[webview-panel] children:",this.mainWindow.contentView.children.length);
-    console.log('[webview-panel] panel', panelId, 'added to contentView without initial bounds — renderer will set bounds on firstUpdated');
+
+    const { width, height } = this.mainWindow.contentView.getBounds();
+    view.setBounds({ x: 0, y: 0, width, height });
+    console.log('[webview-panel] panel', panelId, 'added to contentView with initial bounds');
 
     const handle: PanelHandle = { panelId, extensionId, viewId, view };
     const webContentsId = view.webContents.id;

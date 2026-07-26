@@ -447,6 +447,7 @@ function registerIpcHandlers(): void {
   );
 
   ipcMain.on("panel:mounted", (_event, panelId: string) => {
+    console.log('[main] panel:mounted:', panelId);
     mainWindow?.webContents.send("panel:mounted", panelId);
   });
 

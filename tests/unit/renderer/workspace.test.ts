@@ -13,7 +13,7 @@ describe('workspace-panel', () => {
   it('defaults to a single Dashboard tab', () => {
     const el = document.createElement('workspace-panel');
     document.body.appendChild(el);
-    expect((el as unknown as { _layout: WorkspaceNode })._layout).toEqual({ type: 'tab', panelId: 'panel-dashboard-dashboard', label: 'Dashboard' });
+    expect((el as unknown as { _layout: WorkspaceNode })._layout).toEqual({ type: 'tab', panelId: 'panel-dashboard-dashboard-view', label: 'Dashboard' });
     document.body.removeChild(el);
   });
 

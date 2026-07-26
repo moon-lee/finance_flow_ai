@@ -61,12 +61,12 @@ export class WorkspacePanel extends LitElement {
   @state()
   private _layout: WorkspaceNode = {
     type: 'tab',
-    panelId: 'panel-dashboard-dashboard',
+    panelId: 'panel-dashboard-dashboard-view',
     label: 'Dashboard'
   };
 
   @state()
-  private _activePanelId = 'panel-dashboard-dashboard';
+  private _activePanelId = 'panel-dashboard-dashboard-view';
 
   @state()
   private _tabs: Tab[] = [];
@@ -79,8 +79,10 @@ export class WorkspacePanel extends LitElement {
     this._restoreLayout();
     this._refreshPanels();
     this._panelUnmountListener = window.financeShell?.panel?.onMounted?.((panelId: string) => {
-      console.log('[workspace] panel mounted event:', panelId);
       this._refreshPanels();
+      if (panelId.includes('accounts-seed-modal')) {
+        this._focusPanel(panelId);
+      }
     });
   }
 
