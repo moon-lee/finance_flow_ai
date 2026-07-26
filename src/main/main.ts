@@ -435,7 +435,7 @@ function registerIpcHandlers(): void {
     webviewPanelManager?.focus(panelId);
   });
 
-  ipcMain.handle("panel:show", (_event, panelId: string) => {
+  ipcMain.on("panel:show", (_event, panelId: string) => {
     webviewPanelManager?.showPanel(panelId);
   });
 

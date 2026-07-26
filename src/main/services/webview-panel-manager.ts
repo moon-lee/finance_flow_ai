@@ -56,6 +56,7 @@ export class WebviewPanelManager {
   private mainWindow: BrowserWindow | null = null;
   private readonly mountBuffer: MountRequest[] = [];
   private readonly pendingResizes = new Map<string, { x: number; y: number; width: number; height: number }>();
+  private readonly mountShowTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private activePanelId: string | null = null;
 
   setMainWindow(window: BrowserWindow): void {
@@ -136,16 +137,18 @@ export class WebviewPanelManager {
     console.log('[webview-panel] loading URL:', panelUrl);
     view.webContents.loadURL(panelUrl);
 
+    // Start hidden — the renderer sends panel:resize with correct workspace-area bounds.
+    // If that never arrives (rAF / preload timing), the fallback timer makes the
+    // panel visible after 500 ms at reasonable default bounds.
+    view.setVisible(false);
     this.mainWindow.contentView.addChildView(view);
-    console.log('[webview-panel] added childView to contentView, children:', this.mainWindow.contentView.children?.length);
-    const { width, height } = this.mainWindow.contentView.getBounds();
-    view.setBounds({ x: 0, y: 0, width, height });
-    console.log('[webview-panel] panel', panelId, 'added to contentView with initial bounds:', { width, height });
+    console.log('[webview-panel] added childView to contentView (hidden), children:', this.mainWindow.contentView.children?.length);
 
     const handle: PanelHandle = { panelId, extensionId, viewId, view };
     this.panels.set(webContentsId, handle);
     console.log('[webview-panel] panel registered:', panelId, 'webContentsId:', webContentsId);
 
+    // Apply any pending resize that arrived before the view was created
     const pending = this.pendingResizes.get(panelId);
     if (pending) {
       console.log('[webview-panel] found pending resize for', panelId);
@@ -153,17 +156,26 @@ export class WebviewPanelManager {
       view.setVisible(true);
       view.setBounds(pending);
       this.activePanelId = panelId;
-      console.log('[webview-panel] applied pending resize for', panelId, pending);
     } else {
-      // Fallback: make the panel visible immediately with full content bounds.
-      // The renderer can fine-tune via panel:resize later. Without this,
-      // panels stay permanently hidden because the renderer→main resize
-      // roundtrip may never arrive (timing / preload / rAF issues).
-      const { width, height } = this.mainWindow.contentView.getBounds();
-      view.setVisible(true);
-      view.setBounds({ x: 0, y: 0, width, height });
-      this.activePanelId = panelId;
-      console.log('[webview-panel] no pending resize for', panelId, '— made visible with default bounds', { width, height });
+      // Fallback timer: if the renderer doesn't send panel:resize within 500ms,
+      // make the panel visible at a reasonable workspace-area size.
+      const timer = setTimeout(() => {
+        this.mountShowTimers.delete(panelId);
+        if (!this.panels.has(webContentsId)) return; // already unmounted
+        if (view.webContents.isDestroyed()) return;
+        console.log('[webview-panel] fallback timer firing for', panelId, '— making visible');
+        const wb = this.mainWindow?.contentView.getBounds();
+        if (wb) {
+          // Activity bar (56) + nav panel (260) = 316px left offset
+          // AI panel (320px) right offset.  Status bar 26px.
+          const fallbackBounds = { x: 316, y: 0, width: Math.max(wb.width - 636, 400), height: Math.max(wb.height - 26, 200) };
+          view.setVisible(true);
+          view.setBounds(fallbackBounds);
+          this.activePanelId = panelId;
+          console.log('[webview-panel] fallback bounds applied for', panelId, fallbackBounds);
+        }
+      }, 500);
+      this.mountShowTimers.set(panelId, timer);
     }
 
     if (this.mainWindow) {
@@ -188,6 +200,8 @@ export class WebviewPanelManager {
     const [webContentsId, handle] = entry;
     this.panels.delete(webContentsId);
     this.pendingResizes.delete(panelId);
+    const timer = this.mountShowTimers.get(panelId);
+    if (timer) { clearTimeout(timer); this.mountShowTimers.delete(panelId); }
     
     const view = handle.view;
     try {
@@ -266,6 +280,14 @@ export class WebviewPanelManager {
       return;
     }
 
+    // Renderer sent real bounds — cancel the fallback timer
+    const timer = this.mountShowTimers.get(panelId);
+    if (timer) {
+      clearTimeout(timer);
+      this.mountShowTimers.delete(panelId);
+      console.log('[webview-panel] cancelled fallback timer for', panelId);
+    }
+
     const view = handle.view;
     try {
       console.log('[webview-panel] resizing panel', handle.panelId, 'to', bounds);
@@ -336,6 +358,8 @@ export class WebviewPanelManager {
     const handles = Array.from(this.panels.values());
     this.panels.clear();
     this.pendingResizes.clear();
+    for (const timer of this.mountShowTimers.values()) clearTimeout(timer);
+    this.mountShowTimers.clear();
     await Promise.allSettled(
       handles.map(async (handle) => {
         try {

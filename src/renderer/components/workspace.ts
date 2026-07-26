@@ -82,6 +82,13 @@ export class WorkspacePanel extends LitElement {
       console.log('[workspace] onMounted callback', { panelId, activePanelId: this._activePanelId });
       void this._onPanelMounted(panelId);
     });
+    // Also send bounds on a timer as a fallback in case rAF/observer doesn't fire
+    this._boundsFallbackTimer = setTimeout(() => {
+      if (this._activePanelId) {
+        console.log('[workspace] connectedCallback fallback timer — sending bounds for:', this._activePanelId);
+        this._sendBoundsToPanel(this._activePanelId);
+      }
+    }, 200);
   }
 
   private async _onPanelMounted(panelId: string): Promise<void> {
@@ -108,16 +115,22 @@ export class WorkspacePanel extends LitElement {
   firstUpdated() {
     this._attachResizeObserver();
     console.log('[workspace] firstUpdated — activePanelId:', this._activePanelId);
-    // Use requestAnimationFrame to ensure layout is correct
+    // rAF may not fire when a WebContentsView overlays the renderer.
+    // Use both rAF and setTimeout as a fallback to ensure bounds are sent.
     requestAnimationFrame(() => {
       console.log('[workspace] firstUpdated rAF — sending bounds for panel:', this._activePanelId);
       this._sendBoundsToPanel(this._activePanelId);
     });
+    setTimeout(() => {
+      console.log('[workspace] firstUpdated setTimeout — sending bounds for panel:', this._activePanelId);
+      this._sendBoundsToPanel(this._activePanelId);
+    }, 100);
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
     if (this._saveTimer) clearTimeout(this._saveTimer);
+    if (this._boundsFallbackTimer) clearTimeout(this._boundsFallbackTimer);
     if (this._resizeObserver) this._resizeObserver.disconnect();
     if (this._panelUnmountListener) {
       this._panelUnmountListener();
@@ -210,6 +223,7 @@ export class WorkspacePanel extends LitElement {
       }
       // Ensure panels get properly sized after discovery
       requestAnimationFrame(() => this._sendBoundsToPanel(this._activePanelId));
+      setTimeout(() => this._sendBoundsToPanel(this._activePanelId), 100);
     } catch {
       // ignore
     }
@@ -268,6 +282,7 @@ export class WorkspacePanel extends LitElement {
     this._activePanelId = panelId;
     this._scheduleSave();
     requestAnimationFrame(() => this._sendBoundsToPanel(panelId));
+    setTimeout(() => this._sendBoundsToPanel(panelId), 100);
   }
 
   private _closePanel(panelId: string) {
@@ -280,6 +295,7 @@ export class WorkspacePanel extends LitElement {
     }
     this._scheduleSave();
     requestAnimationFrame(() => this._sendBoundsToPanel(this._activePanelId));
+    setTimeout(() => this._sendBoundsToPanel(this._activePanelId), 100);
   }
 
   private _firstLeafPanelId(node: WorkspaceNode): string {
@@ -296,6 +312,7 @@ export class WorkspacePanel extends LitElement {
   }
 
   private _resizeObserver: ResizeObserver | null = null;
+  private _boundsFallbackTimer: ReturnType<typeof setTimeout> | null = null;
 
   private _attachResizeObserver() {
     const content = this.renderRoot.querySelector('.content') as HTMLElement | null;
