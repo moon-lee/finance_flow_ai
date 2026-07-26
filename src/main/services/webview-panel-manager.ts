@@ -140,8 +140,7 @@ export class WebviewPanelManager {
     console.log('[webview-panel] added childView to contentView, children:', this.mainWindow.contentView.children?.length);
     const { width, height } = this.mainWindow.contentView.getBounds();
     view.setBounds({ x: 0, y: 0, width, height });
-    view.setVisible(false);
-    console.log('[webview-panel] panel', panelId, 'added to contentView with bounds (hidden), bounds:', { width, height });
+    console.log('[webview-panel] panel', panelId, 'added to contentView with initial bounds:', { width, height });
 
     const handle: PanelHandle = { panelId, extensionId, viewId, view };
     this.panels.set(webContentsId, handle);
@@ -156,7 +155,15 @@ export class WebviewPanelManager {
       this.activePanelId = panelId;
       console.log('[webview-panel] applied pending resize for', panelId, pending);
     } else {
-      console.log('[webview-panel] no pending resize for', panelId);
+      // Fallback: make the panel visible immediately with full content bounds.
+      // The renderer can fine-tune via panel:resize later. Without this,
+      // panels stay permanently hidden because the renderer→main resize
+      // roundtrip may never arrive (timing / preload / rAF issues).
+      const { width, height } = this.mainWindow.contentView.getBounds();
+      view.setVisible(true);
+      view.setBounds({ x: 0, y: 0, width, height });
+      this.activePanelId = panelId;
+      console.log('[webview-panel] no pending resize for', panelId, '— made visible with default bounds', { width, height });
     }
 
     if (this.mainWindow) {
@@ -293,6 +300,11 @@ export class WebviewPanelManager {
         oldHandle.view.setVisible(false);
         console.log('[webview-panel] hidden panel', this.activePanelId);
       }
+    }
+
+    // Bring to front in z-order (addChildView on existing child moves it to top)
+    if (this.mainWindow) {
+      this.mainWindow.contentView.addChildView(handle.view);
     }
 
     handle.view.setVisible(true);
