@@ -292,8 +292,6 @@ export class WorkspacePanel extends LitElement {
     } catch (err) {
       console.error('[workspace] _sendBoundsToPanel: resize() threw', err);
     }
-    // Backup path: postMessage to preload which forwards panel:resize IPC
-    window.postMessage({ type: 'panel:resize', panelId, bounds }, '*');
   }
 
   private _addPanel(panelId: string, label: string) {
@@ -348,7 +346,6 @@ export class WorkspacePanel extends LitElement {
       const rect = content.getBoundingClientRect();
       const bounds = { x: Math.round(rect.x), y: Math.round(rect.y), width: Math.round(rect.width), height: Math.round(rect.height) };
       window.financeShell?.panel?.resize(this._activePanelId, bounds);
-      window.postMessage({ type: 'panel:resize', panelId: this._activePanelId, bounds }, '*');
     });
     this._resizeObserver.observe(content);
   }
