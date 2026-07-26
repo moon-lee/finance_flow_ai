@@ -43,8 +43,7 @@ export class Orchestrator {
   async init(): Promise<void> {
     await this._loadSectionOrder();
     this._bindEvents();
-    const initialView = (this._mountData.viewId as string) || 'payslip-list';
-    this.navigate(initialView, this._mountData);
+    this.navigate('payslip-list', this._mountData);
   }
 
   destroy(): void {

@@ -144,7 +144,7 @@ async function mountPanelComponent(payload: PanelPayload): Promise<void> {
     }
     
     console.log('[panel bootstrap] calling activate for', extensionId);
-    await bundle.activate(finance, { viewId, ...(mountData ?? {}) });
+    await bundle.activate(finance, mountData ?? {});
     console.log('[panel bootstrap] activate completed for', extensionId);
 
     // --- Panel navigation from Host ---
