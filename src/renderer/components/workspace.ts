@@ -181,8 +181,9 @@ export class WorkspacePanel extends LitElement {
       };
     }
     const left = this._addTab(node.children[0], panelId, label);
-    const right = this._addTab(node.children[1], panelId, label);
-    return { ...node, children: [left, right] };
+    // Only add to the first (left) branch — adding to both branches
+    // would duplicate the new tab at every leaf in the tree.
+    return { ...node, children: [left, node.children[1]] };
   }
 
   private _removeTab(node: WorkspaceNode, panelId: string): WorkspaceNode | null {
