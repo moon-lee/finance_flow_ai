@@ -356,23 +356,34 @@ export class WorkspacePanel extends LitElement {
   render() {
     const activeLeaf = this._getActiveLeaf(this._layout);
     const activePanelId = activeLeaf?.panelId ?? this._activePanelId;
-    const tabs = this._getLeafTabs(this._layout);
+    const allTabs = this._getLeafTabs(this._layout);
+    const tabs = allTabs.filter(t => !!t.panelId);
 
     if (isSplit(this._layout)) {
-      const leftTabs = this._getLeafTabs(this._layout.children[0]);
-      const rightTabs = this._getLeafTabs(this._layout.children[1]);
+      const leftTabs = this._getLeafTabs(this._layout.children[0]).filter(t => !!t.panelId);
+      const rightTabs = this._getLeafTabs(this._layout.children[1]).filter(t => !!t.panelId);
       const leftActive = this._getActiveLeaf(this._layout.children[0])?.panelId ?? leftTabs[0]?.panelId ?? '';
       const rightActive = this._getActiveLeaf(this._layout.children[1])?.panelId ?? rightTabs[0]?.panelId ?? '';
       return html`
         <div class="tab-strip">
-          <tab-bar .tabs="${leftTabs}" .activePanelId="${leftActive}" @tab-focus="${(e: CustomEvent) => this._onTabFocus(e.detail.panelId)}" @tab-close="${(e: CustomEvent) => this._onTabClose(e.detail.panelId)}" @tab-drag-end="${this._onTabDragEnd}"></tab-bar>
-          <tab-bar .tabs="${rightTabs}" .activePanelId="${rightActive}" @tab-focus="${(e: CustomEvent) => this._onTabFocus(e.detail.panelId)}" @tab-close="${(e: CustomEvent) => this._onTabClose(e.detail.panelId)}" @tab-drag-end="${this._onTabDragEnd}"></tab-bar>
+          ${leftTabs.length ? html`<tab-bar .tabs="${leftTabs}" .activePanelId="${leftActive}" @tab-focus="${(e: CustomEvent) => this._onTabFocus(e.detail.panelId)}" @tab-close="${(e: CustomEvent) => this._onTabClose(e.detail.panelId)}" @tab-drag-end="${this._onTabDragEnd}"></tab-bar>` : ''}
+          ${rightTabs.length ? html`<tab-bar .tabs="${rightTabs}" .activePanelId="${rightActive}" @tab-focus="${(e: CustomEvent) => this._onTabFocus(e.detail.panelId)}" @tab-close="${(e: CustomEvent) => this._onTabClose(e.detail.panelId)}" @tab-drag-end="${this._onTabDragEnd}"></tab-bar>` : ''}
         </div>
         <div class="content">
           <split-pane .direction="${this._layout.direction}">
             <div slot="left" style="width:100%;height:100%;"></div>
             <div slot="right" style="width:100%;height:100%;"></div>
           </split-pane>
+        </div>
+      `;
+    }
+
+    if (!tabs.length) {
+      return html`
+        <div class="content">
+          <slot>
+            <div class="empty-state">Select a view from the Activity Bar</div>
+          </slot>
         </div>
       `;
     }
