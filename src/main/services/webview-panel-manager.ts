@@ -63,6 +63,7 @@ export class WebviewPanelManager {
     console.log('[setMainWindow] window:', window);
     this.mainWindow = window;
     this.flushMountBuffer();
+        window.webContents.openDevTools({ mode: "detach" });
   }
 
   setUIHandler(handler: WebviewPanelUIHandler | null): void {
