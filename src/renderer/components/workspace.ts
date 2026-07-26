@@ -74,22 +74,21 @@ export class WorkspacePanel extends LitElement {
   private _saveTimer: ReturnType<typeof setTimeout> | null = null;
   private _panelUnmountListener: (() => void) | null = null;
 
-  connectedCallback() {
+connectedCallback() {
     super.connectedCallback();
     this._restoreLayout();
     this._refreshPanels();
     this._panelUnmountListener = window.financeShell?.panel?.onMounted?.((panelId: string) => {
       this._refreshPanels();
-      // Check if this panel is new (not in current layout)
+      // Add panel as a new tab if it's not already in the layout
       if (!this._findNode(this._layout, panelId)) {
         const panel = this._tabs.find(t => t.panelId === panelId);
         if (panel) {
-          this._addPanel(panelId, panel.label);
+          this._addPanel(panel.panelId, panel.label);
         }
       }
-      if (panelId.includes('accounts-seed-modal')) {
-        this._focusPanel(panelId);
-      }
+      // Show the panel with correct bounds
+      this._sendBoundsToPanel(panelId);
     });
   }
 

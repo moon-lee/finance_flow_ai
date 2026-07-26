@@ -101,7 +101,6 @@ export class WebviewPanelManager {
     `[webview-panel] Created WebContentsView (webContentsId=${view.webContents.id})`,);
 
  */
-/*     // Debug WebContents lifecycle
     view.webContents.on("did-start-loading", () => {
       console.log(`[webview-panel] ${panelId} did-start-loading`);
     });
@@ -119,7 +118,7 @@ export class WebviewPanelManager {
         mountData,
       });
     });
- */
+
     view.webContents.on(
       "did-fail-load",
       (_event, errorCode, errorDescription, validatedURL) => {
