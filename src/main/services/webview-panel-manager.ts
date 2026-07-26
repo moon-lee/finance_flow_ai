@@ -91,6 +91,15 @@ export class WebviewPanelManager {
     }
 
     const panelId = `panel-${extensionId}-${viewId}`;
+
+    // Dedup: if this panel already exists, show it instead of creating a duplicate
+    const existing = this.findByPanelId(panelId);
+    if (existing) {
+      console.log('[webview-panel] panel already exists, showing:', panelId);
+      this.showPanel(panelId);
+      return existing;
+    }
+
     console.log('[webview-panel] creating panel:', panelId);
 
     const view = new WebContentsView({

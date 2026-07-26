@@ -115,9 +115,9 @@ export async function activate(
       console.error('[salary-history] openPayHistory failed', e),
     ),
   );
-  finance.commands.registerCommand('salary.show-pay-rate-history', 'View: Pay Rate History', () =>
-    openView(finance, 'pay-rate-history-view', settingsMountData),
-  );
+  finance.commands.registerCommand('salary.show-pay-rate-history', 'View: Pay Rate History', () => {
+    console.log('[salary-history] pay-rate-history-view is navigated to from within the panel — no separate mount needed');
+  });
 
   openPayHistory(finance, settingsMountData).catch((e) =>
     console.error('[salary-history] openPayHistory (activation) failed', e),
