@@ -65,6 +65,11 @@ export class TabBar extends LitElement {
     this.dispatchEvent(new CustomEvent('tab-focus', { detail: { panelId }, bubbles: true, composed: true }));
   }
 
+  private _onTabClose(e: Event, panelId: string) {
+    e.stopPropagation();
+    this.dispatchEvent(new CustomEvent('tab-close', { detail: { panelId }, bubbles: true, composed: true }));
+  }
+
   private _onDragStart(event: DragEvent, panelId: string) {
     if (!event.dataTransfer) return;
     event.dataTransfer.setData('text/plain', panelId);
@@ -87,6 +92,7 @@ export class TabBar extends LitElement {
                @dragstart="${(e: DragEvent) => this._onDragStart(e, tab.panelId)}"
                @dragend="${this._onDragEnd}">
             <span>${tab.label}</span>
+            <span class="tab-close" @click="${(e: Event) => this._onTabClose(e, tab.panelId)}">\u00d7</span>
           </div>
         `)}
       </div>

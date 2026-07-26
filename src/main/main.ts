@@ -168,7 +168,10 @@ export async function createWindow(): Promise<BrowserWindow> {
     mainWindow.maximize();
   }
 
-  mainWindow.on("resize", debouncedSaveWindowState);
+  mainWindow.on("resize", () => {
+    debouncedSaveWindowState();
+    webviewPanelManager?.resizeActivePanel();
+  });
   mainWindow.on("move", debouncedSaveWindowState);
   mainWindow.on("close", () => {
     saveWindowState();

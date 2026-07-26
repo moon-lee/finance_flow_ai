@@ -13,8 +13,8 @@
     "contributions": {
       "views": [
         {
-          "id": "salary-history",
-          "name": "Salary",
+          "id": "payslip-list",
+          "name": "Pay History",
           "icon": "P"
         }
       ],

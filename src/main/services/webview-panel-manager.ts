@@ -361,6 +361,26 @@ export class WebviewPanelManager {
     return this.activePanelId;
   }
 
+  resizeActivePanel(): void {
+    if (!this.activePanelId || !this.mainWindow) return;
+    const handle = this.findByPanelId(this.activePanelId);
+    if (!handle || handle.view.webContents.isDestroyed()) return;
+
+    const TAB_STRIP_HEIGHT = 36;
+    const STATUS_BAR_HEIGHT = 26;
+    const LEFT_OFFSET = 56 + 260;
+    const RIGHT_OFFSET = 320;
+
+    const wb = this.mainWindow.contentView.getBounds();
+    const bounds = {
+      x: LEFT_OFFSET,
+      y: TAB_STRIP_HEIGHT,
+      width: Math.max(wb.width - LEFT_OFFSET - RIGHT_OFFSET, 400),
+      height: Math.max(wb.height - TAB_STRIP_HEIGHT - STATUS_BAR_HEIGHT, 200),
+    };
+    handle.view.setBounds(bounds);
+  }
+
   private flushMountBuffer(): void {
     if (!this.mainWindow) return;
     const pending = this.mountBuffer.splice(0);

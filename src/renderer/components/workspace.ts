@@ -325,6 +325,10 @@ export class WorkspacePanel extends LitElement {
     this._focusPanel(panelId);
   }
 
+  private _onTabClose(panelId: string) {
+    this._closePanel(panelId);
+  }
+
   private _onTabDragEnd() {
     this._refreshPanels();
   }
@@ -356,8 +360,8 @@ export class WorkspacePanel extends LitElement {
       const rightActive = this._getActiveLeaf(this._layout.children[1])?.panelId ?? rightTabs[0]?.panelId ?? '';
       return html`
         <div class="tab-strip">
-          <tab-bar .tabs="${leftTabs}" .activePanelId="${leftActive}" @tab-focus="${(e: CustomEvent) => this._onTabFocus(e.detail.panelId)}" @tab-drag-end="${this._onTabDragEnd}"></tab-bar>
-          <tab-bar .tabs="${rightTabs}" .activePanelId="${rightActive}" @tab-focus="${(e: CustomEvent) => this._onTabFocus(e.detail.panelId)}" @tab-drag-end="${this._onTabDragEnd}"></tab-bar>
+          <tab-bar .tabs="${leftTabs}" .activePanelId="${leftActive}" @tab-focus="${(e: CustomEvent) => this._onTabFocus(e.detail.panelId)}" @tab-close="${(e: CustomEvent) => this._onTabClose(e.detail.panelId)}" @tab-drag-end="${this._onTabDragEnd}"></tab-bar>
+          <tab-bar .tabs="${rightTabs}" .activePanelId="${rightActive}" @tab-focus="${(e: CustomEvent) => this._onTabFocus(e.detail.panelId)}" @tab-close="${(e: CustomEvent) => this._onTabClose(e.detail.panelId)}" @tab-drag-end="${this._onTabDragEnd}"></tab-bar>
         </div>
         <div class="content">
           <split-pane .direction="${this._layout.direction}">
@@ -370,7 +374,7 @@ export class WorkspacePanel extends LitElement {
 
     return html`
       <div class="tab-strip">
-        <tab-bar .tabs="${tabs}" .activePanelId="${activePanelId}" @tab-focus="${(e: CustomEvent) => this._onTabFocus(e.detail.panelId)}" @tab-drag-end="${this._onTabDragEnd}"></tab-bar>
+        <tab-bar .tabs="${tabs}" .activePanelId="${activePanelId}" @tab-focus="${(e: CustomEvent) => this._onTabFocus(e.detail.panelId)}" @tab-close="${(e: CustomEvent) => this._onTabClose(e.detail.panelId)}" @tab-drag-end="${this._onTabDragEnd}"></tab-bar>
       </div>
       <div class="content">
         <slot>
