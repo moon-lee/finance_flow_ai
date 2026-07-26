@@ -17,9 +17,15 @@ export class TabBar extends LitElement {
       border-bottom: 1px solid #3c3c3c;
     }
 
+    .tabs {
+      display: flex;
+      height: 100%;
+    }
+
     .tab {
       display: flex;
       align-items: center;
+      height: 100%;
       min-width: 140px;
       max-width: 220px;
       padding: 0 12px;
