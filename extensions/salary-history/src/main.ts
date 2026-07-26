@@ -116,9 +116,9 @@ export async function activate(
     ),
   );
   finance.commands.registerCommand('salary.show-pay-rate-history', 'View: Pay Rate History', () => {
-    console.log('[salary-history] navigate to pay-rate-history-view via host');
-    finance.ui?.navigatePanel('pay-rate-history-view', settingsMountData).catch((e) =>
-      console.error('[salary-history] navigatePanel failed', e),
+    console.log('[salary-history] mounting pay-rate-history-view');
+    finance.ui?.requestMount('pay-rate-history-view', settingsMountData).catch((e) =>
+      console.error('[salary-history] requestMount pay-rate-history-view failed', e),
     );
   });
 }
