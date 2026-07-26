@@ -199,6 +199,17 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   await loadExtensionContributions();
 
+  // Dashboard activates on startup (onStartup: true), so filter nav to
+  // dashboard items from the start.  The first view in contributions is
+  // always dashboard (loaded first in the extensions list).
+  if (navigationPanel && viewToExtension.size > 0) {
+    const firstViewId = activityBar?.views?.[0]?.id ?? '';
+    const firstExtId = viewToExtension.get(firstViewId) ?? '';
+    if (firstViewId && firstExtId) {
+      navigationPanel.setView(firstViewId, firstExtId);
+    }
+  }
+
   const statusBar = document.querySelector('#status-bar');
   if (statusBar) {
     const themeBtn = document.createElement('span');
