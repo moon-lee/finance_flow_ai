@@ -305,15 +305,17 @@ export class WorkspacePanel extends LitElement {
 
   private _closePanel(panelId: string) {
     const next = this._removeTab(this._layout, panelId);
-    if (!next) return;
-    this._layout = this._collapseEmptySplits(next);
-    if (this._activePanelId === panelId) {
-      const active = this._getActiveLeaf(this._layout);
-      this._activePanelId = active?.panelId ?? this._firstLeafPanelId(this._layout);
+    if (next) {
+      this._layout = this._collapseEmptySplits(next);
+      if (this._activePanelId === panelId) {
+        const active = this._getActiveLeaf(this._layout);
+        this._activePanelId = active?.panelId ?? '';
+      }
+    } else {
+      this._layout = { type: 'tab', panelId: '', label: '' };
+      this._activePanelId = '';
     }
     this._scheduleSave();
-    requestAnimationFrame(() => this._sendBoundsToPanel(this._activePanelId));
-    setTimeout(() => this._sendBoundsToPanel(this._activePanelId), 100);
   }
 
   private _firstLeafPanelId(node: WorkspaceNode): string {
