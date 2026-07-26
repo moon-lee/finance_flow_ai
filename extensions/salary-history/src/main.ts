@@ -54,10 +54,11 @@ async function openPayHistory(
   const accounts = (await finance.db.table('accounts').find({ is_active: true })) as Array<{
     id: number;
   }>;
-  if (accounts.length === 0) {
+/*   if (accounts.length === 0) {
     console.log('[salary-history] no accounts found — skipping seed modal on startup');
     return;
-  }
+  } */
+  console.log('[salary-history] open view payslip list on startup');
   openView(finance, 'payslip-list', mountData);
 }
 
