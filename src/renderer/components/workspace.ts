@@ -218,6 +218,13 @@ export class WorkspacePanel extends LitElement {
         panelId: `panel-${v.extensionId}-${v.view.id}`,
         label: v.view.name
       }));
+      // Preserve any previously-added unregistered panels (internal
+      // extension panels not listed in the activity bar).
+      for (const existing of this._tabs) {
+        if (!tabs.find(t => t.panelId === existing.panelId)) {
+          tabs.push(existing);
+        }
+      }
       this._tabs = tabs;
       console.log('[workspace] _refreshPanels tabs updated', { tabCount: tabs.length, activePanelId: this._activePanelId });
       if (tabs.length > 0 && !this._findNode(this._layout, this._activePanelId)) {
