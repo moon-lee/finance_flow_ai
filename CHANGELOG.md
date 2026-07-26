@@ -1,7 +1,7 @@
 ---
 version: 0.7.2
 created: 2026-06-14
-last_updated: 2026-07-27T12:00:00+10:00
+last_updated: 2026-07-27T14:30:00+10:00
 ---
 
 # Changelog
@@ -40,6 +40,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **Panel bootstrap FinanceApi adapter typing** (`src/main/resources/panel-bootstrap.ts`). Tightened the panel-side `FinanceApi` wrapper so `db.table(...).find(...)` and `db.table(...).findOne(...)` return properly typed `Promise<Record<string, unknown>[]>` and `Promise<Record<string, unknown> | null>` respectively (was `Promise<unknown[]>` / `Promise<unknown | null>` due to incorrect `as` casts), `db.table(...).insert(...)` returns a proper `Record<string, unknown>`, and the no-op async stubs match the expected `FinanceApi` signatures. This resolves the TypeScript conversion error at the panel bootstrap cast site.
+
+- **Duplicate tabs when mounting multiple panels** (`src/renderer/components/workspace.ts`). `_addTab` was recursively adding the new tab to every leaf in the split tree, causing each new panel to spawn duplicates of all existing tabs. Now only adds to the first (left) branch. Also, `_refreshPanels` now preserves previously-added unregistered panels when merging with registered views.
 
 ## [Unreleased]
 
