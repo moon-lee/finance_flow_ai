@@ -102,6 +102,10 @@ const shellApi = {
       console.log('[preload] panel.unmount', panelId);
       ipcRenderer.send('panel:unmount', panelId);
     },
+    unmountAll: (): void => {
+      console.log('[preload] panel.unmountAll');
+      ipcRenderer.send('panel:unmount-all');
+    },
     onMounted: (callback: (panelId: string) => void): (() => void) => {
       console.log('[preload] panel.onMounted subscriber registered');
       const listener = (_event: IpcRendererEvent, panelId: string): void => {

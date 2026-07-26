@@ -93,12 +93,12 @@ export class TabBar extends LitElement {
           <div class="tab ${tab.panelId === this.activePanelId ? 'active' : ''}"
                role="tab"
                aria-selected="${tab.panelId === this.activePanelId}"
-               draggable="true"
-               @click="${() => this._onTabClick(tab.panelId)}"
-               @dragstart="${(e: DragEvent) => this._onDragStart(e, tab.panelId)}"
+               draggable="${tab.panelId ? 'true' : 'false'}"
+               @click="${() => tab.panelId && this._onTabClick(tab.panelId)}"
+               @dragstart="${(e: DragEvent) => tab.panelId && this._onDragStart(e, tab.panelId)}"
                @dragend="${this._onDragEnd}">
             <span>${tab.label}</span>
-            <span class="tab-close" @click="${(e: Event) => this._onTabClose(e, tab.panelId)}">\u00d7</span>
+            ${tab.panelId ? html`<span class="tab-close" @click="${(e: Event) => this._onTabClose(e, tab.panelId)}">\u00d7</span>` : ''}
           </div>
         `)}
       </div>

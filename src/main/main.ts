@@ -470,6 +470,11 @@ function registerIpcHandlers(): void {
     webviewPanelManager?.unmount(panelId);
   });
 
+  ipcMain.on("panel:unmount-all", () => {
+    console.log('[main] panel:unmount-all received');
+    webviewPanelManager?.unmountAll();
+  });
+
   // Phase 4 Task 17 (Test Unit 1) — Core-owned account creation. The `accounts`
   // table is Platform-owned and read-only for extensions (Decision 4), so the
   // first-run seed modal routes its write through this Core path rather than

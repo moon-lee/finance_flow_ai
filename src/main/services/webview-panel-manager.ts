@@ -382,6 +382,26 @@ export class WebviewPanelManager {
     handle.view.setBounds(bounds);
   }
 
+  unmountAll(): void {
+    console.log('[webview-panel] unmountAll() — destroying', this.panels.size, 'panels');
+    for (const timer of this.mountShowTimers.values()) clearTimeout(timer);
+    this.mountShowTimers.clear();
+    this.pendingResizes.clear();
+    const handles = Array.from(this.panels.values());
+    this.panels.clear();
+    this.activePanelId = null;
+    for (const handle of handles) {
+      try {
+        this.mainWindow?.contentView.removeChildView(handle.view);
+        if (!handle.view.webContents.isDestroyed()) {
+          handle.view.webContents.close();
+        }
+      } catch (err) {
+        console.warn('[webview-panel] failed to unmount', handle.panelId, err);
+      }
+    }
+  }
+
   private flushMountBuffer(): void {
     if (!this.mainWindow) return;
     const pending = this.mountBuffer.splice(0);

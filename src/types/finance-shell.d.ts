@@ -64,6 +64,7 @@ export interface ExtensionsApi {
     getActive: () => Promise<string | null>;
     resize: (panelId: string, bounds: { x: number; y: number; width: number; height: number }) => void;
     unmount: (panelId: string) => void;
+    unmountAll: () => void;
   };
 }
 
@@ -104,6 +105,7 @@ export interface FinanceShellApi {
     getActive: () => Promise<string | null>;
     resize: (panelId: string, bounds: { x: number; y: number; width: number; height: number }) => void;
     unmount: (panelId: string) => void;
+    unmountAll: () => void;
     onMounted: (callback: (panelId: string) => void) => () => void;
     onRequestBounds: (callback: (panelId: string) => void) => () => void;
   };

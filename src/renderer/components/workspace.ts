@@ -304,6 +304,7 @@ export class WorkspacePanel extends LitElement {
   }
 
   private _closePanel(panelId: string) {
+    window.financeShell?.panel?.unmount?.(panelId);
     const next = this._removeTab(this._layout, panelId);
     if (next) {
       this._layout = this._collapseEmptySplits(next);
@@ -314,6 +315,7 @@ export class WorkspacePanel extends LitElement {
     } else {
       this._layout = { type: 'tab', panelId: '', label: '' };
       this._activePanelId = '';
+      window.financeShell?.panel?.unmountAll?.();
     }
     this._scheduleSave();
   }
@@ -329,7 +331,6 @@ export class WorkspacePanel extends LitElement {
 
   private _onTabClose(panelId: string) {
     console.log('[workspace] _onTabClose', panelId);
-    window.financeShell?.panel?.unmount?.(panelId);
     this._closePanel(panelId);
   }
 
