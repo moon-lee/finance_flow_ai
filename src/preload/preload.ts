@@ -12,7 +12,9 @@ const shellApi = {
   // of `finance.db.table('accounts').insert(...)`.
   accounts: {
     create: async (input: { name: string; institution: string | null }): Promise<{ id: number }> =>
-      ipcRenderer.invoke('accounts:create', input) as Promise<{ id: number }>
+      ipcRenderer.invoke('accounts:create', input) as Promise<{ id: number }>,
+    count: async (): Promise<{ count: number }> =>
+      ipcRenderer.invoke('accounts:count') as Promise<{ count: number }>
   },
   extensions: {
     list: async (): Promise<{

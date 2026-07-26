@@ -502,6 +502,14 @@ function registerIpcHandlers(): void {
       return { id: Number(info.lastInsertRowid) };
     },
   );
+
+  // Core-owned account count — used by the renderer's first-run seed check.
+  // Runs directly against the SQLite DB, no Extension IPC required.
+  ipcMain.handle("accounts:count", () => {
+    const db = getDatabase();
+    const row = db.prepare("SELECT COUNT(*) AS count FROM accounts").get() as { count: number };
+    return { count: row.count };
+  });
 }
 
 async function shutdownPersistence(): Promise<void> {

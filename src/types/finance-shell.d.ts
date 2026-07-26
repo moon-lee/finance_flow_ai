@@ -93,6 +93,8 @@ export interface AccountsApi {
    * extensions per Decision 4, so the first-run seed modal routes its write
    * here rather than through `finance.db`). Returns the new row id. */
   create: (input: { name: string; institution: string | null }) => Promise<{ id: number }>;
+  /** Core-owned account count — no Extension IPC required. */
+  count: () => Promise<{ count: number }>;
 }
 
 export interface FinanceShellApi {

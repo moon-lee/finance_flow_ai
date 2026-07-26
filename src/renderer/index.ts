@@ -254,11 +254,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   // the dashboard.  On create / dismiss, close the modal and activate
   // the dashboard so the app is usable even without seeding.
   try {
-    const result = await window.financeShell?.extensions.readTable({
-      extensionId: 'core',
-      table: 'accounts',
-      op: 'count',
-    }) as { count: number } | undefined;
+    const result = await window.financeShell?.accounts.count();
     const count = result?.count ?? 1;
     if (count === 0) {
       await showAccountSeedModal();
