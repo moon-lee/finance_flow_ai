@@ -57,10 +57,12 @@ export class NavigationPanel extends LitElement {
   `;
 
   private _currentView = 'Dashboard';
+  private _currentExtensionId = '';
   private _items: NavItem[] = [];
 
-  setView(view: string) {
+  setView(view: string, extensionId?: string) {
     this._currentView = view;
+    this._currentExtensionId = extensionId ?? '';
     this.requestUpdate();
   }
 
@@ -96,6 +98,9 @@ export class NavigationPanel extends LitElement {
   private _getVisibleItems(): NavItem[] {
     if (this._currentView === '__settings__') {
       return [...NavigationPanel._coreItems];
+    }
+    if (this._currentExtensionId) {
+      return this._items.filter(item => item.extensionId === this._currentExtensionId);
     }
     return this._items;
   }

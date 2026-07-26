@@ -13,6 +13,9 @@ const commandPalette = document.querySelector<HTMLElement & { focusInput(): void
 const navigationPanel = document.querySelector<NavigationPanel>('#navigation-panel');
 const activityBar = document.querySelector<HTMLElement & { views: ActivityView[]; activeView: string }>('#activity-bar');
 
+/** Maps viewId → extensionId so nav panel can filter by active extension. */
+const viewToExtension = new Map<string, string>();
+
 // [Fix] Mirror Host stdout (and extension `console.log` calls) into the
 // DevTools console. Without this, extension logs only appear in the main
 // process terminal because the Host runs in a separate utility process.
@@ -108,7 +111,10 @@ async function loadExtensionContributions(): Promise<void> {
     const contributions = await window.financeShell?.extensions.list();
     if (!contributions) return;
     if (activityBar) {
-      activityBar.views = contributions.views.map((v) => ({ id: v.view.id, name: v.view.name, icon: v.view.icon }));
+      activityBar.views = contributions.views.map((v) => {
+        viewToExtension.set(v.view.id, v.extensionId);
+        return { id: v.view.id, name: v.view.name, icon: v.view.icon };
+      });
     }
     if (commandPalette) {
       commandPalette.extensionCommands = contributions.commands.map((c) => ({
@@ -144,7 +150,7 @@ window.addEventListener('view-changed', (event: Event) => {
   // Keep the Activity Bar launcher button highlighted for the active view,
   // whether the view was opened from the bar itself or from the Explorer.
   if (activityBar) activityBar.activeView = customEvent.detail.view;
-  if (navigationPanel) navigationPanel.setView(customEvent.detail.view);
+  if (navigationPanel) navigationPanel.setView(customEvent.detail.view, viewToExtension.get(customEvent.detail.view) ?? '');
   // Ask Main to activate the extension behind this view (no-op for built-in settings view).
   // Duplicate-click suppression is enforced at the Host layer (see
   // `src/extension-host/host.ts#activateExtension` — `if (ext.moduleUrl) return true`),
