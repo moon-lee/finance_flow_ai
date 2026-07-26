@@ -405,12 +405,10 @@ function registerIpcHandlers(): void {
       if (!extensionRegistry.isEnabled(extensionId)) {
         return { mounted: false, reason: "extension not enabled" };
       }
-      const owning = extensionRegistry
-        .views()
-        .find((v) => v.view.id === viewId && v.extensionId === extensionId);
-      if (!owning) {
-        return { mounted: false, reason: "view not found for extension" };
-      }
+      // Allow extensions to mount their own views without requiring
+      // the view to be registered in the activity bar. This lets a
+      // single-extension create multiple internal panels (e.g.
+      // pay-rate-history-view) without adding extra activity bar icons.
       const handle = webviewPanelManager.requestMount(
         extensionId,
         viewId,
