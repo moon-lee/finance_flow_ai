@@ -10,7 +10,7 @@
  *      to load. The template also declares a strict CSP that closes the
  *      Phase 4 `'unsafe-eval'` regression.
  *
- *   2. `finance-shell://panel/bootstrap.js`
+ *   2. `finance-shell://panel/<extensionId>/bootstrap.js`
  *      The panel bootstrap script. It runs in the panel renderer process,
  *      subscribes to `panel:init` (using cached payload if the event already
  *      fired before the module script executed), dynamically imports the
@@ -49,19 +49,16 @@ export function registerPanelProtocol(): void {
 
     // Custom protocols (finance-shell://) parse the first path segment
     // as the host/authority, stripping it from pathname:
-    //   finance-shell://panel/ext/view.html  → host='panel', pathname='/ext/view.html'
-    //   finance-shell://panel/bootstrap.js       → host='panel', pathname='/bootstrap.js'
+    //   finance-shell://panel/my-ext/bootstrap.js  → host='panel', pathname='/my-ext/bootstrap.js'
+    //   finance-shell://panel/my-ext/my-view.html   → host='panel', pathname='/my-ext/my-view.html'
     // Reconstruct the logical path by joining host + pathname.
     const pathname = url.host ? `/${url.host}${url.pathname}` : url.pathname;
 
-    if (pathname === '/panel/bootstrap.js') {
+    if (pathname.startsWith('/panel/') && pathname.endsWith('/bootstrap.js')) {
       return servePanelBootstrap();
     }
     if (pathname.startsWith('/panel/')) {
       return servePanelShell(pathname.slice('/panel/'.length));
-    }
-    if (pathname === '/bootstrap.js') {
-      return servePanelBootstrap();
     }
     if (pathname.startsWith('/extensions/')) {
       return serveExtensionBundle(pathname.slice('/extensions/'.length));
@@ -118,7 +115,7 @@ async function servePanelShell(path: string): Promise<Response> {
 }
 
 /**
- * Serve the panel bootstrap script at `/panel/bootstrap.js`.
+ * Serve the panel bootstrap script at `/panel/<extensionId>/bootstrap.js`.
  * This script runs in the panel's renderer process, subscribes to `panel:init`
  * (using the cached payload if the event already fired), dynamically imports
  * the extension bundle, registers components, and mounts the view into `#app`.

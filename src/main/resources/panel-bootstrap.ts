@@ -1,7 +1,7 @@
 /**
  * Phase 5 panel renderer bootstrap.
  *
- * Served at `finance-shell://panel/bootstrap.js` (compiled to dist/resources/).
+ * Served at `finance-shell://panel/<extensionId>/bootstrap.js` (compiled to dist/resources/).
  * Runs inside the WebContentsView panel renderer process:
  *
  *   1. Subscribes to `panel:init` (cached payload if event already fired).

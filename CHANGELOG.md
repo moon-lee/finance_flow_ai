@@ -21,7 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Panel bootstrap URL moved under `panel/` path** (`src/main/services/panel-protocol.ts`, `src/main/resources/panel-template.html`, `docs/file-reference.md`, `src/main/resources/panel-bootstrap.ts`). The bootstrap script is now served at `finance-shell://panel/bootstrap.js` instead of `finance-shell://bootstrap.js`. The protocol handler routes `/panel/bootstrap.js` before the generic `/panel/` shell router, and the HTML template loads the new path. Context docs and in-file comments updated accordingly.
+- **Panel bootstrap URL moved under `panel/<extensionId>/` path** (`src/main/services/panel-protocol.ts`, `src/main/resources/panel-template.html`, `docs/file-reference.md`, `src/main/resources/panel-bootstrap.ts`). The bootstrap script is now served at `finance-shell://panel/<extensionId>/bootstrap.js` instead of `finance-shell://panel/bootstrap.js`. The protocol handler routes `/panel/<extensionId>/bootstrap.js` before the generic `/panel/` shell router, and the HTML template loads the new path with the extension ID injected. Context docs and in-file comments updated accordingly.
 
 ### Added
 

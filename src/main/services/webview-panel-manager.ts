@@ -139,7 +139,7 @@ export class WebviewPanelManager {
 
     view.webContents.openDevTools({ mode: "detach" });
 
-/*     view.webContents.on("did-finish-load", () => {
+  /*  view.webContents.on("did-finish-load", () => {
       console.log(`[webview-panel] ${panelId} did-finish-load`);
       view.webContents.send("panel:init", { extensionId, viewId, mountData });
     });
@@ -148,7 +148,7 @@ export class WebviewPanelManager {
     console.log("[webview-panel] children:",this.mainWindow.contentView.children.length);
 
 
-    const { width, height } = this.mainWindow.getContentBounds();
+    const { width, height } = this.mainWindow.contentView.getBounds();
     console.log(`[webview-panel] Initial bounds: x=0 y=0 width=${width} height=${height}`,);
     view.setBounds({ x: 0, y: 0, width, height });
 
