@@ -281,7 +281,7 @@ export class WorkspacePanel extends LitElement {
   private _sendBoundsToPanel(panelId: string) {
     const content = this.renderRoot.querySelector('.content') as HTMLElement | null;
     if (!content) {
-      console.warn('[workspace] _sendBoundsToPanel: .content element not found — shadow DOM not ready?');
+      console.warn('[workspace] _sendBoundsToPanel: .content element not found');
       return;
     }
     const rect = content.getBoundingClientRect();
@@ -292,6 +292,8 @@ export class WorkspacePanel extends LitElement {
     } catch (err) {
       console.error('[workspace] _sendBoundsToPanel: resize() threw', err);
     }
+    // Backup path: postMessage to preload which forwards panel:resize IPC
+    window.postMessage({ type: 'panel:resize', panelId, bounds }, '*');
   }
 
   private _addPanel(panelId: string, label: string) {
@@ -326,6 +328,8 @@ export class WorkspacePanel extends LitElement {
   }
 
   private _onTabClose(panelId: string) {
+    console.log('[workspace] _onTabClose', panelId);
+    window.financeShell?.panel?.unmount?.(panelId);
     this._closePanel(panelId);
   }
 
@@ -344,6 +348,7 @@ export class WorkspacePanel extends LitElement {
       const rect = content.getBoundingClientRect();
       const bounds = { x: Math.round(rect.x), y: Math.round(rect.y), width: Math.round(rect.width), height: Math.round(rect.height) };
       window.financeShell?.panel?.resize(this._activePanelId, bounds);
+      window.postMessage({ type: 'panel:resize', panelId: this._activePanelId, bounds }, '*');
     });
     this._resizeObserver.observe(content);
   }

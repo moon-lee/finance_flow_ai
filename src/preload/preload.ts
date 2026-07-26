@@ -1,6 +1,18 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
 import type { HostLogEntry, HostStatus } from '../types/finance-shell';
 
+// Backup path: if contextBridge fails or financeShell is unreachable,
+// the renderer can window.postMessage({type:'panel:resize', ...}) and
+// the preload catches it here and forwards to main.
+window.addEventListener('message', (event) => {
+  const msg = event.data;
+  if (msg && typeof msg === 'object') {
+    if (msg.type === 'panel:resize') {
+      ipcRenderer.send('panel:resize', msg.panelId, msg.bounds);
+    }
+  }
+});
+
 const shellApi = {
     getVersion: async (): Promise<string> => ipcRenderer.invoke('shell:get-version') as Promise<string>,
   settings: {
@@ -96,6 +108,10 @@ const shellApi = {
       resize: (panelId: string, bounds: { x: number; y: number; width: number; height: number }): void => {
         console.log('[preload] panel.resize', { panelId, bounds });
         ipcRenderer.send('panel:resize', panelId, bounds);
+      },
+      unmount: (panelId: string): void => {
+        console.log('[preload] panel.unmount', panelId);
+        ipcRenderer.send('panel:unmount', panelId);
       },
       onMounted: (callback: (panelId: string) => void): (() => void) => {
         console.log('[preload] panel.onMounted subscriber registered');
