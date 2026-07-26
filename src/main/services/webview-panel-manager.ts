@@ -56,6 +56,7 @@ export class WebviewPanelManager {
   private mainWindow: BrowserWindow | null = null;
   private readonly mountBuffer: MountRequest[] = [];
   private readonly pendingResizes = new Map<string, { x: number; y: number; width: number; height: number }>();
+  private activePanelId: string | null = null;
 
   setMainWindow(window: BrowserWindow): void {
     console.log("[setMainWindow]", this);
@@ -86,7 +87,7 @@ export class WebviewPanelManager {
     }
 
     const panelId = `panel-${extensionId}-${viewId}`;
-    console.log(`[webview-panel] Creating panel: ${panelId}`);
+/*     console.log(`[webview-panel] Creating panel: ${panelId}`); */
 
     const view = new WebContentsView({
       webPreferences: {
@@ -96,11 +97,11 @@ export class WebviewPanelManager {
         preload: join(__dirname, "..", "preload", "panel-preload.cjs"),
       },
     });
-    console.log(
+/*     console.log(
     `[webview-panel] Created WebContentsView (webContentsId=${view.webContents.id})`,);
 
-
-    // Debug WebContents lifecycle
+ */
+/*     // Debug WebContents lifecycle
     view.webContents.on("did-start-loading", () => {
       console.log(`[webview-panel] ${panelId} did-start-loading`);
     });
@@ -118,7 +119,7 @@ export class WebviewPanelManager {
         mountData,
       });
     });
-
+ */
     view.webContents.on(
       "did-fail-load",
       (_event, errorCode, errorDescription, validatedURL) => {
@@ -131,26 +132,17 @@ export class WebviewPanelManager {
     );
 
 
-    console.log(`[webview-panel] loading ${panelId}`);
+
     const panelUrl = `finance-shell://panel/${encodeURIComponent(extensionId)}/${encodeURIComponent(viewId)}.html`;
-    console.log(`[webview-panel] Loading URL: ${panelUrl}`);
-
-
     view.webContents.loadURL(panelUrl);
 
-    //view.webContents.openDevTools({ mode: "detach" });
-
-  /*  view.webContents.on("did-finish-load", () => {
-      console.log(`[webview-panel] ${panelId} did-finish-load`);
-      view.webContents.send("panel:init", { extensionId, viewId, mountData });
-    });
- */
     this.mainWindow.contentView.addChildView(view);
-    console.log("[webview-panel] children:",this.mainWindow.contentView.children.length);
-
+/*     console.log("[webview-panel] children:", this.mainWindow.contentView.children?.length);
+ */
     const { width, height } = this.mainWindow.contentView.getBounds();
     view.setBounds({ x: 0, y: 0, width, height });
-    console.log('[webview-panel] panel', panelId, 'added to contentView with initial bounds');
+    view.setVisible(false);  // Hidden initially; will be shown by resize() when bounds are sent
+    console.log('[webview-panel] panel', panelId, 'added to contentView with initial bounds (hidden)');
 
     const handle: PanelHandle = { panelId, extensionId, viewId, view };
     const webContentsId = view.webContents.id;
@@ -159,12 +151,11 @@ export class WebviewPanelManager {
     const pending = this.pendingResizes.get(panelId);
     if (pending) {
       this.pendingResizes.delete(panelId);
+      view.setVisible(true);
       view.setBounds(pending);
+      this.activePanelId = panelId;
       console.log('[webview-panel] applied pending resize for', panelId, pending);
     }
-
-    console.log(`[webview-panel] Mounted ${panelId} (webContentsId=${webContentsId})`,);
-    console.log(`[webview-panel] Active panels: ${this.panels.size}`,);
 
     if (this.mainWindow) {
       this.mainWindow.webContents.send("panel:mounted", panelId);
@@ -260,8 +251,10 @@ export class WebviewPanelManager {
       console.log('[webview-panel] resizing panel', handle.panelId, 'to', bounds);
 
       if (!view.webContents.isDestroyed()) {
+        view.setVisible(true);
         view.setBounds(bounds);
-        console.log('[webview-panel] panel', handle.panelId, 'setBounds done');
+        this.activePanelId = panelId;
+        console.log('[webview-panel] panel', handle.panelId, 'setBounds done (shown)');
       }
     } catch (err) {
       console.warn(
@@ -272,12 +265,37 @@ export class WebviewPanelManager {
 
   }
 
+  showPanel(panelId: string): void {
+    const handle = this.findByPanelId(panelId);
+    if (!handle) {
+      console.warn('[webview-panel] showPanel: panel', panelId, 'not found');
+      return;
+    }
+
+    // Hide the previous active panel if it's different
+    if (this.activePanelId && this.activePanelId !== panelId) {
+      const oldHandle = this.findByPanelId(this.activePanelId);
+      if (oldHandle && !oldHandle.view.webContents.isDestroyed()) {
+        oldHandle.view.setVisible(false);
+        console.log('[webview-panel] hidden panel', this.activePanelId);
+      }
+    }
+
+    handle.view.setVisible(true);
+    this.activePanelId = panelId;
+    console.log('[webview-panel] shown panel', panelId);
+  }
+
   findByPanelId(panelId: string): PanelHandle | undefined {
     return Array.from(this.panels.values()).find((h) => h.panelId === panelId);
   }
 
   list(): PanelHandle[] {
     return Array.from(this.panels.values());
+  }
+
+  getActivePanelId(): string | null {
+    return this.activePanelId;
   }
 
   private flushMountBuffer(): void {

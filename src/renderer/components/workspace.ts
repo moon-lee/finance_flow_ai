@@ -80,6 +80,13 @@ export class WorkspacePanel extends LitElement {
     this._refreshPanels();
     this._panelUnmountListener = window.financeShell?.panel?.onMounted?.((panelId: string) => {
       this._refreshPanels();
+      // Check if this panel is new (not in current layout)
+      if (!this._findNode(this._layout, panelId)) {
+        const panel = this._tabs.find(t => t.panelId === panelId);
+        if (panel) {
+          this._addPanel(panelId, panel.label);
+        }
+      }
       if (panelId.includes('accounts-seed-modal')) {
         this._focusPanel(panelId);
       }
@@ -89,7 +96,10 @@ export class WorkspacePanel extends LitElement {
   firstUpdated() {
     this._attachResizeObserver();
     console.log('[workspace] firstUpdated — sending bounds for panel:', this._activePanelId);
-    this._sendBoundsToPanel(this._activePanelId);
+    // Use requestAnimationFrame to ensure layout is correct
+    requestAnimationFrame(() => {
+      this._sendBoundsToPanel(this._activePanelId);
+    });
   }
 
   disconnectedCallback() {
@@ -222,6 +232,7 @@ export class WorkspacePanel extends LitElement {
     this._layout = this._setActive(this._layout, panelId);
     this._scheduleSave();
     this._sendBoundsToPanel(panelId);
+    window.financeShell?.panel?.show(panelId);
     this.dispatchEvent(new CustomEvent('workspace:focus-panel', { detail: { panelId }, bubbles: true, composed: true }));
   }
 
@@ -231,7 +242,7 @@ export class WorkspacePanel extends LitElement {
     const rect = content.getBoundingClientRect();
     const bounds = { x: Math.round(rect.x), y: Math.round(rect.y), width: Math.round(rect.width), height: Math.round(rect.height) };
     console.log('[workspace] _sendBoundsToPanel', { panelId, bounds });
-    window.financeShell?.extensions?.panel?.resize(panelId, bounds);
+    window.financeShell?.panel?.resize(panelId, bounds);
   }
 
   private _addPanel(panelId: string, label: string) {
@@ -276,7 +287,7 @@ export class WorkspacePanel extends LitElement {
     this._resizeObserver = new ResizeObserver(() => {
       const rect = content.getBoundingClientRect();
       const bounds = { x: Math.round(rect.x), y: Math.round(rect.y), width: Math.round(rect.width), height: Math.round(rect.height) };
-      window.financeShell?.extensions?.panel?.resize(this._activePanelId, bounds);
+      window.financeShell?.panel?.resize(this._activePanelId, bounds);
     });
     this._resizeObserver.observe(content);
   }

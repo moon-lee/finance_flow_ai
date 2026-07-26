@@ -91,6 +91,8 @@ const shellApi = {
     // Phase 5 Task 12 — workspace panel controls.
     panel: {
       focus: (panelId: string): void => ipcRenderer.send('panel:focus', panelId),
+      show: (panelId: string): void => ipcRenderer.send('panel:show', panelId),
+      getActive: (): Promise<string | null> => ipcRenderer.invoke('panel:active'),
       resize: (panelId: string, bounds: { x: number; y: number; width: number; height: number }): void =>
         ipcRenderer.send('panel:resize', panelId, bounds),
       onMounted: (callback: (panelId: string) => void): (() => void) => {

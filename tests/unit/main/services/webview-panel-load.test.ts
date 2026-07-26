@@ -13,15 +13,21 @@ vi.mock('electron', () => {
   const loadURL = vi.fn();
   const on = vi.fn();
   const webContents = { id: 42, send, focus, loadURL, on };
-  const contentView = { addChildView: vi.fn(), removeChildView: vi.fn() };
+  const contentView = { 
+    addChildView: vi.fn(), 
+    removeChildView: vi.fn(),
+    getBounds: vi.fn(() => ({ width: 1024, height: 768 })),
+    setVisible: vi.fn()
+  };
   const getContentBounds = vi.fn(() => ({ width: 1024, height: 768 }));
   const window = { contentView, getContentBounds, webContents: { send: vi.fn() } };
 
-  let lastViewInstance: { webContents: typeof webContents; setBounds: ReturnType<typeof vi.fn> } | null = null;
+  let lastViewInstance: { webContents: typeof webContents; setBounds: ReturnType<typeof vi.fn>; setVisible: ReturnType<typeof vi.fn> } | null = null;
 
   class MockWebContentsView {
     webContents = { id: 42, send, focus, loadURL, on };
     setBounds = vi.fn();
+    setVisible = vi.fn();
     constructor() {
       lastViewInstance = this as unknown as typeof lastViewInstance;
     }

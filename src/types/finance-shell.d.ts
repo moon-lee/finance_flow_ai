@@ -60,6 +60,8 @@ export interface ExtensionsApi {
   // Phase 5 Task 12 — workspace panel controls (focus + resize).
   panel: {
     focus: (panelId: string) => void;
+    show: (panelId: string) => void;
+    getActive: () => Promise<string | null>;
     resize: (panelId: string, bounds: { x: number; y: number; width: number; height: number }) => void;
   };
 }
@@ -97,6 +99,8 @@ export interface FinanceShellApi {
   accounts: AccountsApi;
   panel: {
     focus: (panelId: string) => void;
+    show: (panelId: string) => void;
+    getActive: () => Promise<string | null>;
     resize: (panelId: string, bounds: { x: number; y: number; width: number; height: number }) => void;
     onMounted: (callback: (panelId: string) => void) => () => void;
   };

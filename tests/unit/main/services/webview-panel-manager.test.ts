@@ -4,13 +4,23 @@ let mockIdCounter = 0;
 vi.mock('electron', () => ({
   BrowserWindow: class {},
   WebContentsView: class {
-    webContents: { id: number; send: () => void; on: () => void; loadURL: () => void; isDestroyed: () => boolean; destroy: () => void };
+    webContents: { id: number; send: () => void; on: () => void; loadURL: () => void; isDestroyed: () => boolean; destroy: () => void; close: () => void };
     setBounds: () => void;
+    setVisible: () => void;
     focus: () => void;
     constructor() {
       mockIdCounter++;
-      this.webContents = { id: mockIdCounter, send: () => {}, on: () => {}, loadURL: () => {}, isDestroyed: () => false, destroy: () => {} };
+      this.webContents = { 
+        id: mockIdCounter, 
+        send: () => {}, 
+        on: () => {}, 
+        loadURL: () => {}, 
+        isDestroyed: () => false, 
+        destroy: () => {},
+        close: () => {}
+      };
       this.setBounds = () => {};
+      this.setVisible = () => {};
       this.focus = () => {};
     }
   }
@@ -44,9 +54,12 @@ describe('WebviewPanelManager sender-identity (Task 4.1)', () => {
     manager.setMainWindow({
       contentView: {
         addChildView: () => {},
-        removeChildView: () => {}
+        removeChildView: () => {},
+        getBounds: () => ({ x: 0, y: 0, width: 1024, height: 768 }),
+        setVisible: () => {}
       },
-      getContentBounds: () => ({ x: 0, y: 0, width: 1024, height: 768 })
+      getContentBounds: () => ({ x: 0, y: 0, width: 1024, height: 768 }),
+      webContents: { send: vi.fn() }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any);
 
@@ -65,8 +78,14 @@ describe('WebviewPanelManager sender-identity (Task 4.1)', () => {
     const manager = new WebviewPanelManager();
     manager.setUIHandler({ ...noopUIHandler, onMountRequested: () => {} });
     manager.setMainWindow({
-      contentView: { addChildView: () => {}, removeChildView: () => {} },
-      getContentBounds: () => ({ x: 0, y: 0, width: 1024, height: 768 })
+      contentView: { 
+        addChildView: () => {}, 
+        removeChildView: () => {},
+        getBounds: () => ({ x: 0, y: 0, width: 1024, height: 768 }),
+        setVisible: () => {}
+      },
+      getContentBounds: () => ({ x: 0, y: 0, width: 1024, height: 768 }),
+      webContents: { send: vi.fn() }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any);
     const unknown = manager.findPanelByWebContentsId(9999);
@@ -81,9 +100,12 @@ describe('WebviewPanelManager lifecycle (Phase 5 additional tests)', () => {
     manager.setMainWindow({
       contentView: {
         addChildView: () => {},
-        removeChildView: () => {}
+        removeChildView: () => {},
+        getBounds: () => ({ x: 0, y: 0, width: 1024, height: 768 }),
+        setVisible: () => {}
       },
-      getContentBounds: () => ({ x: 0, y: 0, width: 1024, height: 768 })
+      getContentBounds: () => ({ x: 0, y: 0, width: 1024, height: 768 }),
+      webContents: { send: vi.fn() }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any);
     return manager;
@@ -116,8 +138,14 @@ describe('WebviewPanelManager lifecycle (Phase 5 additional tests)', () => {
     const manager = new WebviewPanelManager();
     manager.setUIHandler(noopUIHandler);
     manager.setMainWindow({
-      contentView: { addChildView: () => {}, removeChildView: () => {} },
-      getContentBounds: () => ({ x: 0, y: 0, width: 1024, height: 768 })
+      contentView: { 
+        addChildView: () => {}, 
+        removeChildView: () => {},
+        getBounds: () => ({ x: 0, y: 0, width: 1024, height: 768 }),
+        setVisible: () => {}
+      },
+      getContentBounds: () => ({ x: 0, y: 0, width: 1024, height: 768 }),
+      webContents: { send: vi.fn() }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any);
 
@@ -146,17 +174,23 @@ describe('WebviewPanelManager lifecycle (Phase 5 additional tests)', () => {
     const manager = new WebviewPanelManager();
     manager.setUIHandler(noopUIHandler);
     manager.setMainWindow({
-      contentView: { addChildView: () => {}, removeChildView: () => {} },
-      getContentBounds: () => ({ x: 0, y: 0, width: 1024, height: 768 })
+      contentView: { 
+        addChildView: () => {}, 
+        removeChildView: () => {},
+        getBounds: () => ({ x: 0, y: 0, width: 1024, height: 768 }),
+        setVisible: () => {}
+      },
+      getContentBounds: () => ({ x: 0, y: 0, width: 1024, height: 768 }),
+      webContents: { send: vi.fn() }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any);
 
     manager.mount('dashboard', 'dashboard-view');
     manager.mount('salary-history', 'pay-history');
 
-    // Patch the destroy method on the views' webContents
+    // Patch the close method on the views' webContents
     for (const panel of manager.list()) {
-      (panel.view.webContents as any).destroy = destroySpy;
+      (panel.view.webContents as any).close = destroySpy;
     }
 
     await manager.destroyAll();
