@@ -9,7 +9,7 @@
     "displayName": "Salary History",
     "version": "0.1.0",
     "description": "Payslip entry, derived breakdown, and effective-dated rate history tracking.",
-    "activationEvents": ["onStartup", "onView:salary-history"],
+    "activationEvents": ["onView:payslip-list"],
     "contributions": {
       "views": [
         {

@@ -118,10 +118,6 @@ export async function activate(
   finance.commands.registerCommand('salary.show-pay-rate-history', 'View: Pay Rate History', () => {
     console.log('[salary-history] pay-rate-history-view is navigated to from within the panel — no separate mount needed');
   });
-
-  openPayHistory(finance, settingsMountData).catch((e) =>
-    console.error('[salary-history] openPayHistory (activation) failed', e),
-  );
 }
 
 let _registeredFinance: FinanceApi | null = null;
