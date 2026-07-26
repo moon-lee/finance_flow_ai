@@ -263,12 +263,14 @@ function sortByDependencies(manifests: FinanceExtensionManifest[]): FinanceExten
 }
 
 async function activateExtension(extensionId: string, reason: string): Promise<boolean> {
+  console.log('[host] activateExtension called', { extensionId, reason });
   const ext = activeExtensions.get(extensionId);
   if (!ext) {
     console.error(`[host] activate: extension "${extensionId}" not found`);
     return false;
   }
   if (ext.moduleUrl) {
+    console.log('[host] activate: extension already active', { extensionId });
     return true; // already active
   }
   if (!ext.manifest.activationEvents.some((evt) => evt === '*' || evt === reason)) {
@@ -278,14 +280,7 @@ async function activateExtension(extensionId: string, reason: string): Promise<b
     return false;
   }
 
-  // [Review fix §4.1] Load the bundled extension entry from `dist/extensions/<id>.js`
-  // rather than from the `extensions/` source tree. Per Decision 10 + ADR-0004,
-  // extension authors write TypeScript in `extensions/<id>/src/main.ts` and the
-  // build pipeline (`vite.extensions.config.ts`) produces ESM bundles in
-  // `dist/extensions/`. The Host bundle lives at `dist/extension-host/host.js`,
-  // so `../extensions` resolves to the project-root-relative `dist/extensions/`.
-  // We use a dynamic `import()` (ESM) rather than `createRequire` because the
-  // bundle is an ESM module and `require()` cannot load ESM synchronously.
+  console.log('[host] activate: loading bundle for', extensionId);
   try {
     const path = await import('node:path');
     const url = await import('node:url');
@@ -297,26 +292,21 @@ async function activateExtension(extensionId: string, reason: string): Promise<b
     );
     const entryPath = path.join(extensionsBundleRoot, `${extensionId}.js`);
 
+    console.log('[host] activate: importing bundle from', entryPath);
     const extModule = await import(url.pathToFileURL(entryPath).href);
     if (typeof extModule?.activate === 'function') {
-      // Phase 4 Task 7 — construct a per-extension FinanceApi so the
-      // extension's `finance.db` accessor carries its own id on every
-      // RPC. The singleton `finance` (imported above) is reserved for
-      // the `extension.executeCommand` proxy handler — it has no
-      // caller-bound db. See `api/index.ts#createFinance`.
       const perExtensionFinance = createFinance(extensionId, {
         request: <T>(method: string, params?: unknown): Promise<T> =>
           requestMain<T>(method, params)
       });
+      console.log('[host] activate: calling extModule.activate for', extensionId);
       await extModule.activate(perExtensionFinance);
+      console.log('[host] activate: extModule.activate returned for', extensionId);
     }
-    // Cache both the on-disk path AND the live module reference so the
-    // shutdown handler can call deactivate() without re-loading (require() of
-    // an ESM bundle throws ERR_REQUIRE_ESM). See [Review fix §HOST-1].
     ext.moduleUrl = entryPath;
     ext.module = extModule;
     notify('extension.activated', { extensionId, reason });
-    console.log(`[host] activated "${extensionId}" via "${reason}" (loaded from ${entryPath})`);
+    console.log('[host] activated', { extensionId, reason });
     return true;
   } catch (err) {
     console.error(`[host] failed to activate "${extensionId}":`, err);

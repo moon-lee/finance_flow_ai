@@ -74,29 +74,43 @@ export class WorkspacePanel extends LitElement {
   private _saveTimer: ReturnType<typeof setTimeout> | null = null;
   private _panelUnmountListener: (() => void) | null = null;
 
-connectedCallback() {
+  connectedCallback() {
     super.connectedCallback();
     this._restoreLayout();
-    this._refreshPanels();
+    void this._refreshPanels();
     this._panelUnmountListener = window.financeShell?.panel?.onMounted?.((panelId: string) => {
-      this._refreshPanels();
-      // Add panel as a new tab if it's not already in the layout
-      if (!this._findNode(this._layout, panelId)) {
-        const panel = this._tabs.find(t => t.panelId === panelId);
-        if (panel) {
-          this._addPanel(panel.panelId, panel.label);
-        }
-      }
-      // Show the panel with correct bounds
-      this._sendBoundsToPanel(panelId);
+      console.log('[workspace] onMounted callback', { panelId, activePanelId: this._activePanelId });
+      void this._onPanelMounted(panelId);
     });
+  }
+
+  private async _onPanelMounted(panelId: string): Promise<void> {
+    console.log('[workspace] _onPanelMounted start', { panelId, tabsCount: this._tabs.length });
+    await this._refreshPanels();
+    console.log('[workspace] _onPanelMounted after refresh', { panelId, tabsCount: this._tabs.length });
+    // Add panel as a new tab if it's not already in the layout
+    if (!this._findNode(this._layout, panelId)) {
+      const panel = this._tabs.find(t => t.panelId === panelId);
+      if (panel) {
+        console.log('[workspace] _onPanelMounted adding panel', { panelId, label: panel.label });
+        this._addPanel(panel.panelId, panel.label);
+      } else {
+        console.warn('[workspace] _onPanelMounted panel not in tabs', { panelId, availableTabs: this._tabs.map(t => t.panelId) });
+      }
+    } else {
+      console.log('[workspace] _onPanelMounted panel already in layout', { panelId });
+    }
+    // Show the panel with correct bounds
+    this._sendBoundsToPanel(panelId);
+    console.log('[workspace] _onPanelMounted done', { panelId });
   }
 
   firstUpdated() {
     this._attachResizeObserver();
-    console.log('[workspace] firstUpdated — sending bounds for panel:', this._activePanelId);
+    console.log('[workspace] firstUpdated — activePanelId:', this._activePanelId);
     // Use requestAnimationFrame to ensure layout is correct
     requestAnimationFrame(() => {
+      console.log('[workspace] firstUpdated rAF — sending bounds for panel:', this._activePanelId);
       this._sendBoundsToPanel(this._activePanelId);
     });
   }
@@ -178,14 +192,17 @@ connectedCallback() {
   }
 
   private async _refreshPanels() {
+    console.log('[workspace] _refreshPanels start');
     try {
       const contributions = await window.financeShell?.extensions?.list?.();
+      console.log('[workspace] _refreshPanels fetched contributions', { viewCount: contributions?.views?.length });
       if (!contributions?.views) return;
       const tabs: Tab[] = contributions.views.map(v => ({
         panelId: `panel-${v.extensionId}-${v.view.id}`,
         label: v.view.name
       }));
       this._tabs = tabs;
+      console.log('[workspace] _refreshPanels tabs updated', { tabCount: tabs.length, activePanelId: this._activePanelId });
       if (tabs.length > 0 && !this._findNode(this._layout, this._activePanelId)) {
         this._activePanelId = tabs[0].panelId;
         this._layout = { type: 'tab', panelId: tabs[0].panelId, label: tabs[0].label };
@@ -196,6 +213,7 @@ connectedCallback() {
     } catch {
       // ignore
     }
+    console.log('[workspace] _refreshPanels done');
   }
 
   private _restoreLayout() {

@@ -443,6 +443,13 @@ function registerIpcHandlers(): void {
     return webviewPanelManager?.getActivePanelId() ?? null;
   });
 
+  ipcMain.on("panel:mounted", (_event, panelId: string) => {
+    console.log('[main] panel:mounted:', panelId);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("panel:mounted", panelId);
+    }
+  });
+
   ipcMain.on(
     "panel:resize",
     (
@@ -450,14 +457,10 @@ function registerIpcHandlers(): void {
       panelId: string,
       bounds: { x: number; y: number; width: number; height: number },
     ) => {
+      console.log('[main] panel:resize received', { panelId, bounds });
       webviewPanelManager?.resize(panelId, bounds);
     },
   );
-
-  ipcMain.on("panel:mounted", (_event, panelId: string) => {
-    console.log('[main] panel:mounted:', panelId);
-    mainWindow?.webContents.send("panel:mounted", panelId);
-  });
 
   // Phase 4 Task 17 (Test Unit 1) — Core-owned account creation. The `accounts`
   // table is Platform-owned and read-only for extensions (Decision 4), so the

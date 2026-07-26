@@ -43,9 +43,9 @@ function openView(finance: FinanceApi, tag: string, mountData: Record<string, un
 
 /**
  * Open the primary Pay History view. On first run (empty `accounts` table,
- * which is Core-owned per Decision 4) this mounts the account seed modal so
- * the user creates their first account before the payslip form appears
- * (Task 17 TU1). Otherwise it mounts the payslip list.
+ * which is Core-owned per Decision 4) this skips showing the seed modal
+ * (one-off setup the user can perform manually) and does nothing.
+ * Otherwise it mounts the payslip list.
  */
 async function openPayHistory(
   finance: FinanceApi,
@@ -55,10 +55,10 @@ async function openPayHistory(
     id: number;
   }>;
   if (accounts.length === 0) {
-    openView(finance, 'accounts-seed-modal', mountData);
-  } else {
-    openView(finance, 'payslip-list', mountData);
+    console.log('[salary-history] no accounts found — skipping seed modal on startup');
+    return;
   }
+  openView(finance, 'payslip-list', mountData);
 }
 
 /**

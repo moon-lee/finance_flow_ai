@@ -95,11 +95,14 @@ function createPanelFinanceApi(extensionId: string): FinanceApi {
 }
 
 async function mountPanelComponent(payload: PanelPayload): Promise<void> {
-  const { extensionId, mountData } = payload;
+  const { extensionId, viewId, mountData } = payload;
+  console.log('[panel bootstrap] mountPanelComponent', { extensionId, viewId, hasMountData: !!mountData });
   const bundleUrl = `finance-shell://extensions/${extensionId}.js`;
 
   try {
+    console.log('[panel bootstrap] importing bundle:', bundleUrl);
     const bundle = await import(bundleUrl);
+    console.log('[panel bootstrap] bundle imported:', extensionId);
 
     const app = document.getElementById('app');
     if (!app) {
@@ -108,18 +111,15 @@ async function mountPanelComponent(payload: PanelPayload): Promise<void> {
     }
 
     // --- Event forwarding to Main ---
-    // Listens on the container so events from any child (including those
-    // created/replaced by the Orchestrator) are captured via bubbling.
     for (const eventName of FORWARDED_EVENTS) {
       app.addEventListener(eventName, ((e: Event) => {
         const detail = (e as CustomEvent).detail;
+        console.log('[panel bootstrap] forwarding UI event:', eventName);
         financeShell.extensions.uiEvent(extensionId, eventName, detail);
       }) as EventListener);
     }
 
     // --- Core-owned event: account-create ---
-    // The `accounts` table is Platform-owned and read-only for extensions
-    // (Decision 4). Account creation routes through a Core IPC handler.
     app.addEventListener('account-create', (async (e: Event) => {
       const detail = (e as CustomEvent).detail as { name: string; institution: string | null } | undefined;
       if (!detail || typeof detail.name !== 'string' || detail.name.trim() === '') return;
@@ -134,9 +134,7 @@ async function mountPanelComponent(payload: PanelPayload): Promise<void> {
     }) as EventListener);
 
     // --- Activate the extension ---
-    // Build a FinanceApi wrapper from financeShell and call activate().
-    // The extension detects the panel context (document.getElementById('app'))
-    // and creates the Orchestrator which owns navigation and DOM lifecycle.
+    console.log('[panel bootstrap] creating FinanceApi and calling activate for', extensionId);
     const finance = createPanelFinanceApi(extensionId);
     
     if (typeof bundle.registerUIComponents === "function") {
@@ -145,8 +143,9 @@ async function mountPanelComponent(payload: PanelPayload): Promise<void> {
       console.warn(`[panel bootstrap] ${extensionId} does not implement registerUIComponents`);
     }
     
-    //await bundle.registerUIComponents();
+    console.log('[panel bootstrap] calling activate for', extensionId);
     await bundle.activate(finance, mountData ?? {});
+    console.log('[panel bootstrap] activate completed for', extensionId);
   } catch (err) {
     console.error('[panel bootstrap] failed to mount component:', err);
     const app = document.getElementById('app');
@@ -157,7 +156,9 @@ async function mountPanelComponent(payload: PanelPayload): Promise<void> {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  console.log('[panel bootstrap] DOMContentLoaded');
   financeShell.onPanelInit(async (payload: unknown) => {
+    console.log('[panel bootstrap] received panel:init', payload);
     await mountPanelComponent(payload as PanelPayload);
   });
 });

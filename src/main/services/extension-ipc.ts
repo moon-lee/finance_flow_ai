@@ -134,6 +134,7 @@ export class ExtensionIPC {
    * Safe to call on first start and to drive automatic re-spawn after a crash.
    */
   async start(initialManifests: FinanceExtensionManifest[]): Promise<void> {
+    console.log('[extension-ipc] start() called', { manifestCount: initialManifests.length, isRunning: this.isRunning() });
     if (this.process && !this.crashed) return;
     if (this.restartPromise) return this.restartPromise;
 
@@ -142,6 +143,7 @@ export class ExtensionIPC {
     this.emitStatus({ status: 'starting' });
 
     const doStart = async (): Promise<void> => {
+      console.log('[extension-ipc] forking host process');
       this.process = utilityProcess.fork(this.hostPath, [], {
         serviceName: 'finance-extension-host',
         stdio: 'inherit'
@@ -378,9 +380,14 @@ export class ExtensionIPC {
    * `componentTag` field to `viewId` and delegates to the panel UI handler.
    */
   handleUiMount(params: unknown): void {
-    if (!this.uiHandler) return;
+    console.log('[extension-ipc] handleUiMount called', params);
+    if (!this.uiHandler) {
+      console.warn('[extension-ipc] handleUiMount: uiHandler is null — mount request dropped');
+      return;
+    }
     const { extensionId, viewId, componentTag, mountData } = params as UiMountRequest;
     const resolvedViewId = viewId ?? componentTag ?? 'unknown';
+    console.log('[extension-ipc] handleUiMount: resolvedViewId:', resolvedViewId, 'extensionId:', extensionId);
     this.uiHandler.onMountRequested(extensionId, resolvedViewId, mountData as object | undefined);
   }
 

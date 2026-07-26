@@ -90,13 +90,19 @@ const shellApi = {
     },
     // Phase 5 Task 12 — workspace panel controls.
     panel: {
-      focus: (panelId: string): void => ipcRenderer.send('panel:focus', panelId),
-      show: (panelId: string): void => ipcRenderer.send('panel:show', panelId),
+      focus: (panelId: string): void => { console.log('[preload] panel.focus', panelId); ipcRenderer.send('panel:focus', panelId); },
+      show: (panelId: string): void => { console.log('[preload] panel.show', panelId); ipcRenderer.send('panel:show', panelId); },
       getActive: (): Promise<string | null> => ipcRenderer.invoke('panel:active'),
-      resize: (panelId: string, bounds: { x: number; y: number; width: number; height: number }): void =>
-        ipcRenderer.send('panel:resize', panelId, bounds),
+      resize: (panelId: string, bounds: { x: number; y: number; width: number; height: number }): void => {
+        console.log('[preload] panel.resize', { panelId, bounds });
+        ipcRenderer.send('panel:resize', panelId, bounds);
+      },
       onMounted: (callback: (panelId: string) => void): (() => void) => {
-        const listener = (_event: IpcRendererEvent, panelId: string): void => callback(panelId);
+        console.log('[preload] panel.onMounted subscriber registered');
+        const listener = (_event: IpcRendererEvent, panelId: string): void => {
+          console.log('[preload] panel.onMounted fired', panelId);
+          callback(panelId);
+        };
         ipcRenderer.on('panel:mounted', listener);
         return () => { ipcRenderer.off('panel:mounted', listener); };
       }

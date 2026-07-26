@@ -44,25 +44,25 @@ const PANEL_BOOTSTRAP_PATH = join(__dirname, '..', 'resources', 'panel-bootstrap
  * Serves three kinds of resources:
  */
 export function registerPanelProtocol(): void {
+  console.log('[panel-protocol] registering finance-shell protocol handler');
   protocol.handle('finance-shell', async (request) => {
     const url = new URL(request.url);
-
-    // Custom protocols (finance-shell://) parse the first path segment
-    // as the host/authority, stripping it from pathname:
-    //   finance-shell://panel/my-ext/bootstrap.js  → host='panel', pathname='/my-ext/bootstrap.js'
-    //   finance-shell://panel/my-ext/my-view.html   → host='panel', pathname='/my-ext/my-view.html'
-    // Reconstruct the logical path by joining host + pathname.
     const pathname = url.host ? `/${url.host}${url.pathname}` : url.pathname;
+    console.log('[panel-protocol] request:', request.url, { pathname });
 
     if (pathname.startsWith('/panel/') && pathname.endsWith('/bootstrap.js')) {
+      console.log('[panel-protocol] serving bootstrap.js for', pathname);
       return servePanelBootstrap();
     }
     if (pathname.startsWith('/panel/')) {
+      console.log('[panel-protocol] serving panel shell for', pathname);
       return servePanelShell(pathname.slice('/panel/'.length));
     }
     if (pathname.startsWith('/extensions/')) {
+      console.log('[panel-protocol] serving extension bundle for', pathname);
       return serveExtensionBundle(pathname.slice('/extensions/'.length));
     }
+    console.warn('[panel-protocol] 404 for', pathname);
     return new Response('Not Found', { status: 404 });
   });
 }
