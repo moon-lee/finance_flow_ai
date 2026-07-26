@@ -449,10 +449,9 @@ export class WebviewPanelManager {
 
         try {
           console.log(`[webview-panel] destroying panel ${handle.panelId}`);
+          if (view.webContents.isDestroyed()) return;
           this.mainWindow?.contentView.removeChildView(view);
-          if (!view.webContents.isDestroyed()) {
-            view.webContents.close();
-          }
+          view.webContents.close();
         } catch (err) {
           console.warn(
             `[webview-panel] failed to destroy panel ${handle.panelId}:`,
