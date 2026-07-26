@@ -62,6 +62,7 @@ export interface ExtensionsApi {
     focus: (panelId: string) => void;
     show: (panelId: string) => void;
     getActive: () => Promise<string | null>;
+    list: () => Promise<Array<{ panelId: string; extensionId: string; viewId: string }>>;
     resize: (panelId: string, bounds: { x: number; y: number; width: number; height: number }) => void;
     unmount: (panelId: string) => void;
     unmountAll: () => void;
@@ -103,6 +104,7 @@ export interface FinanceShellApi {
     focus: (panelId: string) => void;
     show: (panelId: string) => void;
     getActive: () => Promise<string | null>;
+    list: () => Promise<Array<{ panelId: string; extensionId: string; viewId: string }>>;
     resize: (panelId: string, bounds: { x: number; y: number; width: number; height: number }) => void;
     unmount: (panelId: string) => void;
     unmountAll: () => void;

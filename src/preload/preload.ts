@@ -94,6 +94,7 @@ const shellApi = {
     focus: (panelId: string): void => { console.log('[preload] panel.focus', panelId); ipcRenderer.send('panel:focus', panelId); },
     show: (panelId: string): void => { console.log('[preload] panel.show', panelId); ipcRenderer.send('panel:show', panelId); },
     getActive: (): Promise<string | null> => ipcRenderer.invoke('panel:active'),
+    list: (): Promise<Array<{ panelId: string; extensionId: string; viewId: string }>> => ipcRenderer.invoke('panel:list'),
     resize: (panelId: string, bounds: { x: number; y: number; width: number; height: number }): void => {
       console.log('[preload] panel.resize', { panelId, bounds });
       ipcRenderer.send('panel:resize', panelId, bounds);

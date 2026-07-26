@@ -95,7 +95,17 @@ export class WorkspacePanel extends LitElement {
     console.log('[workspace] _onPanelMounted after refresh', { panelId, tabsCount: this._tabs.length });
     // Add panel as a new tab if it's not already in the layout
     if (!this._findNode(this._layout, panelId)) {
-      const panel = this._tabs.find(t => t.panelId === panelId);
+      let panel = this._tabs.find(t => t.panelId === panelId);
+      // Panel may not be in registered views (internal extension panel).
+      // Fetch its label from the live panel list.
+      if (!panel) {
+        const panels = await window.financeShell?.panel?.list?.() as Array<{ panelId: string; extensionId: string; viewId: string }> | undefined;
+        const live = panels?.find(p => p.panelId === panelId);
+        if (live) {
+          panel = { panelId, label: live.viewId };
+          this._tabs.push(panel);
+        }
+      }
       if (panel) {
         console.log('[workspace] _onPanelMounted adding panel', { panelId, label: panel.label });
         this._addPanel(panel.panelId, panel.label);
