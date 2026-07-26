@@ -3,6 +3,7 @@ import './components/navigation-panel';
 import './components/workspace';
 import './components/ai-panel';
 import './components/command-palette';
+import './components/account-seed-modal';
 import type { ActivityView } from './components/activity-bar';
 import type { PaletteCommand } from './components/command-palette';
 import type { HostLogEntry, HostStatus } from '../types/finance-shell';
@@ -188,6 +189,46 @@ window.addEventListener('command-selected', (event: Event) => {
   setCommandPaletteVisible(false);
 });
 
+/** Activates the dashboard view after the seed modal closes (or is skipped). */
+function activateDashboard(): void {
+  if (activityBar?.views?.[0]?.id) {
+    activityBar.dispatchEvent(new CustomEvent('view-changed', {
+      detail: { view: activityBar.views[0].id, source: 'extension' },
+      bubbles: true,
+      composed: true,
+    }));
+  }
+}
+
+/**
+ * Show the first-run account seed modal. Returns a promise that resolves
+ * once the modal is dismissed (create, skip, or cancel). The modal is
+ * appended to document.body as a top-level overlay.
+ */
+function showAccountSeedModal(): Promise<void> {
+  return new Promise<void>((resolve) => {
+    const modal = document.createElement('account-seed-modal');
+    document.body.appendChild(modal);
+
+    const cleanup = () => {
+      modal.remove();
+      resolve();
+    };
+
+    modal.addEventListener('account-create', async (e: Event) => {
+      const { name, institution } = (e as CustomEvent).detail;
+      try {
+        await window.financeShell?.accounts.create({ name, institution });
+      } catch (err) {
+        console.error('[seed] failed to create account:', err);
+      }
+      cleanup();
+    });
+
+    modal.addEventListener('account-seed-dismiss', cleanup);
+  });
+}
+
 window.addEventListener('DOMContentLoaded', async () => {
   const version = await window.financeShell?.getVersion() ?? 'dev-browser';
 
@@ -202,13 +243,32 @@ window.addEventListener('DOMContentLoaded', async () => {
   // Dashboard activates on startup (onStartup: true), so filter nav to
   // dashboard items from the start.  The first view in contributions is
   // always dashboard (loaded first in the extensions list).
-  if (navigationPanel && viewToExtension.size > 0) {
-    const firstViewId = activityBar?.views?.[0]?.id ?? '';
-    const firstExtId = viewToExtension.get(firstViewId) ?? '';
-    if (firstViewId && firstExtId) {
-      navigationPanel.setView(firstViewId, firstExtId);
-    }
+  const firstViewId = activityBar?.views?.[0]?.id ?? '';
+  const firstExtId = viewToExtension.get(firstViewId) ?? '';
+  if (firstViewId && firstExtId && navigationPanel) {
+    navigationPanel.setView(firstViewId, firstExtId);
   }
+
+  // ── First-run account seed ──
+  // If the `accounts` table is empty, show the seed modal before activating
+  // the dashboard.  On create / dismiss, close the modal and activate
+  // the dashboard so the app is usable even without seeding.
+  try {
+    const result = await window.financeShell?.extensions.readTable({
+      extensionId: 'core',
+      table: 'accounts',
+      op: 'count',
+    }) as { count: number } | undefined;
+    const count = result?.count ?? 1;
+    if (count === 0) {
+      await showAccountSeedModal();
+    }
+  } catch {
+    // If the count fails (e.g. table doesn't exist yet), skip the modal.
+  }
+
+  // Always activate dashboard after seed check completes.
+  void activateDashboard();
 
   const statusBar = document.querySelector('#status-bar');
   if (statusBar) {
