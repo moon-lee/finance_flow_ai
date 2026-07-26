@@ -73,6 +73,7 @@ export class WorkspacePanel extends LitElement {
 
   private _saveTimer: ReturnType<typeof setTimeout> | null = null;
   private _panelUnmountListener: (() => void) | null = null;
+  private _requestBoundsListener: (() => void) | null = null;
 
   connectedCallback() {
     super.connectedCallback();
@@ -82,6 +83,12 @@ export class WorkspacePanel extends LitElement {
       console.log('[workspace] onMounted callback', { panelId, activePanelId: this._activePanelId });
       void this._onPanelMounted(panelId);
     });
+    // Listen for main-process requests to send bounds (fallback for when the
+    // automatic panel:resize never arrives due to preload/timing issues)
+    this._requestBoundsListener = window.financeShell?.panel?.onRequestBounds?.((panelId: string) => {
+      console.log('[workspace] onRequestBounds callback', { panelId, activePanelId: this._activePanelId });
+      this._sendBoundsToPanel(panelId);
+    }) ?? null;
     // Also send bounds on a timer as a fallback in case rAF/observer doesn't fire
     this._boundsFallbackTimer = setTimeout(() => {
       if (this._activePanelId) {
@@ -135,6 +142,10 @@ export class WorkspacePanel extends LitElement {
     if (this._panelUnmountListener) {
       this._panelUnmountListener();
       this._panelUnmountListener = null;
+    }
+    if (this._requestBoundsListener) {
+      this._requestBoundsListener();
+      this._requestBoundsListener = null;
     }
   }
 
@@ -269,11 +280,18 @@ export class WorkspacePanel extends LitElement {
 
   private _sendBoundsToPanel(panelId: string) {
     const content = this.renderRoot.querySelector('.content') as HTMLElement | null;
-    if (!content) { console.warn('[workspace] _sendBoundsToPanel: .content element not found'); return; }
+    if (!content) {
+      console.warn('[workspace] _sendBoundsToPanel: .content element not found — shadow DOM not ready?');
+      return;
+    }
     const rect = content.getBoundingClientRect();
     const bounds = { x: Math.round(rect.x), y: Math.round(rect.y), width: Math.round(rect.width), height: Math.round(rect.height) };
-    console.log('[workspace] _sendBoundsToPanel', { panelId, bounds });
-    window.financeShell?.panel?.resize(panelId, bounds);
+    console.log('[workspace] _sendBoundsToPanel', { panelId, bounds, hasFinanceShell: !!window.financeShell, hasPanel: !!window.financeShell?.panel, hasResize: typeof window.financeShell?.panel?.resize });
+    try {
+      window.financeShell?.panel?.resize(panelId, bounds);
+    } catch (err) {
+      console.error('[workspace] _sendBoundsToPanel: resize() threw', err);
+    }
   }
 
   private _addPanel(panelId: string, label: string) {

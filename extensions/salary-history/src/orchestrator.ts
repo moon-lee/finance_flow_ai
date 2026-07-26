@@ -43,6 +43,8 @@ export class Orchestrator {
   async init(): Promise<void> {
     await this._loadSectionOrder();
     this._bindEvents();
+    // Show the initial view (payslip-list by default)
+    this.navigate('payslip-list', this._mountData);
   }
 
   destroy(): void {

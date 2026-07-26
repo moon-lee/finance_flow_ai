@@ -157,8 +157,15 @@ export class WebviewPanelManager {
       view.setBounds(pending);
       this.activePanelId = panelId;
     } else {
-      // Fallback timer: if the renderer doesn't send panel:resize within 500ms,
-      // make the panel visible at a reasonable workspace-area size.
+      // Fallback timer: if the renderer doesn't send panel:resize within 200ms,
+      // make the panel visible at computed workspace-area size.
+      // The workspace grid has: activity-bar (56) + nav (260) = 316px left offset,
+      // ai-panel (320px) right offset, tab-strip (36px) top, status-bar (26px) bottom.
+      const TAB_STRIP_HEIGHT = 36;
+      const STATUS_BAR_HEIGHT = 26;
+      const LEFT_OFFSET = 56 + 260; // activity-bar + navigation
+      const RIGHT_OFFSET = 320; // ai-panel
+
       const timer = setTimeout(() => {
         this.mountShowTimers.delete(panelId);
         if (!this.panels.has(webContentsId)) return; // already unmounted
@@ -166,15 +173,23 @@ export class WebviewPanelManager {
         console.log('[webview-panel] fallback timer firing for', panelId, '— making visible');
         const wb = this.mainWindow?.contentView.getBounds();
         if (wb) {
-          // Activity bar (56) + nav panel (260) = 316px left offset
-          // AI panel (320px) right offset.  Status bar 26px.
-          const fallbackBounds = { x: 316, y: 0, width: Math.max(wb.width - 636, 400), height: Math.max(wb.height - 26, 200) };
+          const fallbackBounds = {
+            x: LEFT_OFFSET,
+            y: TAB_STRIP_HEIGHT,
+            width: Math.max(wb.width - LEFT_OFFSET - RIGHT_OFFSET, 400),
+            height: Math.max(wb.height - TAB_STRIP_HEIGHT - STATUS_BAR_HEIGHT, 200),
+          };
           view.setVisible(true);
           view.setBounds(fallbackBounds);
           this.activePanelId = panelId;
           console.log('[webview-panel] fallback bounds applied for', panelId, fallbackBounds);
         }
-      }, 500);
+        // After showing with fallback bounds, ask the renderer for exact bounds
+        if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+          console.log('[webview-panel] requesting exact bounds from renderer for', panelId);
+          this.mainWindow.webContents.send('workspace:request-bounds', panelId);
+        }
+      }, 200);
       this.mountShowTimers.set(panelId, timer);
     }
 

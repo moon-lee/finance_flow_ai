@@ -105,6 +105,15 @@ const shellApi = {
         };
         ipcRenderer.on('panel:mounted', listener);
         return () => { ipcRenderer.off('panel:mounted', listener); };
+      },
+      onRequestBounds: (callback: (panelId: string) => void): (() => void) => {
+        console.log('[preload] panel.onRequestBounds subscriber registered');
+        const listener = (_event: IpcRendererEvent, panelId: string): void => {
+          console.log('[preload] panel.onRequestBounds fired', panelId);
+          callback(panelId);
+        };
+        ipcRenderer.on('workspace:request-bounds', listener);
+        return () => { ipcRenderer.off('workspace:request-bounds', listener); };
       }
     }
   }

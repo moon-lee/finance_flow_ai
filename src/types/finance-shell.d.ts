@@ -103,6 +103,7 @@ export interface FinanceShellApi {
     getActive: () => Promise<string | null>;
     resize: (panelId: string, bounds: { x: number; y: number; width: number; height: number }) => void;
     onMounted: (callback: (panelId: string) => void) => () => void;
+    onRequestBounds: (callback: (panelId: string) => void) => () => void;
   };
 }
 
