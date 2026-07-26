@@ -1,7 +1,7 @@
 ---
-version: 0.7.1
+version: 0.7.2
 created: 2026-06-14
-last_updated: 2026-07-26T05:14:00+10:00
+last_updated: 2026-07-27T12:00:00+10:00
 ---
 
 # Changelog
@@ -10,6 +10,30 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.7.2] - 2026-07-27
+
+### Fixed
+
+- **Panel API nested inside extensions — moved to top-level of financeShell** (`src/preload/preload.ts`, `src/types/finance-shell.d.ts`). ROOT CAUSE of panels never receiving `panel:resize` IPC. The preload exposed `panel` at `shellApi.extensions.panel` but workspace called `window.financeShell.panel.resize()`. With `contextIsolation` the optional chain silently short-circuited to `undefined`, so `panel:resize` never arrived at main, fallback timer always fired with hardcoded bounds. Moved `panel` to top-level of `shellApi` to match `FinanceShellApi` type.
+
+- **Tab close button + tab height** (`src/renderer/components/tab-bar.ts`). Close button (`×`) now renders with `tab-close` CustomEvent. Added `.tabs` flex container with `height:100%` and `.tab { height:100% }` so tabs fill the full 36px host height (was ~16px from content-only sizing).
+
+- **Tab close now destroys WebContentsView** (`src/renderer/components/workspace.ts`, `src/main/main.ts`, `src/preload/preload.ts`, `src/types/finance-shell.d.ts`). Added `panel:unmount` IPC channel, `panel.unmount` preload bridge, and `unmount` to `FinanceShellApi`. `_onTabClose` calls `panel.unmount()` before removing the tab from layout.
+
+- **Last tab close was no-op** (`src/renderer/components/workspace.ts`). When closing the last tab, `_removeTab` returned `null` and `_closePanel` did `if (!next) return`, never clearing the layout. Now resets to empty tab node and calls `unmountAll()`.
+
+- **Orphan panels survive tab close** (`src/main/services/webview-panel-manager.ts`, `src/main/main.ts`, `src/preload/preload.ts`, `src/types/finance-shell.d.ts`). Added `unmountAll()` that destroys every tracked panel immediately. When the last tab is closed, `unmountAll` is called to clean up orphaned WebContentsViews (e.g. `pay-rate-history-view` mounted by Host commands but not in manifest views).
+
+- **Ghost tab when no panels** (`src/renderer/components/workspace.ts`). Filtered empty `panelId` tabs from render, skipped tab-strip entirely when no real tabs remain.
+
+- **pay-rate-history-view orphaned panels** (`extensions/salary-history/src/main.ts`, `src/main/services/webview-panel-manager.ts`). `salary.show-pay-rate-history` Host command no longer calls `requestMount('pay-rate-history-view')` (not a manifest view — orchestrator navigates to it internally). `WebviewPanelManager.mount()` now deduplicates — if a panel with the same `panelId` exists, shows it instead of creating a duplicate.
+
+- **destroyAll crash on already-destroyed webContents** (`src/main/services/webview-panel-manager.ts`). Split `removeChildView` and `close` into separate try/catch blocks. When BrowserWindow closes, child views are destroyed first; accessing `view.webContents` after view destruction throws before `isDestroyed()` can be checked.
+
+### Changed
+
+- **Removed redundant setTimeout fallback timers** (`src/renderer/components/workspace.ts`). Now that `panel:resize` IPC works reliably after preload fix, removed `_boundsFallbackTimer`, `firstUpdated` duplicate setTimeout, `_refreshPanels` duplicate setTimeout, and `_addPanel` duplicate setTimeout. Only `_saveTimer` (layout persistence debounce) remains.
 
 ## [0.7.1] - 2026-07-26
 
