@@ -16,6 +16,11 @@
           "id": "payslip-list",
           "name": "Pay History",
           "icon": "P"
+        },
+        {
+          "id": "pay-rate-history-view",
+          "name": "Pay Rate History",
+          "icon": "P"
         }
       ],
       "commands": [
