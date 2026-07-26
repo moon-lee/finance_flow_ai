@@ -626,6 +626,14 @@ app.whenReady().then(async () => {
     // Core-owned registry.
     extensionIPC.setDomainServiceRegistry(domainServiceRegistry);
 
+    // Panel navigation — Host sends extension.navigatePanel to navigate
+    // an already-mounted panel to a different internal view.
+    extensionIPC.setPanelNavigateHandler({
+      onNavigate: (extensionId, view, mountData) => {
+        webviewPanelManager?.navigatePanel(extensionId, view, mountData);
+      },
+    });
+
     // Phase 5 Task 2 — wire WebviewPanelManager as the UI mount handler.
     // Replaces the Phase 4 `extensions:ui-mount` → renderer dynamic-import
     // path: Main now creates a WebContentsView per mount request and sends

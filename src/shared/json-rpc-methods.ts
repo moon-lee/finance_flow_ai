@@ -61,6 +61,11 @@ export const RPC_METHOD = {
   // method covers register / unregister / invoke so the JSON-RPC catalogue
   // stays flat as new services are added.
   DomainServiceInvoke: 'domain.service.invoke',
+
+  // Panel navigation — Host sends a request to Main to navigate an already-
+  // mounted panel to a different internal view. Payload:
+  //   { extensionId: string, view: string, mountData?: object }
+  ExtensionNavigatePanel: 'extension.navigatePanel',
 } as const;
 
 export type RpcMethodName = (typeof RPC_METHOD)[keyof typeof RPC_METHOD];

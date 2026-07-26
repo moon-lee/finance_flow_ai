@@ -391,6 +391,28 @@ export class WebviewPanelManager {
     handle.view.setBounds(bounds);
   }
 
+  /**
+   * Navigate an already-mounted panel to a different internal view.
+   * Sends `panel:navigate` to the panel's WebContentsView so the
+   * orchestrator can switch views without creating a new panel.
+   */
+  navigatePanel(extensionId: string, view: string, mountData?: object): boolean {
+    console.log('[webview-panel] navigatePanel:', { extensionId, view });
+    const handle = Array.from(this.panels.values()).find(
+      (h) => h.extensionId === extensionId,
+    );
+    if (!handle) {
+      console.warn('[webview-panel] navigatePanel: no panel found for extension', extensionId);
+      return false;
+    }
+    if (handle.view.webContents.isDestroyed()) {
+      console.warn('[webview-panel] navigatePanel: panel webContents destroyed', handle.panelId);
+      return false;
+    }
+    handle.view.webContents.send('panel:navigate', { view, mountData });
+    return true;
+  }
+
   unmountAll(): void {
     console.log('[webview-panel] unmountAll() — destroying', this.panels.size, 'panels');
     for (const timer of this.mountShowTimers.values()) clearTimeout(timer);

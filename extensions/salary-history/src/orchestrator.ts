@@ -84,6 +84,7 @@ export class Orchestrator {
     on('rate-delete', this._onRateDelete);
     on('rate-replace-request', this._onRateReplaceRequest);
     on('rate-replace', this._onRateReplace);
+    on('host-navigate', this._onHostNavigate);
   }
 
   private _unbindEvents(): void {
@@ -402,5 +403,11 @@ export class Orchestrator {
 
   private _onRateCancel = (): void => {
     this.navigate('pay-rate-history-view', this._mountData);
+  };
+
+  private _onHostNavigate = (e: Event): void => {
+    const { view, mountData } = (e as CustomEvent).detail as { view: string; mountData?: Record<string, unknown> };
+    console.log('[salary-history] host-navigate received:', view);
+    this.navigate(view, mountData ?? this._mountData);
   };
 }

@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 
 const listeners: { [channel: string]: Set<(payload: unknown) => void> } = {
   'panel:init': new Set(),
+  'panel:navigate': new Set(),
 };
 const cachedPayloads: { [channel: string]: unknown } = {};
 
@@ -11,6 +12,12 @@ ipcRenderer.on('panel:init', (_event, payload: unknown) => {
     try { fn(payload); } catch { /* ignore listener errors */ }
   }
   listeners['panel:init'].clear();
+});
+
+ipcRenderer.on('panel:navigate', (_event, payload: unknown) => {
+  for (const fn of listeners['panel:navigate'] ?? []) {
+    try { fn(payload); } catch { /* ignore listener errors */ }
+  }
 });
 
 ipcRenderer.on('panel:allowlist-denied', (_event, payload: { kind: string; extensionId: string; eventName: string; reason: string }) => {
@@ -47,6 +54,10 @@ const panelApi = {
     }
     listeners['panel:init'].add(callback);
     return () => { listeners['panel:init'].delete(callback); };
+  },
+  onNavigate(callback: (payload: unknown) => void): () => void {
+    listeners['panel:navigate'].add(callback);
+    return () => { listeners['panel:navigate'].delete(callback); };
   }
 };
 

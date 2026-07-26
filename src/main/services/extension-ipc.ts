@@ -106,6 +106,9 @@ export class ExtensionIPC {
     onSetDirty(panelId: string, dirty: boolean): void;
     onAutoSaveDraft(panelId: string): Promise<void>;
   } | null = null;
+  private panelNavigateHandler: {
+    onNavigate(extensionId: string, view: string, mountData?: object): void;
+  } | null = null;
   private readonly requestTimeoutMs: number;
   private readonly hostPath: string;
   private initialManifests: FinanceExtensionManifest[] = [];
@@ -357,6 +360,35 @@ export class ExtensionIPC {
   }
 
   /**
+   * Panel navigation — inject a handler so `extension.navigatePanel` RPC
+   * from the Host can forward the navigation request to WebviewPanelManager.
+   */
+  setPanelNavigateHandler(handler: {
+    onNavigate(extensionId: string, view: string, mountData?: object): void;
+  } | null): void {
+    this.panelNavigateHandler = handler;
+  }
+
+  /**
+   * Handle `extension.navigatePanel` from the Host. Finds the panel by
+   * extensionId and sends a `panel:navigate` IPC to its WebContentsView.
+   */
+  handleNavigatePanel(params: unknown): { navigated: boolean } {
+    if (!this.panelNavigateHandler) {
+      console.warn('[extension-ipc] handleNavigatePanel: panelNavigateHandler is null — dropped');
+      return { navigated: false };
+    }
+    const { extensionId, view, mountData } = params as {
+      extensionId: string;
+      view: string;
+      mountData?: object;
+    };
+    console.log('[extension-ipc] handleNavigatePanel:', { extensionId, view });
+    this.panelNavigateHandler.onNavigate(extensionId, view, mountData);
+    return { navigated: true };
+  }
+
+  /**
    * Phase 5 Task 2 — register the panel UI handler. Called by Main so
    * that when an extension requests a mount (`extension.ui-mount`), Main
    * can forward it to `WebviewPanelManager`. Returns an unsubscribe function.
@@ -604,6 +636,9 @@ export class ExtensionIPC {
           break;
         case RPC_METHOD.DomainServiceInvoke:
             result = await this.handleDomainServiceInvoke(req.params);
+          break;
+        case RPC_METHOD.ExtensionNavigatePanel:
+          result = this.handleNavigatePanel(req.params);
           break;
         default:
           this.process.postMessage({

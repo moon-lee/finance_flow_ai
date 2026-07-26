@@ -11,6 +11,7 @@ import { RPC_METHOD } from '../../shared/json-rpc-methods';
 
 export interface UiApi {
   requestMount: (viewId: string, mountData?: object) => Promise<void>;
+  navigatePanel: (view: string, mountData?: object) => Promise<void>;
   setDirty: (dirty: boolean) => void;
   autoSaveDraft: () => Promise<void>;
   onBeforeUnmount: (callback: () => Promise<void>) => void;
@@ -39,6 +40,14 @@ export function createUi(extensionId: string, rpc: RpcClient): UiApi {
       await rpc.request(RPC_METHOD.ExtensionUiMount, {
         extensionId,
         componentTag: viewId,
+        mountData
+      });
+    },
+
+    async navigatePanel(view: string, mountData?: object): Promise<void> {
+      await rpc.request(RPC_METHOD.ExtensionNavigatePanel, {
+        extensionId,
+        view,
         mountData
       });
     },

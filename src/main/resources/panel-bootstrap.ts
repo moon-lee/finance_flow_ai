@@ -146,6 +146,16 @@ async function mountPanelComponent(payload: PanelPayload): Promise<void> {
     console.log('[panel bootstrap] calling activate for', extensionId);
     await bundle.activate(finance, mountData ?? {});
     console.log('[panel bootstrap] activate completed for', extensionId);
+
+    // --- Panel navigation from Host ---
+    financeShell.onNavigate((payload: unknown) => {
+      const { view, mountData: navMountData } = payload as { view: string; mountData?: Record<string, unknown> };
+      console.log('[panel bootstrap] received panel:navigate', { view });
+      const app = document.getElementById('app');
+      if (app) {
+        app.dispatchEvent(new CustomEvent('host-navigate', { detail: { view, mountData: navMountData } }));
+      }
+    });
   } catch (err) {
     console.error('[panel bootstrap] failed to mount component:', err);
     const app = document.getElementById('app');
