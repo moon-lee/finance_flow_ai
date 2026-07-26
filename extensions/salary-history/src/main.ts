@@ -42,23 +42,12 @@ function openView(finance: FinanceApi, tag: string, mountData: Record<string, un
 }
 
 /**
- * Open the primary Pay History view. On first run (empty `accounts` table,
- * which is Core-owned per Decision 4) this skips showing the seed modal
- * (one-off setup the user can perform manually) and does nothing.
- * Otherwise it mounts the payslip list.
+ * Open the primary Pay History view (payslip list).
  */
 async function openPayHistory(
   finance: FinanceApi,
   mountData: Record<string, unknown>
 ): Promise<void> {
-  const accounts = (await finance.db.table('accounts').find({ is_active: true })) as Array<{
-    id: number;
-  }>;
-/*   if (accounts.length === 0) {
-    console.log('[salary-history] no accounts found — skipping seed modal on startup');
-    return;
-  } */
-  console.log('[salary-history] open view payslip list on startup');
   openView(finance, 'payslip-list', mountData);
 }
 
