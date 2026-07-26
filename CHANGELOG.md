@@ -21,7 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **Panel WebContentsView initial bounds** (`src/main/services/webview-panel-manager.ts`). Removed the initial `setBounds({ x: 0, y: 0, width, height })` call in `mount()` that set the panel view to fill the entire `contentView`. This caused the panel to flash over the renderer's layout (sidebar, tab bar, etc.) before the renderer could send correct content-area bounds via `resize()`. The renderer already positions panels correctly on `firstUpdated()` via `_sendBoundsToPanel()`.
+- **Panel WebContentsView layout and resize fixes** (`src/main/services/webview-panel-manager.ts`, `src/renderer/components/workspace.ts`, `src/main/main.ts`, `src/preload/preload.ts`, `src/types/finance-shell.d.ts`, `extensions/salary-history/src/main.ts`). Multiple fixes for panel layout: (1) Removed premature `setBounds` in `mount()` that caused panels to flash over the renderer's layout; (2) Fixed the `financeShell` API path from `window.financeShell?.panel?.resize()` to `window.financeShell?.extensions?.panel?.resize()` in workspace.ts; (3) Added pending resize buffer so resize requests arriving before panel mount are queued and applied when the panel registers; (4) Added resize call in `_closePanel()` so the newly active panel fills freed space; (5) Added IPC `panel:mounted` notification so workspace knows about newly mounted panels and can send correct bounds; (6) Removed `orchestrator.navigate()` from panel renderer context — the Host now controls all panel mounting. The workspace component now receives panel mount events and refreshes its layout accordingly.
 
 ### Changed
 
