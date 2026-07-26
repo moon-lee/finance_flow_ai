@@ -101,13 +101,6 @@ export async function activate(
       const mountData = { ...settingsMountData, ...hostMountData };
       _orchestrator = new Orchestrator(finance, container, mountData);
       await _orchestrator.init();
-      // Determine the initial view: account seed modal if no accounts exist,
-      // otherwise payslip list. Use the Orchestrator's navigate() so the
-      // element gets proper finance/sectionOrder/mountData properties.
-      const accounts = (await finance.db.table('accounts').find({ is_active: true })) as Array<{ id: number }>;
-      console.log('[salary-history] activate (panel) accounts', accounts);
-      const initialTag = accounts.length === 0 ? 'accounts-seed-modal' : 'payslip-list';
-      _orchestrator.navigate(initialTag, mountData);
     }
     return;
   }

@@ -186,7 +186,6 @@ export async function createWindow(): Promise<BrowserWindow> {
 
 function registerIpcHandlers(): void {
   ipcMain.handle("shell:get-version", () => {
-    console.log("[ipcMain] shell:get-version called");
     return app.getVersion();
   });
 
@@ -195,7 +194,6 @@ function registerIpcHandlers(): void {
   // treats it as "missing"; `set` rethrows so persistence failures are
   // visible to callers and tests.
   ipcMain.handle("settings:get", (_event, key: string) => {
-    console.log(`[ipcMain] settings:get called for key: ${key}`);
     try {
       return getSetting(key);
     } catch (err) {
@@ -205,9 +203,7 @@ function registerIpcHandlers(): void {
   });
 
   ipcMain.handle("settings:set", (_event, key: string, value: unknown) => {
-    console.log(
-      `[ipcMain] settings:set called for key: ${key}, value: ${value}`,
-    );
+
     try {
       setSetting(key, value);
     } catch (err) {
@@ -217,7 +213,6 @@ function registerIpcHandlers(): void {
   });
 
   ipcMain.handle("extensions:list", () => {
-    console.log("[ipcMain] extensions:list called");
     if (!extensionRegistry) return { views: [], commands: [], navigation: [] };
     return {
       views: extensionRegistry.views(),
@@ -297,9 +292,6 @@ function registerIpcHandlers(): void {
   ipcMain.handle(
     "extensions:execute-command",
     async (_event, commandId: string, ...args: unknown[]) => {
-      console.log(
-        `[ipcMain] extensions:execute-command called for commandId: ${commandId}`,
-      );
       if (!extensionIPC || !extensionRegistry)
         return { executed: false, reason: "host not running" };
 
@@ -340,7 +332,6 @@ function registerIpcHandlers(): void {
   // channels; Main forwards each call to the Host (which relays to the
   // DAO service), reusing the exact envelope the extension's own code uses.
   ipcMain.handle("extensions:read-table", async (_event, params) => {
-    console.log("[ipcMain] extensions:read-table called");
     if (!extensionIPC) return null;
     return extensionIPC.request(RPC_METHOD.ExtensionReadTable, params);
   });
@@ -454,6 +445,10 @@ function registerIpcHandlers(): void {
       webviewPanelManager?.resize(panelId, bounds);
     },
   );
+
+  ipcMain.on("panel:mounted", (_event, panelId: string) => {
+    mainWindow?.webContents.send("panel:mounted", panelId);
+  });
 
   // Phase 4 Task 17 (Test Unit 1) — Core-owned account creation. The `accounts`
   // table is Platform-owned and read-only for extensions (Decision 4), so the

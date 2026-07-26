@@ -92,7 +92,12 @@ const shellApi = {
     panel: {
       focus: (panelId: string): void => ipcRenderer.send('panel:focus', panelId),
       resize: (panelId: string, bounds: { x: number; y: number; width: number; height: number }): void =>
-        ipcRenderer.send('panel:resize', panelId, bounds)
+        ipcRenderer.send('panel:resize', panelId, bounds),
+      onMounted: (callback: (panelId: string) => void): (() => void) => {
+        const listener = (_event: IpcRendererEvent, panelId: string): void => callback(panelId);
+        ipcRenderer.on('panel:mounted', listener);
+        return () => { ipcRenderer.off('panel:mounted', listener); };
+      }
     }
   }
 };

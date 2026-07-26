@@ -72,15 +72,21 @@ export class WorkspacePanel extends LitElement {
   private _tabs: Tab[] = [];
 
   private _saveTimer: ReturnType<typeof setTimeout> | null = null;
+  private _panelUnmountListener: (() => void) | null = null;
 
   connectedCallback() {
     super.connectedCallback();
     this._restoreLayout();
     this._refreshPanels();
+    this._panelUnmountListener = window.financeShell?.panel?.onMounted?.((panelId: string) => {
+      console.log('[workspace] panel mounted event:', panelId);
+      this._refreshPanels();
+    });
   }
 
   firstUpdated() {
     this._attachResizeObserver();
+    console.log('[workspace] firstUpdated — sending bounds for panel:', this._activePanelId);
     this._sendBoundsToPanel(this._activePanelId);
   }
 
@@ -88,6 +94,10 @@ export class WorkspacePanel extends LitElement {
     super.disconnectedCallback();
     if (this._saveTimer) clearTimeout(this._saveTimer);
     if (this._resizeObserver) this._resizeObserver.disconnect();
+    if (this._panelUnmountListener) {
+      this._panelUnmountListener();
+      this._panelUnmountListener = null;
+    }
   }
 
   private _getLeafTabs(node: WorkspaceNode): Tab[] {
@@ -215,10 +225,11 @@ export class WorkspacePanel extends LitElement {
 
   private _sendBoundsToPanel(panelId: string) {
     const content = this.renderRoot.querySelector('.content') as HTMLElement | null;
-    if (!content) return;
+    if (!content) { console.warn('[workspace] _sendBoundsToPanel: .content element not found'); return; }
     const rect = content.getBoundingClientRect();
     const bounds = { x: Math.round(rect.x), y: Math.round(rect.y), width: Math.round(rect.width), height: Math.round(rect.height) };
-    window.financeShell?.panel?.resize(panelId, bounds);
+    console.log('[workspace] _sendBoundsToPanel', { panelId, bounds });
+    window.financeShell?.extensions?.panel?.resize(panelId, bounds);
   }
 
   private _addPanel(panelId: string, label: string) {
@@ -238,6 +249,7 @@ export class WorkspacePanel extends LitElement {
       this._activePanelId = active?.panelId ?? this._firstLeafPanelId(this._layout);
     }
     this._scheduleSave();
+    requestAnimationFrame(() => this._sendBoundsToPanel(this._activePanelId));
   }
 
   private _firstLeafPanelId(node: WorkspaceNode): string {
@@ -262,7 +274,7 @@ export class WorkspacePanel extends LitElement {
     this._resizeObserver = new ResizeObserver(() => {
       const rect = content.getBoundingClientRect();
       const bounds = { x: Math.round(rect.x), y: Math.round(rect.y), width: Math.round(rect.width), height: Math.round(rect.height) };
-      window.financeShell?.panel?.resize(this._activePanelId, bounds);
+      window.financeShell?.extensions?.panel?.resize(this._activePanelId, bounds);
     });
     this._resizeObserver.observe(content);
   }

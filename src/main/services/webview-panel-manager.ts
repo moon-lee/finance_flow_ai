@@ -55,6 +55,7 @@ export class WebviewPanelManager {
   private uiHandler: WebviewPanelUIHandler | null = null;
   private mainWindow: BrowserWindow | null = null;
   private readonly mountBuffer: MountRequest[] = [];
+  private readonly pendingResizes = new Map<string, { x: number; y: number; width: number; height: number }>();
 
   setMainWindow(window: BrowserWindow): void {
     console.log("[setMainWindow]", this);
@@ -137,7 +138,7 @@ export class WebviewPanelManager {
 
     view.webContents.loadURL(panelUrl);
 
-    view.webContents.openDevTools({ mode: "detach" });
+    //view.webContents.openDevTools({ mode: "detach" });
 
   /*  view.webContents.on("did-finish-load", () => {
       console.log(`[webview-panel] ${panelId} did-finish-load`);
@@ -146,18 +147,25 @@ export class WebviewPanelManager {
  */
     this.mainWindow.contentView.addChildView(view);
     console.log("[webview-panel] children:",this.mainWindow.contentView.children.length);
-
-
-    const { width, height } = this.mainWindow.contentView.getBounds();
-    console.log(`[webview-panel] Initial bounds: x=0 y=0 width=${width} height=${height}`,);
-    view.setBounds({ x: 0, y: 0, width, height });
+    console.log('[webview-panel] panel', panelId, 'added to contentView without initial bounds — renderer will set bounds on firstUpdated');
 
     const handle: PanelHandle = { panelId, extensionId, viewId, view };
     const webContentsId = view.webContents.id;
     this.panels.set(webContentsId, handle);
 
+    const pending = this.pendingResizes.get(panelId);
+    if (pending) {
+      this.pendingResizes.delete(panelId);
+      view.setBounds(pending);
+      console.log('[webview-panel] applied pending resize for', panelId, pending);
+    }
+
     console.log(`[webview-panel] Mounted ${panelId} (webContentsId=${webContentsId})`,);
     console.log(`[webview-panel] Active panels: ${this.panels.size}`,);
+
+    if (this.mainWindow) {
+      this.mainWindow.webContents.send("panel:mounted", panelId);
+    }
 
     return handle;
   }
@@ -169,6 +177,7 @@ export class WebviewPanelManager {
     if (!entry) return;
     const [webContentsId, handle] = entry;
     this.panels.delete(webContentsId);
+    this.pendingResizes.delete(panelId);
     
     const view = handle.view;
     try {
@@ -237,16 +246,20 @@ export class WebviewPanelManager {
     bounds: { x: number; y: number; width: number; height: number },
   ): void {
     const handle = this.findByPanelId(panelId);
-    if (!handle) return;
+    if (!handle) {
+      console.log('[webview-panel] resize: panel', panelId, 'not found yet — buffering');
+      this.pendingResizes.set(panelId, bounds);
+      return;
+    }
 
-    
     const view = handle.view;
     try {
-      console.log(`[webview-panel] resizing panel ${handle.panelId}`);
+      console.log('[webview-panel] resizing panel', handle.panelId, 'to', bounds);
 
       if (!view.webContents.isDestroyed()) {
-      view.setBounds(bounds);
-    }
+        view.setBounds(bounds);
+        console.log('[webview-panel] panel', handle.panelId, 'setBounds done');
+      }
     } catch (err) {
       console.warn(
         `[webview-panel] failed to resize panel ${handle.panelId}:`,
@@ -275,6 +288,7 @@ export class WebviewPanelManager {
   async destroyAll(): Promise<void> {
     const handles = Array.from(this.panels.values());
     this.panels.clear();
+    this.pendingResizes.clear();
     await Promise.allSettled(
       handles.map(async (handle) => {
         try {

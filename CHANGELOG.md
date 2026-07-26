@@ -19,6 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Panel WebContentsView initial bounds** (`src/main/services/webview-panel-manager.ts`). Removed the initial `setBounds({ x: 0, y: 0, width, height })` call in `mount()` that set the panel view to fill the entire `contentView`. This caused the panel to flash over the renderer's layout (sidebar, tab bar, etc.) before the renderer could send correct content-area bounds via `resize()`. The renderer already positions panels correctly on `firstUpdated()` via `_sendBoundsToPanel()`.
+
 ### Changed
 
 - **Panel bootstrap URL moved under `panel/<extensionId>/` path** (`src/main/services/panel-protocol.ts`, `src/main/resources/panel-template.html`, `docs/file-reference.md`, `src/main/resources/panel-bootstrap.ts`). The bootstrap script is now served at `finance-shell://panel/<extensionId>/bootstrap.js` instead of `finance-shell://panel/bootstrap.js`. The protocol handler routes `/panel/<extensionId>/bootstrap.js` before the generic `/panel/` shell router, and the HTML template loads the new path with the extension ID injected. Context docs and in-file comments updated accordingly.

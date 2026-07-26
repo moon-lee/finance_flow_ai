@@ -98,6 +98,7 @@ export interface FinanceShellApi {
   panel: {
     focus: (panelId: string) => void;
     resize: (panelId: string, bounds: { x: number; y: number; width: number; height: number }) => void;
+    onMounted: (callback: (panelId: string) => void) => () => void;
   };
 }
 
