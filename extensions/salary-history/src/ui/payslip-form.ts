@@ -34,7 +34,7 @@ import { customElement, property, state } from 'lit/decorators.js';
 import type { FinanceApi } from 'finance';
 import { sharedStyles, formStyles } from './shared-styles.js';
 import type { PaySlip, PaySlipInput } from '../dao/pay-slips.js';
-import type { RateRow } from '../dao/pay-rate-history.js';
+import { getRateForDate, type RateRow } from '../dao/pay-rate-history.js';
 import {
   calculatePaySlipBreakdown,
   calculateHolidayLeaveAccrual,
@@ -269,12 +269,12 @@ export class PayslipForm extends LitElement {
    */
   async loadReferenceData(): Promise<void> {
     if (!this.finance || this._referenceLoaded) return;
-    const [rateRows, accountRows] = await Promise.all([
-      this.finance.db.table('salary_history_rate_history').find({}) as Promise<unknown>,
+    const payDate = this._values.pay_date || todayISO();
+    const [rateRow, accountRows] = await Promise.all([
+      getRateForDate(this.finance, payDate) as Promise<unknown>,
       this.finance.db.table('accounts').find({ is_active: true }) as Promise<unknown>,
     ]);
-    const rates = (rateRows as RateRow[]).filter((r) => r.effective_to === null);
-    this._rate = rates.length > 0 ? rates[0] : null;
+    this._rate = (rateRow as RateRow) ?? null;
     if (this.accounts.length === 0) {
       this.accounts = (accountRows as { id: number; name: string; institution: string | null }[]).map(
         (a) => ({ id: a.id, name: a.name, institution: a.institution }),
@@ -435,7 +435,14 @@ export class PayslipForm extends LitElement {
     }
 
     this._values = { ...v, ...next };
-    void this.recompute();
+
+    // When pay_date changes, re-fetch the historically accurate rate row
+    // so the breakdown uses the correct rates for that pay period.
+    if (field === 'pay_date') {
+      void this._refreshRateForDate().then(() => this.recompute());
+    } else {
+      void this.recompute();
+    }
   }
 
   private _onAccountChange(e: Event): void {
@@ -473,6 +480,15 @@ export class PayslipForm extends LitElement {
 
   private _toggleHours(): void {
     this._showHours = !this._showHours;
+  }
+
+  /** Re-fetch the rate row effective at the current pay_date. Called when pay_date changes. */
+  private async _refreshRateForDate(): Promise<void> {
+    if (!this.finance) return;
+    const payDate = this._values.pay_date;
+    if (!payDate) return;
+    const row = await getRateForDate(this.finance, payDate);
+    this._rate = (row as RateRow) ?? null;
   }
 
   private _onValidatePayg(): void {
