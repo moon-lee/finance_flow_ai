@@ -1,7 +1,7 @@
 ---
 version: 0.7.2
 created: 2026-06-14
-last_updated: 2026-07-27T14:30:00+10:00
+last_updated: 2026-07-28T10:00:00+10:00
 ---
 
 # Changelog
@@ -14,6 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.7.2] - 2026-07-27
 
 ### Fixed
+
+- **Panel shows wrong content when switching tabs** (`src/main/services/webview-panel-manager.ts`). `showPanel()` now hides ALL other panels instead of only the previous `activePanelId`. `resize()` no longer sets `activePanelId` — only `showPanel()` and mount paths manage active state.
+
+- **Nav item click doesn't show correct panel** (`src/main/services/webview-panel-manager.ts`). `mount()` now calls `showPanel()` in both pending-resize and fallback-timer paths for new panels. Previously only the dedup path (existing panel) called `showPanel()`, so newly mounted panels became visible via resize/fallback without hiding the dashboard.
+
+- **Panel invisible on first nav click — 0x0 bounds from ResizeObserver** (`src/main/services/webview-panel-manager.ts`). The workspace `ResizeObserver` fires during Lit re-render when the `.content` element briefly has 0x0 dimensions, sending `0,0,0,0` bounds that make the `WebContentsView` invisible. `resize()` now ignores bounds where width or height is ≤ 0.
 
 - **Dashboard ExtensionIPC crash** (`src/main/main.ts`). `extensionIPC.start()` now runs before `createWindow()`, eliminating the race where renderer IPC calls arrived before the IPC service was initialized, causing auto-disable after threshold crashes.
 
