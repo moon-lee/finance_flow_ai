@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Panel content not scrollable** (`src/main/resources/panel-template.html`). Changed `overflow: hidden` to `overflow: auto` on `html, body` so panel content (e.g. payslip form with 8 sections) can scroll vertically when exceeding the viewport.
+
 - **Panel API nested inside extensions — moved to top-level of financeShell** (`src/preload/preload.ts`, `src/types/finance-shell.d.ts`). ROOT CAUSE of panels never receiving `panel:resize` IPC. The preload exposed `panel` at `shellApi.extensions.panel` but workspace called `window.financeShell.panel.resize()`. With `contextIsolation` the optional chain silently short-circuited to `undefined`, so `panel:resize` never arrived at main, fallback timer always fired with hardcoded bounds. Moved `panel` to top-level of `shellApi` to match `FinanceShellApi` type.
 
 - **Tab close button + tab height** (`src/renderer/components/tab-bar.ts`). Close button (`×`) now renders with `tab-close` CustomEvent. Added `.tabs` flex container with `height:100%` and `.tab { height:100% }` so tabs fill the full 36px host height (was ~16px from content-only sizing).
