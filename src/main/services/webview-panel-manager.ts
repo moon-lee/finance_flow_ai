@@ -320,7 +320,9 @@ export class WebviewPanelManager {
       if (!view.webContents.isDestroyed()) {
         view.setVisible(true);
         view.setBounds(bounds);
-        this.activePanelId = panelId;
+        // Note: activePanelId is only set by showPanel() and mount() fallback,
+        // not by resize(). resize() may be called for any panel that needs
+        // bounds (e.g. workspace resize), not just the active one.
         //console.log('[webview-panel] panel', handle.panelId, 'setBounds done (shown)');
       }
     } catch (err) {
@@ -340,12 +342,13 @@ export class WebviewPanelManager {
       return;
     }
 
-    // Hide the previous active panel if it's different
-    if (this.activePanelId && this.activePanelId !== panelId) {
-      const oldHandle = this.findByPanelId(this.activePanelId);
-      if (oldHandle && !oldHandle.view.webContents.isDestroyed()) {
-        oldHandle.view.setVisible(false);
-        //console.log('[webview-panel] hidden panel', this.activePanelId);
+    // Hide ALL other panels — only one should be visible at a time.
+    // Previous implementation only hid `activePanelId`, but resize()
+    // could make other panels visible without updating activePanelId,
+    // leaving multiple panels visible simultaneously.
+    for (const [, h] of this.panels) {
+      if (h.panelId !== panelId && !h.view.webContents.isDestroyed()) {
+        h.view.setVisible(false);
       }
     }
 
