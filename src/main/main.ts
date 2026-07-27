@@ -697,51 +697,15 @@ app.whenReady().then(async () => {
       onAutoSaveDraft: async () => {},
     });
 
-    // [Fix] Start the Extension Host BEFORE creating the window. Previously
-    // this was fire-and-forget AFTER `await createWindow()`, which created a
-    // race: the renderer's DOMContentLoaded fires activateDashboard() →
-    // extensions:activate-view before extensionIPC.start() had been called,
-    // so ensureRunning() threw "ExtensionIPC not started. Call start() first."
-    // and recordCrash() disabled the dashboard after 3 such failures.
-    // Moving start() here ensures this.restartPromise is set before the
-    // renderer can possibly send an activate-view IPC.
-    extensionIPC.start(extensionRegistry.list()).catch((err) => {
-      // [Review fix §2.2] Replace fire-and-forget `void` with an explicit
-      // .catch() so startup failures (missing bundle, sandbox restrictions,
-      // handshake timeout) are logged cleanly instead of becoming unhandled
-      // promise rejections. The renderer still boots; it just sees an empty
-      // contribution list until the host recovers (see §2.1 crash recovery).
-      console.error("[extensions] Extension Host failed to start:", err);
-    });
-
-    // Forward host lifecycle events to the renderer so the status bar can
-    // surface crash / restart / unavailable state. See Test Unit 5.
-    extensionIPC.onHostStatus((status) => {
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send("extensions:host-status", status);
-      }
-    });
-
-    // [Fix] Mirror Host stdout (and extension console.log calls) into the
-    // Renderer DevTools console. See Test Unit 4's expectation that the
-    // extension's handler output is visible in DevTools. The renderer
-    // subscribes via `financeShell.extensions.onHostLog()` exposed in
-    // `src/preload/preload.ts`.
-    extensionIPC.onHostLog((entry) => {
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send("extensions:host-log", entry);
-      }
-    });
-
-    await createWindow();
-
+    // [Fix] Create WebviewPanelManager and wire up the UI handler BEFORE
+    // starting the Extension Host. The Host activates onStartup extensions
+    // (e.g. dashboard) which call requestMount() → extension.ui-mount IPC.
+    // If the UI handler is not set when that arrives, handleUiMount drops
+    // the mount silently and the panel never gets created. By setting up
+    // the handler first, mount requests buffer (no mainWindow yet) and
+    // flush automatically when setMainWindow() is called after createWindow().
     webviewPanelManager = new WebviewPanelManager();
     console.log("[main] WebviewPanelManager created:", webviewPanelManager);
-
-    if (mainWindow) {
-      webviewPanelManager?.setMainWindow(mainWindow);
-      console.log("[main] Main window set");
-    }
 
     webviewPanelManager.setUIHandler({
       onMountRequested: (extensionId, viewId, mountData) => {
@@ -789,10 +753,32 @@ app.whenReady().then(async () => {
       onAutoSaveDraft: async () => {},
     });
 
-/*     await createWindow();
+    await createWindow();
+
     if (mainWindow) {
       webviewPanelManager?.setMainWindow(mainWindow);
-    } */
+      console.log("[main] Main window set — flushing buffered mount requests");
+    }
+
+    // Start the Extension Host AFTER the panel infrastructure is ready.
+    // The Host activates onStartup extensions (dashboard) which call
+    // requestMount(). The UI handler is already set, so mount requests
+    // will either buffer (if mainWindow wasn't ready) or execute directly.
+    extensionIPC.start(extensionRegistry.list()).catch((err) => {
+      console.error("[extensions] Extension Host failed to start:", err);
+    });
+
+    extensionIPC.onHostStatus((status) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send("extensions:host-status", status);
+      }
+    });
+
+    extensionIPC.onHostLog((entry) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send("extensions:host-log", entry);
+      }
+    });
 
   } catch (err) {
     console.error("Fatal error during app initialization:", err);
