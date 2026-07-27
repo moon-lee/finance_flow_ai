@@ -163,9 +163,8 @@ export class WebviewPanelManager {
     if (pending) {
       //console.log('[webview-panel] found pending resize for', panelId);
       this.pendingResizes.delete(panelId);
-      view.setVisible(true);
+      this.showPanel(panelId);
       view.setBounds(pending);
-      this.activePanelId = panelId;
     } else {
       // Fallback timer: if the renderer doesn't send panel:resize within 200ms,
       // make the panel visible at computed workspace-area size.
@@ -189,9 +188,8 @@ export class WebviewPanelManager {
             width: Math.max(wb.width - LEFT_OFFSET - RIGHT_OFFSET, 400),
             height: Math.max(wb.height - TAB_STRIP_HEIGHT - STATUS_BAR_HEIGHT, 200),
           };
-          view.setVisible(true);
+          this.showPanel(panelId);
           view.setBounds(fallbackBounds);
-          this.activePanelId = panelId;
           console.log('[webview-panel] fallback bounds applied for', panelId, fallbackBounds);
         }
         // After showing with fallback bounds, ask the renderer for exact bounds
@@ -311,6 +309,8 @@ export class WebviewPanelManager {
       clearTimeout(timer);
       this.mountShowTimers.delete(panelId);
       console.log('[webview-panel] cancelled fallback timer for', panelId);
+      // First resize for a newly mounted panel — show it and hide others
+      this.showPanel(panelId);
     }
 
     const view = handle.view;
