@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Dashboard ExtensionIPC crash** (`src/main/main.ts`). `extensionIPC.start()` now runs before `createWindow()`, eliminating the race where renderer IPC calls arrived before the IPC service was initialized, causing auto-disable after threshold crashes.
+
 - **Panel content not scrollable** (`src/main/resources/panel-template.html`). Changed `overflow: hidden` to `overflow: auto` on `html, body` so panel content (e.g. payslip form with 8 sections) can scroll vertically when exceeding the viewport.
 
 - **Rate row always used current rates for historical payslips** (`extensions/salary-history/src/ui/payslip-form.ts`). `loadReferenceData()` now calls `getRateForDate(finance, payDate)` to select the rate row effective at the form's `pay_date` instead of hardcoding `effective_to === null` (current row). Added `_refreshRateForDate()` that re-fetches the rate when `pay_date` changes, so entering an old payslip uses the historically correct rates for the breakdown derivation.
