@@ -881,7 +881,7 @@ export class PayslipForm extends LitElement {
   render(): unknown {
     return html`
       <div class="topbar">
-        <span class="crumb-link" data-testid="back-link" @click="${() => this._onCancel()}">← Salary History</span>
+        <span class="crumb-link" data-testid="back-link" @click="${() => this._onCancel()}">← Pay History</span>
         <span class="crumb-sep">/</span>
         <span class="crumb-current">${this.editPaySlip ? 'Edit Payslip' : 'New Payslip'}</span>
         <div class="spacer"></div>
