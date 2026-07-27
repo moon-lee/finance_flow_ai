@@ -95,12 +95,12 @@ export class WebviewPanelManager {
     // Dedup: if this panel already exists, show it instead of creating a duplicate
     const existing = this.findByPanelId(panelId);
     if (existing) {
-      //console.log('[webview-panel] panel already exists, showing:', panelId);
+      console.log('[webview-panel] panel already exists, showing:', panelId);
       this.showPanel(panelId);
       return existing;
     }
 
-    //console.log('[webview-panel] creating panel:', panelId);
+    console.log('[webview-panel] creating NEW panel:', panelId);
 
     const view = new WebContentsView({
       webPreferences: {
@@ -296,6 +296,13 @@ export class WebviewPanelManager {
     bounds: { x: number; y: number; width: number; height: number },
   ): void {
     //console.log('[webview-panel] resize() called', { panelId, bounds });
+    // Ignore 0x0 bounds — these come from the ResizeObserver firing during
+    // Lit re-render when the .content element briefly has zero dimensions.
+    if (bounds.width <= 0 || bounds.height <= 0) {
+      console.log('[webview-panel] resize: ignoring 0x0 bounds for', panelId);
+      return;
+    }
+
     const handle = this.findByPanelId(panelId);
     if (!handle) {
       //console.log('[webview-panel] resize: panel', panelId, 'not found yet — buffering');
@@ -335,7 +342,7 @@ export class WebviewPanelManager {
   }
 
   showPanel(panelId: string): void {
-    //console.log('[webview-panel] showPanel() called', { panelId });
+    console.log('[webview-panel] showPanel() called', { panelId, activePanelId: this.activePanelId, panelsCount: this.panels.size });
     const handle = this.findByPanelId(panelId);
     if (!handle) {
       console.warn('[webview-panel] showPanel: panel', panelId, 'not found');
@@ -346,11 +353,14 @@ export class WebviewPanelManager {
     // Previous implementation only hid `activePanelId`, but resize()
     // could make other panels visible without updating activePanelId,
     // leaving multiple panels visible simultaneously.
+    let hiddenCount = 0;
     for (const [, h] of this.panels) {
       if (h.panelId !== panelId && !h.view.webContents.isDestroyed()) {
         h.view.setVisible(false);
+        hiddenCount++;
       }
     }
+    console.log('[webview-panel] showPanel hidden', hiddenCount, 'other panels');
 
     // Bring to front in z-order (addChildView on existing child moves it to top)
     if (this.mainWindow) {
@@ -359,11 +369,15 @@ export class WebviewPanelManager {
 
     handle.view.setVisible(true);
     this.activePanelId = panelId;
-    //console.log('[webview-panel] shown panel', panelId);
+    console.log('[webview-panel] showPanel done — activePanelId:', panelId);
   }
 
   findByPanelId(panelId: string): PanelHandle | undefined {
-    return Array.from(this.panels.values()).find((h) => h.panelId === panelId);
+    const found = Array.from(this.panels.values()).find((h) => h.panelId === panelId);
+    if (!found) {
+      console.log('[webview-panel] findByPanelId NOT found:', panelId, '— existing panels:', Array.from(this.panels.values()).map(h => h.panelId));
+    }
+    return found;
   }
 
   list(): PanelHandle[] {
