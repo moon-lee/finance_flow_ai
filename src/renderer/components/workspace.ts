@@ -275,6 +275,7 @@ export class WorkspacePanel extends LitElement {
     this._scheduleSave();
     this._sendBoundsToPanel(panelId);
     window.financeShell?.panel?.show(panelId);
+    this.requestUpdate();
     this.dispatchEvent(new CustomEvent('workspace:focus-panel', { detail: { panelId }, bubbles: true, composed: true }));
   }
 
@@ -299,6 +300,7 @@ export class WorkspacePanel extends LitElement {
     this._layout = this._addTab(this._layout, panelId, label);
     this._activePanelId = panelId;
     this._scheduleSave();
+    this.requestUpdate();
     requestAnimationFrame(() => this._sendBoundsToPanel(panelId));
   }
 
@@ -323,6 +325,7 @@ export class WorkspacePanel extends LitElement {
       window.financeShell?.panel?.unmountAll?.();
     }
     this._scheduleSave();
+    this.requestUpdate();
   }
 
   private _firstLeafPanelId(node: WorkspaceNode): string {
