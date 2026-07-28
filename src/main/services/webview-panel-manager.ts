@@ -95,6 +95,9 @@ export class WebviewPanelManager {
     const existing = this.findByPanelId(panelId);
     if (existing) {
       this.showPanel(panelId);
+      if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+        this.mainWindow.webContents.send("panel:mounted", panelId);
+      }
       return existing;
     }
 
