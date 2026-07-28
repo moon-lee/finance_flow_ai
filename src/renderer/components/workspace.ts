@@ -311,6 +311,12 @@ export class WorkspacePanel extends LitElement {
         const active = this._getActiveLeaf(this._layout);
         this._activePanelId = active?.panelId ?? '';
       }
+      // Show the surviving panel — it may have been hidden by a previous
+      // showPanel() call when the now-closed panel was active.
+      if (this._activePanelId) {
+        this._sendBoundsToPanel(this._activePanelId);
+        window.financeShell?.panel?.show(this._activePanelId);
+      }
     } else {
       this._layout = { type: 'tab', panelId: '', label: '' };
       this._activePanelId = '';
