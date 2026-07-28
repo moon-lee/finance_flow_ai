@@ -114,6 +114,7 @@ export class WorkspacePanel extends LitElement {
       }
     } else {
       console.log('[workspace] _onPanelMounted panel already in layout', { panelId });
+      this._focusPanel(panelId);
     }
     // Show the panel with correct bounds
     this._sendBoundsToPanel(panelId);
@@ -361,16 +362,14 @@ export class WorkspacePanel extends LitElement {
   }
 
   render() {
-    const activeLeaf = this._getActiveLeaf(this._layout);
-    const activePanelId = activeLeaf?.panelId ?? this._activePanelId;
     const allTabs = this._getLeafTabs(this._layout);
     const tabs = allTabs.filter(t => !!t.panelId);
 
     if (isSplit(this._layout)) {
       const leftTabs = this._getLeafTabs(this._layout.children[0]).filter(t => !!t.panelId);
       const rightTabs = this._getLeafTabs(this._layout.children[1]).filter(t => !!t.panelId);
-      const leftActive = this._getActiveLeaf(this._layout.children[0])?.panelId ?? leftTabs[0]?.panelId ?? '';
-      const rightActive = this._getActiveLeaf(this._layout.children[1])?.panelId ?? rightTabs[0]?.panelId ?? '';
+      const leftActive = this._findNode(this._layout.children[0], this._activePanelId) ? this._activePanelId : this._getActiveLeaf(this._layout.children[0])?.panelId ?? leftTabs[0]?.panelId ?? '';
+      const rightActive = this._findNode(this._layout.children[1], this._activePanelId) ? this._activePanelId : this._getActiveLeaf(this._layout.children[1])?.panelId ?? rightTabs[0]?.panelId ?? '';
       return html`
         <div class="tab-strip">
           ${leftTabs.length ? html`<tab-bar .tabs="${leftTabs}" .activePanelId="${leftActive}" @tab-focus="${(e: CustomEvent) => this._onTabFocus(e.detail.panelId)}" @tab-close="${(e: CustomEvent) => this._onTabClose(e.detail.panelId)}" @tab-drag-end="${this._onTabDragEnd}"></tab-bar>` : ''}
@@ -397,7 +396,7 @@ export class WorkspacePanel extends LitElement {
 
     return html`
       <div class="tab-strip">
-        <tab-bar .tabs="${tabs}" .activePanelId="${activePanelId}" @tab-focus="${(e: CustomEvent) => this._onTabFocus(e.detail.panelId)}" @tab-close="${(e: CustomEvent) => this._onTabClose(e.detail.panelId)}" @tab-drag-end="${this._onTabDragEnd}"></tab-bar>
+        <tab-bar .tabs="${tabs}" .activePanelId="${this._activePanelId}" @tab-focus="${(e: CustomEvent) => this._onTabFocus(e.detail.panelId)}" @tab-close="${(e: CustomEvent) => this._onTabClose(e.detail.panelId)}" @tab-drag-end="${this._onTabDragEnd}"></tab-bar>
       </div>
       <div class="content">
         <slot>
