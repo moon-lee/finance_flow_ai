@@ -70,6 +70,7 @@ export class WorkspacePanel extends LitElement {
 
   @state()
   private _tabs: Tab[] = [];
+  private _viewIdToLabel = new Map<string, string>();
 
   private _saveTimer: ReturnType<typeof setTimeout> | null = null;
   private _panelUnmountListener: (() => void) | null = null;
@@ -102,7 +103,7 @@ export class WorkspacePanel extends LitElement {
         const panels = await window.financeShell?.panel?.list?.() as Array<{ panelId: string; extensionId: string; viewId: string }> | undefined;
         const live = panels?.find(p => p.panelId === panelId);
         if (live) {
-          panel = { panelId, label: live.viewId };
+          panel = { panelId, label: this._viewIdToLabel.get(live.viewId) ?? live.viewId };
           this._tabs.push(panel);
         }
       }
@@ -114,6 +115,7 @@ export class WorkspacePanel extends LitElement {
       }
     } else {
       console.log('[workspace] _onPanelMounted panel already in layout', { panelId });
+      this._focusPanel(panelId);
     }
     // Show the panel with correct bounds
     this._sendBoundsToPanel(panelId);
@@ -215,6 +217,7 @@ export class WorkspacePanel extends LitElement {
       const contributions = await window.financeShell?.extensions?.list?.();
       console.log('[workspace] _refreshPanels fetched contributions', { viewCount: contributions?.views?.length });
       if (!contributions?.views) return;
+      this._viewIdToLabel.set('pay-rate-history-view', 'Pay Rate History');
       const tabs: Tab[] = contributions.views.map(v => ({
         panelId: `panel-${v.extensionId}-${v.view.id}`,
         label: v.view.name
@@ -275,6 +278,7 @@ export class WorkspacePanel extends LitElement {
     this._scheduleSave();
     this._sendBoundsToPanel(panelId);
     window.financeShell?.panel?.show(panelId);
+    this.requestUpdate();
     this.dispatchEvent(new CustomEvent('workspace:focus-panel', { detail: { panelId }, bubbles: true, composed: true }));
   }
 
@@ -299,6 +303,7 @@ export class WorkspacePanel extends LitElement {
     this._layout = this._addTab(this._layout, panelId, label);
     this._activePanelId = panelId;
     this._scheduleSave();
+    this.requestUpdate();
     requestAnimationFrame(() => this._sendBoundsToPanel(panelId));
   }
 
@@ -323,6 +328,7 @@ export class WorkspacePanel extends LitElement {
       window.financeShell?.panel?.unmountAll?.();
     }
     this._scheduleSave();
+    this.requestUpdate();
   }
 
   private _firstLeafPanelId(node: WorkspaceNode): string {
@@ -358,29 +364,8 @@ export class WorkspacePanel extends LitElement {
   }
 
   render() {
-    const activeLeaf = this._getActiveLeaf(this._layout);
-    const activePanelId = activeLeaf?.panelId ?? this._activePanelId;
     const allTabs = this._getLeafTabs(this._layout);
     const tabs = allTabs.filter(t => !!t.panelId);
-
-    if (isSplit(this._layout)) {
-      const leftTabs = this._getLeafTabs(this._layout.children[0]).filter(t => !!t.panelId);
-      const rightTabs = this._getLeafTabs(this._layout.children[1]).filter(t => !!t.panelId);
-      const leftActive = this._getActiveLeaf(this._layout.children[0])?.panelId ?? leftTabs[0]?.panelId ?? '';
-      const rightActive = this._getActiveLeaf(this._layout.children[1])?.panelId ?? rightTabs[0]?.panelId ?? '';
-      return html`
-        <div class="tab-strip">
-          ${leftTabs.length ? html`<tab-bar .tabs="${leftTabs}" .activePanelId="${leftActive}" @tab-focus="${(e: CustomEvent) => this._onTabFocus(e.detail.panelId)}" @tab-close="${(e: CustomEvent) => this._onTabClose(e.detail.panelId)}" @tab-drag-end="${this._onTabDragEnd}"></tab-bar>` : ''}
-          ${rightTabs.length ? html`<tab-bar .tabs="${rightTabs}" .activePanelId="${rightActive}" @tab-focus="${(e: CustomEvent) => this._onTabFocus(e.detail.panelId)}" @tab-close="${(e: CustomEvent) => this._onTabClose(e.detail.panelId)}" @tab-drag-end="${this._onTabDragEnd}"></tab-bar>` : ''}
-        </div>
-        <div class="content">
-          <split-pane .direction="${this._layout.direction}">
-            <div slot="left" style="width:100%;height:100%;"></div>
-            <div slot="right" style="width:100%;height:100%;"></div>
-          </split-pane>
-        </div>
-      `;
-    }
 
     if (!tabs.length) {
       return html`
@@ -394,7 +379,7 @@ export class WorkspacePanel extends LitElement {
 
     return html`
       <div class="tab-strip">
-        <tab-bar .tabs="${tabs}" .activePanelId="${activePanelId}" @tab-focus="${(e: CustomEvent) => this._onTabFocus(e.detail.panelId)}" @tab-close="${(e: CustomEvent) => this._onTabClose(e.detail.panelId)}" @tab-drag-end="${this._onTabDragEnd}"></tab-bar>
+        <tab-bar .tabs="${tabs}" .activePanelId="${this._activePanelId}" @tab-focus="${(e: CustomEvent) => this._onTabFocus(e.detail.panelId)}" @tab-close="${(e: CustomEvent) => this._onTabClose(e.detail.panelId)}" @tab-drag-end="${this._onTabDragEnd}"></tab-bar>
       </div>
       <div class="content">
         <slot>

@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Panel shows wrong content when switching tabs** (`src/main/services/webview-panel-manager.ts`). `showPanel()` now hides ALL other panels instead of only the previous `activePanelId`. `resize()` no longer sets `activePanelId` — only `showPanel()` and mount paths manage active state.
 
+- **Nav item click doesn't activate corresponding tab** (`src/renderer/components/workspace.ts`). `_onPanelMounted` now calls `_focusPanel(panelId)` when the panel is already in the layout, so clicking a nav item switches the active tab. `_focusPanel`, `_closePanel`, and `_addPanel` now call `requestUpdate()` so the tab-bar re-renders with the correct `activePanelId`. `render()` uses `this._activePanelId` directly instead of overriding it with `_getActiveLeaf` (which always returned the leftmost leaf, ignoring user choice). Single `<tab-bar>` for both split and non-split layouts: the tab bar shows all open tabs; split only affects the content area layout.
+
 - **Nav item click doesn't show correct panel** (`src/main/services/webview-panel-manager.ts`). `mount()` now calls `showPanel()` in both pending-resize and fallback-timer paths for new panels. Previously only the dedup path (existing panel) called `showPanel()`, so newly mounted panels became visible via resize/fallback without hiding the dashboard.
 
 - **Panel invisible on first nav click — 0x0 bounds from ResizeObserver** (`src/main/services/webview-panel-manager.ts`). The workspace `ResizeObserver` fires during Lit re-render when the `.content` element briefly has 0x0 dimensions, sending `0,0,0,0` bounds that make the `WebContentsView` invisible. `resize()` now ignores bounds where width or height is ≤ 0.
