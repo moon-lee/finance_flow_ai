@@ -12,7 +12,7 @@ export class TabBar extends LitElement {
     :host {
       display: flex;
       min-width: 0;
-      height: 35px;
+      height: 36px;
       background: #2d2d30;
       border-bottom: 1px solid #3e3e3e;
     }
