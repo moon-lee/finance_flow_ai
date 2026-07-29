@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Dashboard refresh command never updates panel with new data** (`src/main/services/webview-panel-manager.ts`, `src/preload/panel-preload.ts`, `src/main/resources/panel-bootstrap.ts`, `extensions/dashboard/src/ui/dashboard-view.ts`). Two root causes fixed: (1) Commands and service registration ran after the renderer early-return in both `dashboard/main.ts` and `salary-history/main.ts`, so the refresh command was never registered in the panel context. (2) `mount()` dedup path discarded new `mountData` — added `panel:mount-update` IPC channel that forwards updated data to existing panels, which dispatches a `mount-update` CustomEvent to the Lit element for re-render.
 
+- **Salary-history not activated at startup** (`extensions/salary-history/package.json`). Added `"onStartup"` to `activationEvents` so salary-history registers the `pay` service before Dashboard queries it, eliminating the need for a manual refresh after startup to populate dashboard cards.
+
 ## [0.7.2] - 2026-07-27
 
 ### Fixed
