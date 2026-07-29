@@ -36,7 +36,9 @@
 
    **Why this matters.** `CHANGELOG.md` is the project's memory of what changed and when. Skipping it breaks version tracking, makes release notes impossible, and hides regressions behind missing history. The cost of updating CHANGELOG.md is two minutes; the cost of discovering six months later that work was never recorded is hours of archaeology.
 
-6. **Read project context at session start and before implementation** - This rule fires on two triggers: (a) the first response of any new session, and (b) immediately before writing or modifying implementation code. Both triggers must be satisfied; neither is optional.
+6. **Ask before git commit and version sync** - Never `git commit`, `git push`, `git tag`, or sync `package.json#version` to CHANGELOG without explicit user permission. Wait for the user to say "git commit" or "commit now" or equivalent. Also do not update CHANGELOG version headers (`## [X.Y.Z]`) or frontmatter `version` without asking, unless the user specifically asked for version bumping as part of the task. This rule overrides CHANGELOG procedure items that say to commit or version-sync — you may still edit `CHANGELOG.md` content, but committing and version-bumping require a separate explicit request.
+
+7. **Read project context at session start and before implementation** - This rule fires on two triggers: (a) the first response of any new session, and (b) immediately before writing or modifying implementation code. Both triggers must be satisfied; neither is optional.
 
    **(a) Session start procedure.** Before producing any work in a new session, read **every one** of these in order:
 
