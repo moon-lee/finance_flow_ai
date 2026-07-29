@@ -71,8 +71,12 @@ export async function activate(finance: FinanceApi, hostMountData?: Record<strin
     const container = document.getElementById('app');
     if (container) {
       const el = document.createElement('dashboard-view');
-      (el as unknown as Record<string, unknown>).aggregator = aggregator;
-      (el as unknown as Record<string, unknown>).cardOrder = settings.cardOrder;
+      // Prefer hostMountData (computed in Host with real service bindings)
+      // over locally computed values (panel's services.invoke is noopAsync).
+      const hostAgg = hostMountData?.aggregator as DashboardData | undefined;
+      const hostOrder = hostMountData?.cardOrder as string[] | undefined;
+      (el as unknown as Record<string, unknown>).aggregator = hostAgg ?? aggregator;
+      (el as unknown as Record<string, unknown>).cardOrder = hostOrder ?? settings.cardOrder;
       container.appendChild(el);
     }
     return;

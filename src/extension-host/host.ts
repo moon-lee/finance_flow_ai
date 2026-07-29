@@ -248,6 +248,16 @@ async function handleRequest(req: JsonRpcRequest): Promise<void> {
 
 // Phase 5 Task 10 — topological sort so dependent extensions activate
 // after their dependencies. Cycles are broken by original order.
+//
+// Phase 5 uses manifest.dependencies (Option A) — dashboard lists
+// salary-history as a dependency so the pay service is registered
+// before Dashboard's buildAggregator queries it.
+//
+// Future (Phase 8+): if many extensions provide/consume domain services,
+// consider Option B: a service-provider-first sort keyed on a manifest
+// field like contributes.domainServices. Split manifests into providers
+// (has domainServices) vs consumers (none), topo-sort each group, and
+// return [...providers, ...consumers].
 function sortByDependencies(manifests: FinanceExtensionManifest[]): FinanceExtensionManifest[] {
   const byId = new Map(manifests.map(m => [m.id, m]));
   const visited = new Set<string>();

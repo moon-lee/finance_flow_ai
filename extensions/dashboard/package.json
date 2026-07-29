@@ -10,6 +10,7 @@
     "version": "0.1.0",
     "main": "src/main.ts",
     "description": "Default landing view aggregating net worth, YTD salary, last payslip, and accounts.",
+    "dependencies": ["salary-history"],
     "activationEvents": ["onStartup"],
     "contributions": {
       "views": [
