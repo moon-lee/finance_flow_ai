@@ -46,6 +46,22 @@ export async function activate(finance: FinanceApi, hostMountData?: Record<strin
   const aggregator = await buildAggregator(finance, settings);
   const mountData = { aggregator, cardOrder: settings.cardOrder };
 
+  // Register commands in ALL contexts so refresh works in the panel too.
+  finance.commands.registerCommand('dashboard.refresh', 'View: Refresh Dashboard', () => {
+    return buildAggregator(finance, settings)
+      .then((data) => {
+        finance.ui?.requestMount('dashboard-view', {
+          aggregator: data,
+          cardOrder: settings.cardOrder
+        });
+      })
+      .catch((err) => console.error('[dashboard] refresh failed:', err));
+  });
+
+  finance.commands.registerCommand('dashboard.open-net-worth-detail', 'View: Net Worth Detail', () => {
+    console.log('[dashboard] Net Worth Detail — placeholder for Phase 7 detail view');
+  });
+
   // Panel renderer context — mount dashboard-view directly into #app.
   // Distinguished from the Host (Node) context by the presence of the panel's
   // `<div id="app">` container element. The Host has no DOM; happy-dom test
@@ -64,21 +80,6 @@ export async function activate(finance: FinanceApi, hostMountData?: Record<strin
 
   // Host context (Node) — request mount via IPC.
   finance.ui?.requestMount('dashboard-view', mountData);
-
-  finance.commands.registerCommand('dashboard.refresh', 'View: Refresh Dashboard', () => {
-    return buildAggregator(finance, settings)
-      .then((data) => {
-        finance.ui?.requestMount('dashboard-view', {
-          aggregator: data,
-          cardOrder: settings.cardOrder
-        });
-      })
-      .catch((err) => console.error('[dashboard] refresh failed:', err));
-  });
-
-  finance.commands.registerCommand('dashboard.open-net-worth-detail', 'View: Net Worth Detail', () => {
-    console.log('[dashboard] Net Worth Detail — placeholder for Phase 7 detail view');
-  });
 }
 
 export function deactivate(): void {

@@ -3,6 +3,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 const listeners: { [channel: string]: Set<(payload: unknown) => void> } = {
   'panel:init': new Set(),
   'panel:navigate': new Set(),
+  'panel:mount-update': new Set(),
 };
 const cachedPayloads: { [channel: string]: unknown } = {};
 
@@ -16,6 +17,12 @@ ipcRenderer.on('panel:init', (_event, payload: unknown) => {
 
 ipcRenderer.on('panel:navigate', (_event, payload: unknown) => {
   for (const fn of listeners['panel:navigate'] ?? []) {
+    try { fn(payload); } catch { /* ignore listener errors */ }
+  }
+});
+
+ipcRenderer.on('panel:mount-update', (_event, payload: unknown) => {
+  for (const fn of listeners['panel:mount-update'] ?? []) {
     try { fn(payload); } catch { /* ignore listener errors */ }
   }
 });
@@ -58,6 +65,10 @@ const panelApi = {
   onNavigate(callback: (payload: unknown) => void): () => void {
     listeners['panel:navigate'].add(callback);
     return () => { listeners['panel:navigate'].delete(callback); };
+  },
+  onMountUpdate(callback: (payload: unknown) => void): () => void {
+    listeners['panel:mount-update'].add(callback);
+    return () => { listeners['panel:mount-update'].delete(callback); };
   }
 };
 

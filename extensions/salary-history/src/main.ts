@@ -79,6 +79,23 @@ export async function activate(
     (await finance.settings?.get('salary-history.financialYearStart')) ?? '07-01';
   const settingsMountData = { defaultCurrency, financialYearStart };
    console.log('[salary-history] activate', { defaultCurrency, financialYearStart });
+
+  // Register public pay service + commands in ALL contexts.
+  const payAdapter = createPublicPayAdapter(finance);
+  finance.services?.register('pay', payAdapter as unknown as DomainServiceImpl);
+
+  finance.commands.registerCommand('salary.show-pay-history', 'View: Pay History', () =>
+    openPayHistory(finance, settingsMountData).catch((e) =>
+      console.error('[salary-history] openPayHistory failed', e),
+    ),
+  );
+  finance.commands.registerCommand('salary.show-pay-rate-history', 'View: Pay Rate History', () => {
+    console.log('[salary-history] mounting pay-rate-history-view');
+    finance.ui?.requestMount('pay-rate-history-view', settingsMountData).catch((e) =>
+      console.error('[salary-history] requestMount pay-rate-history-view failed', e),
+    );
+  });
+
   // Panel renderer context — create the Orchestrator for direct DOM rendering.
   // Distinguished from the Host (Node) context by the presence of the panel's
   // `<div id="app">` container element. The Host has no DOM; happy-dom test
@@ -95,21 +112,7 @@ export async function activate(
     return;
   }
 
-  // Host context (Node) — register commands + services, open views via IPC.
-  const payAdapter = createPublicPayAdapter(finance);
-  finance.services?.register('pay', payAdapter as unknown as DomainServiceImpl);
-
-  finance.commands.registerCommand('salary.show-pay-history', 'View: Pay History', () =>
-    openPayHistory(finance, settingsMountData).catch((e) =>
-      console.error('[salary-history] openPayHistory failed', e),
-    ),
-  );
-  finance.commands.registerCommand('salary.show-pay-rate-history', 'View: Pay Rate History', () => {
-    console.log('[salary-history] mounting pay-rate-history-view');
-    finance.ui?.requestMount('pay-rate-history-view', settingsMountData).catch((e) =>
-      console.error('[salary-history] requestMount pay-rate-history-view failed', e),
-    );
-  });
+  // Host context (Node) — open views via IPC.
 }
 
 let _registeredFinance: FinanceApi | null = null;

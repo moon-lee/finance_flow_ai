@@ -147,6 +147,16 @@ async function mountPanelComponent(payload: PanelPayload): Promise<void> {
     await bundle.activate(finance, { viewId, ...(mountData ?? {}) });
     console.log('[panel bootstrap] activate completed for', extensionId);
 
+    // --- Mount updates from Host (e.g. Dashboard refresh) ---
+    financeShell.onMountUpdate((payload: unknown) => {
+      const { mountData } = payload as { mountData?: Record<string, unknown> };
+      if (!mountData) return;
+      const app = document.getElementById('app');
+      if (app) {
+        app.dispatchEvent(new CustomEvent('mount-update', { detail: mountData }));
+      }
+    });
+
     // --- Panel navigation from Host ---
     financeShell.onNavigate((payload: unknown) => {
       const { view, mountData: navMountData } = payload as { view: string; mountData?: Record<string, unknown> };

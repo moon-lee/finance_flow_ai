@@ -91,9 +91,12 @@ export class WebviewPanelManager {
 
     const panelId = `panel-${extensionId}-${viewId}`;
 
-    // Dedup: if this panel already exists, show it instead of creating a duplicate
+    // Dedup: if this panel already exists, forward new mountData and show it
     const existing = this.findByPanelId(panelId);
     if (existing) {
+      if (!existing.view.webContents.isDestroyed()) {
+        existing.view.webContents.send("panel:mount-update", { mountData });
+      }
       this.showPanel(panelId);
       if (this.mainWindow && !this.mainWindow.isDestroyed()) {
         this.mainWindow.webContents.send("panel:mounted", panelId);

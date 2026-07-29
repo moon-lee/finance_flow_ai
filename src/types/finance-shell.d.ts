@@ -140,6 +140,7 @@ export interface PanelFinanceShellApi {
   accounts: AccountsApi;
   onPanelInit: (callback: (payload: unknown) => void) => () => void;
   onNavigate: (callback: (payload: unknown) => void) => () => void;
+  onMountUpdate: (callback: (payload: unknown) => void) => () => void;
 }
 
 declare global {

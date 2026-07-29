@@ -23,6 +23,22 @@ export class DashboardView extends LitElement {
   aggregator: DashboardData | null = null;
   cardOrder: string[] = [];
 
+  private _boundMountUpdate = (e: Event): void => {
+    const detail = (e as CustomEvent).detail as Record<string, unknown>;
+    if (detail?.aggregator) this.aggregator = detail.aggregator as DashboardData;
+    if (detail?.cardOrder) this.cardOrder = detail.cardOrder as string[];
+  };
+
+  connectedCallback(): void {
+    super.connectedCallback();
+    this.parentElement?.addEventListener('mount-update', this._boundMountUpdate);
+  }
+
+  disconnectedCallback(): void {
+    super.disconnectedCallback();
+    this.parentElement?.removeEventListener('mount-update', this._boundMountUpdate);
+  }
+
   static styles = css`
     :host {
       display: block;
