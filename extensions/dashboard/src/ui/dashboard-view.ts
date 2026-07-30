@@ -42,43 +42,77 @@ export class DashboardView extends LitElement {
   static styles = css`
     :host {
       display: block;
-      padding: 16px;
+      padding: 24px;
       box-sizing: border-box;
     }
     .grid {
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
     }
     .card {
-      border: 1px solid var(--color-border, #e5e7eb);
-      border-radius: 8px;
-      padding: 12px 16px;
-      background: var(--color-card, #ffffff);
+      background: #252526;
+      border: 1px solid #3e3e3e;
+      border-radius: 6px;
+      padding: 16px;
     }
-    .card h3 {
-      margin: 0 0 8px;
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 12px;
+    }
+    .card-title {
       font-size: 13px;
+      font-weight: 600;
+      color: #858585;
       text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: var(--color-muted, #6b7280);
+      letter-spacing: 0.3px;
     }
-    .value {
+    .card-badge {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 3px;
+      background: #4ec9b0;
+      color: #1e1e1e;
+      font-weight: 600;
+    }
+    .card-badge.warn {
+      background: #cca700;
+      color: #1e1e1e;
+    }
+    .card-badge.placeholder {
+      background: #3c3c3c;
+      color: #858585;
+    }
+    .card-value {
+      font-family: "SF Mono", Consolas, monospace;
       font-size: 22px;
       font-weight: 600;
-      color: var(--color-text, #111827);
+      color: #ffffff;
+      margin-bottom: 4px;
     }
-    .subtitle {
+    .card-sub {
       font-size: 12px;
-      color: var(--color-muted, #6b7280);
-      margin-top: 4px;
+      color: #858585;
+    }
+    .card-detail {
+      font-size: 12px;
+      color: #858585;
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid #3e3e3e;
     }
     .placeholder {
-      color: var(--color-muted, #9ca3af);
-      font-size: 14px;
+      color: #858585;
+      font-size: 13px;
+    }
+    .placeholder a {
+      color: #007acc;
+      cursor: pointer;
     }
     .missing {
-      color: var(--color-muted, #6b7280);
+      color: #858585;
       font-size: 13px;
       font-style: italic;
     }
@@ -103,25 +137,28 @@ export class DashboardView extends LitElement {
   private _renderNetWorth(): unknown {
     const data = this.aggregator?.netWorth;
     if (!data) return this._missing('Net Worth');
+    const total = data.totalBalance !== null ? data.totalBalance : data.totalNetPayLast12Months;
     const label = data.totalBalance !== null && data.totalNetPayLast12Months !== null
       ? 'Balance + last payslip net'
       : data.totalBalance !== null
         ? 'Accounts balance only'
         : 'Last payslip net only';
+    const badge = total !== null
+      ? html`<span class="card-badge">${this._formatCurrency(total, data.currency ?? 'AUD')}</span>`
+      : html`<span class="card-badge placeholder">—</span>`;
     return html`
       <div class="card">
-        <h3>Net Worth</h3>
-        <div class="value">${data.totalBalance !== null
-          ? this._formatCurrency(data.totalBalance, data.currency ?? 'AUD')
-          : data.totalNetPayLast12Months !== null
-            ? this._formatCurrency(data.totalNetPayLast12Months, data.currency ?? 'AUD')
-            : html`<span class="placeholder">—</span>`}</div>
-        <div class="subtitle">${label}</div>
+        <div class="card-header">
+          <span class="card-title">Net Worth</span>
+          ${badge}
+        </div>
+        <div class="card-value">${total !== null
+          ? this._formatCurrency(total, data.currency ?? 'AUD')
+          : html`<span class="placeholder">—</span>`}</div>
+        <div class="card-sub">${label}</div>
       </div>
     `;
   }
-
-  // Oops, typo above. Let me fix it inline.
 
   private _renderYtdSalary(): unknown {
     const data = this.aggregator?.ytdSalary;
@@ -129,8 +166,10 @@ export class DashboardView extends LitElement {
     if (!data.summary) {
       return html`
         <div class="card">
-          <h3>Year-to-Date Salary</h3>
-          <div class="missing">Install Salary History to see this card</div>
+          <div class="card-header">
+            <span class="card-title">Year-to-Date Salary</span>
+          </div>
+          <div class="placeholder">Install Salary History to see this card</div>
         </div>
       `;
     }
@@ -140,10 +179,13 @@ export class DashboardView extends LitElement {
       : 'No current rate set';
     return html`
       <div class="card">
-        <h3>Year-to-Date Salary</h3>
-        <div class="value">${this._formatCurrency(data.summary.net)}</div>
-        <div class="subtitle">Gross ${this._formatCurrency(data.summary.gross)} · ${subtitle}</div>
-        <div class="subtitle">PAYG ${this._formatCurrency(data.summary.payg)} · SG ${this._formatCurrency(data.summary.superannuation_guarantee)}</div>
+        <div class="card-header">
+          <span class="card-title">Year-to-Date Salary</span>
+          <span class="card-badge">${this._formatCurrency(data.summary.gross)}</span>
+        </div>
+        <div class="card-value">${this._formatCurrency(data.summary.net)}</div>
+        <div class="card-sub">Gross ${this._formatCurrency(data.summary.gross)} · ${subtitle}</div>
+        <div class="card-sub">PAYG ${this._formatCurrency(data.summary.payg)} · SG ${this._formatCurrency(data.summary.superannuation_guarantee)}</div>
       </div>
     `;
   }
@@ -151,12 +193,18 @@ export class DashboardView extends LitElement {
   private _renderLastPayslip(): unknown {
     const data = this.aggregator?.lastPayslip;
     if (!data || data.id === null) return this._missing('Last Payslip');
+    const badge = data.pay_date
+      ? html`<span class="card-badge placeholder">${data.pay_date}</span>`
+      : html`<span class="card-badge placeholder">—</span>`;
     return html`
       <div class="card">
-        <h3>Last Payslip</h3>
-        <div class="value">${this._formatCurrency(data.net ?? 0)}</div>
-        <div class="subtitle">${data.pay_date ?? 'unknown date'} · ${data.currency ?? 'AUD'}</div>
-        <div class="subtitle">Gross ${this._formatCurrency(data.gross ?? 0)}</div>
+        <div class="card-header">
+          <span class="card-title">Last Payslip</span>
+          ${badge}
+        </div>
+        <div class="card-value">${this._formatCurrency(data.net ?? 0)}</div>
+        <div class="card-sub">Gross ${this._formatCurrency(data.gross ?? 0)}</div>
+        <div class="card-detail">${data.pay_date ?? 'unknown date'} · ${data.currency ?? 'AUD'}</div>
       </div>
     `;
   }
@@ -166,9 +214,12 @@ export class DashboardView extends LitElement {
     if (!data) return this._missing('Accounts');
     return html`
       <div class="card">
-        <h3>Accounts</h3>
-        <div class="value">${data.count} account${data.count === 1 ? '' : 's'}</div>
-        <div class="subtitle">${data.totalBalance !== null ? `Total ${this._formatCurrency(data.totalBalance)}` : 'No balance data'}</div>
+        <div class="card-header">
+          <span class="card-title">Accounts Summary</span>
+          <span class="card-badge">${data.count} active</span>
+        </div>
+        <div class="card-value">${data.count} account${data.count === 1 ? '' : 's'}</div>
+        <div class="card-sub">${data.totalBalance !== null ? `Total ${this._formatCurrency(data.totalBalance)}` : 'No balance data'}</div>
       </div>
     `;
   }
@@ -176,7 +227,9 @@ export class DashboardView extends LitElement {
   private _missing(label: string): unknown {
     return html`
       <div class="card">
-        <h3>${label}</h3>
+        <div class="card-header">
+          <span class="card-title">${label}</span>
+        </div>
         <div class="missing">Install Salary History to see this card</div>
       </div>
     `;
