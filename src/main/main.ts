@@ -490,18 +490,15 @@ function registerIpcHandlers(): void {
       panelId: string,
       bounds: { x: number; y: number; width: number; height: number },
     ) => {
-      console.log('[main] panel:resize received', { panelId, bounds });
       webviewPanelManager?.resize(panelId, bounds);
     },
   );
 
   ipcMain.on("panel:unmount", (_event, panelId: string) => {
-    console.log('[main] panel:unmount received', panelId);
     webviewPanelManager?.unmount(panelId);
   });
 
   ipcMain.on("panel:unmount-all", () => {
-    console.log('[main] panel:unmount-all received');
     webviewPanelManager?.unmountAll();
   });
 
@@ -789,7 +786,6 @@ app.whenReady().then(async () => {
 
     if (mainWindow) {
       webviewPanelManager?.setMainWindow(mainWindow);
-      console.log("[main] Main window set — flushing buffered mount requests");
     }
 
     // Start the Extension Host AFTER the panel infrastructure is ready.

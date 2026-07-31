@@ -1,7 +1,7 @@
 ---
 version: 0.7.3
 created: 2026-06-14
-last_updated: 2026-07-31T02:30:00+10:00
+last_updated: 2026-07-31T03:00:00+10:00
 ---
 
 # Changelog
@@ -68,6 +68,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **destroyAll crash on already-destroyed webContents** (`src/main/services/webview-panel-manager.ts`). Split `removeChildView` and `close` into separate try/catch blocks. When BrowserWindow closes, child views are destroyed first; accessing `view.webContents` after view destruction throws before `isDestroyed()` can be checked.
 
 ### Changed
+
+- **Extension Host raw-message dump reduced to a method-only breadcrumb** (`src/extension-host/host.ts`). `[host] msg received:` no longer logs the full JSON-RPC payload — `host.initialize` alone carries every extension manifest and dumped hundreds of lines on startup. Requests/notifications now log just the method (e.g. `[host] msg received: host.initialize`); the concise `N manifests` count line in the handler remains. Host→Main responses were already suppressed.
 
 - **Console breadcrumbs removed from workspace component** (`src/renderer/components/workspace.ts`). All routine `console.log` trace markers (`onMounted`/`onRequestBounds` callbacks, `_onPanelMounted` lifecycle, `firstUpdated`, `_sendBoundsToPanel` bounds dump, `_onTabClose`, and the `_refreshPanels` start/contribution/updated/done lines) are deleted. Only the three actionable statements remain: `console.warn` for a mounted panel absent from the tab list and for a missing `.content` element, and `console.error` when `panel.resize()` throws.
 

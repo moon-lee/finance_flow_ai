@@ -189,7 +189,6 @@ export class WebviewPanelManager {
     }
 
     if (this.mainWindow) {
-      console.log('[webview-panel] sending panel:mounted to renderer:', panelId);
       this.mainWindow.webContents.send("panel:mounted", panelId);
     } else {
       console.warn('[webview-panel] mainWindow is null, cannot send panel:mounted');
@@ -325,7 +324,6 @@ export class WebviewPanelManager {
   }
 
   showPanel(panelId: string): void {
-    console.log('[webview-panel] showPanel() called', { panelId, activePanelId: this.activePanelId, panelsCount: this.panels.size });
     const handle = this.findByPanelId(panelId);
     if (!handle) {
       console.warn('[webview-panel] showPanel: panel', panelId, 'not found');
@@ -336,14 +334,14 @@ export class WebviewPanelManager {
     // Previous implementation only hid `activePanelId`, but resize()
     // could make other panels visible without updating activePanelId,
     // leaving multiple panels visible simultaneously.
-    let hiddenCount = 0;
+   // let hiddenCount = 0;
     for (const [, h] of this.panels) {
       if (h.panelId !== panelId && !h.view.webContents.isDestroyed()) {
         h.view.setVisible(false);
-        hiddenCount++;
+     //   hiddenCount++;
       }
     }
-    console.log('[webview-panel] showPanel hidden', hiddenCount, 'other panels');
+   // console.log('[webview-panel] showPanel hidden', hiddenCount, 'other panels');
 
     // Bring to front in z-order (addChildView on existing child moves it to top)
     if (this.mainWindow) {
@@ -352,7 +350,6 @@ export class WebviewPanelManager {
 
     handle.view.setVisible(true);
     this.activePanelId = panelId;
-    console.log('[webview-panel] showPanel done  activePanelId:', panelId);
   }
 
   findByPanelId(panelId: string): PanelHandle | undefined {

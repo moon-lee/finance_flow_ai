@@ -412,7 +412,6 @@ export class ExtensionIPC {
    * `componentTag` field to `viewId` and delegates to the panel UI handler.
    */
   handleUiMount(params: unknown): void {
-    console.log('[extension-ipc] handleUiMount called', params);
     if (!this.uiHandler) {
       console.warn('[extension-ipc] handleUiMount: uiHandler is null — mount request dropped');
       return;

@@ -48,18 +48,14 @@ export function registerPanelProtocol(): void {
   protocol.handle('finance-shell', async (request) => {
     const url = new URL(request.url);
     const pathname = url.host ? `/${url.host}${url.pathname}` : url.pathname;
-    console.log('[panel-protocol] request:', request.url, { pathname });
 
     if (pathname.startsWith('/panel/') && pathname.endsWith('/bootstrap.js')) {
-      console.log('[panel-protocol] serving bootstrap.js for', pathname);
       return servePanelBootstrap();
     }
     if (pathname.startsWith('/panel/')) {
-      console.log('[panel-protocol] serving panel shell for', pathname);
       return servePanelShell(pathname.slice('/panel/'.length));
     }
     if (pathname.startsWith('/extensions/')) {
-      console.log('[panel-protocol] serving extension bundle for', pathname);
       return serveExtensionBundle(pathname.slice('/extensions/'.length));
     }
     console.warn('[panel-protocol] 404 for', pathname);
@@ -123,7 +119,6 @@ async function servePanelShell(path: string): Promise<Response> {
 async function servePanelBootstrap(): Promise<Response> {
   try {
     const data = await readFile(PANEL_BOOTSTRAP_PATH, 'utf-8');
-    console.log("[protocol] serving bootstrap.js");
     return new Response(data, {
       status: 200,
       headers: {

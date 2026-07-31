@@ -369,8 +369,10 @@ parentPort.on('message', (event: { data: unknown; ports?: unknown[] }) => {
   // Suppress the verbose log for routine Host→Main responses (Phase 4
   // Task 6.4): the proxy handlers fire `requestMain` for every DAO call,
   // which would flood the terminal with `[host] msg received: {"id":...}`
-  // entries that don't aid debugging. Requests and notifications still
-  // log normally via the path below.
+  // entries that don't aid debugging. Requests and notifications log a
+  // method-only breadcrumb (never the full payload — `host.initialize`
+  // alone carries every manifest and would otherwise dump hundreds of
+  // lines; the concise count line in the handler covers that case).
   if (typeof msg === 'object' && msg !== null && 'id' in (msg as object) && !('method' in (msg as object))) {
     const response = msg as JsonRpcResponse;
     const pending = pendingHostRequests.get(response.id);
@@ -387,7 +389,9 @@ parentPort.on('message', (event: { data: unknown; ports?: unknown[] }) => {
     }
     return;
   }
-  console.log('[host] msg received:', JSON.stringify(msg));
+  if (isRequest(msg) || isNotification(msg)) {
+    console.log(`[host] msg received: ${msg.method}`);
+  }
   if (isRequest(msg)) {
     void handleRequest(msg);
   } else if (isNotification(msg)) {
