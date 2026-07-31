@@ -1,11 +1,7 @@
 import { LitElement, css, html } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import './tab-bar';
-
-export interface Tab {
-  panelId: string;
-  label: string;
-}
+import type { Tab } from './types';
 
 interface PersistedLayout {
   version: 1;
@@ -69,6 +65,19 @@ export class WorkspacePanel extends LitElement {
     super.connectedCallback();
     this._restoreLayout();
     void this._refreshPanels();
+    // Wait for extension host to be ready, then activate restored tabs
+    window.financeShell?.extensions?.onHostStatus?.((status: { status: string }) => {
+      if (status.status === 'ready') {
+        this._activateRestoredTabs();
+      }
+    });
+    // Track commandId for internal views mounted via nav commands
+    window.addEventListener('command-selected', ((event: Event) => {
+      const customEvent = event as CustomEvent<{ command: string; extensionCommand: boolean }>;
+      if (customEvent.detail?.extensionCommand) {
+        this._pendingCommandId = customEvent.detail.command;
+      }
+    }) as EventListener);
     this._panelUnmountListener = window.financeShell?.panel?.onMounted?.((panelId: string) => {
       void this._onPanelMounted(panelId);
     });
@@ -76,6 +85,8 @@ export class WorkspacePanel extends LitElement {
       this._sendBoundsToPanel(panelId);
     }) ?? null;
   }
+
+  private _pendingCommandId: string | null = null;
 
   private async _onPanelMounted(panelId: string): Promise<void> {
     await this._refreshPanels();
@@ -86,10 +97,11 @@ export class WorkspacePanel extends LitElement {
       const panels = await window.financeShell?.panel?.list?.() as Array<{ panelId: string; extensionId: string; viewId: string }> | undefined;
       const live = panels?.find(p => p.panelId === panelId);
       if (live) {
-        this._addPanel(panelId, this._viewIdToLabel.get(live.viewId) ?? live.viewId);
+        this._addPanel(panelId, this._viewIdToLabel.get(live.viewId) ?? live.viewId, this._pendingCommandId ?? undefined);
       } else {
         console.warn('[workspace] _onPanelMounted panel not in tabs', { panelId, availableTabs: this._tabs.map(t => t.panelId) });
       }
+      this._pendingCommandId = null;
     } else {
       this._focusPanel(panelId);
     }
@@ -175,6 +187,43 @@ export class WorkspacePanel extends LitElement {
     }
   }
 
+  // Activate views for tabs that were restored from localStorage but not yet mounted.
+  // Panel IDs are in format "panel-${extensionId}-${viewId}".
+  private async _activateRestoredTabs(): Promise<void> {
+    if (!window.financeShell?.extensions?.activateView) return;
+    // Get all views from extensions to build panelId -> viewId mapping
+    // (panelId format: panel-${extensionId}-${viewId}, extensionId may contain dashes)
+    const contributions = await window.financeShell.extensions.list();
+    if (!contributions?.views) return;
+    const panelIdToViewId = new Map<string, string>();
+    for (const v of contributions.views) {
+      const panelId = `panel-${v.extensionId}-${v.view.id}`;
+      panelIdToViewId.set(panelId, v.view.id);
+    }
+    for (const tab of this._tabs) {
+      const viewId = panelIdToViewId.get(tab.panelId);
+      console.log('[workspace] _activateRestoredTabs: tab panelId', tab.panelId, '-> viewId', viewId ?? '(internal)', 'commandId', tab.commandId);
+      if (viewId) {
+        try {
+          await window.financeShell.extensions.activateView(viewId);
+        } catch {
+          // ignore activation failures
+        }
+      } else if (tab.commandId) {
+        // Internal view with saved commandId - execute it to restore
+        console.log('[workspace] _activateRestoredTabs: executing command for internal view', tab.commandId);
+        try {
+          await window.financeShell.extensions.executeCommand(tab.commandId);
+        } catch {
+          // ignore activation failures
+        }
+      } else {
+        // Tab for an internal view without commandId - will be mounted on-demand
+        console.log('[workspace] _activateRestoredTabs: skipping internal view panelId', tab.panelId);
+      }
+    }
+  }
+
   private _scheduleSave() {
     if (this._saveTimer) clearTimeout(this._saveTimer);
     this._saveTimer = setTimeout(() => {
@@ -215,9 +264,9 @@ export class WorkspacePanel extends LitElement {
     }
   }
 
-  private _addPanel(panelId: string, label: string) {
+  private _addPanel(panelId: string, label: string, commandId?: string) {
     if (this._tabs.some(t => t.panelId === panelId)) return;
-    this._tabs = [...this._tabs, { panelId, label }];
+    this._tabs = [...this._tabs, { panelId, label, commandId }];
     this._activePanelId = panelId;
     this._scheduleSave();
     this.requestUpdate();

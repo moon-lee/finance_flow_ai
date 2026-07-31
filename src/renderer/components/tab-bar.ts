@@ -1,10 +1,6 @@
 import { LitElement, css, html } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-
-export interface Tab {
-  panelId: string;
-  label: string;
-}
+import type { Tab } from './types';
 
 @customElement('tab-bar')
 export class TabBar extends LitElement {
