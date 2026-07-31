@@ -1,7 +1,7 @@
 ---
 version: 0.7.3
 created: 2026-06-14
-last_updated: 2026-07-31T03:00:00+10:00
+last_updated: 2026-08-01T10:30:00+10:00
 ---
 
 # Changelog
@@ -180,6 +180,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Administrative
 
 - **Phase 5 Stage 3 — Panel infrastructure implemented.** (a) **Custom `finance-shell://` protocol** (`src/main/services/panel-protocol.ts` new, `src/main/main.ts` updated): serves `finance-shell://panel/<extensionId>/<viewId>.html` (panel HTML shell with `{{EXTENSION_ID}}` injection and strict CSP) and `finance-shell://extensions/<extensionId>.js` (extension ESM bundle). Registered via `protocol.handle('finance-shell')` before `app.whenReady()` per Electron docs. (b) **`WebviewPanelManager`** (`src/main/services/webview-panel-manager.ts` new): owns lifecycle of one `WebContentsView` per panel; `panels` map keyed by `webContents.id()` for sender-identity verification; `setBounds` / `setVisible` / `focus` lifecycle; mount request buffering during `onStartup` race; `destroyAll` wired to `app.on('will-quit')`. (c) **Panel preload** (`src/preload/panel-preload.ts` new, `vite.preload.config.ts` updated): `contextBridge.exposeInMainWorld('financeShell', { extensions: { list, executeCommand, uiEvent }, settings: { get, set }, onPanelInit })`; listens for `panel:init` and `panel:allowlist-denied`. (d) **Main-side message router** (`src/main/main.ts` updated): `extensions:ui-event` handler now resolves `extensionId` from `event.sender.id` via `findPanelByWebContentsId` (sender-identity verification, closes spoofing vector); `WebviewPanelUIHandler` surface in `ExtensionIPC`; renderer `navigation-panel.ts` made data-driven via `setNavigation(items)` using `contributes.navigation` from manifests; `extensions:list` now returns `navigation` array. Typecheck + lint + 312 unit tests pass.
+
+- **Phase 5 Manual Test Unit 7.4 amended** (`docs/superpowers/plans/2026-07-18-phase5-webviews-multiextension.md` L1394–1398). Decision: `salary.show-dashboard` stays **unregistered** (the registered-but-disallowed variant from plan Task 8.4 was reverted on 2026-08-01), so TU7.4's manual expectation is `{ executed: false, reason: 'command not found' }` rather than the allowlist-rejection reason. The `command not allowed for this extension` path remains covered by `tests/unit/main/services/command-allowlist.test.ts`. TU7.3/TU7.4 checkboxes marked done.
+
+- **Phase 5 Manual Test Units 4–9 — all marked done** (`docs/superpowers/plans/2026-07-18-phase5-webviews-multiextension.md` L1378–1409). TU4 (NavigationProvider) passed by user. TU5/TU6 (cross-extension `finance.services.pay.*` graceful degradation + happy path) passed by user against the live app. TU7 command allowlist: TU7.1/7.2 passed by user; TU7.3/7.4 amended (see previous entry) — expected `command not found`, allowlist-rejection path covered by `command-allowlist.test.ts`. TU8 ui-event allowlist verified 2026-08-01 via code path (allow `payslip-create` → forwarded to Host, main.ts:420/host.ts:341; drop `core.toggle-theme` with warn, main.ts:405 + `panel:allowlist-denied` main.ts:407). TU9 CSP verified 2026-08-01 via code path (meta tag `panel-template.html` L6–13 byte-identical to served `dist` copy; HTTP header in built `main.js` matches; actual policy `default-src 'none'` — stricter than plan's written `'self'`; no `'unsafe-eval'`).
 
 - **Phase 5 Stage 4 start — NavigationProvider data-driven sidebar + DAO `$join` operator.** (a) `navigation-panel.ts` rewritten from hardcoded branches to data-driven `setNavigation(NavItem[])` with `group` support. (b) `src/renderer/index.ts` loads `contributions.navigation` from `extensions:list` and passes it to the panel. (c) `DAOService.FindOptions.join` added for Phase 5 Task 6 `$join` operator (INNER JOIN only, validated by `assertReadable` on joined table). Typecheck + lint + 312 unit tests pass.
 

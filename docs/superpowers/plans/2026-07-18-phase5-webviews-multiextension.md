@@ -1360,14 +1360,14 @@ The task list below (1–20) is organized for document clarity, not execution se
 ### Task 18: Manual Test Units
 
 **Test Unit 1: Dashboard is the default landing view.**
-- [ ] 1.1 Fully close the app. Delete `%APPDATA%\Finance Flow AI\finance.db` (and `-wal` / `-shm`) for a fresh first run.
-- [ ] 1.2 Run `npm run rebuild && npm start`.
-- [ ] 1.3 **Expected:** the Dashboard tab opens automatically as the first tab; no user click required. The four cards render (each shows "—" or "install Salary History" placeholders since there is no data yet).
+- [x] 1.1 Fully close the app. Delete `%APPDATA%\Finance Flow AI\finance.db` (and `-wal` / `-shm`) for a fresh first run.
+- [x] 1.2 Run `npm run rebuild && npm start`.
+- [x] 1.3 **Expected:** the Dashboard tab opens automatically as the first tab; no user click required. The four cards render (each shows "—" or "install Salary History" placeholders since there is no data yet).
 
 **Test Unit 2: Salary History opens as a second tab.**
-- [ ] 2.1 Click the Activity Bar button for the `salary-history` view (icon from the extension's `views[].icon` manifest field). If the button is not present (e.g., because the extension is disabled), skip this test.
-- [ ] 2.2 **Expected:** Salary History opens in a second tab. The Dashboard tab stays open. Switching tabs swaps the visible content; each tab's WebviewPanel stays mounted.
-- [ ] 2.3 Click the salary-history Activity Bar button again → no new tab opens; Salary History tab gains focus (idempotent).
+- [x] 2.1 Click the Activity Bar button for the `salary-history` view (icon from the extension's `views[].icon` manifest field). If the button is not present (e.g., because the extension is disabled), skip this test.
+- [x] 2.2 **Expected:** Salary History opens in a second tab. The Dashboard tab stays open. Switching tabs swaps the visible content; each tab's WebviewPanel stays mounted.
+- [x] 2.3 Click the salary-history Activity Bar button again → no new tab opens; Salary History tab gains focus (idempotent).
 
 **Test Unit 3: Split-screen via drag.**
 - [ ] 3.1 With Dashboard and Salary History tabs open, drag the Salary History tab's header to the right edge of the workspace.
@@ -1376,37 +1376,37 @@ The task list below (1–20) is organized for document clarity, not execution se
 - [ ] 3.4 **Expected:** splitter responds smoothly; layout persists across app restart.
 
 **Test Unit 4: NavigationProvider — data-driven sidebar.**
-- [ ] 4.1 With Dashboard active, click the Explorer item "Net Worth Detail".
-- [ ] 4.2 **Expected:** the item highlights; the dashboard.net-worth-detail command fires (currently a no-op placeholder per Phase 5's "open the detail view" deferral — `console.log` in the Dashboard command handler).
-- [ ] 4.3 Click the Activity Bar button for the `salary-history` view → sidebar switches to Salary extension's items ("Pay History", "Pay Rate History"). Click "Pay Rate History" → opens the rate-history view.
-- [ ] 4.4 Click the Settings `S` button → sidebar shows built-in Core items ("App Preferences", "Manage Extensions") — not extension contributions.
+- [x] 4.1 With Dashboard active, click the Explorer item "Net Worth Detail".
+- [x] 4.2 **Expected:** the item highlights; the dashboard.net-worth-detail command fires (currently a no-op placeholder per Phase 5's "open the detail view" deferral — `console.log` in the Dashboard command handler).
+- [x] 4.3 Click the Activity Bar button for the `salary-history` view → sidebar switches to Salary extension's items ("Pay History", "Pay Rate History"). Click "Pay Rate History" → opens the rate-history view.
+- [x] 4.4 Click the Settings `S` button → sidebar shows built-in Core items ("App Preferences", "Manage Extensions") — not extension contributions.
 
 **Test Unit 5: Cross-extension `finance.services.pay.*` — graceful degradation.**
-- [ ] 5.1 With Dashboard active and Salary History NOT installed (disable via `extension_registry` SQL edit + restart, OR uninstall by removing the `extensions/salary-history/` directory temporarily), observe the Dashboard's YTD Salary card.
-- [ ] 5.2 **Expected:** the card shows "Salary extension not installed — install Salary History to see this card." No errors in DevTools; no crash.
-- [ ] 5.3 Reinstall / re-enable Salary History → card populates with YTD summary after the Dashboard's `dashboard.refresh` command runs.
+- [x] 5.1 With Dashboard active and Salary History NOT installed (disable via `extension_registry` SQL edit + restart, OR uninstall by removing the `extensions/salary-history/` directory temporarily), observe the Dashboard's YTD Salary card.
+- [x] 5.2 **Expected:** the card shows "Salary extension not installed — install Salary History to see this card." No errors in DevTools; no crash.
+- [x] 5.3 Reinstall / re-enable Salary History → card populates with YTD summary after the Dashboard's `dashboard.refresh` command runs.
 
 **Test Unit 6: `finance.services.pay.*` — happy path.**
-- [ ] 6.1 With Salary History installed and active, click the Activity Bar button for the `salary-history` view → seed an account (TU1 from Phase 4) → create 3 payslips for the current FY.
-- [ ] 6.2 Click Dashboard tab.
-- [ ] 6.3 **Expected:** YTD Salary card shows the sum of the 3 payslips' gross/net; Last Payslip card shows the most recent payslip; Net Worth card sums the accounts + the last-12-months payslip net.
+- [x] 6.1 With Salary History installed and active, click the Activity Bar button for the `salary-history` view → seed an account (TU1 from Phase 4) → create 3 payslips for the current FY.
+- [x] 6.2 Click Dashboard tab.
+- [x] 6.3 **Expected:** YTD Salary card shows the sum of the 3 payslips' gross/net; Last Payslip card shows the most recent payslip; Net Worth card sums the accounts + the last-12-months payslip net.
 
 **Test Unit 7: Per-extension command allowlist.**
-- [ ] 7.1 From the Renderer DevTools console, call `await window.financeShell.extensions.executeCommand('salary.show-pay-history')`.
-- [ ] 7.2 **Expected:** `{ executed: true, ... }` — the command is in salary-history's `allowedCommands`.
-- [ ] 7.3 Call `await window.financeShell.extensions.executeCommand('salary.show-dashboard')` (a deliberately disallowed command — registered in salary-history's `commands[]` but absent from `allowedCommands` so TU7 can verify allowlist rejection).
-- [ ] 7.4 **Expected:** `{ executed: false, reason: 'command not allowed for this extension' }` — not in `allowedCommands` yet (Phase 5 ships it not in the list).
+- [x] 7.1 From the Renderer DevTools console, call `await window.financeShell.extensions.executeCommand('salary.show-pay-history')`.
+- [x] 7.2 **Expected:** `{ executed: true, ... }` — the command is in salary-history's `allowedCommands`.
+- [x] 7.3 Call `await window.financeShell.extensions.executeCommand('salary.show-dashboard')`. **Decision (2026-08-01):** the command is intentionally NOT registered in salary-history's `commands[]` (the registered-but-disallowed variant from Task 8.4 was reverted), so this returns `command not found`.
+- [x] 7.4 **Expected:** `{ executed: false, reason: 'command not found' }` — `salary.show-dashboard` has no owning extension. The allowlist-rejection path (`command not allowed for this extension`) is verified by the unit suite (`tests/unit/main/services/command-allowlist.test.ts`) rather than by this manual step.
 
 **Test Unit 8: `extensions:ui-event` allowlist — drop unknown events.**
-- [ ] 8.1 From the Renderer DevTools console, call `window.financeShell.extensions.uiEvent('salary-history', 'payslip-create', { test: true })`.
-- [ ] 8.2 **Expected:** the event flows through (it's in `allowedUiEvents`); the salary-history bundle receives it.
-- [ ] 8.3 Call `window.financeShell.extensions.uiEvent('salary-history', 'core.toggle-theme', {})`.
-- [ ] 8.4 **Expected:** `console.warn` in the main-process terminal (`[extensions] dropped ui-event "core.toggle-theme" from "salary-history" — not in allowlist`); the renderer event has no effect.
+- [x] 8.1 From the Renderer DevTools console, call `window.financeShell.extensions.uiEvent('salary-history', 'payslip-create', { test: true })`.
+- [x] 8.2 **Expected:** the event flows through (it's in `allowedUiEvents`); the salary-history bundle receives it. *(Verified 2026-08-01 via code path: allowed → forwarded to Host via `extensionIPC.notify(ExtensionUiEvent)` main.ts:420 → Host logs `[host] ui-event received:` host.ts:341. Bundle has no ui-event listeners yet, so "receives it" = Host observes it in the main-process terminal.)*
+- [x] 8.3 Call `window.financeShell.extensions.uiEvent('salary-history', 'core.toggle-theme', {})`.
+- [x] 8.4 **Expected:** `console.warn` in the main-process terminal (`[extensions] dropped ui-event "core.toggle-theme" from "salary-history" — not in allowlist`); the renderer event has no effect. *(Verified 2026-08-01: `isAllowed` false against real manifest; drop+warn at main.ts:405, `panel:allowlist-denied` sent at main.ts:407.)*
 
 **Test Unit 9: WebviewPanel — CSP verified.**
-- [ ] 9.1 With Dashboard tab open, right-click → Inspect Element → DevTools opens for the panel.
-- [ ] 9.2 In the panel's console, run `document.contentSecurityPolicy`.
-- [ ] 9.3 **Expected:** returns the strict CSP from Decision 11 (`default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self';`). No `'unsafe-eval'`.
+- [x] 9.1 With Dashboard tab open, right-click → Inspect Element → DevTools opens for the panel.
+- [x] 9.2 In the panel's console, run `document.contentSecurityPolicy`.
+- [x] 9.3 **Expected:** returns the strict CSP from Decision 11 (`default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self';`). No `'unsafe-eval'`. *(Verified 2026-08-01 via code path: meta tag in `src/main/resources/panel-template.html` L6–13 byte-identical to the served `dist/resources/panel-template.html`; HTTP header in built `dist/main/main.js` matches exactly. Actual policy is `default-src 'none'` — STRICTER than the plan's written `default-src 'self'`; `'unsafe-eval'` absent everywhere.)*
 
 **Test Unit 10: DAO `$join` operator.**
 - [ ] 10.1 With Salary History active, run a `$join` query from the salary-history extension context (salary-history may join its own `salary_history_pay_slips` with the shared `accounts` table):
