@@ -11,7 +11,11 @@ const activationEventSchema = z.union([
 export const viewContributionSchema = z.object({
   id: z.string().regex(/^[a-z0-9-]+$/, 'view id must be lowercase alphanumeric/hyphen'),
   name: z.string().min(1),
-  icon: z.string().min(1).max(2)
+  icon: z.string().min(1).max(2),
+  // Phase 5 Fix 3 — a Host-executed command that opens this view with current
+  // data (see ManifestViewContribution.openCommand). Cross-checked against
+  // commands[] in manifestContributionsSchema below.
+  openCommand: z.string().regex(/^[a-z0-9.-]+$/, 'command id must be lowercase with dots/hyphens').optional()
 });
 
 export const commandContributionSchema = z.object({
@@ -75,6 +79,19 @@ export const manifestContributionsSchema = z.object({
       return data.allowedUiEvents.length === new Set(data.allowedUiEvents).size;
     },
     { message: 'allowedUiEvents must not contain duplicate entries', path: ['allowedUiEvents'] }
+  )
+  .refine(
+    (data) => {
+      if (!data.views || !data.commands) return true;
+      const commandIds = new Set(data.commands.map((c) => c.id));
+      return data.views.every(
+        (v) => !v.openCommand || commandIds.has(v.openCommand)
+      );
+    },
+    {
+      message: 'views[].openCommand must reference a command defined in commands[]',
+      path: ['views']
+    }
   );
 
 // ---------------------------------------------------------------------------

@@ -1,7 +1,7 @@
 ---
 version: 0.7.3
 created: 2026-06-14
-last_updated: 2026-07-31T00:00:00+10:00
+last_updated: 2026-07-31T02:30:00+10:00
 ---
 
 # Changelog
@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.7.3] - 2026-07-30
 
 ### Fixed
+
+- **Activity-bar click is a no-op for already-active extensions** (`src/main/main.ts`, `src/main/services/view-activation.ts` (new), tests in `tests/unit/main/services/view-activation.test.ts`). `extensions:activate-view` only activated the extension's Host module; once the module was already active (`ext.moduleUrl` set — salary-history now activates `onStartup`), the Host early-returned `true` and the click never mounted the view's panel. `extensions:activate-view` now *activates and opens*: after a successful activation, Main mounts the view's panel through the same `requestMount`/dedup path as `extension:request-mount` (fresh click mounts; repeat click re-shows + re-focuses the tab). Orchestration extracted into the testable `activateAndOpenView()` in `view-activation.ts`.
+
+- **Dashboard re-open after close shows empty cards until a nav-item refresh** (`src/types/finance.d.ts`, `src/extension-host/manifest-schema.ts`, `src/main/services/view-activation.ts`, `src/main/main.ts`, `extensions/dashboard/package.json`, tests in `tests/unit/main/services/view-activation.test.ts` and `tests/unit/extension-host/manifest-schema.test.ts`). The dashboard's data is computed in the Host (real `pay` service bindings) and shipped to the panel as `mountData`; the panel's own `services.invoke` is a no-op, so any mount without `mountData` renders empty. The activity-bar reopen path (see above) mounted via `requestMount` with no data. Views can now declare an `openCommand` on `ManifestViewContribution` (cross-validated by the manifest schema to reference a command in `commands[]`); `activateAndOpenView` executes it in the Host after activation (fresh `buildAggregator` → `requestMount` with data) instead of mounting a data-less panel, falling back to plain `requestMount` when absent or not-executed. `dashboard-view` declares `openCommand: "dashboard.refresh"`. Reopening the Dashboard now shows current data immediately.
 
 - **Contributed views shown as tabs at startup before their panels mounted** (`src/renderer/components/workspace.ts`, tests in `tests/unit/renderer/workspace.test.ts`). After the flat-layout refactor, `_refreshPanels` still populated `_tabs` from `extensions.list().views` (every contributed view) while `render()` consumed `_tabs` directly — so Dashboard + Pay History appeared as tabs on a fresh startup even though only Dashboard had mounted. The old tree-based `render()` walked the layout tree, which only ever held mounted panels. `_refreshPanels` now only reconciles labels of already-open tabs (and records contributed view labels for `_onPanelMounted` label resolution); a tab opens only when its panel actually mounts.
 

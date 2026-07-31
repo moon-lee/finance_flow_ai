@@ -26,6 +26,7 @@ import { UiEventAllowlist } from "./services/ui-event-allowlist";
 import { DomainServiceRegistry } from "./services/domain-service-registry";
 import { registerPanelProtocol } from "./services/panel-protocol";
 import { WebviewPanelManager } from "./services/webview-panel-manager";
+import { activateAndOpenView } from "./services/view-activation";
 
 const mainDir = fileURLToPath(new URL(".", import.meta.url));
 const rendererDevUrl = process.env.ELECTRON_RENDERER_URL;
@@ -235,8 +236,12 @@ function registerIpcHandlers(): void {
   // before any IPC traffic to the Host. The Host is therefore unreachable
   // for disabled extensions even with a stale renderer cache.
   ipcMain.handle("extensions:activate-view", async (_event, viewId: string) => {
-    if (!extensionIPC || !extensionRegistry)
+    if (!extensionIPC || !extensionRegistry || !webviewPanelManager)
       return { activated: false, reason: "host not running" };
+
+    // Narrowed aliases for use inside the nested deps closures below.
+    const activeIPC = extensionIPC;
+    const activePanelManager = webviewPanelManager;
 
     // Find the extension that owns this view BEFORE the try block so the catch
     // handler has the extension id available for recordCrash(). The find()
@@ -247,18 +252,45 @@ function registerIpcHandlers(): void {
     const owningExtensionId = owning.extensionId;
 
     try {
-      const result = await extensionIPC.request<{ activated: boolean }>(
-        "extension.activate",
+      // [Fix 2] Activate AND open. `activateView` alone was a no-op once the
+      // extension was already active (Host early-returns `true` when
+      // `ext.moduleUrl` is set), so an activity-bar click on an already-active
+      // extension never mounted the view's panel. `activateAndOpenView` opens
+      // the panel via the same requestMount/dedup path as `extension:request-mount`.
+      // [Fix 3] When the view declares an `openCommand`, it is executed in the
+      // Host instead — views whose data is Host-computed (dashboard aggregates)
+      // re-run their computation and mount WITH fresh mountData, instead of
+      // mounting a data-less panel that renders empty.
+      const openCommandId = owning.view.openCommand;
+      const activated = await activateAndOpenView(
         {
-          extensionId: owningExtensionId,
-          reason: `onView:${viewId}`,
+          activate: async (extensionId, reason) => {
+            const res = await activeIPC.request<{ activated: boolean }>(
+              "extension.activate",
+              { extensionId, reason },
+            );
+            return res.activated;
+          },
+          openView: (extensionId, viewId) => {
+            activePanelManager.requestMount(extensionId, viewId);
+          },
+          runOpenCommand: async (extensionId, commandId) => {
+            const res = await activeIPC.request<{ executed: boolean }>(
+              "extension.executeCommand",
+              { commandId, args: [] },
+            );
+            return res.executed;
+          },
         },
+        owningExtensionId,
+        viewId,
+        openCommandId,
       );
-      if (result.activated) {
+      if (activated) {
         extensionRegistry.markActivated(owningExtensionId);
         extensionRegistry.clearCrashes(owningExtensionId);
       }
-      return result;
+      return { activated };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       console.error(

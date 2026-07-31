@@ -47,6 +47,14 @@ export interface ManifestViewContribution {
   name: string;
   /** Single-character or short icon label rendered in the Activity Bar button. */
   icon: string;
+  /**
+   * Optional command (executed in the Host with real service bindings) that
+   * opens this view with current data. Views whose data is Host-computed
+   * (e.g. dashboard aggregates) declare this so the Activity Bar's
+   * activate-view path re-runs the computation instead of mounting a
+   * data-less panel. Must reference a command defined in `commands[]`.
+   */
+  openCommand?: string;
 }
 
 export interface ManifestCommandContribution {

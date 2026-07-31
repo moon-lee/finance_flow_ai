@@ -251,6 +251,47 @@ describe('validateManifest (tables[] — Phase 4 Task 8)', () => {
     }
   });
 
+  // ---- Phase 5 Fix 3 — views[].openCommand contract ----
+
+  it('accepts a view with openCommand referencing a declared command', () => {
+    const result = validateManifest({
+      ...validManifest,
+      contributions: {
+        views: [{ id: 'dashboard-view', name: 'Dashboard', icon: 'D', openCommand: 'dashboard.refresh' }],
+        commands: [{ id: 'dashboard.refresh', title: 'Refresh Dashboard' }]
+      }
+    });
+    expect(result.ok).toBe(true);
+  });
+
+  it('rejects openCommand referencing a command not in commands[]', () => {
+    const result = validateManifest({
+      ...validManifest,
+      contributions: {
+        views: [{ id: 'dashboard-view', name: 'Dashboard', icon: 'D', openCommand: 'dashboard.missing' }],
+        commands: [{ id: 'dashboard.refresh', title: 'Refresh Dashboard' }]
+      }
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.errors.some((e) => /openCommand/.test(e))).toBe(true);
+    }
+  });
+
+  it('rejects an openCommand with an invalid command id format', () => {
+    const result = validateManifest({
+      ...validManifest,
+      contributions: {
+        views: [{ id: 'dashboard-view', name: 'Dashboard', icon: 'D', openCommand: 'Dashboard.Refresh' }],
+        commands: [{ id: 'dashboard.refresh', title: 'Refresh Dashboard' }]
+      }
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.errors.some((e) => /openCommand/.test(e) && /command id/.test(e))).toBe(true);
+    }
+  });
+
   it('rejects an invalid table name (must be lowercase snake_case)', () => {
     // The plan calls this "no prefix match"; the schema's interpretation
     // is the SQL-identifier safety check (lowercase letter start,
