@@ -1241,21 +1241,20 @@ The task list below (1–20) is organized for document clarity, not execution se
 
 **Files:** `src/renderer/components/workspace.ts` (rewritten), `src/renderer/components/tab-bar.ts` (new), `src/renderer/components/split-pane.ts` (new), `src/renderer/styles/layout.css` (modified), `tests/unit/renderer/workspace.test.ts` (new), `tests/unit/renderer/tab-bar.test.ts` (new)
 
+> **Deviation (ADR-0006, 2026-07-31):** The workspace ships with a **flat tab list** (`_tabs` + `_activePanelId`) as the single source of truth; the `WorkspaceNode` split tree and the tab-strip drag-to-split are **deferred**. The originally planned tree model produced phantom `split` nodes that were never rendered, persisted, and then silently discarded on restart. Persisted layouts are now versioned flat JSON (`{ version: 1, tabs, activePanelId }`); the `version` field is the migration hook for a future `version: 2` split model. `split-pane.ts` is retained, unimported, for that retry.
+
 **Steps:**
 
-- [ ] 12.1 In `workspace.ts`, replace the static Dashboard placeholder with a `WorkspaceLayout` tree (Decision 9):
-  ```ts
-  type WorkspaceNode = { type: 'tab', panelId: string, label: string } | { type: 'split', direction: 'horizontal' | 'vertical', children: [WorkspaceNode, WorkspaceNode] };
-  ```
-- [ ] 12.2 In `tab-bar.ts`, render the tabs in the active leaf's path; support drag-to-split (HTML5 Drag and Drop).
-- [ ] 12.3 In `split-pane.ts`, render a 2-pane container with a draggable splitter; close-on-last-tab collapses the split.
-- [ ] 12.4 In `styles/layout.css`, add tab bar + splitter styles matching the existing palette.
-- [ ] 12.5 Persist the `WorkspaceLayout` to `core.workspace.layout` setting on every change (debounced 500 ms). Guard against settings bloat: if the serialized JSON exceeds 16 KB, truncate to the active tab only.
-- [ ] 12.6 Restore the `WorkspaceLayout` from the setting on `DOMContentLoaded`. If restoration fails (missing extension, corrupted JSON, size > 16 KB), fall back to a single-tab default layout with the Dashboard active.
-- [ ] 12.7 Add 6 workspace tests + 4 tab-bar tests.
-- [ ] 12.8 In `workspace.ts` or `tab-bar.ts`, attach a `ResizeObserver` to the active pane's container. Throttle the observer callback with `requestAnimationFrame` so that rapid resize events (e.g., drag-splitter) send at most one `panel:resize` IPC message per frame. On each throttled callback, compute the container's pixel bounds relative to the main window and send them to Main via `ipcRenderer.send('panel:resize', { panelId, bounds: { x, y, width, height } })`. In `webview-panel-manager.ts`, listen for `panel:resize` and call `view.setBounds(bounds)` on the matching `WebContentsView`. This is the sync mechanism referenced in Decision 1 L164.
+- [x] 12.1 In `workspace.ts`, replace the static Dashboard placeholder with a tab host. **Revised (ADR-0006):** `_tabs: Tab[]` defaults to a single Dashboard tab; no `WorkspaceNode` tree. `_addPanel` appends to `_tabs` (idempotent), `_closePanel` filters it (active-tab close refocuses the neighbour / new last tab; last-tab close unmounts all), `_focusPanel` only accepts open panels.
+- [x] 12.2 In `tab-bar.ts`, render the tabs from the flat list. **Revised (ADR-0006):** the drag-to-split affordance (HTML5 DnD: `draggable`, `dragstart`/`dragend`, `tab-drag-end`, drop-affordance CSS) is **removed**; tabs are not draggable until the split retry.
+- [ ] 12.3 In `split-pane.ts`, render a 2-pane container with a draggable splitter; close-on-last-tab collapses the split. **Deferred to the `version: 2` split retry.** `split-pane.ts` exists but is unimported (dead code pending the retry).
+- [x] 12.4 In `styles/layout.css`, add tab bar styles matching the existing palette. (Splitter styles ship with the split retry.)
+- [x] 12.5 Persist the layout to `core.workspace.layout` on every change (debounced 500 ms). **Revised (ADR-0006):** serialized as `{ version: 1, tabs, activePanelId }`. Guard against settings bloat: if the serialized JSON exceeds 16 KB, skip the write.
+- [x] 12.6 Restore the layout on element connect. If restoration fails (corrupted JSON, no valid tabs), fall back to a single-tab default layout with the Dashboard active. Legacy `{ type: 'tab', ... }` payloads (0.7.x) are migrated to the flat format.
+- [x] 12.7 Add 12 workspace tests + 4 tab-bar tests (flat model, idempotent add, focus rules, close-refocus, persistence round-trip, legacy migration, no split-pane render).
+- [x] 12.8 In `workspace.ts`, attach a `ResizeObserver` to the content container and send `panel:resize` bounds for the active panel. (Splitter-driven throttled resize lands with the split retry.)
 
-**Verification:** `npm run test:unit -- workspace tab-bar` → all tests pass; manual: open 3 tabs → drag one to the right edge → 2-pane split appears; restart app → layout restored.
+**Verification:** `npm run test:unit -- workspace tab-bar` → all tests pass; manual: open 3 tabs → tab bar shows all tabs, switching tabs swaps the active WebviewPanel; restart app → tabs + active tab restored. Split verification (drag to right edge → 2-pane split) is pending the split retry.
 
 ---
 

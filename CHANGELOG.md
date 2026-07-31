@@ -1,7 +1,7 @@
 ---
 version: 0.7.3
 created: 2026-06-14
-last_updated: 2026-07-30T10:00:00+10:00
+last_updated: 2026-07-31T00:00:00+10:00
 ---
 
 # Changelog
@@ -14,6 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.7.3] - 2026-07-30
 
 ### Fixed
+
+- **Contributed views shown as tabs at startup before their panels mounted** (`src/renderer/components/workspace.ts`, tests in `tests/unit/renderer/workspace.test.ts`). After the flat-layout refactor, `_refreshPanels` still populated `_tabs` from `extensions.list().views` (every contributed view) while `render()` consumed `_tabs` directly — so Dashboard + Pay History appeared as tabs on a fresh startup even though only Dashboard had mounted. The old tree-based `render()` walked the layout tree, which only ever held mounted panels. `_refreshPanels` now only reconciles labels of already-open tabs (and records contributed view labels for `_onPanelMounted` label resolution); a tab opens only when its panel actually mounts.
+
+- **Saved workspace layout silently discarded on restart** (`src/renderer/components/workspace.ts`, tests in `tests/unit/renderer/workspace.test.ts`). The old `WorkspaceLayout` tree was serialized to `core.workspace.layout` on every change, but `_restoreLayout` only accepted `{ type: 'tab', ... }` nodes — any saved split/multi-tab tree fell back to a default single-tab layout, so multi-tab state was lost across restarts. The flat model (see Changed) restores `{ version: 1, tabs, activePanelId }` on connect and migrates legacy `{ type: 'tab', ... }` payloads.
+
+- **Tab-bar "marks the active tab" unit test was failing** (`tests/unit/renderer/tab-bar.test.ts`). The assertion read the whole `.tab` `textContent` (icon + label + close glyph) but expected only the label; it now queries `.tab.active .tab-label`.
 
 - **Dashboard refresh command never updates panel with new data** (`src/main/services/webview-panel-manager.ts`, `src/preload/panel-preload.ts`, `src/main/resources/panel-bootstrap.ts`, `extensions/dashboard/src/ui/dashboard-view.ts`). Two root causes fixed: (1) Commands and service registration ran after the renderer early-return in both `dashboard/main.ts` and `salary-history/main.ts`, so the refresh command was never registered in the panel context. (2) `mount()` dedup path discarded new `mountData` — added `panel:mount-update` IPC channel that forwards updated data to existing panels, which dispatches a `mount-update` CustomEvent to the Lit element for re-render.
 
@@ -58,6 +64,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **destroyAll crash on already-destroyed webContents** (`src/main/services/webview-panel-manager.ts`). Split `removeChildView` and `close` into separate try/catch blocks. When BrowserWindow closes, child views are destroyed first; accessing `view.webContents` after view destruction throws before `isDestroyed()` can be checked.
 
 ### Changed
+
+- **Console breadcrumbs removed from workspace component** (`src/renderer/components/workspace.ts`). All routine `console.log` trace markers (`onMounted`/`onRequestBounds` callbacks, `_onPanelMounted` lifecycle, `firstUpdated`, `_sendBoundsToPanel` bounds dump, `_onTabClose`, and the `_refreshPanels` start/contribution/updated/done lines) are deleted. Only the three actionable statements remain: `console.warn` for a mounted panel absent from the tab list and for a missing `.content` element, and `console.error` when `panel.resize()` throws.
+
+- **Workspace layout refactored to a flat tab list** (`src/renderer/components/workspace.ts`, `src/renderer/components/tab-bar.ts`, `tests/unit/renderer/workspace.test.ts`, `tests/unit/renderer/tab-bar.test.ts`, ADR-0006). The `WorkspaceNode` split-tree model is removed; `_tabs` + `_activePanelId` are now the single source of truth. Previously every tab add wrapped the layout in a phantom `{ type: 'split', ... }` node that was never rendered, persisted to `core.workspace.layout`, and then silently discarded on restart (see Fixed below). Persisted layouts are now versioned flat JSON (`{ version: 1, tabs, activePanelId }`, 500 ms debounce, 16 KB guard); legacy `{ type: 'tab', ... }` payloads migrate on restore. `_focusPanel` now only activates open panels; closing the active tab refocuses the neighbour / new last tab; closing the last tab unmounts all panels. The tab strip's drag-to-split affordance (HTML5 DnD: `draggable`, `dragstart`/`dragend`, `tab-drag-end`, drop-affordance CSS) is removed; `split-pane.ts` stays as unimported, reusable code pending the split retry.
 
 - **Removed redundant setTimeout fallback timers** (`src/renderer/components/workspace.ts`). Now that `panel:resize` IPC works reliably after preload fix, removed `_boundsFallbackTimer`, `firstUpdated` duplicate setTimeout, `_refreshPanels` duplicate setTimeout, and `_addPanel` duplicate setTimeout. Only `_saveTimer` (layout persistence debounce) remains.
 

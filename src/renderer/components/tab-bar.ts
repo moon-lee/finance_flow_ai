@@ -101,17 +101,6 @@ export class TabBar extends LitElement {
       background: #007acc;
       color: #ffffff;
     }
-
-    .tab-drop-affordance {
-      width: 6px;
-      cursor: col-resize;
-      background: transparent;
-      flex-shrink: 0;
-    }
-
-    .tab-drop-affordance:hover {
-      background: #007acc;
-    }
   `;
 
   @property({ type: Array })
@@ -132,16 +121,6 @@ export class TabBar extends LitElement {
     this.dispatchEvent(new CustomEvent('tab-close', { detail: { panelId }, bubbles: true, composed: true }));
   }
 
-  private _onDragStart(event: DragEvent, panelId: string) {
-    if (!event.dataTransfer) return;
-    event.dataTransfer.setData('text/plain', panelId);
-    event.dataTransfer.effectAllowed = 'move';
-  }
-
-  private _onDragEnd() {
-    this.dispatchEvent(new CustomEvent('tab-drag-end', { bubbles: true, composed: true }));
-  }
-
   render() {
     return html`
       <div class="tabs" role="tablist">
@@ -149,10 +128,7 @@ export class TabBar extends LitElement {
           <div class="tab ${tab.panelId === this.activePanelId ? 'active' : ''}"
                role="tab"
                aria-selected="${tab.panelId === this.activePanelId}"
-               draggable="${tab.panelId ? 'true' : 'false'}"
-               @click="${() => tab.panelId && this._onTabClick(tab.panelId)}"
-               @dragstart="${(e: DragEvent) => tab.panelId && this._onDragStart(e, tab.panelId)}"
-               @dragend="${this._onDragEnd}">
+               @click="${() => tab.panelId && this._onTabClick(tab.panelId)}">
             <span class="tab-icon">${tab.label.split(' ')[1]?.charAt(0).toUpperCase() ?? tab.label.charAt(0).toUpperCase()}</span>
             <span class="tab-label">${tab.label}</span>
             ${tab.panelId ? html`<span class="tab-close" @click="${(e: Event) => this._onTabClose(e, tab.panelId)}">\u00d7</span>` : ''}

@@ -30,7 +30,7 @@ describe('tab-bar', () => {
     document.body.appendChild(el);
     await el.updateComplete;
     const shadow = el.shadowRoot as unknown as { querySelector: (sel: string) => HTMLElement | null } | null;
-    expect(shadow?.querySelector('.tab.active')?.textContent?.trim()).toBe('Salary');
+    expect(shadow?.querySelector('.tab.active .tab-label')?.textContent?.trim()).toBe('Salary');
     document.body.removeChild(el);
   });
 
@@ -47,13 +47,13 @@ describe('tab-bar', () => {
     document.body.removeChild(el);
   });
 
-  it('sets draggable on tabs', async () => {
+  it('does not mark tabs draggable', async () => {
     const el = document.createElement('tab-bar') as TabBar;
     el.tabs = [{ panelId: 'panel-1', label: 'Dashboard' }];
     document.body.appendChild(el);
     await el.updateComplete;
     const shadow = el.shadowRoot as unknown as { querySelector: (sel: string) => HTMLElement | null } | null;
-    expect(shadow?.querySelector('.tab')?.getAttribute('draggable')).toBe('true');
+    expect(shadow?.querySelector('.tab')?.hasAttribute('draggable')).toBe(false);
     document.body.removeChild(el);
   });
 });

@@ -188,9 +188,9 @@
 | `src/extension-host/api/db.ts` | modified | `find`/`findOne` now accept an optional second `options` argument to pass `$join`/`$orderBy`/`$limit`/`$offset` to Main. |
 | `src/extension-host/host.ts` | modified | Implements `onStartup` activation event handling; activates Dashboard automatically after Host ready. |
 | `src/preload/panel-preload.ts` | new (updated) | Panel preload `contextBridge` exposing `window.financeShell`: extensions (list/executeCommand/uiEvent/readTable/writeTable) + settings (get/set) + `onPanelInit(callback)` for panel-init IPC from Main. Caches `panel:init` payload in `cachedPayloads`; `onPanelInit()` dispatches cached payload immediately to late subscribers (handles deferred module script timing where `did-finish-load` fires before module execution). `readTable`/`writeTable` added so panel-mounted components access the extension-namespaced DB. |
-| `src/renderer/components/workspace.ts` | rewritten | Replaces single static tab with a `WorkspaceLayout` tree supporting multiple tabs + 2-pane horizontal/vertical split; persists/restores layout to `core.workspace.layout`. |
-| `src/renderer/components/tab-bar.ts` | new | Renders the tab strip for the active leaf; supports drag-to-split affordance. |
-| `src/renderer/components/split-pane.ts` | new | 2-pane container with draggable splitter; collapses when the last tab in a pane closes. |
+| `src/renderer/components/workspace.ts` | rewritten | Multi-tab host with a **flat tab list** (`_tabs` + `_activePanelId`) as the single source of truth (ADR-0006); default Dashboard tab; persists/restores `{ version: 1, tabs, activePanelId }` to `core.workspace.layout` (debounced 500 ms, 16 KB guard, legacy `{type:'tab'}` payloads migrated). No split-tree (deferred to a `version: 2` split retry). |
+| `src/renderer/components/tab-bar.ts` | new | Renders the tab strip from the flat tab list; active-tab highlight; `tab-focus`/`tab-close` events. Drag-to-split affordance removed (ADR-0006). |
+| `src/renderer/components/split-pane.ts` | new | 2-pane container with draggable splitter; collapses when the last tab in a pane closes. **Unimported dead code** pending the split retry (ADR-0006). |
 | `src/renderer/components/navigation-panel.ts` | rewritten | NavigationProvider: renders `contributes.navigation` items from the active extension, grouped by `group`; built-in Core items remain for `__settings__`. |
 | `src/renderer/components/salary-history-view.ts` | removed | Replaced by WebviewPanel + panel-preload + the extension bundle's own orchestrator. |
 | `src/renderer/index.ts` | modified | Removes `extensions.onUiMount` subscription and `salary-history-view` usage; listens for `panel:init` from Main on mount and `panel:auto-save-failed` on unmount; keeps command palette / activity bar wiring. |
@@ -223,8 +223,8 @@
 | `tests/unit/main/services/ui-event-allowlist.test.ts` | new | 5 tests covering allow/deny, drop-with-warn, Phase 4 migration shim. |
 | `tests/unit/extension-host/host-on-startup.test.ts` | new | 5 tests covering `onStartup` activation order, crash → hot-disable, no double activation. |
 | `tests/unit/renderer/navigation-panel.test.ts` | new | 5 tests covering grouped items, click → command-selected, active extension switch. |
-| `tests/unit/renderer/workspace.test.ts` | new | 6 tests covering `WorkspaceLayout` tree, drag-to-split, persistence. |
-| `tests/unit/renderer/tab-bar.test.ts` | new | 4 tests covering tab strip, active tab, drag affordance. |
+| `tests/unit/renderer/workspace.test.ts` | new | 12 tests covering the flat tab model: default Dashboard tab, idempotent add, focus rules (existing vs unknown panel), close-refocus (neighbour, new last, empty), persistence round-trip (`version`, tabs, activePanelId), legacy `{type:'tab'}` migration, no split-pane render. |
+| `tests/unit/renderer/tab-bar.test.ts` | new | 4 tests covering tab strip, active tab, tab-focus on click, tabs not draggable (DnD removed). |
 | `tests/unit/extensions/salary-history/public-pay-adapter.test.ts` | new | 8 tests covering the 4 public methods + null-on-error. |
 | `tests/unit/extensions/dashboard/aggregator-service.test.ts` | new | 6 tests covering `buildAggregator` with mocked `FinanceApi`. |
 | `tests/unit/extensions/dashboard/ui/dashboard-view.test.ts` | new | 5 tests covering card rendering and missing-data placeholders. |
