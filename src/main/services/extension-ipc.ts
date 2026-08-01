@@ -103,8 +103,9 @@ export class ExtensionIPC {
     onMountRequested(extensionId: string, viewId: string, mountData?: object): void;
     onFocusRequested(panelId: string): void;
     onUiEvent(webContentsId: number, eventName: string, detail: unknown): void;
-    onSetDirty(panelId: string, dirty: boolean): void;
-    onAutoSaveDraft(panelId: string): Promise<void>;
+    onSetDirty(extensionId: string, dirty: boolean): void;
+    onAutoSaveDraft(extensionId: string): Promise<void>;
+    onBeforeUnmount(extensionId: string): Promise<void>;
   } | null = null;
   private panelNavigateHandler: {
     onNavigate(extensionId: string, view: string, mountData?: object): void;
@@ -397,8 +398,9 @@ export class ExtensionIPC {
     onMountRequested(extensionId: string, viewId: string, mountData?: object): void;
     onFocusRequested(panelId: string): void;
     onUiEvent(webContentsId: number, eventName: string, detail: unknown): void;
-    onSetDirty(panelId: string, dirty: boolean): void;
-    onAutoSaveDraft(panelId: string): Promise<void>;
+    onSetDirty(extensionId: string, dirty: boolean): void;
+    onAutoSaveDraft(extensionId: string): Promise<void>;
+    onBeforeUnmount(extensionId: string): Promise<void>;
   } | null): () => void {
     this.uiHandler = handler;
     return () => {
@@ -420,6 +422,28 @@ export class ExtensionIPC {
     const resolvedViewId = viewId ?? componentTag ?? 'unknown';
     console.log('[extension-ipc] handleUiMount: resolvedViewId:', resolvedViewId, 'extensionId:', extensionId);
     this.uiHandler.onMountRequested(extensionId, resolvedViewId, mountData as object | undefined);
+  }
+
+  handleUiSetDirty(params: unknown): { ok: true } {
+    const { extensionId, dirty } = params as { extensionId: string; dirty: boolean };
+    console.log(`[extension-ipc] handleUiSetDirty: ${extensionId} dirty=${dirty}`);
+    if (!this.uiHandler) {
+      console.warn('[extension-ipc] handleUiSetDirty: uiHandler is null — dropped');
+      return { ok: true };
+    }
+    this.uiHandler.onSetDirty(extensionId, dirty);
+    return { ok: true };
+  }
+
+  async handleUiAutoSaveDraft(params: unknown): Promise<{ ok: true }> {
+    const { extensionId } = params as { extensionId: string };
+    console.log(`[extension-ipc] handleUiAutoSaveDraft: ${extensionId}`);
+    if (!this.uiHandler) {
+      console.warn('[extension-ipc] handleUiAutoSaveDraft: uiHandler is null — dropped');
+      return { ok: true };
+    }
+    await this.uiHandler.onAutoSaveDraft(extensionId);
+    return { ok: true };
   }
 
   /**
@@ -647,7 +671,13 @@ export class ExtensionIPC {
             result = await this.handleDomainServiceInvoke(req.params);
           break;
         case RPC_METHOD.ExtensionNavigatePanel:
-          result = this.handleNavigatePanel(req.params);
+          result = await this.handleNavigatePanel(req.params);
+          break;
+        case RPC_METHOD.ExtensionUiSetDirty:
+          result = await this.handleUiSetDirty(req.params);
+          break;
+        case RPC_METHOD.ExtensionUiAutoSaveDraft:
+          result = await this.handleUiAutoSaveDraft(req.params);
           break;
         default:
           this.process.postMessage({

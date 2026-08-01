@@ -36,8 +36,12 @@ const noopUIHandler = {
   onMountRequested: () => {},
   onFocusRequested: () => {},
   onUiEvent: () => {},
-  onSetDirty: () => {},
-  onAutoSaveDraft: async () => {}
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  onSetDirty: (_extensionId: string, _dirty: boolean) => {},
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  onAutoSaveDraft: async (_extensionId: string) => {},
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  onBeforeUnmount: async (_extensionId: string) => {}
 };
 
 describe('WebviewPanelManager sender-identity (Task 4.1)', () => {

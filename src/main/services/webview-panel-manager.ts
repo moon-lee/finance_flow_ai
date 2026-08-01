@@ -40,8 +40,9 @@ export interface WebviewPanelUIHandler {
   ): void;
   onFocusRequested(panelId: string): void;
   onUiEvent(webContentsId: number, eventName: string, detail: unknown): void;
-  onSetDirty(panelId: string, dirty: boolean): void;
-  onAutoSaveDraft(panelId: string): Promise<void>;
+  onSetDirty(extensionId: string, dirty: boolean): void;
+  onAutoSaveDraft(extensionId: string): Promise<void>;
+  onBeforeUnmount(extensionId: string): Promise<void>;
 }
 
 interface MountRequest {
@@ -59,6 +60,7 @@ export class WebviewPanelManager {
   private readonly mountShowTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private activePanelId: string | null = null;
   private overlayActive = false;
+  private readonly dirtyPanelIds = new Set<string>();
 
   setMainWindow(window: BrowserWindow): void {
     console.log('[setMainWindow] window:', window);
@@ -69,6 +71,47 @@ export class WebviewPanelManager {
 
   setUIHandler(handler: WebviewPanelUIHandler | null): void {
     this.uiHandler = handler;
+  }
+
+  setDirty(panelId: string, dirty: boolean): void {
+    console.log(`[webview-panel] setDirty: ${panelId} dirty=${dirty}`);
+    if (dirty) {
+      this.dirtyPanelIds.add(panelId);
+    } else {
+      this.dirtyPanelIds.delete(panelId);
+    }
+  }
+
+  isDirty(panelId: string): boolean {
+    return this.dirtyPanelIds.has(panelId);
+  }
+
+  findByExtensionId(extensionId: string): PanelHandle | undefined {
+    return Array.from(this.panels.values()).find(h => h.extensionId === extensionId);
+  }
+
+  async autoSaveDraft(panelId: string): Promise<void> {
+    console.log(`[webview-panel] autoSaveDraft called: ${panelId}`);
+    const handle = this.findByPanelId(panelId);
+    if (!handle) {
+      console.warn(`[webview-panel] autoSaveDraft: panel not found for ${panelId}`);
+      return;
+    }
+    if (!this.uiHandler) {
+      console.warn('[webview-panel] autoSaveDraft: uiHandler is null');
+      return;
+    }
+    try {
+      await Promise.race([
+        this.uiHandler.onAutoSaveDraft(handle.extensionId),
+        new Promise<void>((_, reject) =>
+          setTimeout(() => reject(new Error('autoSaveDraft timed out')), 500)
+        ),
+      ]);
+    } catch (err) {
+      console.error(`[webview-panel] autoSaveDraft failed for ${panelId}:`, err);
+      this.mainWindow?.webContents.send('panel:auto-save-failed', { panelId });
+    }
   }
 
   mount(
@@ -470,7 +513,6 @@ export class WebviewPanelManager {
 
   async destroyAll(): Promise<void> {
     const handles = Array.from(this.panels.values());
-    this.panels.clear();
     this.pendingResizes.clear();
     for (const timer of this.mountShowTimers.values()) clearTimeout(timer);
     this.mountShowTimers.clear();
@@ -479,7 +521,7 @@ export class WebviewPanelManager {
         try {
           if (this.uiHandler) {
             await Promise.race([
-              this.uiHandler.onAutoSaveDraft(handle.panelId),
+              this.uiHandler.onAutoSaveDraft(handle.extensionId),
               new Promise<void>((_, reject) =>
                 setTimeout(
                   () => reject(new Error("autoSaveDraft timed out")),
@@ -506,5 +548,7 @@ export class WebviewPanelManager {
         } catch { /* webContents already destroyed */ }
       }),
     );
+    this.panels.clear();
+    this.activePanelId = null;
   }
 }

@@ -510,6 +510,29 @@ function registerIpcHandlers(): void {
     webviewPanelManager?.unmountAll();
   });
 
+  ipcMain.on("panel:set-dirty", (_event, extensionId: string, dirty: boolean) => {
+    const panel = webviewPanelManager?.findByExtensionId(extensionId);
+    const panelId = panel?.panelId;
+    if (panelId) {
+      webviewPanelManager?.setDirty(panelId, dirty);
+    } else {
+      console.warn(`[panels] panel:set-dirty: no panel found for extension ${extensionId}`);
+    }
+  });
+
+  ipcMain.handle("panel:auto-save-draft", async (_event, extensionId: string) => {
+    const panel = webviewPanelManager?.findByExtensionId(extensionId);
+    if (!panel) {
+      console.warn(`[panels] panel:auto-save-draft: no panel found for extension ${extensionId}`);
+      return;
+    }
+    try {
+      await webviewPanelManager!.autoSaveDraft(panel.panelId);
+    } catch (err) {
+      console.error(`[panels] panel:auto-save-draft failed for ${panel.panelId}:`, err);
+    }
+  });
+
   // Phase 4 Task 17 (Test Unit 1) — Core-owned account creation. The `accounts`
   // table is Platform-owned and read-only for extensions (Decision 4), so the
   // first-run seed modal routes its write through this Core path rather than
@@ -759,8 +782,30 @@ app.whenReady().then(async () => {
           detail,
         });
       },
-      onSetDirty: () => {},
-      onAutoSaveDraft: async () => {},
+      onSetDirty: (extensionId, dirty) => {
+        const panel = webviewPanelManager?.findByExtensionId(extensionId);
+        const panelId = panel?.panelId;
+        if (panelId) {
+          webviewPanelManager?.setDirty(panelId, dirty);
+        } else {
+          console.warn(`[panels] setDirty: no panel found for extension ${extensionId}`);
+        }
+      },
+      onAutoSaveDraft: async (extensionId) => {
+        const panel = webviewPanelManager?.findByExtensionId(extensionId);
+        if (!panel) {
+          console.warn(`[panels] autoSaveDraft: no panel found for extension ${extensionId}`);
+          return;
+        }
+        console.log(`[panels] onAutoSaveDraft for ${panel.panelId} (no-op in Phase 5)`);
+      },
+      onBeforeUnmount: async (extensionId) => {
+        const panel = webviewPanelManager?.findByExtensionId(extensionId);
+        if (!panel) return;
+        // Phase 5: no timer, so onBeforeUnmount is only called explicitly
+        // from destroyAll() / unmount() when we add that wiring later.
+        console.log(`[panels] onBeforeUnmount for ${panel.panelId} (no-op in Phase 5)`);
+      },
     });
 
     // [Fix] Create WebviewPanelManager and wire up the UI handler BEFORE
@@ -815,8 +860,30 @@ app.whenReady().then(async () => {
           detail,
         });
       },
-      onSetDirty: () => {},
-      onAutoSaveDraft: async () => {},
+      onSetDirty: (extensionId, dirty) => {
+        const panel = webviewPanelManager?.findByExtensionId(extensionId);
+        const panelId = panel?.panelId;
+        if (panelId) {
+          webviewPanelManager?.setDirty(panelId, dirty);
+        } else {
+          console.warn(`[panels] setDirty: no panel found for extension ${extensionId}`);
+        }
+      },
+      onAutoSaveDraft: async (extensionId) => {
+        const panel = webviewPanelManager?.findByExtensionId(extensionId);
+        if (!panel) {
+          console.warn(`[panels] autoSaveDraft: no panel found for extension ${extensionId}`);
+          return;
+        }
+        console.log(`[panels] onAutoSaveDraft for ${panel.panelId} (no-op in Phase 5)`);
+      },
+      onBeforeUnmount: async (extensionId) => {
+        const panel = webviewPanelManager?.findByExtensionId(extensionId);
+        if (!panel) return;
+        // Phase 5: no timer, so onBeforeUnmount is only called explicitly
+        // from destroyAll() / unmount() when we add that wiring later.
+        console.log(`[panels] onBeforeUnmount for ${panel.panelId} (no-op in Phase 5)`);
+      },
     });
 
     await createWindow();

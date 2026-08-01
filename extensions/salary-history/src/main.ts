@@ -77,40 +77,40 @@ export async function activate(
     (await finance.settings?.get('salary-history.defaultCurrency')) ?? 'AUD';
   const financialYearStart =
     (await finance.settings?.get('salary-history.financialYearStart')) ?? '07-01';
-  const settingsMountData = { defaultCurrency, financialYearStart };
+   const settingsMountData = { defaultCurrency, financialYearStart };
    console.log('[salary-history] activate', { defaultCurrency, financialYearStart });
 
-  // Register public pay service + commands in ALL contexts.
-  const payAdapter = createPublicPayAdapter(finance);
-  finance.services?.register('pay', payAdapter as unknown as DomainServiceImpl);
+   // Register public pay service + commands in ALL contexts.
+   const payAdapter = createPublicPayAdapter(finance);
+   finance.services?.register('pay', payAdapter as unknown as DomainServiceImpl);
 
-  finance.commands.registerCommand('salary.show-pay-history', 'View: Pay History', () =>
-    openPayHistory(finance, settingsMountData).catch((e) =>
-      console.error('[salary-history] openPayHistory failed', e),
-    ),
-  );
-  finance.commands.registerCommand('salary.show-pay-rate-history', 'View: Pay Rate History', () => {
-    console.log('[salary-history] mounting pay-rate-history-view');
-    finance.ui?.requestMount('pay-rate-history-view', settingsMountData).catch((e) =>
-      console.error('[salary-history] requestMount pay-rate-history-view failed', e),
-    );
-  });
+   finance.commands.registerCommand('salary.show-pay-history', 'View: Pay History', () =>
+     openPayHistory(finance, settingsMountData).catch((e) =>
+       console.error('[salary-history] openPayHistory failed', e),
+     ),
+   );
+   finance.commands.registerCommand('salary.show-pay-rate-history', 'View: Pay Rate History', () => {
+     console.log('[salary-history] mounting pay-rate-history-view');
+     finance.ui?.requestMount('pay-rate-history-view', settingsMountData).catch((e) =>
+       console.error('[salary-history] requestMount pay-rate-history-view failed', e),
+     );
+   });
 
-  // Panel renderer context — create the Orchestrator for direct DOM rendering.
-  // Distinguished from the Host (Node) context by the presence of the panel's
-  // `<div id="app">` container element. The Host has no DOM; happy-dom test
-  // environments define HTMLElement but lack the panel's DOM structure.
-  if (typeof HTMLElement !== 'undefined' && document.getElementById('app')) {
-    await registerUIComponents();
-    const container = document.getElementById('app');
-    if (container) {
-      // Merge: Host-provided mountData takes precedence over settings-derived
-      const mountData = { ...settingsMountData, ...hostMountData };
-      _orchestrator = new Orchestrator(finance, container, mountData);
-      await _orchestrator.init();
+    // Panel renderer context — create the Orchestrator for direct DOM rendering.
+    // Distinguished from the Host (Node) context by the presence of the panel's
+    // `<div id="app">` container element. The Host has no DOM; happy-dom test
+    // environments define HTMLElement but lack the panel's DOM structure.
+     if (typeof HTMLElement !== 'undefined' && document.getElementById('app')) {
+       await registerUIComponents();
+      const container = document.getElementById('app');
+      if (container) {
+        // Merge: Host-provided mountData takes precedence over settings-derived
+        const mountData = { ...settingsMountData, ...hostMountData };
+        _orchestrator = new Orchestrator(finance, container, mountData);
+        await _orchestrator.init();
+      }
+      return;
     }
-    return;
-  }
 
   // Host context (Node) — open views via IPC.
 }

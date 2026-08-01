@@ -44,6 +44,12 @@ const panelApi = {
     },
     readTable: (params: unknown): Promise<unknown> => ipcRenderer.invoke('extensions:read-table', params),
     writeTable: (params: unknown): Promise<unknown> => ipcRenderer.invoke('extensions:write-table', params),
+    setDirty: (extensionId: string, dirty: boolean): void => {
+      ipcRenderer.send('panel:set-dirty', extensionId, dirty);
+    },
+    autoSaveDraft: (extensionId: string): Promise<void> => {
+      return ipcRenderer.invoke('panel:auto-save-draft', extensionId);
+    },
   },
   accounts: {
     create: (input: { name: string; institution: string | null }): Promise<{ id: number }> =>

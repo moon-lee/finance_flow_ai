@@ -53,6 +53,9 @@ const FORWARDED_EVENTS = [
   'section-order-change',
 ];
 
+/** Per-extension unmount callback lists keyed by extensionId. */
+const unmountCallbacks = new Map<string, Array<() => Promise<void>>>();
+
 /**
  * Build a minimal FinanceApi from the panel preload's financeShell bridge.
  * The extension's `activate(finance)` uses this to access the database
@@ -61,6 +64,8 @@ const FORWARDED_EVENTS = [
 function createPanelFinanceApi(extensionId: string): FinanceApi {
   const noop = () => {};
   const noopAsync = async <T = unknown>(): Promise<T | null> => null;
+  const cbs = unmountCallbacks.get(extensionId) ?? [];
+  unmountCallbacks.set(extensionId, cbs);
 
   const finance: FinanceApi = {
     db: {
@@ -86,7 +91,7 @@ function createPanelFinanceApi(extensionId: string): FinanceApi {
           return res.affected ?? 0;
         },
         delete: async (query: Record<string, unknown>) => {
-          const res = await financeShell.extensions.writeTable({ op: 'delete', extensionId, table: name, query }) as { affected: number };
+          const res = await financeShell.extensions.writeTable({ op: 'delete', extensionId, table: name, payload: query }) as { affected: number };
           return res.affected ?? 0;
         },
       }),
@@ -95,6 +100,25 @@ function createPanelFinanceApi(extensionId: string): FinanceApi {
     ai: { registerTool: noop },
     services: { register: noop, unregister: noop, invoke: noopAsync },
     settings: financeShell.settings,
+    ui: {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      requestMount: async (_viewId: string, _mountData?: object) => {
+        console.warn(`[panel] requestMount: ${_viewId} — panel already mounted, ignoring`);
+      },
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      navigatePanel: async (_view: string, _mountData?: object) => {
+        financeShell.extensions.uiEvent(extensionId, `navigate:${_view}`, {});
+      },
+      setDirty: (dirty: boolean) => {
+        financeShell.extensions.setDirty(extensionId, dirty);
+      },
+      autoSaveDraft: async () => {
+        await financeShell.extensions.autoSaveDraft(extensionId);
+      },
+      onBeforeUnmount: (callback: () => Promise<void>) => {
+        cbs.push(callback);
+      },
+    },
   };
 
   return finance;

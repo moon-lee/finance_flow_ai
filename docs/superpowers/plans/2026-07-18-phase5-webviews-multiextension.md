@@ -924,12 +924,12 @@ The task list below (1–20) is organized for document clarity, not execution se
   }
   ```
   Wire the Host's `finance.ui.requestMount`, `finance.ui.setDirty`, and `finance.ui.autoSaveDraft` calls to these handler methods via RPC. The handler resolves `webContentsId → panelId → extensionId` internally via the manager's `findPanelByWebContentsId` map, so no client-supplied `extensionId` is trusted.
-- [ ] 2.6 In `webview-panel-manager.ts`, implement the `autoSaveDraft` timeout + failure toast:
+- [x] 2.6 In `webview-panel-manager.ts`, implement the `autoSaveDraft` timeout + failure toast:
   - Wrap `autoSaveDraft()` in a `Promise.race` with a 500 ms `setTimeout`.
   - On timeout or rejection: log `console.error`, destroy the `WebContentsView`, and emit `panel:auto-save-failed` to the renderer.
   - The renderer's workspace component listens for `panel:auto-save-failed` and shows a toast with the extension's display name.
   - Before calling `autoSaveDraft`, also invoke any callbacks registered via `finance.ui.onBeforeUnmount` (the extension's draft-persist hook); collect the results and pass the aggregate to `autoSaveDraft`.
-- [ ] 2.7 In `src/extension-host/api/ui.ts` (new), define `createUi(extensionId, rpc)` that exposes `requestMount`, `setDirty`, `autoSaveDraft`, and `onBeforeUnmount`:
+- [x] 2.7 In `src/extension-host/api/ui.ts` (new), define `createUi(extensionId, rpc)` that exposes `requestMount`, `setDirty`, `autoSaveDraft`, and `onBeforeUnmount`:
   ```ts
   finance.ui = {
     requestMount(viewId: string, mountData: object): Promise<void>,
@@ -940,6 +940,7 @@ The task list below (1–20) is organized for document clarity, not execution se
   ```
    `requestMount` sends `extension:request-mount` RPC. `setDirty` and `autoSaveDraft` route to `WebviewPanelManager` via `WebviewPanelUIHandler`. `onBeforeUnmount` stores callbacks in a per-extension list; `WebviewPanelManager` drains them before unmounting. Add `ui: { requestMount, setDirty, autoSaveDraft, onBeforeUnmount }` to the `FinanceApi` returned by `createFinance` in `api/index.ts`.
 - [ ] 2.8 In `webview-panel-manager.ts`, add `destroyAll()` that iterates all open panels, calls `autoSaveDraft` + `onBeforeUnmount` callbacks for dirty panels (with timeout), removes each `WebContentsView` from its parent via `BrowserWindow.contentView.removeChildView(view)` (Electron 28+ API), then calls `view.destroy()`. In `main.ts`, call `webviewPanelManager.destroyAll()` from the existing `app.on('will-quit', ...)` handler (which already runs `shutdownPersistence`). This prevents Electron leaks on quit.
+  **Note:** 2.6 `autoSaveDraft` timeout + 2.8 `destroyAll()` are implemented as methods on `WebviewPanelManager`. The lazy-unmount timer loop (the actual memory-pressure mitigation) is deferred to Phase 7.
 
 **Verification:** Manual: click the Activity Bar button for the `salary-history` view → a WebviewPanel opens with the salary-history UI. The panel's DevTools shows the strict CSP applied. Closing the parent window closes all panels.
 
@@ -1468,7 +1469,7 @@ The task list below (1–20) is organized for document clarity, not execution se
 
 ### Task 19: Self-Review Checklist (this plan's §10 below)
 
-- [ ] 19.1 Verify all 12 architecture decisions are reflected in code.
+- [x] 19.1 Verify all 12 architecture decisions are reflected in code.
 - [ ] 19.2 Verify all 12 manual test units pass (TU6/TU7 marked OPTIONAL/SKIPPABLE for manual runs; covered by automated unit tests).
 - [x] 19.3 Verify the ~87 new unit tests pass (project total 404).
 - [ ] 19.4 Verify the Self-Review Checklist sections §1–§10 below.
@@ -1586,7 +1587,7 @@ These will run when the Phase 3 Playwright-electron environmental issue is resol
 - [x] Decision 5 (`finance.services.*` cross-extension contract) — Tasks 7, 8.
 - [x] Decision 6 (Per-extension command allowlist) — Task 13.
 - [x] Decision 7 (Per-extension ui-event allowlist) — Task 14.
-- [x] Decision 8 (WebviewPanel lifecycle — lazy mount) — Task 2.
+- [x] Decision 8 (WebviewPanel lifecycle — dirty-state interfaces wired, lazy-unmount timer deferred to Phase 7) — Task 2.7.
 - [x] Decision 9 (Tab bar + 2-pane split) — Task 12.
 - [x] Decision 10 (Panel-runtime stub — `financeShell.*` inside iframe) — Task 3.
 - [x] Decision 11 (Closing `'unsafe-eval'` CSP risk on panel side) — Task 15.

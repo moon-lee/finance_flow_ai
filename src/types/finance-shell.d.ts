@@ -140,6 +140,8 @@ export interface PanelFinanceShellApi {
     uiEvent: (extensionId: string, eventName: string, detail: unknown) => void;
     readTable: (params: unknown) => Promise<unknown>;
     writeTable: (params: unknown) => Promise<unknown>;
+    setDirty: (extensionId: string, dirty: boolean) => void;
+    autoSaveDraft: (extensionId: string) => Promise<void>;
   };
   accounts: AccountsApi;
   onPanelInit: (callback: (payload: unknown) => void) => () => void;
