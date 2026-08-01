@@ -124,6 +124,8 @@ export class WebviewPanelManager {
         viewId,
         mountData,
       });
+      // Uncomment for manual Test Unit 10 debugging only.
+      // view.webContents.openDevTools({ mode: "detach" });
     });
 
     view.webContents.on(

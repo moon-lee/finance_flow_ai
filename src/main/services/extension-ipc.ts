@@ -521,18 +521,28 @@ export class ExtensionIPC {
     if (!this.dao) {
       throw new Error('ExtensionIPC.handleReadTable: DAOService not wired. Call setDAOService() first.');
     }
-    const { extensionId, table, op, query } = params as {
+    const { extensionId, table, op, query, options } = params as {
       extensionId: string;
       table: string;
       op: 'find' | 'findOne' | 'count';
       query?: QueryObject;
+      options?: Record<string, unknown>;
     };
     const safeQuery: QueryObject = query ?? {};
+    // Normalise operator envelope: callers send `$join`/`$orderBy`/`$limit`/`$offset`
+    // (per Decision 4 / Task 6), DAO expects un-prefixed `join`/`orderBy`/`limit`/`offset`.
+    const daoOptions: Record<string, unknown> = {};
+    if (options) {
+      if (options.$join) daoOptions.join = options.$join;
+      if (options.$orderBy) daoOptions.orderBy = options.$orderBy;
+      if (options.$limit !== undefined) daoOptions.limit = options.$limit;
+      if (options.$offset !== undefined) daoOptions.offset = options.$offset;
+    }
     switch (op) {
       case 'find':
-        return { rows: this.dao.find(extensionId, table, safeQuery) };
+        return { rows: this.dao.find(extensionId, table, safeQuery, daoOptions) };
       case 'findOne':
-        return { row: this.dao.findOne(extensionId, table, safeQuery) };
+        return { row: this.dao.findOne(extensionId, table, safeQuery, daoOptions) };
       case 'count':
         return { count: this.dao.count(extensionId, table, safeQuery) };
       default:

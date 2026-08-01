@@ -247,12 +247,13 @@ function compileOperator(
 export interface FindOptions {
   limit?: number;
   offset?: number;
-  /** Order-by clause. Column names only (validated against schema). */
-  orderBy?: { column: string; direction: 'ASC' | 'DESC' };
-  /** Phase 5 Task 6 — join another table. Only INNER JOIN is supported. */
+  /** Order-by clause. Array of column specs per Decision 4 / Task 6. */
+  orderBy?: Array<{ column: string; direction: 'ASC' | 'DESC' }>;
+  /** Phase 5 Task 6 — join another table. */
   join?: {
     table: string;
-    on: string;
+    type?: 'INNER' | 'LEFT' | 'RIGHT';
+    on: { left: string; right: string };
     alias?: string;
     columns?: string[];
   };
@@ -297,15 +298,25 @@ export class DAOService {
 
     if (options.join) {
       const joinTable = options.join.table;
+      const joinType = options.join.type ?? 'INNER';
       const joinOn = options.join.on;
       const joinAlias = options.join.alias;
       const joinColumns = options.join.columns ?? ['*'];
       this.assertReadable(callerExtensionId, joinTable);
       const tableAlias = `${table} AS t1`;
       const joinAliasStr = joinAlias ? ` AS ${joinAlias}` : '';
-      fromSql = `${tableAlias} INNER JOIN ${joinTable}${joinAliasStr} ON ${joinOn}`;
+      if (typeof joinOn !== 'object' || joinOn === null || Array.isArray(joinOn) || !('left' in joinOn) || !('right' in joinOn)) {
+        throw new Error(`DAOService: join 'on' must be { left: string, right: string }, got ${typeof joinOn}`);
+      }
+      const { left, right } = joinOn as { left: string; right: string };
+      this.assertValidColumn(table, left);
+      this.assertValidColumn(joinTable, right);
+      const aliasMap: Record<string, string> = { [table]: 't1' };
+      if (joinAlias) aliasMap[joinTable] = joinAlias;
+      const onSql = `${this.resolveColumnRef(left, aliasMap)} = ${this.resolveColumnRef(right, aliasMap)}`;
+      fromSql = `${tableAlias} ${joinType} JOIN ${joinTable}${joinAliasStr} ON ${onSql}`;
       if (joinColumns.includes('*')) {
-        selectColumns = 't1.*';
+        selectColumns = `t1.*, ${joinTable}.*`;
       } else {
         selectColumns = joinColumns
           .map((col) => {
@@ -320,11 +331,16 @@ export class DAOService {
     let sql = `SELECT ${selectColumns} FROM ${fromSql} WHERE ${whereSql}`;
 
     if (options.orderBy) {
-      if (options.orderBy.column.includes('.')) {
-        sql += ` ORDER BY ${options.orderBy.column} ${options.orderBy.direction}`;
-      } else {
-        this.assertValidColumn(table, options.orderBy.column);
-        sql += ` ORDER BY ${options.orderBy.column} ${options.orderBy.direction}`;
+      const orderClauses = Array.isArray(options.orderBy)
+        ? options.orderBy
+        : [options.orderBy];
+      for (const clause of orderClauses) {
+        if (clause.column.includes('.')) {
+          sql += ` ORDER BY ${clause.column} ${clause.direction}`;
+        } else {
+          this.assertValidColumn(table, clause.column);
+          sql += ` ORDER BY ${clause.column} ${clause.direction}`;
+        }
       }
     } else {
       sql += ' ORDER BY id DESC';
@@ -348,9 +364,10 @@ export class DAOService {
   findOne<T = Record<string, unknown>>(
     callerExtensionId: string,
     table: string,
-    query: QueryObject = {}
+    query: QueryObject = {},
+    options: FindOptions = {}
   ): T | null {
-    const results = this.find<T>(callerExtensionId, table, query, { limit: 1 });
+    const results = this.find<T>(callerExtensionId, table, query, { ...options, limit: 1 });
     return results.length === 0 ? null : (results[0] as T);
   }
 
@@ -471,10 +488,23 @@ export class DAOService {
     }
   }
 
+  /** Resolve a possibly-qualified column ref against a `tableName → alias` map.
+   *  E.g. ('salary_history_pay_slips.account_id', { 'salary_history_pay_slips': 't1' })
+   *  → 't1.account_id'. Unqualified names pass through unchanged. */
+  private resolveColumnRef(ref: string, aliasMap: Record<string, string>): string {
+    const dot = ref.indexOf('.');
+    if (dot === -1) return ref;
+    const tablePart = ref.slice(0, dot);
+    const colPart = ref.slice(dot + 1);
+    const alias = aliasMap[tablePart];
+    return alias ? `${alias}.${colPart}` : ref;
+  }
+
   /** Validate a column name against the table's manifest (for orderBy). */
   private assertValidColumn(table: string, column: string): void {
     const names = this.registry.getColumnNames(table);
-    if (!names.includes(column)) {
+    const bare = column.includes('.') ? column.split('.').pop()! : column;
+    if (!names.includes(bare)) {
       throw new Error(`DAOService: column '${column}' does not exist in table '${table}'`);
     }
   }

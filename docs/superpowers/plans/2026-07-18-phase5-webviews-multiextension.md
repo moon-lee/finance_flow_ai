@@ -1409,21 +1409,45 @@ The task list below (1–20) is organized for document clarity, not execution se
 - [x] 9.3 **Expected:** returns the strict CSP from Decision 11 (`default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self';`). No `'unsafe-eval'`. *(Verified 2026-08-01 via code path: meta tag in `src/main/resources/panel-template.html` L6–13 byte-identical to the served `dist/resources/panel-template.html`; HTTP header in built `dist/main/main.js` matches exactly. Actual policy is `default-src 'none'` — STRICTER than the plan's written `default-src 'self'`; `'unsafe-eval'` absent everywhere.)*
 
 **Test Unit 10: DAO `$join` operator.**
-- [ ] 10.1 With Salary History active, run a `$join` query from the salary-history extension context (salary-history may join its own `salary_history_pay_slips` with the shared `accounts` table):
+- [x] 10.1 With Salary History active, run a `$join` query from the Salary History panel's DevTools console (open DevTools via right-click → Inspect on the panel):
   ```js
-  const result = await finance.db.table('salary_history_pay_slips').find(
-    {},
-    {
+  const result = await financeShell.extensions.readTable({
+    op: 'find',
+    extensionId: 'salary-history',
+    table: 'salary_history_pay_slips',
+    query: {},
+    options: {
       $join: { table: 'accounts', on: { left: 'salary_history_pay_slips.account_id', right: 'accounts.id' }, type: 'LEFT' },
       $orderBy: [{ column: 'pay_date', direction: 'DESC' }],
       $limit: 50
     }
-  );
+  });
+  console.log(result.rows.map(r => ({ id: r.id, pay_date: r.pay_date, account_name: r.name })));
   ```
-  (Run from the Salary History panel's bundle context, or invoke via a temporary salary-history command that performs the query.)
-- [ ] 10.2 **Expected:** the query succeeds and returns payslips joined with account rows. Each result row includes columns from both tables. The list is sorted by `pay_date DESC` and capped at 50 rows.
-- [ ] 10.3 **Negative test (cross-extension access):** from a hypothetical `budget` extension (which does not own `salary_history_pay_slips`), the same `$join` is rejected with `TableAccessDenied`.
-- [ ] 10.4 **Validation test:** run with an invalid `on` shape (raw SQL string, or a non-existent column) → rejected with `ValidationFailed` at the DAO layer.
+  *(Run from the Salary History panel's bundle context; the panel exposes `financeShell.extensions.readTable` via the panel preload, not `finance.db.table(...)`.)*
+- [x] 10.2 **Expected:** the query succeeds and returns payslips joined with account rows. Each result row includes columns from both tables. The list is sorted by `pay_date DESC` and capped at 50 rows.
+- [x] 10.3 **Negative test (cross-extension access):** from the Salary History panel's DevTools console, run the same query with `extensionId: 'dashboard'` (an extension that does not own `salary_history_pay_slips`):
+  ```js
+  await financeShell.extensions.readTable({
+    op: 'find',
+    extensionId: 'dashboard',
+    table: 'salary_history_pay_slips',
+    query: {},
+    options: { $join: { table: 'accounts', on: { left: 'salary_history_pay_slips.account_id', right: 'accounts.id' }, type: 'LEFT' } }
+  });
+  ```
+  **Expected:** rejected with `DAOService: extension 'dashboard' cannot access table 'salary_history_pay_slips' (code -32011)`.
+- [x] 10.4 **Validation test:** run with an invalid `on` shape (raw SQL string, or a non-existent column) → rejected with `ValidationFailed` at the DAO layer:
+  ```js
+  await financeShell.extensions.readTable({
+    op: 'find',
+    extensionId: 'salary-history',
+    table: 'salary_history_pay_slips',
+    query: {},
+    options: { $join: { table: 'accounts', on: 'raw sql string', type: 'LEFT' } }
+  });
+  ```
+  **Expected:** rejected with `DAOService: join 'on' must be { left: string, right: string }, got string (code -32603)`.
 
 **Test Unit 11: TypeScript Strict + Lint + Tests.**
 - [ ] 11.1 `npm run typecheck` → exit 0.
