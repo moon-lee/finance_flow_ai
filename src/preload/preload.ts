@@ -95,6 +95,8 @@ const shellApi = {
   panel: {
     focus: (panelId: string): void => { console.log('[preload] panel.focus', panelId); ipcRenderer.send('panel:focus', panelId); },
     show: (panelId: string): void => { console.log('[preload] panel.show', panelId); ipcRenderer.send('panel:show', panelId); },
+    hideForOverlay: (): void => { console.log('[preload] panel.hideForOverlay'); ipcRenderer.send('panel:hide-overlay'); },
+    restoreAfterOverlay: (): void => { console.log('[preload] panel.restoreAfterOverlay'); ipcRenderer.send('panel:restore-overlay'); },
     getActive: (): Promise<string | null> => ipcRenderer.invoke('panel:active'),
     list: (): Promise<Array<{ panelId: string; extensionId: string; viewId: string }>> => ipcRenderer.invoke('panel:list'),
     resize: (panelId: string, bounds: { x: number; y: number; width: number; height: number }): void => {

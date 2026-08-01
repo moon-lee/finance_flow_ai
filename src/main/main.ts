@@ -472,6 +472,14 @@ function registerIpcHandlers(): void {
     webviewPanelManager?.showPanel(panelId);
   });
 
+  ipcMain.on("panel:hide-overlay", () => {
+    webviewPanelManager?.hidePanelsForOverlay();
+  });
+
+  ipcMain.on("panel:restore-overlay", () => {
+    webviewPanelManager?.restorePanels();
+  });
+
   ipcMain.handle("panel:active", () => {
     return webviewPanelManager?.getActivePanelId() ?? null;
   });

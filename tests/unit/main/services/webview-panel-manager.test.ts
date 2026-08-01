@@ -199,3 +199,69 @@ describe('WebviewPanelManager lifecycle (Phase 5 additional tests)', () => {
     expect(destroySpy).toHaveBeenCalledTimes(2);
   });
 });
+
+describe('WebviewPanelManager overlay coordination', () => {
+  function makeManager() {
+    const manager = new WebviewPanelManager();
+    manager.setUIHandler(noopUIHandler);
+    manager.setMainWindow({
+      contentView: {
+        addChildView: () => {},
+        removeChildView: () => {},
+        getBounds: () => ({ x: 0, y: 0, width: 1024, height: 768 }),
+        setVisible: () => {}
+      },
+      getContentBounds: () => ({ x: 0, y: 0, width: 1024, height: 768 }),
+      webContents: { send: vi.fn() }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+    return manager;
+  }
+
+  it('hidePanelsForOverlay() hides every panel; restorePanels() re-shows the active panel', () => {
+    const manager = makeManager();
+    const setVisibleSpy = vi.fn();
+    manager.mount('dashboard', 'dashboard-view');
+    manager.mount('salary-history', 'pay-history');
+    const handle = manager.findByPanelId('panel-dashboard-dashboard-view')!;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (handle.view as any).setVisible = setVisibleSpy;
+
+    manager.showPanel('panel-dashboard-dashboard-view');
+    setVisibleSpy.mockClear();
+
+    manager.hidePanelsForOverlay();
+    expect(setVisibleSpy).toHaveBeenCalledWith(false);
+
+    manager.restorePanels();
+    expect(setVisibleSpy).toHaveBeenCalledWith(true);
+    expect(manager.getActivePanelId()).toBe('panel-dashboard-dashboard-view');
+  });
+
+  it('resize() does not re-show a panel while the overlay is active', () => {
+    const manager = makeManager();
+    const setVisibleSpy = vi.fn();
+    manager.mount('dashboard', 'dashboard-view');
+    const handle = manager.findByPanelId('panel-dashboard-dashboard-view')!;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (handle.view as any).setVisible = setVisibleSpy;
+
+    manager.showPanel('panel-dashboard-dashboard-view');
+    manager.hidePanelsForOverlay();
+    setVisibleSpy.mockClear();
+
+    manager.resize('panel-dashboard-dashboard-view', { x: 0, y: 0, width: 800, height: 600 });
+
+    expect(setVisibleSpy).not.toHaveBeenCalledWith(true);
+
+    manager.restorePanels();
+    expect(setVisibleSpy).toHaveBeenCalledWith(true);
+  });
+
+  it('hidePanelsForOverlay() / restorePanels() are no-ops with no panels', () => {
+    const manager = makeManager();
+    expect(() => manager.hidePanelsForOverlay()).not.toThrow();
+    expect(() => manager.restorePanels()).not.toThrow();
+    expect(manager.getActivePanelId()).toBeNull();
+  });
+});

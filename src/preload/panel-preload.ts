@@ -48,6 +48,7 @@ const panelApi = {
   accounts: {
     create: (input: { name: string; institution: string | null }): Promise<{ id: number }> =>
       ipcRenderer.invoke('accounts:create', input),
+    count: (): Promise<{ count: number }> => ipcRenderer.invoke('accounts:count'),
   },
   settings: {
     get: async (key: string): Promise<unknown> => ipcRenderer.invoke('settings:get', key),

@@ -61,6 +61,8 @@ export interface ExtensionsApi {
   panel: {
     focus: (panelId: string) => void;
     show: (panelId: string) => void;
+    hideForOverlay: () => void;
+    restoreAfterOverlay: () => void;
     getActive: () => Promise<string | null>;
     list: () => Promise<Array<{ panelId: string; extensionId: string; viewId: string }>>;
     resize: (panelId: string, bounds: { x: number; y: number; width: number; height: number }) => void;
@@ -105,6 +107,8 @@ export interface FinanceShellApi {
   panel: {
     focus: (panelId: string) => void;
     show: (panelId: string) => void;
+    hideForOverlay: () => void;
+    restoreAfterOverlay: () => void;
     getActive: () => Promise<string | null>;
     list: () => Promise<Array<{ panelId: string; extensionId: string; viewId: string }>>;
     resize: (panelId: string, bounds: { x: number; y: number; width: number; height: number }) => void;

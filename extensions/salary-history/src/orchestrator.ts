@@ -43,8 +43,28 @@ export class Orchestrator {
   async init(): Promise<void> {
     await this._loadSectionOrder();
     this._bindEvents();
-    const initialView = (this._mountData.viewId as string) || 'payslip-list';
+    let initialView = (this._mountData.viewId as string) || 'payslip-list';
+    if (initialView === 'payslip-list') {
+      initialView = await this._resolveSeedView();
+    }
     this.navigate(initialView, this._mountData);
+  }
+
+  /**
+   * First-run onboarding (Phase 4 Task 11.3): when the Core-owned `accounts`
+   * table is empty, mount the seed modal instead of the payslip list. The
+   * accounts table is read-only for extensions (Decision 4), so the decision
+   * uses the Core-owned `accounts.count` bridge. Runs once per panel mount;
+   * a dismissal navigates to `payslip-list` without re-checking.
+   */
+  private async _resolveSeedView(): Promise<string> {
+    try {
+      const { count } = await window.financeShell.accounts.count();
+      if (count === 0) return 'accounts-seed-modal';
+    } catch (err) {
+      console.error('[salary-history] accounts.count failed:', err);
+    }
+    return 'payslip-list';
   }
 
   destroy(): void {

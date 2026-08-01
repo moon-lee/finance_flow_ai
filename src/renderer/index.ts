@@ -67,8 +67,27 @@ if (window.financeShell?.extensions?.onHostStatus) {
   });
 }
 
+const overlayCoordinator = {
+  _refCount: 0,
+  show(): void {
+    this._refCount += 1;
+    if (this._refCount === 1) {
+      window.financeShell?.panel?.hideForOverlay?.();
+    }
+  },
+  hide(): void {
+    if (this._refCount > 0) this._refCount -= 1;
+    if (this._refCount === 0) {
+      window.financeShell?.panel?.restoreAfterOverlay?.();
+    }
+  },
+};
+
 function setCommandPaletteVisible(visible: boolean): void {
+  const currentlyVisible = !(commandPalette?.classList.contains('hidden') ?? true);
   commandPalette?.classList.toggle('hidden', !visible);
+  if (visible && !currentlyVisible) overlayCoordinator.show();
+  else if (!visible && currentlyVisible) overlayCoordinator.hide();
   if (visible) commandPalette?.focusInput();
 }
 

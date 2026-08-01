@@ -72,7 +72,7 @@ describe('salary-history Orchestrator', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
     (window as unknown as { financeShell: unknown }).financeShell = {
-      accounts: { create: async () => ({ id: 1 }) },
+      accounts: { create: async () => ({ id: 1 }), count: async () => ({ count: 1 }) },
       extensions: {
         list: async () => ({ views: [], commands: [] }),
         readTable: async () => ({ rows: [] }),

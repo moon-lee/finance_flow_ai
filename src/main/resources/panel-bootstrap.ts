@@ -10,7 +10,13 @@
  *   4. Calls `activate(finance)` — the extension detects the panel context
  *      and creates the Orchestrator which owns navigation and DOM lifecycle.
  *   5. Forwards DOM CustomEvents back to Main via `financeShell.extensions.uiEvent()`.
- *   6. Handles Core-owned events (e.g. `account-create`) via IPC.
+ *   6. Listens for `panel:mount-update` / `panel:navigate` and re-dispatches
+ *      them as DOM CustomEvents for the Orchestrator.
+ *
+ * Account creation is owned by the Orchestrator, which calls the Core-owned
+ * `financeShell.accounts.create` bridge on `account-create` and navigates on
+ * success. A bootstrap-level listener would insert a second row for the same
+ * submit, so it is intentionally not registered here.
  */
 
 import type { FinanceApi } from '../../types/finance';
@@ -118,20 +124,6 @@ async function mountPanelComponent(payload: PanelPayload): Promise<void> {
         financeShell.extensions.uiEvent(extensionId, eventName, detail);
       }) as EventListener);
     }
-
-    // --- Core-owned event: account-create ---
-    app.addEventListener('account-create', (async (e: Event) => {
-      const detail = (e as CustomEvent).detail as { name: string; institution: string | null } | undefined;
-      if (!detail || typeof detail.name !== 'string' || detail.name.trim() === '') return;
-      try {
-        await financeShell.accounts.create({
-          name: detail.name.trim(),
-          institution: detail.institution ?? null,
-        });
-      } catch (err) {
-        console.error('[panel bootstrap] account-create failed:', err);
-      }
-    }) as EventListener);
 
     // --- Activate the extension ---
     console.log('[panel bootstrap] creating FinanceApi and calling activate for', extensionId);

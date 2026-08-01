@@ -1,7 +1,7 @@
 ---
 version: 0.7.3
 created: 2026-06-14
-last_updated: 2026-08-01T10:30:00+10:00
+last_updated: 2026-08-01T15:33:00+10:00
 ---
 
 # Changelog
@@ -10,6 +10,20 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+### Fixed
+
+- **Account Seed modal created two accounts with the same name on one submit** (`src/main/resources/panel-bootstrap.ts`, tests in `tests/unit/extensions/salary-history/orchestrator.test.ts`). The `account-create` CustomEvent from `accounts-seed-modal` (`accounts-seed-modal.ts:91-97`) was handled by two listeners on the same `#app` element — the Orchestrator's `_onAccountCreate` (`orchestrator.ts:159-168`) and a leftover bootstrap-level handler (`panel-bootstrap.ts`) — and each called `financeShell.accounts.create`, inserting two identical rows. The Orchestrator is the single owner (it validates, writes via the Core-owned `accounts.create` bridge per Decision 4, and navigates to `payslip-form` on success), so the duplicate bootstrap handler was removed. Regression test asserts one `account-create` submit produces exactly one `accounts.create` call.
+
+- **First-run account seed modal no longer appears** (`extensions/salary-history/src/orchestrator.ts`, `src/preload/panel-preload.ts`, tests in `tests/unit/extensions/salary-history/orchestrator.test.ts` and `tests/unit/renderer/salary-history-view.integration.test.ts`). Commit `01ecefb` removed the `accounts.find({ is_active: true })` check from `openPayHistory()` in `extensions/salary-history/src/main.ts` that decided between mounting `accounts-seed-modal` (0 accounts) and `payslip-list`, and the "renderer level via accounts:count IPC" replacement promised in its commit message was never implemented — the panel preload only exposed `accounts.create`, so nothing could ever navigate to the seed modal. `Orchestrator.init()` now runs a first-run check: when the default `payslip-list` view is the initial view, it calls the Core-owned `accounts.count()` bridge (the `accounts` table is read-only for extensions per Decision 4) and mounts `accounts-seed-modal` when the count is 0, falling back to `payslip-list` if the bridge is unavailable; explicit `viewId`s bypass the check. `panel-preload.ts` now also exposes `accounts.count` (IPC `accounts:count`), matching the already-typed `AccountsApi` (`finance-shell.d.ts:99`).
+
+- **`#command-palette` and other DOM overlays covered by native panels** (`src/main/services/webview-panel-manager.ts`, `src/main/main.ts`, `src/preload/preload.ts`, `src/types/finance-shell.d.ts`, `src/renderer/index.ts`, tests in `tests/unit/main/services/webview-panel-manager.test.ts`). `WebContentsView` panels render above the main renderer's DOM regardless of CSS z-index, so the palette's z-index 1000 was unreachable while a panel was visible. `WebviewPanelManager` now has an overlay lifecycle: `hidePanelsForOverlay()` hides all panel views (`setVisible(false)` preserves webContents state — no reload, no data loss) and `restorePanels()` re-shows the previously-active panel; an `overlayActive` flag also suppresses `resize()` and mount-fallback-timer visibility changes so a window resize cannot re-show a hidden panel under an open overlay. New IPC (`panel:hide-overlay` / `panel:restore-overlay`) wired through `preload.panel.hideForOverlay` / `restoreAfterOverlay` (both `ExtensionsApi.panel` and `FinanceShellApi.panel`). The renderer's ref-counted `overlayCoordinator` calls these on hidden↔visible transitions in `setCommandPaletteVisible`, so stacked overlays (palette + future modals) each hide/restore once. The first-run accounts-seed modal was left in the salary-history panel (it is not a main-DOM element — see CHANGELOG Task 17(b)); the draft plan's Layer 4 was dropped as based on a stale comment at `src/main/main.ts:505-510`.
+
+### Administrative
+
+- **Overlay Coordinator Fix implementation plan** (`docs/superpowers/plans/2026-08-01-overlay-coordinator-fix.md`). Plan to hide `WebContentsView` panels while main-renderer DOM overlays (`#command-palette`) are open and restore the active panel on close. Incorporates the 2026-07-31 review: an `overlayActive` guard for `resize()`/mount-fallback visibility, a no-arg `hideForOverlay()`, a transition-based renderer `overlayCoordinator`, and the first-run seed modal dropped (it is extension-owned, not a main-DOM element).
 
 ## [0.7.3] - 2026-07-30
 

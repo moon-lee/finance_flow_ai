@@ -58,6 +58,7 @@ export class WebviewPanelManager {
   private readonly pendingResizes = new Map<string, { x: number; y: number; width: number; height: number }>();
   private readonly mountShowTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private activePanelId: string | null = null;
+  private overlayActive = false;
 
   setMainWindow(window: BrowserWindow): void {
     console.log('[setMainWindow] window:', window);
@@ -97,7 +98,9 @@ export class WebviewPanelManager {
       if (!existing.view.webContents.isDestroyed()) {
         existing.view.webContents.send("panel:mount-update", { mountData });
       }
-      this.showPanel(panelId);
+      if (!this.overlayActive) {
+        this.showPanel(panelId);
+      }
       if (this.mainWindow && !this.mainWindow.isDestroyed()) {
         this.mainWindow.webContents.send("panel:mounted", panelId);
       }
@@ -175,7 +178,9 @@ export class WebviewPanelManager {
             width: Math.max(wb.width - LEFT_OFFSET - RIGHT_OFFSET, 400),
             height: Math.max(wb.height - TAB_STRIP_HEIGHT - STATUS_BAR_HEIGHT, 200),
           };
-          this.showPanel(panelId);
+          if (!this.overlayActive) {
+            this.showPanel(panelId);
+          }
           view.setBounds(fallbackBounds);
           console.log('[webview-panel] fallback bounds applied for', panelId, fallbackBounds);
         }
@@ -299,15 +304,22 @@ export class WebviewPanelManager {
       clearTimeout(timer);
       this.mountShowTimers.delete(panelId);
       console.log('[webview-panel] cancelled fallback timer for', panelId);
-      // First resize for a newly mounted panel — show it and hide others
-      this.showPanel(panelId);
+      // First resize for a newly mounted panel — show it and hide others,
+      // unless a DOM overlay is active (see hidePanelsForOverlay()).
+      if (!this.overlayActive) {
+        this.showPanel(panelId);
+      }
     }
 
     const view = handle.view;
     try {
 
       if (!view.webContents.isDestroyed()) {
-        view.setVisible(true);
+        // Do not re-show panels while a DOM overlay is open; bounds still
+        // apply so the panel is correctly positioned when restored.
+        if (!this.overlayActive) {
+          view.setVisible(true);
+        }
         view.setBounds(bounds);
         // Note: activePanelId is only set by showPanel() and mount() fallback,
         // not by resize(). resize() may be called for any panel that needs
@@ -350,6 +362,22 @@ export class WebviewPanelManager {
 
     handle.view.setVisible(true);
     this.activePanelId = panelId;
+  }
+
+  hidePanelsForOverlay(): void {
+    this.overlayActive = true;
+    for (const [, h] of this.panels) {
+      if (!h.view.webContents.isDestroyed()) {
+        h.view.setVisible(false);
+      }
+    }
+  }
+
+  restorePanels(): void {
+    this.overlayActive = false;
+    if (this.activePanelId) {
+      this.showPanel(this.activePanelId);
+    }
   }
 
   findByPanelId(panelId: string): PanelHandle | undefined {
