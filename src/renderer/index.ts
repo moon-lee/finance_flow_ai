@@ -166,19 +166,21 @@ window.addEventListener('click', (event) => {
 
 window.addEventListener('view-changed', (event: Event) => {
   const customEvent = event as CustomEvent<{ view: string; source: string }>;
-  // Keep the Activity Bar launcher button highlighted for the active view,
-  // whether the view was opened from the bar itself or from the Explorer.
-  if (activityBar) activityBar.activeView = customEvent.detail.view;
-  if (navigationPanel) navigationPanel.setView(customEvent.detail.view, viewToExtension.get(customEvent.detail.view) ?? '');
-  // Ask Main to activate the extension behind this view (no-op for built-in settings view).
-  // Duplicate-click suppression is enforced at the Host layer (see
-  // `src/extension-host/host.ts#activateExtension` — `if (ext.moduleUrl) return true`),
-  // not here: an earlier renderer-side idempotency guard on `lastDispatchedView`
-  // incorrectly blocked the re-spawn path (Test Unit 5: killing the Host and then
-  // clicking the same view did not re-spawn because the guard short-circuited the
-  // call). The Host's module-level guard is the correct layer — it survives renderer
-  // resets and correctly handles the 'Host is dead, needs re-spawn' case via
-  // `ExtensionIPC.ensureRunning()`.
+  const viewId = customEvent.detail.view;
+  const extId = viewToExtension.get(viewId);
+  if (!extId) {
+    window.financeShell?.panel?.list?.().then((panels) => {
+      const match = panels?.find((p) => p.viewId === viewId);
+      if (match?.extensionId) {
+        const primaryView = activityBar?.views?.find((v) => viewToExtension.get(v.id) === match.extensionId);
+        if (activityBar) activityBar.activeView = primaryView?.id ?? '';
+        if (navigationPanel) navigationPanel.setView(viewId, match.extensionId);
+      }
+    });
+  } else {
+    if (activityBar) activityBar.activeView = viewId;
+    if (navigationPanel) navigationPanel.setView(viewId, extId);
+  }
   if (customEvent.detail.view !== '__settings__' && customEvent.detail.source === 'extension') {
     void window.financeShell?.extensions.activateView(customEvent.detail.view);
   }

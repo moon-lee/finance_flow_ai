@@ -66,6 +66,9 @@ export class WorkspacePanel extends LitElement {
     super.connectedCallback();
     this._restoreLayout();
     void this._refreshPanels();
+    // Notify activity bar + nav panel of the restored active view after
+    // the first refresh so the panelId → viewId lookup is available.
+    setTimeout(() => this._notifyViewChanged(this._activePanelId), 0);
     // Wait for extension host to be ready, then activate restored tabs
     window.financeShell?.extensions?.onHostStatus?.((status: { status: string }) => {
       if (status.status === 'ready') {
@@ -248,6 +251,7 @@ export class WorkspacePanel extends LitElement {
     window.financeShell?.panel?.show(panelId);
     this.requestUpdate();
     this.dispatchEvent(new CustomEvent('workspace:focus-panel', { detail: { panelId }, bubbles: true, composed: true }));
+    this._notifyViewChanged(panelId);
   }
 
   private _sendBoundsToPanel(panelId: string) {
@@ -265,6 +269,21 @@ export class WorkspacePanel extends LitElement {
     }
   }
 
+  private _notifyViewChanged(panelId: string) {
+    window.financeShell?.panel?.list?.().then((panels) => {
+      const live = panels?.find((p) => p.panelId === panelId);
+      if (live?.viewId) {
+        this.dispatchEvent(
+          new CustomEvent('view-changed', {
+            detail: { view: live.viewId, source: 'workspace' },
+            bubbles: true,
+            composed: true,
+          }),
+        );
+      }
+    });
+  }
+
   private _addPanel(panelId: string, label: string, commandId?: string) {
     if (this._tabs.some(t => t.panelId === panelId)) return;
     this._tabs = [...this._tabs, { panelId, label, commandId }];
@@ -272,6 +291,7 @@ export class WorkspacePanel extends LitElement {
     this._scheduleSave();
     this.requestUpdate();
     requestAnimationFrame(() => this._sendBoundsToPanel(panelId));
+    this._notifyViewChanged(panelId);
   }
 
   private _closePanel(panelId: string) {
@@ -281,12 +301,9 @@ export class WorkspacePanel extends LitElement {
     const nextTabs = this._tabs.filter(t => t.panelId !== panelId);
     this._tabs = nextTabs;
     if (this._activePanelId === panelId) {
-      // Focus the tab that took the closed tab's place, or the new last tab.
       const next = nextTabs[Math.min(index, nextTabs.length - 1)];
       this._activePanelId = next?.panelId ?? '';
     }
-    // Show the surviving panel — it may have been hidden by a previous
-    // showPanel() call when the now-closed panel was active.
     if (this._activePanelId) {
       this._sendBoundsToPanel(this._activePanelId);
       window.financeShell?.panel?.show(this._activePanelId);
@@ -295,6 +312,7 @@ export class WorkspacePanel extends LitElement {
     }
     this._scheduleSave();
     this.requestUpdate();
+    if (this._activePanelId) this._notifyViewChanged(this._activePanelId);
   }
 
   private _onTabFocus(panelId: string) {

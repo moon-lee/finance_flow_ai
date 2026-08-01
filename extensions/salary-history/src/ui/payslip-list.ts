@@ -385,7 +385,7 @@ export class PayslipList extends LitElement {
         <span class="crumb-current">Pay History</span>
         <div class="spacer"></div>
         <button class="filter-btn">⌕ Filter</button>
-        <a class="filter-btn" href="javascript:void(0)" @click="${() => this._onAdd()}">+ Add Payslip</a>
+        <button class="filter-btn" @click="${() => this._onAdd()}">+ Add Payslip</button>
       </div>
 
       <div class="container">
