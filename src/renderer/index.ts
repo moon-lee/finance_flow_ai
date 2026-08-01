@@ -75,11 +75,11 @@ function setCommandPaletteVisible(visible: boolean): void {
 // Phase 5 Task 12 — workspace integration. The WebviewPanel system lives in
 // Main; the renderer only manages the layout tree and forwards resize/focus
 // events to Main via the preload bridge.
-window.addEventListener('workspace:focus-panel', (event: Event) => {
+/* window.addEventListener('workspace:focus-panel', (event: Event) => {
   const customEvent = event as CustomEvent<{ panelId: string }>;
   window.financeShell?.extensions?.panel?.focus?.(customEvent.detail.panelId);
 });
-
+ */
 window.addEventListener('workspace:resize', (event: Event) => {
   const customEvent = event as CustomEvent<{ panelId: string; bounds: { x: number; y: number; width: number; height: number } }>;
   window.financeShell?.extensions?.panel?.resize?.(customEvent.detail.panelId, customEvent.detail.bounds);

@@ -390,7 +390,7 @@ parentPort.on('message', (event: { data: unknown; ports?: unknown[] }) => {
     return;
   }
   if (isRequest(msg) || isNotification(msg)) {
-    console.log(`[host] msg received: ${msg.method}`);
+    console.log(`[host] msg received: ${msg.method} (id=${'id' in msg ? msg.id : 'n/a'})`);
   }
   if (isRequest(msg)) {
     void handleRequest(msg);
