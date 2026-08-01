@@ -87,7 +87,7 @@ A bootable Electron app with a working **multi-extension workspace**. The items 
 
 10. **Persistence verified.** All Phase 4 persistence properties survive the Phase 5 host changes — payslips, rate rows, accounts, settings all round-trip. Manual Test Unit 5 walks the loop.
 11. **Cross-extension isolation verified.** Salary-history cannot read Dashboard's tables; Dashboard cannot read salary-history's tables; both can read Shared Financial Data (`accounts`); both gracefully handle each other's absence.
-12. **TypeScript Strict + Lint + Tests** — `npm run typecheck` exit 0; `npm run lint` exit 0; `npm run test:unit` all tests pass (project total ~399 after Phase 5).
+12. **TypeScript Strict + Lint + Tests** — `npm run typecheck` exit 0; `npm run lint` exit 0; `npm test` all tests pass (project total 404 after Phase 5).
 13. **E2E suite unblocked** — Phase 5's manual TU8 verifies the Phase 3 environmental blocker (`Cannot navigate to invalid URL` on `page.goto('/')`) is now resolved (the WebviewPanel iframe creates its own routable URL via `loadURL('about:blank')` + dynamic content injection).
 
 ### Out-of-Scope reminder (carried forward)
@@ -1450,18 +1450,19 @@ The task list below (1–20) is organized for document clarity, not execution se
   **Expected:** rejected with `DAOService: join 'on' must be { left: string, right: string }, got string (code -32603)`.
 
 **Test Unit 11: TypeScript Strict + Lint + Tests.**
-- [ ] 11.1 `npm run typecheck` → exit 0.
-- [ ] 11.2 `npm run lint` → exit 0.
-- [ ] 11.3 `npm run test:unit` → all tests pass (~399 after Phase 5).
+- [x] 11.1 `npm run typecheck` → exit 0.
+- [x] 11.2 `npm run lint` → exit 0.
+- [x] 11.3 `npm test` → all tests pass (404 passed).
 
 **Test Unit 12: Multi-File Build Verification.**
-- [ ] 12.1 `npm run build:extensions`.
-- [ ] 12.2 **Expected:** `dist/extensions/salary-history.js` AND `dist/extensions/dashboard.js` both produced.
-- [ ] 12.3 On PowerShell:
+- [x] 12.1 `npm run build:extensions`.
+- [x] 12.2 **Expected:** `dist/extensions/salary-history.js` AND `dist/extensions/dashboard.js` both produced.
+- [x] 12.3 On PowerShell (use a non-terminating check — `exit` inside an interactive session ends the shell, so use a variable instead):
   ```powershell
-  if (Select-String -Quiet -Pattern "from 'finance'" dist/extensions/dashboard.js) { exit 1 } else { exit 0 }
+  $r = Select-String -Quiet -Pattern "from 'finance'" dist/extensions/dashboard.js
+  if ($r) { Write-Error "found runtime finance import" } else { Write-Host "clean" }
   ```
-  Expected: exit 0 (no runtime `finance` imports).
+  Expected: `clean` (no runtime `finance` imports).
 
 ---
 
@@ -1469,7 +1470,7 @@ The task list below (1–20) is organized for document clarity, not execution se
 
 - [ ] 19.1 Verify all 12 architecture decisions are reflected in code.
 - [ ] 19.2 Verify all 12 manual test units pass (TU6/TU7 marked OPTIONAL/SKIPPABLE for manual runs; covered by automated unit tests).
-- [ ] 19.3 Verify the ~87 new unit tests pass (project total ~399).
+- [x] 19.3 Verify the ~87 new unit tests pass (project total 404).
 - [ ] 19.4 Verify the Self-Review Checklist sections §1–§10 below.
 
 ---
@@ -1492,7 +1493,7 @@ The task list below (1–20) is organized for document clarity, not execution se
 
 ## Test Plan
 
-### Unit tests (~87 new; project total ~399)
+### Unit tests (~87 new; project total 404)
 
 | File | Tests | Covers |
 |------|-------|--------|
@@ -1511,7 +1512,7 @@ The task list below (1–20) is organized for document clarity, not execution se
 | `tests/unit/extensions/dashboard/aggregator-service.test.ts` (new) | 6 | buildAggregator with mocked FinanceApi |
 | `tests/unit/extensions/dashboard/ui/dashboard-view.test.ts` (new) | 5 | 4 cards render in cardOrder, missing-data placeholders |
 | **Total new** | **~87** | |
-| **Project total after Phase 5** | **~399** | (Phase 4 ~312 + ~87 new) |
+| **Project total after Phase 5** | **404** | (Phase 4 ~312 + ~87 new + pre-existing tests) |
 
 ### Manual Test Units (12) — see Task 18 above
 
@@ -1593,7 +1594,7 @@ These will run when the Phase 3 Playwright-electron environmental issue is resol
 
 ### §5 — Test Pyramid
 
-- [x] ~87 new unit tests covering all 12 decisions + manifest schema extensions + Dashboard + public-pay-adapter + navigation panel + workspace + DAO operators (project total ~399 after Phase 5).
+- [x] ~87 new unit tests covering all 12 decisions + manifest schema extensions + Dashboard + public-pay-adapter + navigation panel + workspace + DAO operators (project total 404 after Phase 5).
 - [x] 12 manual test units covering the full multi-extension user journey (TU6/TU7 marked OPTIONAL/SKIPPABLE for manual runs; covered by automated tests).
 - [x] 10 new E2E tests written but gated by Phase 3 environmental blocker (documented).
 

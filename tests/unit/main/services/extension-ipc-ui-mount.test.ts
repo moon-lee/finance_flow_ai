@@ -98,8 +98,10 @@ describe('ExtensionIPC domain-service responses', () => {
     });
 
     ipc.setDomainServiceRegistry(registry);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (ipc as any).process = { postMessage };
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (ipc as any).dispatchHostRequest({
       jsonrpc: '2.0',
       id: 7,

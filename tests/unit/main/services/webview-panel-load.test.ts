@@ -12,7 +12,6 @@ vi.mock('electron', () => {
   const focus = vi.fn();
   const loadURL = vi.fn();
   const on = vi.fn();
-  const webContents = { id: 42, send, focus, loadURL, on };
   const contentView = { 
     addChildView: vi.fn(), 
     removeChildView: vi.fn(),
@@ -22,7 +21,7 @@ vi.mock('electron', () => {
   const getContentBounds = vi.fn(() => ({ width: 1024, height: 768 }));
   const window = { contentView, getContentBounds, webContents: { send: vi.fn() } };
 
-  let lastViewInstance: { webContents: typeof webContents; setBounds: ReturnType<typeof vi.fn>; setVisible: ReturnType<typeof vi.fn> } | null = null;
+  let lastViewInstance: { webContents: { id: number; send: ReturnType<typeof vi.fn>; focus: ReturnType<typeof vi.fn>; loadURL: ReturnType<typeof vi.fn>; on: ReturnType<typeof vi.fn> }; setBounds: ReturnType<typeof vi.fn>; setVisible: ReturnType<typeof vi.fn> } | null = null;
 
   class MockWebContentsView {
     webContents = { id: 42, send, focus, loadURL, on };

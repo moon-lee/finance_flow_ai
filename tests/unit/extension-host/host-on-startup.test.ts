@@ -7,7 +7,7 @@
  * testable logic and exercise it through the handleRequest flow.
  */
 
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import type { FinanceExtensionManifest } from '../../../src/types/finance';
 
 // ── sortByDependencies extracted logic ──────────────────────────────

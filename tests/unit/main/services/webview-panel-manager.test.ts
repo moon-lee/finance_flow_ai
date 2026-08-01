@@ -151,6 +151,7 @@ describe('WebviewPanelManager lifecycle (Phase 5 additional tests)', () => {
 
     const handle = manager.mount('dashboard', 'dashboard-view');
     if (handle) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (handle.view.webContents as any).focus = focusSpy;
       manager.focus('panel-dashboard-dashboard-view');
       expect(focusSpy).toHaveBeenCalled();
@@ -190,6 +191,7 @@ describe('WebviewPanelManager lifecycle (Phase 5 additional tests)', () => {
 
     // Patch the close method on the views' webContents
     for (const panel of manager.list()) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (panel.view.webContents as any).close = destroySpy;
     }
 
