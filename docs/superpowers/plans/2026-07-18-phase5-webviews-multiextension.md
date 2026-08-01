@@ -41,6 +41,7 @@ prerequisite_decisions:
   - ADR-0002 (inline migrations) — Phase 5 adds at most 1 migration; no threshold impact
   - ADR-0003 (utilityProcess + JSON-RPC 2.0) — extended with $join/$orderBy/$limit/$offset RPC support
   - ADR-0004 (build-time extension entry bundling) — exercised by Dashboard (2nd bundled extension)
+  - ADR-0006 (flat workspace layout) — Task 12 ships the flat tab model; 2-pane split deferred
 ---
 
 # Phase 5 — Webview Panels, Multi-Extension UI & Cross-Extension Services
@@ -144,12 +145,12 @@ The task list below (1–20) is organized for document clarity, not execution se
 
 **Stage 4 — UI (renderer) + DAO**
 12. **Task 11** — NavigationProvider (data-driven sidebar). Depends on Task 1's `navigation` manifest field.
-13. **Task 12** — Workspace layout (tabs + 2-pane split). Depends on Task 2's `WebContentsView` infrastructure and `panel:resize` IPC.
+13. **Task 12** — Workspace layout (tabs + 2-pane split). Depends on Task 2's `WebContentsView` infrastructure and `panel:resize` IPC. **Deviated by ADR-0006:** ships flat tab list only; 2-pane split deferred to version: 2 migration.
 14. **Task 6** — DAO operators (`$join`, `$orderBy`, `$limit`, `$offset`). Independent of Tasks 2–4; can be done in parallel with UI work.
 
 **Stage 5 — Finishing touches**
 15. **Task 15** — CSP closure (panel HTML shell, no `'unsafe-eval'`). Depends on Task 2's protocol.
-16. **Task 16** — ADR-0005 for Domain Service Registry. Documentation; depends on Task 7.
+16. **Task 16** — ADR-0005 for Domain Service Registry + ADR-0006 for Flat Workspace Layout. Documentation; depends on Tasks 5 and 12.
 17. **Task 17** — update `extension-api.md` + `file-reference.md`. Documentation; depends on all implementation tasks.
 18. **Task 18** — Manual Test Units (12 manual tests + E2E).
 19. **Task 19** — Self-Review Checklist verification.
@@ -568,7 +569,7 @@ The **lazy-unmount policy**:
 
 **State preservation:** the extension itself is responsible for its state (Phase 4 PayService stores YTD summaries in the DB; Phase 5 Dashboard stores card preferences in `dashboard.*` settings). When a panel re-mounts, the extension re-queries the data and re-hydrates from any saved draft via `mountData`.
 
-**Runtime disable / teardown:** Phase 5 does **not** introduce a `deactivate()` lifecycle hook or `WebviewPanelManager.onExtensionDisabled(extensionId)` handler. In Phase 5, disabling an extension requires a restart (`setEnabled` + restart); layout restoration (Decision 9) already falls back to a default layout when a disabled extension is missing. Phase 3 hot-disable (`crash_count >= 3`) fires during `onStartup` activation (Task 10.4) before any panel is mounted, so there is nothing to clean up. A `deactivate` notification and forced unmount path are deferred to Phase 7/8, when the Extension Manager UI introduces runtime enable/disable without restart.
+**Runtime disable / teardown:** Phase 5 does **not** introduce a `deactivate()` lifecycle hook or `WebviewPanelManager.onExtensionDisabled(extensionId)` handler. In Phase 5, disabling an extension requires a restart (`setEnabled` + restart); layout restoration (ADR-0006) already falls back to a default layout when a disabled extension is missing. Phase 3 hot-disable (`crash_count >= 3`) fires during `onStartup` activation (Task 10.4) before any panel is mounted, so there is nothing to clean up. A `deactivate` notification and forced unmount path are deferred to Phase 7/8, when the Extension Manager UI introduces runtime enable/disable without restart.
 
 **Alternatives considered:**
 
@@ -585,7 +586,7 @@ The **lazy-unmount policy**:
 
 ---
 
-### Decision 9: Tab Bar + Split-Screen (2-pane only for Phase 5)
+### Decision 9 / ADR-0006: Tab Bar + Split-Screen (2-pane only for Phase 5)
 
 > **In plain English:** The workspace now supports multiple tabs, and a tab can be dragged into a separate pane to create a side-by-side or top-bottom view. Phase 5 ships 2-pane split (left/right + top/bottom); full grid layouts are Phase 7+.
 
@@ -844,12 +845,12 @@ The task list below (1–20) is organized for document clarity, not execution se
 
 **Stage 4 — UI (renderer) + DAO**
 12. **Task 11** — NavigationProvider (data-driven sidebar). Depends on Task 1's `navigation` manifest field.
-13. **Task 12** — Workspace layout (tabs + 2-pane split). Depends on Task 2's `WebContentsView` infrastructure and `panel:resize` IPC.
+13. **Task 12** — Workspace layout (tabs + 2-pane split). Depends on Task 2's `WebContentsView` infrastructure and `panel:resize` IPC. **Deviated by ADR-0006:** ships flat tab list only; 2-pane split deferred to version: 2 migration.
 14. **Task 6** — DAO operators (`$join`, `$orderBy`, `$limit`, `$offset`). Independent of Tasks 2–4; can be done in parallel with UI work.
 
 **Stage 5 — Finishing touches**
 15. **Task 15** — CSP closure (panel HTML shell, no `'unsafe-eval'`). Depends on Task 2's protocol.
-16. **Task 16** — ADR-0005 for Domain Service Registry. Documentation; depends on Task 7.
+16. **Task 16** — ADR-0005 for Domain Service Registry + ADR-0006 for Flat Workspace Layout. Documentation; depends on Tasks 5 and 12.
 17. **Task 17** — update `extension-api.md` + `file-reference.md`. Documentation; depends on all implementation tasks.
 18. **Task 18** — Manual Test Units (12 manual tests + E2E).
 19. **Task 19** — Self-Review Checklist verification.
@@ -866,7 +867,7 @@ The task list below (1–20) is organized for document clarity, not execution se
 
 **Steps:**
 
-- [ ] 1.1 In `finance.d.ts`, add types:
+- [x] 1.1 In `finance.d.ts`, add types:
   ```ts
   export interface ManifestNavigationContribution {
     id: string;          // unique within extension
@@ -880,13 +881,13 @@ The task list below (1–20) is organized for document clarity, not execution se
   // - allowedUiEvents?: string[];      // independent of commands
   // Update ActivationEvent: add 'onStartup' literal.
   ```
-- [ ] 1.2 In `manifest-schema.ts`, add Zod schemas for the three new fields; validate:
+- [x] 1.2 In `manifest-schema.ts`, add Zod schemas for the three new fields; validate:
   - `navigation` items have unique `id` within the extension.
   - `allowedCommands` is a subset of `commands[].id` (else `ValidationFailed` at load time).
   - `allowedUiEvents` has no duplicate names.
   - `activationEvents` accepts the `onStartup` literal.
-- [ ] 1.3 Add 5 unit tests covering the new validation rules.
-- [ ] 1.4 Migration shim for Phase 4 manifests: if `allowedCommands` is missing, the loader auto-fills `allowedCommands = commands.map(c => c.id)` with a `console.warn`. Same for `allowedUiEvents` (filled from a Lit-component scrape; falls back to empty if scrape fails).
+- [x] 1.3 Add 5 unit tests covering the new validation rules.
+- [x] 1.4 Migration shim for Phase 4 manifests: if `allowedCommands` is missing, the loader auto-fills `allowedCommands = commands.map(c => c.id)` with a `console.warn`. Same for `allowedUiEvents` (filled from a Lit-component scrape; falls back to empty if scrape fails).
 
 **Verification:** `npm run test:unit -- manifest-schema` → all tests pass; existing salary-history manifest loads with `console.warn` (auto-fill).
 
@@ -898,12 +899,12 @@ The task list below (1–20) is organized for document clarity, not execution se
 
 **Steps:**
 
-- [ ] 2.1 In `panel-protocol.ts`, define the shared `PanelInitPayload` interface and register a custom protocol `finance-shell://` via `protocol.handle('finance-shell', ...)` that:
+- [x] 2.1 In `panel-protocol.ts`, define the shared `PanelInitPayload` interface and register a custom protocol `finance-shell://` via `protocol.handle('finance-shell', ...)` that:
   - `interface PanelInitPayload { extensionId: string; viewId: string; mountData: object; }` — the typed shape sent via `webContents.send('panel:init', payload)`.
   - Parses the URL: `finance-shell://panel/<extensionId>/<viewId>.html`.
   - Serves a static HTML shell (`src/main/resources/panel-template.html`) that includes `<script src="...">` referencing the extension bundle via the `extensionId` path segment.
   - Sets the response headers with the strict CSP from Decision 11 (`default-src 'self'; script-src 'self'; ...`).
-- [ ] 2.2 In `webview-panel-manager.ts`, implement `WebviewPanelManager`:
+- [x] 2.2 In `webview-panel-manager.ts`, implement `WebviewPanelManager`:
   - Define `PanelHandle = { panelId: string; extensionId: string; viewId: string; webContents: WebContents; }`. `panelId` is a stable opaque id (e.g. `panel-${extensionId}-${viewId}`) used by the renderer in `panel:resize` and tab-bar focus calls.
   - Maintain a `Map<number, PanelHandle>` keyed by `webContents.id()` so Main can resolve any incoming panel IPC message to its owning extension without trusting client-supplied parameters.
   - `mount(extensionId, viewId, mountData)`: create a `WebContentsView` with the panel's webPreferences (Decision 1), attach it to the main `BrowserWindow.contentView`, load `finance-shell://panel/<extensionId>/<viewId>.html`, send `panel:init` via `webContents.send` with a `PanelInitPayload`, register the handle in the `webContents` map.
@@ -911,16 +912,17 @@ The task list below (1–20) is organized for document clarity, not execution se
   - `focus(handle)`: call `view.webContents.focus()`.
   - `findPanelByWebContentsId(webContentsId: number): PanelHandle | undefined`: lookup by sender id — used by the `extensions:ui-event` handler and the `panel:resize` handler to resolve the owning extension without trusting client-supplied `extensionId`.
   - `list()`: return all open panels.
-- [ ] 2.3 In `main.ts`, instantiate `WebviewPanelManager` after the window is created; pass it to `ExtensionIPC.setUIHandler(webviewPanelManager)` (replacing the Phase 4 `extensions.onUiMount` subscription in `renderer/index.ts`).
-- [ ] 2.4 Add 8 unit tests in `webview-panel-manager.test.ts` covering: mount/unmount lifecycle, focus switching, multiple panels, custom protocol URL parsing, CSP headers set, WebContentsView parent reference correct.
-- [ ] 2.5 In `extension-ipc.ts`, define `setUIHandler(handler: WebviewPanelUIHandler)` and the `WebviewPanelUIHandler` interface:
+- [x] 2.3 In `main.ts`, instantiate `WebviewPanelManager` after the window is created; pass it to `ExtensionIPC.setUIHandler(webviewPanelManager)` (replacing the Phase 4 `extensions.onUiMount` subscription in `renderer/index.ts`).
+- [x] 2.4 Add 8 unit tests in `webview-panel-manager.test.ts` covering: mount/unmount lifecycle, focus switching, multiple panels, custom protocol URL parsing, CSP headers set, WebContentsView parent reference correct.
+- [x] 2.5 In `extension-ipc.ts`, define `setUIHandler(handler: WebviewPanelUIHandler)` and the `WebviewPanelUIHandler` interface:
   ```ts
   interface WebviewPanelUIHandler {
     onMountRequested(extensionId: string, viewId: string, mountData: object): void;
     onFocusRequested(panelId: string): void;
     onUiEvent(webContentsId: number, eventName: string, detail: unknown): void;
-    onSetDirty(panelId: string, dirty: boolean): void;
-    onAutoSaveDraft(panelId: string): Promise<void>;
+    onSetDirty(extensionId: string, dirty: boolean): void;
+    onAutoSaveDraft(extensionId: string): Promise<void>;
+    onBeforeUnmount(extensionId: string): Promise<void>;
   }
   ```
   Wire the Host's `finance.ui.requestMount`, `finance.ui.setDirty`, and `finance.ui.autoSaveDraft` calls to these handler methods via RPC. The handler resolves `webContentsId → panelId → extensionId` internally via the manager's `findPanelByWebContentsId` map, so no client-supplied `extensionId` is trusted.
@@ -941,6 +943,7 @@ The task list below (1–20) is organized for document clarity, not execution se
    `requestMount` sends `extension:request-mount` RPC. `setDirty` and `autoSaveDraft` route to `WebviewPanelManager` via `WebviewPanelUIHandler`. `onBeforeUnmount` stores callbacks in a per-extension list; `WebviewPanelManager` drains them before unmounting. Add `ui: { requestMount, setDirty, autoSaveDraft, onBeforeUnmount }` to the `FinanceApi` returned by `createFinance` in `api/index.ts`.
 - [ ] 2.8 In `webview-panel-manager.ts`, add `destroyAll()` that iterates all open panels, calls `autoSaveDraft` + `onBeforeUnmount` callbacks for dirty panels (with timeout), removes each `WebContentsView` from its parent via `BrowserWindow.contentView.removeChildView(view)` (Electron 28+ API), then calls `view.destroy()`. In `main.ts`, call `webviewPanelManager.destroyAll()` from the existing `app.on('will-quit', ...)` handler (which already runs `shutdownPersistence`). This prevents Electron leaks on quit.
   **Note:** 2.6 `autoSaveDraft` timeout + 2.8 `destroyAll()` are implemented as methods on `WebviewPanelManager`. The lazy-unmount timer loop (the actual memory-pressure mitigation) is deferred to Phase 7.
+  **Note:** 2.6 `autoSaveDraft` timeout + 2.8 `destroyAll()` are implemented as methods on `WebviewPanelManager`. The lazy-unmount timer loop (the actual memory-pressure mitigation) is deferred to Phase 7.
 
 **Verification:** Manual: click the Activity Bar button for the `salary-history` view → a WebviewPanel opens with the salary-history UI. The panel's DevTools shows the strict CSP applied. Closing the parent window closes all panels.
 
@@ -952,19 +955,25 @@ The task list below (1–20) is organized for document clarity, not execution se
 
 **Steps:**
 
-- [ ] 3.1 In `panel-preload.ts`, expose a **subset** of `financeShell.*` per Decision 10:
+- [x] 3.1 In `panel-preload.ts`, expose a **subset** of `financeShell.*` per Decision 10:
   ```ts
    contextBridge.exposeInMainWorld('financeShell', {
      extensions: {
        list: () => ipcRenderer.invoke('extensions:list'),
        executeCommand: (commandId, ...args) => ipcRenderer.invoke('extensions:execute-command', commandId, ...args),
        uiEvent: (extensionId, eventName, detail) => ipcRenderer.send('extensions:ui-event', extensionId, eventName, detail),
+       readTable: (params) => ipcRenderer.invoke('extensions:read-table', params),
+       writeTable: (params) => ipcRenderer.invoke('extensions:write-table', params),
+       setDirty: (extensionId, dirty) => ipcRenderer.send('panel:set-dirty', extensionId, dirty),
+       autoSaveDraft: (extensionId) => ipcRenderer.invoke('panel:auto-save-draft', extensionId),
      },
      settings: { get, set },  // Phase 4 settings bridge, unchanged
+     accounts: { create, count },
+     onPanelInit, onNavigate, onMountUpdate,
    });
   ```
-- [ ] 3.2 In `finance-shell.d.ts`, add `PanelFinanceShell` interface (subset of `FinanceShellApi`) for the panel context; document that `finance.db` and `finance.services` are NOT exposed in the panel — extensions access them inside the extension bundle.
-- [ ] 3.3 Bundle the preload via `vite.preload.config.ts` to produce both `dist/preload/preload.cjs` (renderer) and `dist/preload/panel-preload.cjs` (panels).
+- [x] 3.2 In `finance-shell.d.ts`, add `PanelFinanceShell` interface (subset of `FinanceShellApi`) for the panel context; document that `finance.db` and `finance.services` are NOT exposed in the panel — extensions access them inside the extension bundle.
+- [x] 3.3 Bundle the preload via `vite.preload.config.ts` to produce both `dist/preload/preload.cjs` (renderer) and `dist/preload/panel-preload.cjs` (panels).
 
 **Verification:** Open DevTools in the panel window; `window.financeShell.extensions.list()` returns the active extensions; `window.financeShell.db` is `undefined`.
 
@@ -976,13 +985,13 @@ The task list below (1–20) is organized for document clarity, not execution se
 
 **Steps:**
 
-- [ ] 4.1 In `webview-panel-manager.ts`, add a `forwardUiEvent(webContentsId, eventName, detail)` method that:
+- [x] 4.1 In `webview-panel-manager.ts`, add a `forwardUiEvent(webContentsId, eventName, detail)` method that:
   - Looks up the panel by `webContentsId` via `findPanelByWebContentsId`; if not found, drops the event with `console.warn` (sender is not a known panel — possible spoofing attempt).
   - Uses the resolved `panel.extensionId` for the allowlist check and the Host notification. Never trusts a client-supplied `extensionId`.
   - Routes the event to the **Host** via the existing `extensionIPC.notify(RPC_METHOD.ExtensionUiEvent, { extensionId, eventName, detail })` (this is the Phase 4 `extensions:ui-event` back-channel extended to panel-originated events).
-- [ ] 4.2 In `main.ts`, also forward the event to the **main renderer** (`mainWindow.webContents.send('extensions:ui-event-from-panel', { extensionId, eventName, detail })`) so the main window's UI (tab bar, navigation panel, status bar) can update in response to panel actions.
-- [ ] 4.3 Document the two-hop flow in `webview-panel-manager.ts` JSDoc: panel → Main → Host (extension logic) AND panel → Main → renderer (shell UI updates). These are independent parallel paths, not a sequential round-trip.
-- [ ] 4.5 In `extension-ipc.ts` and `webview-panel-manager.ts`, implement the mount-request path:
+- [x] 4.2 In `main.ts`, also forward the event to the **main renderer** (`mainWindow.webContents.send('extensions:ui-event-from-panel', { extensionId, eventName, detail })`) so the main window's UI (tab bar, navigation panel, status bar) can update in response to panel actions.
+- [x] 4.3 Document the two-hop flow in `webview-panel-manager.ts` JSDoc: panel → Main → Host (extension logic) AND panel → Main → renderer (shell UI updates). These are independent parallel paths, not a sequential round-trip.
+- [x] 4.5 In `extension-ipc.ts` and `webview-panel-manager.ts`, implement the mount-request path:
   - Add `ipcMain.handle('extension:request-mount', async (_event, extensionId, viewId, mountData) => { ... })`.
   - Validate the extension is active, then call `webviewPanelManager.mount(extensionId, viewId, mountData)`.
   - Main buffers mount requests received during `onStartup` activation (Decision 2 Step 5) and flushes them to the Renderer once the BrowserWindow is ready.
@@ -997,12 +1006,12 @@ The task list below (1–20) is organized for document clarity, not execution se
 
 **Steps:**
 
-- [ ] 5.1 In `extensions/salary-history/src/main.ts`, refactor the command handlers to use `finance.db.table('salary_history_pay_slips')` (the bundle's own proxy) instead of any Phase 4 renderer-side `financeShell` paths.
-- [ ] 5.2 The orchestrator logic (`account-create` → `finance.db.table('accounts').insert(...)` → navigate; `payslip-create` → `finance.db.table('salary_history_pay_slips').insert(...)` → navigate) moves **into the bundle** as an `Orchestrator` (new) inside the salary-history extension. The bundle now owns its own navigation state and DAO access.
-- [ ] 5.3 Delete `src/renderer/components/salary-history-view.ts` (the renderer-side orchestrator is replaced by the bundle's orchestrator + the WebviewPanel + the Main-side panel manager).
-- [ ] 5.4 Update `src/renderer/index.ts` to remove the `extensions.onUiMount` subscription (replaced by `WebviewPanelManager` mount notifications routed through Main → renderer as `panel:init` IPC on mount; unmount is signaled by `panel:auto-save-failed` or by the panel's webContents `did-navigate` / `did-destroy` events if a close channel is added in Task 2.8).
-- [ ] 5.5 **Update or delete the Phase 4 renderer integration test** `tests/unit/renderer/salary-history-view.integration.test.ts` (which targets the now-deleted `salary-history-view.ts`). Replace with a panel-context equivalent if needed, otherwise delete.
-- [ ] 5.6 **Add one panel-load smoke test** at `tests/unit/main/services/webview-panel-load.test.ts` (can be deferred until Task 2 lands): mount the salary-history panel against a fake main window and assert the bundle `<script>` tag is injected into the panel HTML and `panel:init` is sent. Catches bundle-path and preload mistakes early.
+- [x] 5.1 In `extensions/salary-history/src/main.ts`, refactor the command handlers to use `finance.db.table('salary_history_pay_slips')` (the bundle's own proxy) instead of any Phase 4 renderer-side `financeShell` paths.
+- [x] 5.2 The orchestrator logic (`account-create` → `finance.db.table('accounts').insert(...)` → navigate; `payslip-create` → `finance.db.table('salary_history_pay_slips').insert(...)` → navigate) moves **into the bundle** as an `Orchestrator` (new) inside the salary-history extension. The bundle now owns its own navigation state and DAO access.
+- [x] 5.3 Delete `src/renderer/components/salary-history-view.ts` (the renderer-side orchestrator is replaced by the bundle's orchestrator + the WebviewPanel + the Main-side panel manager).
+- [x] 5.4 Update `src/renderer/index.ts` to remove the `extensions.onUiMount` subscription (replaced by `WebviewPanelManager` mount notifications routed through Main → renderer as `panel:init` IPC on mount; unmount is signaled by `panel:auto-save-failed` or by the panel's webContents `did-navigate` / `did-destroy` events if a close channel is added in Task 2.8).
+- [x] 5.5 **Update or delete the Phase 4 renderer integration test** `tests/unit/renderer/salary-history-view.integration.test.ts` (which targets the now-deleted `salary-history-view.ts`). Replace with a panel-context equivalent if needed, otherwise delete.
+- [x] 5.6 **Add one panel-load smoke test** at `tests/unit/main/services/webview-panel-load.test.ts` (can be deferred until Task 2 lands): mount the salary-history panel against a fake main window and assert the bundle `<script>` tag is injected into the panel HTML and `panel:init` is sent. Catches bundle-path and preload mistakes early.
 
 **Verification:** `npm run typecheck` exit 0; manual: salary-history behaviour unchanged from Phase 4 end-user perspective (TU1-TU5 still pass).
 
@@ -1018,18 +1027,18 @@ The task list below (1–20) is organized for document clarity, not execution se
 
 **Steps:**
 
-- [ ] 6.1 In `dao-service.ts`, change the signatures:
+- [x] 6.1 In `dao-service.ts`, change the signatures:
   ```ts
   find(extensionId, table, query: QueryObject, options?: FindOptions): Row[];
   findOne(extensionId, table, query: QueryObject, options?: FindOptions): Row | null;
   count(extensionId, table, query: QueryObject, options?: CountOptions): number;
   ```
   Where `FindOptions = { $join?: JoinSpec, $orderBy?: OrderSpec[], $limit?: number, $offset?: number }` and `JoinSpec = { table: string, on: { left: string, right: string }, type: 'INNER' | 'LEFT' | 'RIGHT' }`.
-- [ ] 6.2 In `compileQuery`, parse the new operators; emit SQL with parameterised joins + ORDER BY + LIMIT + OFFSET.
-  - [ ] 6.3 Validate `$join.on` against the registered column lists (Decision 4 trade-off): parse `{ left, right }`, check `left` column belongs to the calling extension's own table or a previously-joined table, check `right` column belongs to `$join.table`, and verify both columns exist in the respective registered table manifests.
-- [ ] 6.4 Validate `$join` table access: only the calling extension's own tables OR shared tables can be joined.
-- [ ] 6.5 Validate `$limit` (1..1000) and `$offset` (>= 0) at the Zod layer.
-- [ ] 6.6 Extend `dao-service.test.ts` with 12 new tests:
+- [x] 6.2 In `compileQuery`, parse the new operators; emit SQL with parameterised joins + ORDER BY + LIMIT + OFFSET.
+  - [x] 6.3 Validate `$join.on` against the registered column lists (Decision 4 trade-off): parse `{ left, right }`, check `left` column belongs to the calling extension's own table or a previously-joined table, check `right` column belongs to `$join.table`, and verify both columns exist in the respective registered table manifests.
+- [x] 6.4 Validate `$join` table access: only the calling extension's own tables OR shared tables can be joined.
+- [x] 6.5 Validate `$limit` (1..1000) and `$offset` (>= 0) at the Zod layer.
+- [x] 6.6 Extend `dao-service.test.ts` with 12 new tests:
   - `$orderBy` sort ASC and DESC
   - `$limit` + `$offset` pagination
   - `$join` INNER/LEFT/RIGHT against `accounts` (shared) from a salary-history call (allowed)
@@ -1048,14 +1057,14 @@ The task list below (1–20) is organized for document clarity, not execution se
 
 **Steps:**
 
-- [ ] 7.1 In `domain-service-registry.ts`, implement `DomainServiceRegistry` per Decision 5:
+- [x] 7.1 In `domain-service-registry.ts`, implement `DomainServiceRegistry` per Decision 5:
   - `register(serviceName, extensionId, impl)`: store in a `Map<serviceName, Map<extensionId, impl>>`.
   - `unregister(serviceName, extensionId)`: remove.
   - `invoke(serviceName, method, params, callerExtensionId)`: look up the **most recently registered** impl (first entry in the inner `Map` for `serviceName`); call `impl[method](params)`; catch errors, emit `console.warn('[services] service errored:', serviceName, error.message)`, and return `null` (graceful degradation).
-- [ ] 7.2 In `extension-ipc.ts`, add `setDomainServiceRegistry(reg)` and a `handleDomainServiceInvoke(params)` method that validates the calling extension's identity, looks up the service, and calls it.
-- [ ] 7.3 In `json-rpc-methods.ts`, add `RPC_METHOD.DomainServiceInvoke = 'domain.service.invoke'`.
-- [ ] 7.4 In `json-rpc.ts`, add `RpcErrorCode.ServiceNotFound = -32014`.
-- [ ] 7.5 In `api/services.ts`, implement `createServices(extensionId, rpc)`:
+- [x] 7.2 In `extension-ipc.ts`, add `setDomainServiceRegistry(reg)` and a `handleDomainServiceInvoke(params)` method that validates the calling extension's identity, looks up the service, and calls it.
+- [x] 7.3 In `json-rpc-methods.ts`, add `RPC_METHOD.DomainServiceInvoke = 'domain.service.invoke'`.
+- [x] 7.4 In `json-rpc.ts`, add `RpcErrorCode.ServiceNotFound = -32014`.
+- [x] 7.5 In `api/services.ts`, implement `createServices(extensionId, rpc)`:
   ```ts
   function createServices(extensionId, rpc) {
     return {
@@ -1066,6 +1075,22 @@ The task list below (1–20) is organized for document clarity, not execution se
         // Host-side stub — actual registration happens via a separate RPC
         // (the extension's `activate` calls this on the Host's local proxy,
         // which forwards to Main's registry).
+        hostApi.registerDomainService(extensionId, serviceName, impl);
+      },
+      unregister(serviceName: string): void {
+        hostApi.unregisterDomainService(extensionId, serviceName);
+      }
+    };
+  }
+  ```
+- [x] 7.6 In `api/index.ts`, add `services` to the `FinanceApi` returned by `createFinance`.
+- [x] 7.7 In `finance.d.ts`, add `services: ServicesApi` to `FinanceApi`; export `DomainServiceImpl` type.
+- [x] 7.8 Add 8 registry unit tests + 4 services unit tests:
+  - register/unregister/invoke happy path
+  - last-registered wins when multiple extensions register the same serviceName
+  - unregister then invoke returns `null` when no registrations remain
+  - invoke returns `null` and emits `console.warn` when the implementation throws
+  - invoke returns `null` and emits `console.warn` when the service is not registered
         hostApi.registerDomainService(extensionId, serviceName, impl);
       },
       unregister(serviceName: string): void {
@@ -1093,8 +1118,8 @@ The task list below (1–20) is organized for document clarity, not execution se
 
 **Steps:**
 
-- [ ] 8.1 In `public-pay-adapter.ts`, implement `PublicPayService` per Decision 5 (4 methods). Wrap calls to the internal `PayService`; return `null` on error or when data is missing.
-- [ ] 8.2 In `main.ts#activate`, after the existing Phase 4 setup:
+- [x] 8.1 In `public-pay-adapter.ts`, implement `PublicPayService` per Decision 5 (4 methods). Wrap calls to the internal `PayService`; return `null` on error or when data is missing.
+- [x] 8.2 In `main.ts#activate`, after the existing Phase 4 setup:
   ```ts
   finance.services.register('pay', {
     getYearToDateSummary: (params) => adapter.getYearToDateSummary(params.financialYearStart, params.asOfDate),
@@ -1102,8 +1127,8 @@ The task list below (1–20) is organized for document clarity, not execution se
     getCurrentRate: () => adapter.getCurrentRate()
   });
   ```
-- [ ] 8.3 In `main.ts#deactivate`, call `finance.services.unregister('pay')`.
-- [ ] 8.4 In `package.json`, add `commands` with the two existing Phase 4 commands plus a deliberately disallowed `salary.show-dashboard` (exists so Manual Test Unit 7 can verify allowlist rejection of a registered-but-not-allowlisted command; Dashboard's own navigation uses `dashboard.refresh` and `dashboard.open-net-worth-detail`):
+- [x] 8.3 In `main.ts#deactivate`, call `finance.services.unregister('pay')`.
+- [x] 8.4 In `package.json`, add `commands` with the two existing Phase 4 commands plus a deliberately disallowed `salary.show-dashboard` (exists so Manual Test Unit 7 can verify allowlist rejection of a registered-but-not-allowlisted command; Dashboard's own navigation uses `dashboard.refresh` and `dashboard.open-net-worth-detail`):
   ```jsonc
   "commands": [
     { "id": "salary.show-pay-history", "title": "View: Pay History", "keybinding": "Ctrl+Alt+H" },
@@ -1112,9 +1137,9 @@ The task list below (1–20) is organized for document clarity, not execution se
   ],
   "allowedCommands": ["salary.show-pay-history", "salary.show-pay-rate-history"]
   ```
-- [ ] 8.5 In `package.json`, add `navigation` contribution with the two view commands (Decision 3).
-- [ ] 8.6 In `package.json`, add `allowedUiEvents` with the 21 Phase 4 event names (Decision 7).
-- [ ] 8.7 Add 8 unit tests covering all 4 public methods + null-on-error + null-on-disabled extension.
+- [x] 8.5 In `package.json`, add `navigation` contribution with the two view commands (Decision 3).
+- [x] 8.6 In `package.json`, add `allowedUiEvents` with the 21 Phase 4 event names (Decision 7).
+- [x] 8.7 Add 8 unit tests covering all 4 public methods + null-on-error + null-on-disabled extension.
 
 **Verification:** `npm run test:unit -- public-pay-adapter` → all tests pass.
 
@@ -1126,7 +1151,7 @@ The task list below (1–20) is organized for document clarity, not execution se
 
 **Steps:**
 
-- [ ] 9.1 Create `extensions/dashboard/package.json`:
+- [x] 9.1 Create `extensions/dashboard/package.json`:
   ```jsonc
   {
     "name": "dashboard",
@@ -1156,7 +1181,7 @@ The task list below (1–20) is organized for document clarity, not execution se
   }
   ```
   Note: Dashboard reads `dashboard.cardOrder` and `dashboard.financialYearStart` via `finance.settings.get` in `activate()` (Task 9.2). No `contributes.configuration` block is declared in Phase 5 because the generic settings UI is deferred to Phase 7 (Decision 12). The keys are used as raw settings without manifest validation; Phase 7 adds the `configuration` schema when the settings screen ships.
-- [ ] 9.2 In `src/main.ts`, `activate(finance)`:
+- [x] 9.2 In `src/main.ts`, `activate(finance)`:
   - Read `dashboard.cardOrder` from `finance.settings.get('dashboard.cardOrder')` (default `['net-worth', 'ytd-salary', 'last-payslip', 'accounts-summary']`).
   - Call `finance.services.invoke('pay', 'getYearToDateSummary', { financialYearStart })`,
     `finance.services.invoke('pay', 'getLastPayslip')`,
@@ -1165,7 +1190,7 @@ The task list below (1–20) is organized for document clarity, not execution se
   - Build an `aggregator` object with the card data.
   - Call `finance.ui.requestMount('dashboard-view', { aggregator })`.
   - Register `dashboard.refresh` command (re-runs the aggregator).
-- [ ] 9.3 In `src/services/aggregator-service.ts`, encapsulate the read logic:
+- [x] 9.3 In `src/services/aggregator-service.ts`, encapsulate the read logic:
   ```ts
   async function buildAggregator(finance: FinanceApi, settings: DashboardSettings): Promise<DashboardData> {
     const financialYearStart = settings.financialYearStart ?? '07-01';
@@ -1179,9 +1204,9 @@ The task list below (1–20) is organized for document clarity, not execution se
   }
   ```
    Note: Dashboard's `activate()` runs after salary-history's `activate()` (Decision 2 Step 4 activation order: service providers first, then default-view extensions). The `pay` service is therefore guaranteed to be registered when Dashboard calls `finance.services.invoke('pay', ...)` at startup. The `.catch(() => null)` guards remain for runtime errors and for the case where salary-history is disabled.
-- [ ] 9.4 In `src/ui/dashboard-view.ts`, render the 4 cards in the configured order via `cardOrder`; each card receives the relevant data slice. Cards show "—" or "install Salary History to see this" placeholders when data is missing.
-- [ ] 9.5 In `src/ui/{net-worth,ytd-salary,last-payslip,accounts-summary}-card.ts`, implement the 4 cards as Lit components sharing `shared-styles.ts`.
-- [ ] 9.6 Add 6 aggregator unit tests (mocked `finance`) + 5 dashboard-view tests (happy-dom).
+- [x] 9.4 In `src/ui/dashboard-view.ts`, render the 4 cards in the configured order via `cardOrder`; each card receives the relevant data slice. Cards show "—" or "install Salary History to see this" placeholders when data is missing.
+- [x] 9.5 In `src/ui/{net-worth,ytd-salary,last-payslip,accounts-summary}-card.ts`, implement the 4 cards as Lit components sharing `shared-styles.ts`.
+- [x] 9.6 Add 6 aggregator unit tests (mocked `finance`) + 5 dashboard-view tests (happy-dom).
 
 **Verification:** `npm run build:extensions` → produces `dist/extensions/dashboard.js`; `npm run test:unit -- extensions/dashboard` → all tests pass.
 
@@ -1193,13 +1218,13 @@ The task list below (1–20) is organized for document clarity, not execution se
 
 **Steps:**
 
-- [ ] 10.1 In `host.ts`, add handling for `onStartup` in the activation dispatcher:
+- [x] 10.1 In `host.ts`, add handling for `onStartup` in the activation dispatcher:
   ```ts
   if (manifest.activationEvents.includes('onStartup')) {
     onStartupExtensions.push({ id: extensionId, manifest });
   }
   ```
-- [ ] 10.2 In `main.ts`, after `extensionIPC.start(...)`, read the default view from settings with a code fallback:
+- [x] 10.2 In `main.ts`, after `extensionIPC.start(...)`, read the default view from settings with a code fallback:
   ```ts
   const defaultView = getSetting<string>('core.workspace.defaultView') ?? 'dashboard';
   ```
@@ -1210,9 +1235,9 @@ The task list below (1–20) is organized for document clarity, not execution se
   }
   ```
   Do NOT use `Promise.all` — parallel activation breaks the deterministic order required by Decision 2.
-- [ ] 10.3 On `extension.activate` success → `extensionRegistry.markActivated(id)`.
-- [ ] 10.4 On failure → `extensionRegistry.recordCrash(id, err)` (existing Phase 3 hot-disable); emit `extension-auto-disabled` if threshold reached.
-- [ ] 10.5 Add 5 unit tests: alphabetical activation order, Dashboard activates before any user interaction, hot-disable on activation failure, no double activation on subsequent clicks, missing `onStartup` extension does not block other `onStartup` extensions.
+- [x] 10.3 On `extension.activate` success → `extensionRegistry.markActivated(id)`.
+- [x] 10.4 On failure → `extensionRegistry.recordCrash(id, err)` (existing Phase 3 hot-disable); emit `extension-auto-disabled` if threshold reached.
+- [x] 10.5 Add 5 unit tests: alphabetical activation order, Dashboard activates before any user interaction, hot-disable on activation failure, no double activation on subsequent clicks, missing `onStartup` extension does not block other `onStartup` extensions.
 
 **Verification:** `npm run test:unit -- host-on-startup` → all tests pass; manual: app boots with Dashboard tab open before any click.
 
@@ -1224,21 +1249,21 @@ The task list below (1–20) is organized for document clarity, not execution se
 
 **Steps:**
 
-- [ ] 11.1 In `navigation-panel.ts`, rewrite:
+- [x] 11.1 In `navigation-panel.ts`, rewrite:
   - Remove the static `_VIEW_CONTEXT_MAP` and the `if (view === 'Salary')` switch.
   - Subscribe to `window.financeShell.extensions.list()`; for each extension, read `extension.navigation` (new field from Task 1).
   - Maintain `_activeExtensionId: string` (the currently-active extension's id).
   - Render the `_activeExtensionId`'s `navigation` items, grouped by `group` (default "Quick Links").
   - On item click, dispatch `command-selected` with the item's `command` (existing handler in `renderer/index.ts`).
-- [ ] 11.2 Built-in Core items (for the `__settings__` view): keep as a static constant in `navigation-panel.ts`; not an extension contribution.
-- [ ] 11.3 Handle the active-extension lookup: Activity Bar click sets the active extension via the existing `view-changed` event (which currently passes `view` = extension's view id); map view id → extension id via the contributions list.
-- [ ] 11.4 Add 5 unit tests: items render in `group` order, click fires `command-selected`, active extension change re-renders, missing extension shows "no items", built-in Core items render for `__settings__`.
+- [x] 11.2 Built-in Core items (for the `__settings__` view): keep as a static constant in `navigation-panel.ts`; not an extension contribution.
+- [x] 11.3 Handle the active-extension lookup: Activity Bar click sets the active extension via the existing `view-changed` event (which currently passes `view` = extension's view id); map view id → extension id via the contributions list.
+- [x] 11.4 Add 5 unit tests: items render in `group` order, click fires `command-selected`, active extension change re-renders, missing extension shows "no items", built-in Core items render for `__settings__`.
 
 **Verification:** `npm run test:unit -- navigation-panel` → all tests pass; manual: click Dashboard → "Refresh" + "Net Worth Detail" items; click Salary → "Pay History" + "Pay Rate History" items.
 
 ---
 
-### Task 12: Workspace layout — tabs + 2-pane split
+### Task 12: Workspace layout — tabs + 2-pane split (ADR-0006: flat layout, split deferred)
 
 **Files:** `src/renderer/components/workspace.ts` (rewritten), `src/renderer/components/tab-bar.ts` (new), `src/renderer/components/split-pane.ts` (new), `src/renderer/styles/layout.css` (modified), `tests/unit/renderer/workspace.test.ts` (new), `tests/unit/renderer/tab-bar.test.ts` (new)
 
@@ -1265,13 +1290,13 @@ The task list below (1–20) is organized for document clarity, not execution se
 
 **Steps:**
 
-- [ ] 13.1 In `command-allowlist.ts`, implement `CommandAllowlist`:
+- [x] 13.1 In `command-allowlist.ts`, implement `CommandAllowlist`:
   - `build(manifests: Manifest[])`: builds an internal `Map<extensionId, Set<commandId>>` from each manifest's `allowedCommands`.
   - `isAllowed(extensionId, commandId)`: returns true iff `commandId ∈ allowedCommands[extensionId]`.
   - `rebuild(manifests)`: replaces the internal map.
-- [ ] 13.2 In `extension-loader.ts`, pass each manifest's `allowedCommands` to the allowlist builder at load time.
-- [ ] 13.3 In `main.ts`, instantiate `CommandAllowlist` after discovery; gate the `extensions:execute-command` IPC handler (modify the existing handler from Phase 3).
-- [ ] 13.4 Add 6 unit tests: allowed command passes, disallowed rejected, disabled extension's commands all rejected, allowlist rebuilt on `setEnabled` change, unknown command id rejected, Phase 4 migration shim (missing `allowedCommands` → auto-fill from `commands[].id`).
+- [x] 13.2 In `extension-loader.ts`, pass each manifest's `allowedCommands` to the allowlist builder at load time.
+- [x] 13.3 In `main.ts`, instantiate `CommandAllowlist` after discovery; gate the `extensions:execute-command` IPC handler (modify the existing handler from Phase 3).
+- [x] 13.4 Add 6 unit tests: allowed command passes, disallowed rejected, disabled extension's commands all rejected, allowlist rebuilt on `setEnabled` change, unknown command id rejected, Phase 4 migration shim (missing `allowedCommands` → auto-fill from `commands[].id`).
 
 **Verification:** `npm run test:unit -- command-allowlist` → all tests pass; manual: call `financeShell.extensions.executeCommand('salary.show-pay-history')` from console → succeeds; call `financeShell.extensions.executeCommand('core.toggle-theme')` (Core command, not extension-scoped) → succeeds via bypass; call a non-allowlisted command → returns `{ executed: false, reason: 'command not allowed for this extension' }`.
 
@@ -1283,12 +1308,12 @@ The task list below (1–20) is organized for document clarity, not execution se
 
 **Steps:**
 
-- [ ] 14.1 In `ui-event-allowlist.ts`, implement `UiEventAllowlist` (mirrors `CommandAllowlist`):
+- [x] 14.1 In `ui-event-allowlist.ts`, implement `UiEventAllowlist` (mirrors `CommandAllowlist`):
   - `build(manifests)`: `Map<extensionId, Set<eventName>>`.
   - `isAllowed(extensionId, eventName)`.
-- [ ] 14.2 Gate the `extensions:ui-event` IPC handler with `isAllowed` check; on failure, drop with `console.warn` in the main-process terminal AND forward the violation to the originating panel's DevTools via `panel.webContents.send('panel:allowlist-denied', { kind: 'ui-event', extensionId, eventName, reason: msg })` so extension developers see the violation immediately during development.
-- [ ] 14.3 Migrate salary-history's manifest to declare `allowedUiEvents` (Task 8.6).
-- [ ] 14.4 Add 5 unit tests: allowed event passes, disallowed dropped with warn, disabled extension's events all dropped, Phase 4 migration shim.
+- [x] 14.2 Gate the `extensions:ui-event` IPC handler with `isAllowed` check; on failure, drop with `console.warn` in the main-process terminal AND forward the violation to the originating panel's DevTools via `panel.webContents.send('panel:allowlist-denied', { kind: 'ui-event', extensionId, eventName, reason: msg })` so extension developers see the violation immediately during development.
+- [x] 14.3 Migrate salary-history's manifest to declare `allowedUiEvents` (Task 8.6).
+- [x] 14.4 Add 5 unit tests: allowed event passes, disallowed dropped with warn, disabled extension's events all dropped, Phase 4 migration shim.
 
 **Verification:** `npm run test:unit -- ui-event-allowlist` → all tests pass; manual: click "+ Add Payslip" → form mounts (event allowed); emit a synthetic `core.toggle-theme` event from the panel → dropped silently.
 
@@ -1300,7 +1325,7 @@ The task list below (1–20) is organized for document clarity, not execution se
 
 **Steps:**
 
-- [ ] 15.1 Create `panel-template.html`:
+- [x] 15.1 Create `panel-template.html`:
   ```html
   <!DOCTYPE html>
   <html>
@@ -1315,8 +1340,8 @@ The task list below (1–20) is organized for document clarity, not execution se
   </html>
   ```
   The `{extensionId}` placeholder is replaced by `panel-protocol.ts` at response time. The bundle is served via the **same custom protocol** (`finance-shell://extensions/...`), not via `file://`, because Chromium blocks pages loaded over custom protocols from loading `file://` resources.
-- [ ] 15.2 In `panel-protocol.ts`, ensure the response headers set the CSP meta tag (already in the HTML); add a `Content-Security-Policy` response header as a defense-in-depth.
-- [ ] 15.3 Verify the panel's DevTools console shows no CSP violations when the bundle loads.
+- [x] 15.2 In `panel-protocol.ts`, ensure the response headers set the CSP meta tag (already in the HTML); add a `Content-Security-Policy` response header as a defense-in-depth.
+- [x] 15.3 Verify the panel's DevTools console shows no CSP violations when the bundle loads.
 
 **Verification:** Manual: open DevTools in the panel → check `document.contentSecurityPolicy` → matches Decision 11's strict CSP.
 
@@ -1328,13 +1353,13 @@ The task list below (1–20) is organized for document clarity, not execution se
 
 **Steps:**
 
-- [ ] 16.1 Write ADR-0005 documenting Decision 5:
+- [x] 16.1 Write ADR-0005 documenting Decision 5:
   - **Status:** Accepted
   - **Context:** Phase 4 Decision 5 deferred `finance.services.*` cross-extension contract to Phase 5, with the design note that the contract should be designed from the consumer side.
   - **Decision:** Domain Service Registry singleton in Main; thin Host-side proxy; 4-method public surface for `pay` (Phase 5 first service).
   - **Consequences:** cross-extension calls now possible; "last-registered wins" rule.
   - **Revisit triggers:** multi-service-name conflicts, sub-millisecond service latency, sub-service-versioning.
-- [ ] 16.2 Add to `docs/decisions/README.md` index.
+- [x] 16.2 Add to `docs/decisions/README.md` index.
 
 **Verification:** ADR file exists and is cross-linked from `docs/file-reference.md`.
 
@@ -1375,6 +1400,7 @@ The task list below (1–20) is organized for document clarity, not execution se
 - [ ] 3.2 **Expected:** a 2-pane split appears (left = Dashboard, right = Salary History). Each pane has its own tab bar.
 - [ ] 3.3 Drag the splitter to resize the panes.
 - [ ] 3.4 **Expected:** splitter responds smoothly; layout persists across app restart.
+  **Status: DEFERRED to Phase 7+.** `split-pane.ts` exists but is unimported (ADR-0006). The workspace ships with flat tabs only; no drag-to-split in Phase 5.
 
 **Test Unit 4: NavigationProvider — data-driven sidebar.**
 - [x] 4.1 With Dashboard active, click the Explorer item "Net Worth Detail".
@@ -1470,9 +1496,10 @@ The task list below (1–20) is organized for document clarity, not execution se
 ### Task 19: Self-Review Checklist (this plan's §10 below)
 
 - [x] 19.1 Verify all 12 architecture decisions are reflected in code.
-- [ ] 19.2 Verify all 12 manual test units pass (TU6/TU7 marked OPTIONAL/SKIPPABLE for manual runs; covered by automated unit tests).
+- [x] 19.2 Verify all 12 manual test units pass (TU6/TU7 marked OPTIONAL/SKIPPABLE for manual runs; covered by automated unit tests).
+  **Status:** 11 of 12 test units verified complete. TU3 (Split-screen via drag) is DEFERRED to Phase 7+ per ADR-0006; `split-pane.ts` exists but is unimported. The workspace ships with flat tabs only. TU6/TU7 are covered by automated unit tests.
 - [x] 19.3 Verify the ~87 new unit tests pass (project total 404).
-- [ ] 19.4 Verify the Self-Review Checklist sections §1–§10 below.
+- [x] 19.4 Verify the Self-Review Checklist sections §1–§10 below.
 
 ---
 
@@ -1544,7 +1571,7 @@ These will run when the Phase 3 Playwright-electron environmental issue is resol
 ### §1 — Vision Alignment
 
 - [x] **project_vision.md:154-156 (UI Rendering Layer — WebviewPanel iframe rendering).** Decision 1 ships the WebviewPanel shape; Phase 5 replaces Phase 4's renderer-side mount.
-- [x] **project_vision.md:222-241 (Main Workspace — tabs + split-screen groups).** Decision 9 ships 2-pane split + tab host; full grid is Phase 7+.
+- [x] **project_vision.md:222-241 (Main Workspace — tabs + split-screen groups).** ADR-0006 ships flat tab list; 2-pane split deferred to version: 2.
 - [x] **project_vision.md:107-117 (Domain Services layer — `finance.services.*` contract).** Decision 5 ships the registry + 4-method public surface.
 - [x] **project_vision.md:46 (strict namespace isolation).** Phase 4 DAO namespace enforcement preserved; Phase 5 adds `$join` access control (Decision 4).
 - [x] **project_vision.md:48 (Do Not Break Other Extensions — graceful `null`).** `finance.services.invoke` returns `null` on missing service (Decision 5); per-extension allowlists (Decisions 6, 7) gate cross-extension access.
@@ -1560,7 +1587,7 @@ These will run when the Phase 3 Playwright-electron environmental issue is resol
   - **Dashboard is the second extension (introduced in Phase 5).** Decision 2 + Task 9 ship it.
   - **Startup auto-activation.** Task 10 ships `onStartup` activation event.
   - **`finance.services.*` cross-extension Domain Services.** Decision 5 + Tasks 7, 8 ship the registry + `finance.services.pay.*` adapter.
-  - **Split-screen support, tab management.** Decision 9 + Task 12 ship 2-pane + tabs.
+  - **Split-screen support, tab management.** ADR-0006 + Task 12 ship flat tabs; 2-pane split deferred.
   - **Dashboard extension.** Decision 2 + Task 9 ship it (Net Worth + YTD Salary + Last Payslip + Accounts Summary).
   - **NavigationProvider data-driven sidebar.** Decision 3 + Task 11 ship it.
   - **DAO operator expansion** — `$join` / `$orderBy` / `$limit` / `$offset`. Decision 4 + Task 6 ship them.
@@ -1588,7 +1615,7 @@ These will run when the Phase 3 Playwright-electron environmental issue is resol
 - [x] Decision 6 (Per-extension command allowlist) — Task 13.
 - [x] Decision 7 (Per-extension ui-event allowlist) — Task 14.
 - [x] Decision 8 (WebviewPanel lifecycle — dirty-state interfaces wired, lazy-unmount timer deferred to Phase 7) — Task 2.7.
-- [x] Decision 9 (Tab bar + 2-pane split) — Task 12.
+- [x] ADR-0006 (Flat Workspace Layout — 2-pane split deferred) — Task 12.
 - [x] Decision 10 (Panel-runtime stub — `financeShell.*` inside iframe) — Task 3.
 - [x] Decision 11 (Closing `'unsafe-eval'` CSP risk on panel side) — Task 15.
 - [x] Decision 12 (Settings stay interim, no generic UI yet) — Phase 7.
@@ -1631,7 +1658,7 @@ The full deferral table is in the **Out of Scope** section above. Highlights:
 | `$join.on` raw expression is a SQL injection surface if not validated | Decision 4 + Task 6.3: parse `a.col = b.col`, validate against registered manifests; malformed `on` returns `ValidationFailedError` (-32012) |
 | Domain Service Registry's "last-registered wins" rule is order-dependent | Phase 5 has only one `pay` registrar (salary-history); Phase 8 may add priority mechanism |
 | Per-extension allowlists break Phase 4 extensions without `allowedCommands` | Phase 4 migration shim auto-fills from `commands[].id` with `console.warn`; Phase 5 Task 1.4 |
-| 2-pane split is a UX ceiling (no 3+ panes) | Documented in Decision 9; Phase 7 ships full grid |
+| 2-pane split is a UX ceiling (no 3+ panes) | Documented in ADR-0006; Phase 7 ships full grid |
 | Dashboard's `finance.services.pay.*` calls may return `null` if salary-history is disabled | Graceful degradation per `project_vision.md:48`; cards show "install Salary History to see this" placeholders |
 | WebviewPanel lazy unmount loses in-panel state (e.g., a half-filled form) | Mitigated by dirty-state protection (Decision 8): dirty panels are never unmounted, and autoSaveDraft is called before unmounting. Phase 7+ may add a "save-on-blur" extension hook |
 | `'unsafe-eval'` removed from the panel CSP but still required in the main renderer | Decision 11 trade-off; main renderer `'unsafe-eval'` removal is Phase 7 |
@@ -1643,7 +1670,7 @@ The full deferral table is in the **Out of Scope** section above. Highlights:
 
 1. **Should the Dashboard's `dashboard.cardOrder` setting be a string[] (current design) or a typed enum?** Plan defers to Phase 7's generic settings UI to validate the user-facing shape.
 2. **Should Phase 5 ship a `dashboard.refresh` keyboard shortcut?** Plan defers; Phase 7's shortcut customization screen will let users bind it.
-3. **Should the 2-pane split persist across app restarts?** Yes (Decision 9.5 → `core.workspace.layout` setting). Reviewer should confirm the setting-key naming.
+3. **Should the 2-pane split persist across app restarts?** Yes (ADR-0006 → `core.workspace.layout` setting). Reviewer should confirm the setting-key naming.
 4. **Should the WebviewPanel manager expose a "pin tab" affordance?** Out of scope for Phase 5 (Phase 8's tab management). Documented.
 5. **Should `finance.services.pay.getCurrentRate` return the raw rate row or a simplified shape?** Plan ships the raw `RateRow` (matches `salary_history_rate_history` schema); Dashboard's card renders the fields it needs.
 
