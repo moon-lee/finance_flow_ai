@@ -536,7 +536,9 @@ function registerIpcHandlers(): void {
           input.institution ?? null,
           new Date().toISOString(),
         );
-      return { id: Number(info.lastInsertRowid) };
+      const id = Number(info.lastInsertRowid);
+      void notifyOpenDashboardAfterAccountChange();
+      return { id };
     },
   );
 
@@ -547,6 +549,33 @@ function registerIpcHandlers(): void {
     const row = db.prepare("SELECT COUNT(*) AS count FROM accounts").get() as { count: number };
     return { count: row.count };
   });
+}
+
+/**
+ * Keep an open Dashboard in sync with the Core-owned `accounts` table. Firing
+ * the dashboard's own `dashboard.refresh` command re-runs the aggregator in the
+ * Host (with real service bindings) and pushes fresh `mountData` to the open
+ * panel via `panel:mount-update`.
+ *
+ * Guard: only fire while the `dashboard-view` panel is currently mounted.
+ * `dashboard.refresh` ends in `requestMount`, which would *create* the panel if
+ * it were absent, popping a closed Dashboard open uninvited. A closed Dashboard
+ * already rebuilds on reopen via its `openCommand` (view-activation.ts).
+ */
+function notifyOpenDashboardAfterAccountChange(): void {
+  if (!extensionIPC || !webviewPanelManager) return;
+  const dashboardMounted = webviewPanelManager
+    .list()
+    .some((h) => h.extensionId === "dashboard" && h.viewId === "dashboard-view");
+  if (!dashboardMounted) return;
+  void extensionIPC
+    .request("extension.executeCommand", {
+      commandId: "dashboard.refresh",
+      args: [],
+    })
+    .catch((err) =>
+      console.error("[accounts] dashboard refresh failed:", err),
+    );
 }
 
 async function shutdownPersistence(): Promise<void> {

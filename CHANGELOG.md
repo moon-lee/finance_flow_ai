@@ -1,7 +1,7 @@
 ---
 version: 0.7.3
 created: 2026-06-14
-last_updated: 2026-08-01T15:33:00+10:00
+last_updated: 2026-08-01T15:45:00+10:00
 ---
 
 # Changelog
@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+
+- **Dashboard does not refresh after an account is created** (`src/main/main.ts`). `accounts:create` inserted the row but emitted no data-changed signal, so an already-open Dashboard kept its stale `accountsSummary` card. The Core handler now fires the Dashboard's own `dashboard.refresh` command in the Host after a successful insert (re-aggregates with real service bindings → `requestMount` → `panel:mount-update` to the open panel), guarded to run only while the `dashboard-view` panel is mounted — firing unconditionally would `requestMount`-create a closed Dashboard and pop it open; a closed Dashboard already rebuilds on reopen via its `openCommand` (`view-activation.ts`).
 
 - **Account Seed modal created two accounts with the same name on one submit** (`src/main/resources/panel-bootstrap.ts`, tests in `tests/unit/extensions/salary-history/orchestrator.test.ts`). The `account-create` CustomEvent from `accounts-seed-modal` (`accounts-seed-modal.ts:91-97`) was handled by two listeners on the same `#app` element — the Orchestrator's `_onAccountCreate` (`orchestrator.ts:159-168`) and a leftover bootstrap-level handler (`panel-bootstrap.ts`) — and each called `financeShell.accounts.create`, inserting two identical rows. The Orchestrator is the single owner (it validates, writes via the Core-owned `accounts.create` bridge per Decision 4, and navigates to `payslip-form` on success), so the duplicate bootstrap handler was removed. Regression test asserts one `account-create` submit produces exactly one `accounts.create` call.
 
