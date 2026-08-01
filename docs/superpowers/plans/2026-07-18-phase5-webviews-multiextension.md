@@ -1371,13 +1371,13 @@ The task list below (1–20) is organized for document clarity, not execution se
 
 **Steps:**
 
-- [ ] 17.1 In `extension-api.md`, add sections for:
+- [x] 17.1 In `extension-api.md`, add sections for:
   - `contributes.navigation`
   - `contributes.allowedCommands` / `allowedUiEvents`
   - `activationEvents: 'onStartup'`
   - `finance.services.*` API
   - WebviewPanel hosting model
-- [ ] 17.2 In `file-reference.md`, add the Phase 5 inventory section (mirror the File Structure above).
+- [x] 17.2 In `file-reference.md`, add the Phase 5 inventory section (mirror the File Structure above).
 
 **Verification:** `docs/extension-api.md` covers all Phase 5 additions; `file-reference.md` Phase 5 section present.
 
@@ -1509,10 +1509,10 @@ The task list below (1–20) is organized for document clarity, not execution se
 
 **Steps:**
 
-- [ ] 20.1 In `docs/file-reference.md`, append the Phase 5 inventory section.
-- [ ] 20.2 In `docs/decisions/README.md`, add ADR-0005 to the index.
-- [ ] 20.3 In `docs/extension-api.md`, document the Phase 5 API additions (Task 17.1).
-- [ ] 20.4 Write `docs/phase5-handoff.md` following the Phase 3 handoff pattern (`docs/phase3-handoff.md`).
+- [x] 20.1 In `docs/file-reference.md`, append the Phase 5 inventory section.
+- [x] 20.2 In `docs/decisions/README.md`, add ADR-0005 to the index.
+- [x] 20.3 In `docs/extension-api.md`, document the Phase 5 API additions (Task 17.1).
+- [x] 20.4 Write `docs/phase5-handoff.md` following the Phase 3 handoff pattern (`docs/archives/phase3-handoff.md`).
 - [ ] 20.5 In `CHANGELOG.md`, add `## [0.8.0] - TBD` header with `### Administrative` entry citing this plan file; date on release.
 
 **Verification:** all doc files updated; `CHANGELOG.md` version bumped; `package.json#version` synced to `0.8.0`.
