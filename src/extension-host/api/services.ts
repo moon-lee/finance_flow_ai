@@ -1,5 +1,6 @@
 import { RPC_METHOD } from '../../shared/json-rpc-methods';
 import type { DomainServiceImpl } from '../../main/services/domain-service-registry';
+export type { DomainServiceImpl };
 
 export interface ServicesApi {
   register(serviceName: string, impl: DomainServiceImpl): void;

@@ -2,6 +2,7 @@ import { LitElement, css, html } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import './tab-bar';
 import type { Tab } from './types';
+export type { Tab };
 
 interface PersistedLayout {
   version: 1;

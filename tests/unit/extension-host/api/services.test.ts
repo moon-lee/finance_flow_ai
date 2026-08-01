@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { createServices, _clearServiceRegistryForTests } from '../../../../src/extension-host/api/services';
+import { createServices, _clearServiceRegistryForTests, type DomainServiceImpl } from '../../../../src/extension-host/api/services';
 import { RPC_METHOD } from '../../../../src/shared/json-rpc-methods';
 
 function makeMockRpc() {

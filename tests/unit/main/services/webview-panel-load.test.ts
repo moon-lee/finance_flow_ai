@@ -80,7 +80,7 @@ describe('WebviewPanelManager mount', () => {
     );
     expect(loadListener, 'did-finish-load listener registered').toBeTruthy();
     // Invoke the listener manually to simulate the load completing.
-    (loadListener as unknown[])[1]();
+    (loadListener! as [string, () => void])[1]();
     expect(__mocks.send).toHaveBeenCalledWith('panel:init', {
       extensionId: 'salary-history',
       viewId: 'payslip-list',
@@ -92,6 +92,6 @@ describe('WebviewPanelManager mount', () => {
     manager.mount('dashboard', 'dashboard-view', {});
     const instance = __mocks.view();
     expect(instance).toBeTruthy();
-    expect(instance.webContents).toBeDefined();
+    expect(instance!.webContents).toBeDefined();
   });
 });
