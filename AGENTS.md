@@ -45,7 +45,7 @@
    1. `AGENTS.md` (this file) — confirm the rules have not changed since your training cutoff.
    2. `docs/project_vision.md` — the authoritative vision; everything else aligns to it.
    3. `docs/file-reference.md` — current file inventory by phase.
-   4. **Every `.md` file under `docs/` and `docs/decisions/` recursively.** This includes plans, specs, ADRs, handoff docs, decision indexes, and any new doc added in the future. Do not skip files. Do not stop at the first match. Do not filter by "relevance" — read everything.
+   4. **Every `.md` file under `docs/` and `docs/decisions/` recursively, except `docs/archives/`.** This includes plans, specs, ADRs, handoff docs, decision indexes, and any new doc added in the future. Completed phase plans are moved to `docs/archives/` and are not required for session-start context. Do not skip files outside archives. Do not stop at the first match. Do not filter by "relevance" — read everything in the active tree.
    5. The newest file in `docs/superpowers/plans/` (by filename date, e.g. `YYYY-MM-DD-*.md`) — read it last because it is the most recent and most specific to the current work.
 
    **Mandatory self-verification.** In your first response of every session, briefly list the docs you read at session start. If you could not read all of them, say so explicitly and explain why. The user uses this list to verify the protocol was followed.
