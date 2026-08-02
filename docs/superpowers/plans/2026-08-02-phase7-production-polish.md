@@ -21,43 +21,197 @@ spec_source: docs/superpowers/specs/2026-06-13-implementation-design.md (Phase 7
 - `npm run typecheck` exit 0
 - `npm run lint` exit 0
 
+## Existing Infrastructure (do not re-implement)
+
+The following Phase 5 infrastructure already exists and handles the two-renderer layering problem. Do not re-litigate or re-implement these:
+
+| Component | Purpose | File |
+|---|---|---|
+| `OverlayCoordinator` | Reference-counts open main-renderer overlays (command palette, modals, settings screen) | `src/renderer/overlay-coordinator.ts` |
+| `WebviewPanelManager.hidePanelsForOverlay()` | Sets all `WebContentsView` panels `visible = false` when overlay opens | `src/main/services/webview-panel-manager.ts` |
+| `WebviewPanelManager.restorePanels()` | Re-shows panels when overlay count reaches 0 | same |
+| `panel-active` guard | Suppresses `panel:resize` and mount-fallback visibility changes while overlay is open | same |
+
+**Why this matters for Phase 7:** Any new main-renderer overlay (settings screen, shortcuts screen, backup screen) automatically gets correct layering by calling `OverlayCoordinator.showOverlay()` / `hideOverlay()`. Panels will hide/show automatically. No CSS `z-index` work needed.
+
 ---
 
 ## Stage 1 — Settings & Keyboard (User-Facing)
 
-### Task 1: Generic Settings UI Renderer
+### Task 1: Settings Screen + Navigation Wiring
 
-**What:** Build the actual settings screen that reads each extension's `contributes.configuration` manifest and renders a form. Today the keys exist (`dashboard.cardOrder`, `salary-history.paygToleranceDollars`, etc.) but users have no UI to edit them.
+**What:** Build the Settings screen component and wire it into the main workspace via the Activity Bar and Navigation Panel.
 
-**Files to modify:**
-- `src/renderer/components/settings-screen.ts` (new)
-- `src/renderer/index.ts` (wire settings screen into renderer)
-- `src/preload/preload.ts` (expose `extensions.list()` if not already)
-- `src/types/finance.d.ts` (ensure `ManifestConfigurationContribution` is exported)
-- `src/extension-host/manifest-schema.ts` (reference only — schema already exists)
-
-**Where the data lives today:**
-- Manifest `contributes.configuration` is validated by `manifest-schema.ts` lines 33–42
-- Settings are stored/retrieved via `finance.settings.get/set` (`src/main/services/settings-service.ts`)
-- The preload bridge already exposes `financeShell.settings` to both renderer and panels
+**Deliverables:**
+- `src/renderer/components/settings-screen.ts` — LitElement that reads `contributes.configuration` from all extensions and renders a collapsible form
+- `src/renderer/components/navigation-panel.ts` — replace `_coreItems` with single Settings item that dispatches `view-changed` with `view: '__settings__'`
+- `src/renderer/index.ts` — mount `settings-screen` into workspace when `view === '__settings__'`, using `OverlayCoordinator`
 
 **Implementation approach:**
-1. Create `settings-screen.ts` as a LitElement that:
+1. Create `settings-screen.ts`:
    - Calls `window.financeShell.extensions.list()` to get all active extensions + their `configuration` arrays
-   - Renders one section per extension, with form fields matching each config item's `type` (`string` → text input, `boolean` → toggle, `enum` → dropdown, `number` → number input, `object` → textarea with JSON validation)
+   - Renders one collapsible section per extension, with form fields matching each config item's `type`:
+     - `string` → text input
+     - `boolean` → toggle switch
+     - `enum` → dropdown (`enumOptions` from manifest)
+     - `number` → number input
+     - `object` → textarea with JSON validation
    - Reads current values via `financeShell.settings.get(key)` on mount
    - Writes values via `financeShell.settings.set(key, value)` on change (debounced 300ms)
-   - Shows the extension's `label` as the section header
-2. Add a "Settings" Activity Bar button that opens this screen (replace the current hardcoded placeholder nav items in `navigation-panel.ts` lines 83–86)
-3. Wire it into `renderer/index.ts` so clicking Settings mounts the screen in the workspace
+   - Shows the extension's `displayName` as the section header
+2. Replace the hardcoded `_coreItems` in `navigation-panel.ts` (lines 83–86):
+   ```ts
+   private static readonly _coreItems: NavItem[] = [
+     { extensionId: 'core', id: 'settings', label: 'Settings', command: '__settings__', group: 'General' },
+   ];
+   ```
+   - Change `_onNav` so that when `cmd === '__settings__'`, it dispatches `view-changed` (not `command-selected`)
+3. Wire `__settings__` into `renderer/index.ts`:
+   - In the `view-changed` handler, when `view === '__settings__'`, mount `settings-screen.ts` into the workspace content area
+   - Use `OverlayCoordinator` so panels hide when Settings screen opens and restore when it closes
+4. The existing `financeShell.settings` bridge in both `preload.ts` and `panel-preload.ts` already works — no changes needed there
 
-**Easy analogy:** Think of it like VS Code's Settings screen — each extension declares "I have these settings with these types and defaults," and Core builds the form automatically.
+**Verification:**
+1. Click Activity Bar Settings button → workspace shows Settings screen (Activity Bar highlights Settings)
+2. Click Navigation Panel Settings → same screen opens (both paths converge on `view: '__settings__'`)
+3. See sections for Dashboard and Salary History with correct input types
+4. Change any setting → value saved immediately via `financeShell.settings.set`
+5. Close and reopen Settings → value persisted
+6. Restart app → value still persisted
+7. Panel iframes can still read/write settings via `financeShell.settings` — unaffected
 
-**Verification:** Open Settings → see sections for Dashboard and Salary History → change `dashboard.cardOrder` or `salary-history.paygToleranceDollars` → restart app → value persists.
+**Design mockup:** `docs/design/phase7-settings/settings.html`
+
+- [ ] **Step 1: Write unit tests for settings-service and navigation behavior**
+
+  New tests in `tests/unit/services/settings-service.test.ts`:
+  - `stores and retrieves core.financialYear.current` — Core FY keys are persisted like any other setting
+  - `stores and retrieves core.financialYear.start` — FY boundary key persists
+  - `extensions cannot set core.financialYear.current (namespace guard)` — `assertExtensionKey` prevents extensions from writing Core keys
+
+  New tests in `tests/unit/renderer/navigation-panel.test.ts`:
+  - `_getVisibleItems returns Settings nav item when currentView is __settings__` — nav panel shows only Settings item when Settings view is active
+  - `clicking Settings nav item dispatches view-changed with __settings__` — click handler dispatches correct event (not `command-selected`)
+  - `_onNav dispatches view-changed for __settings__ command` — Settings item routes through view system, not command system
+
+  Run: `npm run test -- tests/unit/services/settings-service.test.ts tests/unit/renderer/navigation-panel.test.ts`
+  Expected: All new tests pass; all existing tests still pass.
+
+- [ ] **Step 2: Typecheck + lint**
+
+  Run: `npm run typecheck`
+  Expected: PASS — no errors.
+
+  Run: `npm run lint`
+  Expected: PASS — no new errors.
 
 ---
 
-### Task 2: Keyboard Shortcut Customization
+### Task 2: Core Financial Year Context
+
+**What:** Add Core-owned financial year settings that all extensions read. No per-extension FY settings.
+
+**Deliverables:**
+- `core.financialYear.current` setting — the FY label (e.g., `2026-2027`)
+- `core.financialYear.start` setting — the FY boundary (default `07-01`, hardcoded)
+- FY picker dropdown in the Core settings section showing available FYs from the data
+- FY filter in the payslip list
+- Dashboard YTD cards respect the selected FY
+
+**Implementation approach:**
+1. Add `core.financialYear.current` and `core.financialYear.start` to the Core settings section in `settings-screen.ts`
+2. `core.financialYear.start` defaults to `07-01` (hardcoded, no fallback to extension settings)
+3. FY picker dropdown queries distinct `finance_year` values from `salary_history_pay_slips` and populates the dropdown
+4. Dashboard YTD cards read `core.financialYear.current` and use it with `core.financialYear.start` to compute the YTD range
+5. Payslip list filters by `core.financialYear.current`
+6. **Override pattern:** Extensions do NOT declare their own `financialYearStart` or `financialYear.current`. They read Core's settings only.
+
+**Verification:**
+1. Open Settings → Core section shows `core.financialYear.current` (dropdown) and `core.financialYear.start` (text input)
+2. Change `core.financialYear.current` → Dashboard YTD updates to that FY
+3. Payslip list filters to the selected FY
+4. No `financialYearStart` or `paygTaxYear` settings appear under Dashboard or Salary History sections
+5. Extensions reading `financeShell.settings.get('core.financialYear.current')` get the correct value
+
+- [ ] **Step 1: Write unit tests for FY settings behavior**
+
+  New tests in `tests/unit/services/settings-service.test.ts`:
+  - `stores and retrieves core.financialYear.current` — FY label persists
+  - `stores and retrieves core.financialYear.start` — FY boundary persists
+  - `extensions cannot set core.financialYear.current (namespace guard)` — guard prevents extension writes
+
+  Run: `npm run test -- tests/unit/services/settings-service.test.ts`
+  Expected: All new tests pass.
+
+- [ ] **Step 2: Typecheck + lint**
+
+  Run: `npm run typecheck`
+  Expected: PASS — no errors.
+
+  Run: `npm run lint`
+  Expected: PASS — no new errors.
+
+---
+
+### Task 3: Array Settings Modals (Core-Owned)
+
+**What:** Replace raw JSON textareas and extension-internal modals for array-type settings with Core-built modals.
+
+**Deliverables:**
+- `src/renderer/components/reorder-cards-modal.ts` — Core-built modal for `dashboard.cardOrder`
+- `src/renderer/components/reorder-sections-modal.ts` — Core-built modal for `salary-history.sectionOrder` (moved from extension)
+- Removed extension-internal `reorder-sections-modal.ts` from `extensions/salary-history/src/ui/`
+
+**Implementation approach:**
+1. Create `reorder-cards-modal.ts`:
+   - Reads `financeShell.settings.get('dashboard.cardOrder')` on open
+   - Renders each card id as a row with move-up/move-down arrows
+   - Writes back via `financeShell.settings.set('dashboard.cardOrder', newOrder)` on confirm
+   - Cancel discards changes
+   - Default: `['net-worth', 'ytd-salary', 'last-payslip', 'accounts-summary']`
+2. Move `reorder-sections-modal.ts` from `extensions/salary-history/src/ui/` to `src/renderer/components/`:
+   - Same up/down arrow pattern
+   - Reads/writes `salary-history.sectionOrder`
+   - Remove the extension-internal copy from `extensions/salary-history/src/ui/`
+   - Default: `['period','totals','earnings','deductions','super','leave','notes']`
+3. Both modals are launched from the Core settings screen (not from inside extensions)
+
+**Verification:**
+1. Open Settings → Dashboard section shows "Reorder Cards" button
+2. Click "Reorder Cards" → modal opens with current card order
+3. Move cards up/down → click Confirm → `dashboard.cardOrder` updated
+4. Click Cancel → no change
+5. Salary History section shows "Reorder Sections" button → same behavior
+6. Extension-internal `reorder-sections-modal.ts` no longer exists in `extensions/salary-history/src/ui/`
+
+- [ ] **Step 1: Write unit tests for reorder modals**
+
+  New tests in `tests/unit/renderer/reorder-cards-modal.test.ts`:
+  - `opens with current dashboard.cardOrder` — reads setting and renders rows
+  - `move up/down updates order` — clicking arrows changes row position
+  - `confirm writes new order to settings` — calls `financeShell.settings.set`
+  - `cancel discards changes` — setting unchanged after cancel
+
+  New tests in `tests/unit/renderer/reorder-sections-modal.test.ts`:
+  - `opens with current salary-history.sectionOrder` — reads setting and renders rows
+  - `move up/down updates order` — clicking arrows changes row position
+  - `confirm writes new order to settings` — calls `financeShell.settings.set`
+  - `cancel discards changes` — setting unchanged after cancel
+
+  Run: `npm run test -- tests/unit/renderer/reorder-cards-modal.test.ts tests/unit/renderer/reorder-sections-modal.test.ts`
+  Expected: All new tests pass.
+
+- [ ] **Step 2: Typecheck + lint**
+
+  Run: `npm run typecheck`
+  Expected: PASS — no errors.
+
+  Run: `npm run lint`
+  Expected: PASS — no new errors.
+
+---
+
+### Task 4: Keyboard Shortcut Customization
 
 **What:** Make keyboard shortcuts actually work + add a screen to customize them.
 
@@ -84,17 +238,38 @@ spec_source: docs/superpowers/specs/2026-06-13-implementation-design.md (Phase 7
    - Table/list of all registered shortcuts
    - Click a shortcut → prompt for new key combo → call registry `update()` → persist to `finance.settings`
    - "Reset to defaults" button per extension
+   - Register with `OverlayCoordinator` so panels hide when shortcuts screen is open
 3. Remove the hardcoded `keydown` listeners in `renderer/index.ts` (lines 253–278)
 
 **Easy analogy:** Like VS Code's Keyboard Shortcuts settings — a searchable list where you can rebind any command.
 
 **Verification:** Open Shortcuts screen → see `Ctrl+Alt+H` for "View: Pay History" → rebind to `Ctrl+Shift+H` → press new combo → command executes.
 
+- [ ] **Step N: Write unit tests for shortcut-registry**
+
+  New tests in `tests/unit/main/services/shortcut-registry.test.ts`:
+  - `registers shortcuts from manifest keybindings` — verifies `build()` scans all loaded extensions' manifests and populates the registry Map
+  - `looks up command by accelerator and routes through IPC` — verifies pressing a registered accelerator sends `extensions:execute-command` with the correct `commandId`
+  - `update() persists new accelerator to finance.settings` — verifies rebinding a shortcut writes the new accelerator to settings
+  - `reset() restores defaults` — verifies reset clears custom accelerators and falls back to manifest defaults
+  - `unregister on app quit` — verifies Electron `globalShortcut.unregisterAll` is called on shutdown
+
+  Run: `npm run test -- tests/unit/main/services/shortcut-registry.test.ts`
+  Expected: All new tests pass.
+
+- [ ] **Step N+1: Typecheck + lint**
+
+  Run: `npm run typecheck`
+  Expected: PASS — no errors.
+
+  Run: `npm run lint`
+  Expected: PASS — no new errors.
+
 ---
 
 ## Stage 2 — Security & Data Integrity
 
-### Task 3: Main Renderer `'unsafe-eval'` CSP Removal
+### Task 5: Main Renderer `'unsafe-eval'` CSP Removal
 
 **What:** Phase 5 closed the panel-side CSP gap. The main renderer still allows `'unsafe-eval'` because of blob-URL dynamic imports. Remove it.
 
@@ -116,9 +291,17 @@ spec_source: docs/superpowers/specs/2026-06-13-implementation-design.md (Phase 7
 
 **Verification:** Open DevTools → Application → Security → verify `'unsafe-eval'` is absent from script-src.
 
+- [ ] **Step N: Typecheck + lint**
+
+  Run: `npm run typecheck`
+  Expected: PASS — no errors.
+
+  Run: `npm run lint`
+  Expected: PASS — no new errors.
+
 ---
 
-### Task 4: Database Backup/Restore + Encryption
+### Task 6: Database Backup/Restore + Encryption
 
 **What:** Let users export/import their database with optional encryption.
 
@@ -142,15 +325,24 @@ spec_source: docs/superpowers/specs/2026-06-13-implementation-design.md (Phase 7
    - Export / Import buttons
    - Encryption toggle + password field
    - Last backup timestamp display
+   - Register with `OverlayCoordinator` so panels hide when backup screen is open
 3. Wire into the Settings screen or as standalone commands (`core.backup.export`, `core.backup.import`)
 
 **Easy analogy:** Like exporting a backup in 1Password or Bitwarden — a simple file you can store safely.
 
 **Verification:** Export unencrypted → file is valid SQLite → import on fresh app → data intact. Export encrypted → password-protected → import with wrong password → error.
 
+- [ ] **Step N: Typecheck + lint**
+
+  Run: `npm run typecheck`
+  Expected: PASS — no errors.
+
+  Run: `npm run lint`
+  Expected: PASS — no new errors.
+
 ---
 
-### Task 5: `finance.events.*` Global Event Bus
+### Task 7: `finance.events.*` Global Event Bus
 
 **What:** Replace ad-hoc IPC channels with a proper cross-process pub/sub event bus.
 
@@ -183,11 +375,19 @@ spec_source: docs/superpowers/specs/2026-06-13-implementation-design.md (Phase 7
 
 **Verification:** Extension A publishes `test.event` → Extension B receives it via `finance.events.on('test.event', handler)` → renderer also receives it.
 
+- [ ] **Step N: Typecheck + lint**
+
+  Run: `npm run typecheck`
+  Expected: PASS — no errors.
+
+  Run: `npm run lint`
+  Expected: PASS — no new errors.
+
 ---
 
 ## Stage 3 — Workspace & Memory
 
-### Task 6: Full Grid Layout (3+ Panes, `version: 2`)
+### Task 8: Full Grid Layout (3+ Panes, `version: 2`)
 
 **What:** Replace the flat tab list with a VS Code-style `EditorGroup` model supporting 2x2 and 3-pane grids.
 
@@ -230,9 +430,29 @@ spec_source: docs/superpowers/specs/2026-06-13-implementation-design.md (Phase 7
 
 **Verification:** Drag Pay History tab to right edge → 2-pane split. Drag again → 3-pane. Close middle pane → remaining panes expand. Restart → layout persists.
 
+- [ ] **Step N: Write unit tests for grid layout**
+
+  New tests in `tests/unit/renderer/workspace.test.ts`:
+  - `migrates version 1 layout to version 2` — verifies a `{ version: 1, tabs, activePanelId }` layout is wrapped in a single `EditorGroup` and bumped to `version: 2` on startup
+  - `renders multiple editor groups` — verifies `render()` produces one group per entry in `groups[]`, each with its own tab strip
+  - `drag-to-edge creates a new group` — verifies dragging a tab to the right edge of another group inserts a split and creates a new `EditorGroup`
+  - `closing last tab in a group removes the group` — verifies the group is removed and remaining groups expand to fill the space
+  - `persists and restores multi-group layout` — verifies the layout round-trips through `localStorage['core.workspace.layout']` without losing group structure
+
+  Run: `npm run test -- tests/unit/renderer/workspace.test.ts`
+  Expected: All new tests pass; existing workspace tests still pass.
+
+- [ ] **Step N+1: Typecheck + lint**
+
+  Run: `npm run typecheck`
+  Expected: PASS — no errors.
+
+  Run: `npm run lint`
+  Expected: PASS — no new errors.
+
 ---
 
-### Task 7: `host.shutdown` Graceful Draining
+### Task 9: `host.shutdown` Graceful Draining
 
 **What:** Instead of a 1-second hard-kill, drain pending JSON-RPC requests before shutting down the Host.
 
@@ -257,9 +477,17 @@ spec_source: docs/superpowers/specs/2026-06-13-implementation-design.md (Phase 7
 
 **Verification:** Run a long-running extension command → quit app → Host finishes the request → exits cleanly within 3s.
 
+- [ ] **Step N: Typecheck + lint**
+
+  Run: `npm run typecheck`
+  Expected: PASS — no errors.
+
+  Run: `npm run lint`
+  Expected: PASS — no new errors.
+
 ---
 
-### Task 8: Lazy Unmount Timer Config + Memory Pooling
+### Task 10: Lazy Unmount Timer Config + Memory Pooling
 
 **What:** Auto-unmount inactive panels after a configurable timeout, with dirty-state protection.
 
@@ -285,11 +513,19 @@ spec_source: docs/superpowers/specs/2026-06-13-implementation-design.md (Phase 7
 
 **Verification:** Open 3 tabs → switch away from tab 2 → wait 5 min → tab 2's panel is destroyed → click tab 2 → panel remounts.
 
+- [ ] **Step N: Typecheck + lint**
+
+  Run: `npm run typecheck`
+  Expected: PASS — no errors.
+
+  Run: `npm run lint`
+  Expected: PASS — no new errors.
+
 ---
 
 ## Stage 4 — Extension Experience
 
-### Task 9: `autoSaveDraft` Timeout Configurable
+### Task 11: `autoSaveDraft` Timeout Configurable
 
 **What:** Make the 500ms `autoSaveDraft` timeout a user/extension setting.
 
@@ -301,9 +537,17 @@ spec_source: docs/superpowers/specs/2026-06-13-implementation-design.md (Phase 7
 
 **Implementation:** Replace `500` with `getSetting<number>('core.workspace.autoSaveTimeout') ?? 500`. No UI needed — extensions can set it via `finance.settings.set`.
 
+- [ ] **Step N: Typecheck + lint**
+
+  Run: `npm run typecheck`
+  Expected: PASS — no errors.
+
+  Run: `npm run lint`
+  Expected: PASS — no new errors.
+
 ---
 
-### Task 10: Per-Extension `keepAlive` Hint
+### Task 12: Per-Extension `keepAlive` Hint
 
 **What:** Let extensions opt out of lazy unmount.
 
@@ -314,9 +558,17 @@ spec_source: docs/superpowers/specs/2026-06-13-implementation-design.md (Phase 7
 
 **Implementation:** Extension adds `"keepAlive": true` to its `financeExtension` block → panel never auto-unmounts.
 
+- [ ] **Step N: Typecheck + lint**
+
+  Run: `npm run typecheck`
+  Expected: PASS — no errors.
+
+  Run: `npm run lint`
+  Expected: PASS — no new errors.
+
 ---
 
-### Task 11: Wildcard `ui-event` Flag
+### Task 13: Wildcard `ui-event` Flag
 
 **What:** Let extensions declare `"wildcard: true"` in `allowedUiEvents` to accept any event name without enumerating them all.
 
@@ -329,12 +581,20 @@ spec_source: docs/superpowers/specs/2026-06-13-implementation-design.md (Phase 7
 // In manifest:
 "allowedUiEvents": ["*"]  // or keep explicit list
 // In allowlist check:
-if (manifest.allowedUiEvents.wildcard) return true;
-```
+  if (manifest.allowedUiEvents.wildcard) return true;
+  ```
+
+- [ ] **Step N: Typecheck + lint**
+
+  Run: `npm run typecheck`
+  Expected: PASS — no errors.
+
+  Run: `npm run lint`
+  Expected: PASS — no new errors.
 
 ---
 
-### Task 12: `onStartupAfterReady` Activation Event
+### Task 14: `onStartupAfterReady` Activation Event
 
 **What:** New activation event for extensions that need to delay their UI mount until after data loads.
 
@@ -347,9 +607,17 @@ if (manifest.allowedUiEvents.wildcard) return true;
 
 **New `onStartupAfterReady`:** activates after the default view's panel is mounted and first paint is done. Use case: an extension that needs to load remote data before showing its UI.
 
+- [ ] **Step N: Typecheck + lint**
+
+  Run: `npm run typecheck`
+  Expected: PASS — no errors.
+
+  Run: `npm run lint`
+  Expected: PASS — no new errors.
+
 ---
 
-### Task 13: VS Code-Style Tree Views / NavigationProvider Callback API
+### Task 15: VS Code-Style Tree Views / NavigationProvider Callback API
 
 **What:** Let extensions provide dynamic, context-sensitive navigation trees instead of static `navigation` arrays.
 
@@ -375,11 +643,19 @@ if (manifest.allowedUiEvents.wildcard) return true;
 
 **Easy analogy:** Like VS Code's Explorer panel — collapsible folders with files inside, not just a flat list of links.
 
+- [ ] **Step N: Typecheck + lint**
+
+  Run: `npm run typecheck`
+  Expected: PASS — no errors.
+
+  Run: `npm run lint`
+  Expected: PASS — no new errors.
+
 ---
 
 ## Stage 5 — Developer Experience
 
-### Task 14: Typed DAO Generation from Manifest Schemas
+### Task 16: Typed DAO Generation from Manifest Schemas
 
 **What:** Generate TypeScript types from manifest table declarations so extensions get compile-time type safety.
 
@@ -398,9 +674,17 @@ if (manifest.allowedUiEvents.wildcard) return true;
 3. Extensions import their own types: `import type { SalaryHistoryPaySlip } from './extensions/salary-history.d.ts'`
 4. Add `finance.db.typedTable<T>(name)` alongside the existing `finance.db.table(name)`
 
+- [ ] **Step N: Typecheck + lint**
+
+  Run: `npm run typecheck`
+  Expected: PASS — no errors.
+
+  Run: `npm run lint`
+  Expected: PASS — no new errors.
+
 ---
 
-### Task 15: Drag-and-Drop Reorder + Versioned Settings
+### Task 17: Drag-and-Drop Reorder + Versioned Settings
 
 **What:** Add drag-and-drop to the navigation panel and settings UI; version settings to support migrations.
 
@@ -414,9 +698,17 @@ if (manifest.allowedUiEvents.wildcard) return true;
 2. Settings screen: for `type: 'object'` settings like `dashboard.cardOrder` (array), render as a draggable list
 3. Settings versioning: store `_version` per key; on read, if version < current, run migration function (future-proofs schema changes)
 
+- [ ] **Step N: Typecheck + lint**
+
+  Run: `npm run typecheck`
+  Expected: PASS — no errors.
+
+  Run: `npm run lint`
+  Expected: PASS — no new errors.
+
 ---
 
-### Task 16: Real Component Library Integration
+### Task 18: Real Component Library Integration
 
 **What:** Add Storybook or Histoire for visual component development.
 
@@ -426,9 +718,17 @@ if (manifest.allowedUiEvents.wildcard) return true;
 
 **Implementation:** Add Storybook for Lit. This is a developer productivity tool — it doesn't change the app's behavior. Each component gets a `.stories.ts` file showing its different states (default, hover, active, disabled).
 
+- [ ] **Step N: Typecheck + lint**
+
+  Run: `npm run typecheck`
+  Expected: PASS — no errors.
+
+  Run: `npm run lint`
+  Expected: PASS — no new errors.
+
 ---
 
-### Task 17: ESM-Friendly Production Source-Map Stripping
+### Task 19: ESM-Friendly Production Source-Map Stripping
 
 **What:** Strip source maps from production bundles to reduce file size and hide source code.
 
@@ -439,9 +739,17 @@ if (manifest.allowedUiEvents.wildcard) return true;
 
 **Implementation:** One-line change per Vite config: `sourcemap: mode === 'development'`.
 
+- [ ] **Step N: Typecheck + lint**
+
+  Run: `npm run typecheck`
+  Expected: PASS — no errors.
+
+  Run: `npm run lint`
+  Expected: PASS — no new errors.
+
 ---
 
-### Task 18: Migration Runner Evaluation (Umzug)
+### Task 20: Migration Runner Evaluation (Umzug)
 
 **What:** Evaluate replacing the inline migration runner with Umzug.
 
@@ -462,17 +770,25 @@ if (manifest.allowedUiEvents.wildcard) return true;
 
 **Verification:** Fresh DB → all 8 migrations apply. Existing DB with migrations 001–004 applied → only 005–008 apply.
 
+- [ ] **Step N: Typecheck + lint**
+
+  Run: `npm run typecheck`
+  Expected: PASS — no errors.
+
+  Run: `npm run lint`
+  Expected: PASS — no new errors.
+
 ---
 
 ## Execution Order
 
 | Stage | Tasks | Duration | Rationale |
 |---|---|---|---|
-| **1** | 1, 2 | 3–4 days | User-facing settings + shortcuts are the most visible Phase 7 features |
-| **2** | 3, 4, 5 | 4–5 days | Security (CSP), data safety (backup), and architecture (event bus) |
-| **3** | 6, 7, 8 | 3.5–4.5 days | Workspace improvements + memory management |
-| **4** | 9, 10, 11, 12, 13 | 3–4 days | Extension authoring experience improvements |
-| **5** | 14, 15, 16, 17, 18 | 4.5–6 days | Developer tooling + polish |
+| **1** | 1, 2, 3, 4 | 4–5 days | Settings UI, FY context, array modals, and shortcuts are the most visible Phase 7 features |
+| **2** | 5, 6, 7 | 4–5 days | Security (CSP), data safety (backup), and architecture (event bus) |
+| **3** | 8, 9, 10 | 3.5–4.5 days | Workspace improvements + memory management |
+| **4** | 11, 12, 13, 14, 15 | 3–4 days | Extension authoring experience improvements |
+| **5** | 16, 17, 18, 19, 20 | 4.5–6 days | Developer tooling + polish |
 
 **Total:** ~18–24 days
 

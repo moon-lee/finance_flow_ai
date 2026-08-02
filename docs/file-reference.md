@@ -233,3 +233,11 @@
 | `tests/unit/extensions/dashboard/ui/dashboard-view.test.ts` | new | 5 tests covering card rendering and missing-data placeholders. |
 | `tests/e2e/multi-extension-workspace.spec.ts` | new | 6 E2E tests (gated by Phase 3 Playwright-electron blocker). |
 | `tests/e2e/webview-panel.spec.ts` | new | 4 E2E tests (gated). |
+
+## Phase 7 — Production Readiness & Polish (Planned; v0.9.0)
+
+| File | Status | Purpose |
+|------|--------|---------|
+| `docs/superpowers/plans/2026-08-02-phase7-production-polish.md` | new | Phase 7 implementation plan: 18 tasks across 5 stages (Settings & Keyboard, Security & Data, Workspace & Memory, Extension UX, Developer DX) |
+| `docs/design/phase7-settings/index.html` | new | Settings UI mockup index |
+| `docs/design/phase7-settings/settings.html` | new | Pre-approved visual contract for the generic settings screen: collapsible sections per extension, form fields by type (string/number/boolean/enum/object), default values shown |

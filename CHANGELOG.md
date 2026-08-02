@@ -48,6 +48,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Overlay Coordinator Fix implementation plan** (`docs/superpowers/plans/2026-08-01-overlay-coordinator-fix.md`). Plan to hide `WebContentsView` panels while main-renderer DOM overlays (`#command-palette`) are open and restore the active panel on close. Incorporates the 2026-07-31 review: an `overlayActive` guard for `resize()`/mount-fallback visibility, a no-arg `hideForOverlay()`, a transition-based renderer `overlayCoordinator`, and the first-run seed modal dropped (it is extension-owned, not a main-DOM element).
 
+## [Unreleased]
+
+### Administrative
+
+- **Phase 7 production polish plan updated** (`docs/superpowers/plans/2026-08-02-phase7-production-polish.md`). Task 1 split into three focused tasks: (1) Settings Screen + Navigation Wiring, (2) Core Financial Year Context, (3) Array Settings Modals. Added standard `typecheck` + `lint` verification blocks to all 20 tasks. Clarified that `core.financialYear.current` is the single source of truth — no per-extension `financialYearStart` or `paygTaxYear` settings; extensions read Core's value only. Removed `salary-history.paygTaxYear` and `dashboard.financialYearStart` from the settings mockup. `core.financialYear.start` defaults directly to `07-01` (no fallback to extension settings).
+
 ## [0.7.3] - 2026-07-30
 
 ### Fixed
