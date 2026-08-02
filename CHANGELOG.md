@@ -11,6 +11,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Administrative
+
+- **Phase 7 production polish plan updated** (`docs/superpowers/plans/2026-08-02-phase7-production-polish.md`). Task 1 split into three focused tasks: (1) Settings Screen + Navigation Wiring, (2) Core Financial Year Context, (3) Array Settings Modals. Added standard `typecheck` + `lint` verification blocks to all 20 tasks. Clarified that `core.financialYear.current` is the single source of truth — no per-extension `financialYearStart` or `paygTaxYear` settings; extensions read Core's value only. Removed `salary-history.paygTaxYear` and `dashboard.financialYearStart` from the settings mockup. `core.financialYear.start` defaults directly to `07-01` (no fallback to extension settings).
+
 ## [0.8.0] - 2026-08-02
 
 ### Added
@@ -32,8 +38,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Phase 5 handoff doc** (`docs/phase5-handoff.md`). Captures verification findings, key decision rationales (WebContentsView, onStartup, Domain Service Registry, allowlists, dirty-state protection, ADR-0006 flat layout, overlay coordinator), six explicit deferrals with phase targets, and reading-order guidance for future agents.
 - **Implementation design updated** (`docs/superpowers/specs/2026-06-13-implementation-design.md`). Phase 5 marked complete (2026-08-02, 0.8.0); actual time ~4 days; Phase 5 breakdown added.
 
-## [Unreleased]
-
 ### Fixed
 
 - **Dashboard does not refresh after an account is created** (`src/main/main.ts`). `accounts:create` inserted the row but emitted no data-changed signal, so an already-open Dashboard kept its stale `accountsSummary` card. The Core handler now fires the Dashboard's own `dashboard.refresh` command in the Host after a successful insert (re-aggregates with real service bindings → `requestMount` → `panel:mount-update` to the open panel), guarded to run only while the `dashboard-view` panel is mounted — firing unconditionally would `requestMount`-create a closed Dashboard and pop it open; a closed Dashboard already rebuilds on reopen via its `openCommand` (`view-activation.ts`).
@@ -48,11 +52,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Overlay Coordinator Fix implementation plan** (`docs/superpowers/plans/2026-08-01-overlay-coordinator-fix.md`). Plan to hide `WebContentsView` panels while main-renderer DOM overlays (`#command-palette`) are open and restore the active panel on close. Incorporates the 2026-07-31 review: an `overlayActive` guard for `resize()`/mount-fallback visibility, a no-arg `hideForOverlay()`, a transition-based renderer `overlayCoordinator`, and the first-run seed modal dropped (it is extension-owned, not a main-DOM element).
 
-## [Unreleased]
-
-### Administrative
-
-- **Phase 7 production polish plan updated** (`docs/superpowers/plans/2026-08-02-phase7-production-polish.md`). Task 1 split into three focused tasks: (1) Settings Screen + Navigation Wiring, (2) Core Financial Year Context, (3) Array Settings Modals. Added standard `typecheck` + `lint` verification blocks to all 20 tasks. Clarified that `core.financialYear.current` is the single source of truth — no per-extension `financialYearStart` or `paygTaxYear` settings; extensions read Core's value only. Removed `salary-history.paygTaxYear` and `dashboard.financialYearStart` from the settings mockup. `core.financialYear.start` defaults directly to `07-01` (no fallback to extension settings).
 
 ## [0.7.3] - 2026-07-30
 
