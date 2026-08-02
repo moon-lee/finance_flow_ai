@@ -1,7 +1,7 @@
 ---
 version: 0.8.0
 created: 2026-06-14
-last_updated: 2026-08-02T09:54:51+10:00
+last_updated: 2026-08-03T01:35:30+10:00
 ---
 
 # Changelog
@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Administrative
 
-- **Phase 7 production polish plan updated** (`docs/superpowers/plans/2026-08-02-phase7-production-polish.md`). Task 1 split into three focused tasks: (1) Settings Screen + Navigation Wiring, (2) Core Financial Year Context, (3) Array Settings Modals. Added standard `typecheck` + `lint` verification blocks to all 20 tasks. Clarified that `core.financialYear.current` is the single source of truth — no per-extension `financialYearStart` or `paygTaxYear` settings; extensions read Core's value only. Removed `salary-history.paygTaxYear` and `dashboard.financialYearStart` from the settings mockup. `core.financialYear.start` defaults directly to `07-01` (no fallback to extension settings).
+- **Phase 7 production polish plan updated** (`docs/superpowers/plans/2026-08-02-phase7-production-polish.md`). Task 0 added: extract inline `overlayCoordinator` in `src/renderer/index.ts:70-84` into standalone `OverlayCoordinator` class with ref-counted `showOverlay(id)` / `hideOverlay(id)` API, with unit tests. Task 1 clarified: Settings is a workspace view (not an overlay) and does not use `OverlayCoordinator`. Task 2 simplified: removed `callerNamespace` / `assertCoreKey` from `settings-service.ts`; `core.financialYear.current` dropdown populated with last 3 computed years in renderer (no DB query, no new IPC); no data migration required. Task 3 corrected: `reorder-sections-modal.ts` moves to `src/renderer/components/` and the extension's copy is deleted; extension also removes the reorder button, CSS, and `_onReorder()` handler from `payslip-form.ts`. Task 5 fixed: `panel-bootstrap.js` → `panel-bootstrap.ts`; added `src/preload/preload.ts` to modified files; fixed duplicate step numbering. Added note that all settings persist in `<userData>/finance.db` `settings` table (`key TEXT PRIMARY KEY, value TEXT NOT NULL`), JSON-stringified, accessed via `financeShell.settings.get/set`.
 
 ## [0.8.0] - 2026-08-02
 

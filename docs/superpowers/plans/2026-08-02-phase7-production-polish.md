@@ -27,12 +27,92 @@ The following Phase 5 infrastructure already exists and handles the two-renderer
 
 | Component | Purpose | File |
 |---|---|---|
-| `OverlayCoordinator` | Reference-counts open main-renderer overlays (command palette, modals, settings screen) | `src/renderer/overlay-coordinator.ts` |
+| `overlayCoordinator` (inline) | Reference-counts open main-renderer overlays (command palette only today) | `src/renderer/index.ts:70-84` |
 | `WebviewPanelManager.hidePanelsForOverlay()` | Sets all `WebContentsView` panels `visible = false` when overlay opens | `src/main/services/webview-panel-manager.ts` |
 | `WebviewPanelManager.restorePanels()` | Re-shows panels when overlay count reaches 0 | same |
 | `panel-active` guard | Suppresses `panel:resize` and mount-fallback visibility changes while overlay is open | same |
 
-**Why this matters for Phase 7:** Any new main-renderer overlay (settings screen, shortcuts screen, backup screen) automatically gets correct layering by calling `OverlayCoordinator.showOverlay()` / `hideOverlay()`. Panels will hide/show automatically. No CSS `z-index` work needed.
+**Why this matters for Phase 7:** The inline `overlayCoordinator` in `index.ts` only serves the command palette today. Task 0 extracts it into a reusable `OverlayCoordinator` class so that Shortcuts, Backup, and any future overlay can share correct reference-counted layering. Settings is a workspace view (not an overlay) and does not use the coordinator. Panels will hide/show automatically for true overlays. No CSS `z-index` work needed.
+
+---
+
+### Task 0: Extract OverlayCoordinator into Standalone Class
+
+**What:** The Phase 5 implementation includes a working reference-counted overlay coordinator, but it is embedded as an inline object inside `src/renderer/index.ts` (lines 70–84). It is only used by the command palette. Before Phase 7 adds Keyboard Shortcuts and Backup screens — which are main-renderer overlays — the coordinator needs to be extracted into a proper reusable class. Settings is a workspace view and does not use the coordinator.
+
+**Current status:**
+- `src/renderer/index.ts:70-84` — `overlayCoordinator` is a plain object with `_refCount`, `show()`, and `hide()` methods
+- It correctly uses reference counting: `show()` increments count and only hides panels when count transitions 0→1; `hide()` decrements and only restores panels when count transitions 1→0
+- It is only called by `setCommandPaletteVisible()` at lines 86-92
+- Other overlays do NOT use it — they would call `panel.hideForOverlay()` / `panel.restoreAfterOverlay()` directly, bypassing the ref count
+- `src/main/services/webview-panel-manager.ts` still has `overlayActive: boolean` as a fast-path guard (lines 62, 412-426)
+
+**Why this matters for Phase 7:**
+The Phase 7 plan adds two new main-renderer overlays (Keyboard Shortcuts, Backup/Restore) and one workspace view (Settings). Users can open overlays in any combination (e.g., Settings → then Shortcuts on top). Without a centralized coordinator, each overlay would call hide/restore independently, causing panels to reappear while an underlying overlay is still open.
+
+**Target state after Task 0:**
+- `src/renderer/overlay-coordinator.ts` — standalone `OverlayCoordinator` class with `showOverlay(id)` / `hideOverlay(id)` API
+- Any renderer overlay can register itself by ID; the coordinator tracks which overlays are active via reference counting
+- `src/renderer/index.ts` — imports and uses `OverlayCoordinator` instead of inline object
+- Command palette, Settings, Shortcuts, Backup, and any future overlay all use the same coordinator
+- Main-process `WebviewPanelManager.hidePanelsForOverlay()` / `restorePanels()` remain unchanged; they are called by the coordinator via preload IPC
+
+**Deliverables:**
+- `src/renderer/overlay-coordinator.ts` — new file
+  - `showOverlay(id: string): void` — registers an overlay, increments ref count, hides panels on first overlay (0→1 transition)
+  - `hideOverlay(id: string): void` — unregisters an overlay, decrements ref count, restores panels when last overlay closes (1→0 transition)
+  - `getOverlayCount(): number` — returns current active overlay count (for debugging/testing)
+  - `isActive(): boolean` — returns whether any overlay is open
+  - Throws in development if `hideOverlay` is called with an ID that was never shown (detects mismatched show/hide calls)
+- `src/renderer/index.ts` — replace inline `overlayCoordinator` object with import of `OverlayCoordinator`
+- `src/renderer/components/command-palette.ts` — update to use `OverlayCoordinator.showOverlay('command-palette')` / `hideOverlay('command-palette')` instead of direct IPC calls
+
+**Implementation approach:**
+1. Create `src/renderer/overlay-coordinator.ts`:
+   - Class with private `refCount: number` and private `activeIds: Set<string>`
+   - `showOverlay(id)` — add id to set, increment count, if count === 1 send `panel:hide-overlay` via preload
+   - `hideOverlay(id)` — remove id from set, decrement count, if count === 0 send `panel:restore-overlay` via preload
+   - Guard against double-show / double-hide of same ID in dev
+2. Update `src/renderer/index.ts`:
+   - Remove inline `overlayCoordinator` object (lines 70-84)
+   - Import `OverlayCoordinator` and instantiate as singleton
+   - Update `setCommandPaletteVisible` to call `overlayCoordinator.showOverlay('command-palette')` / `.hideOverlay('command-palette')`
+3. Update `src/renderer/components/command-palette.ts` if it directly calls hide/restore (verify it goes through `setCommandPaletteVisible`)
+
+- [ ] **Step 1: Write unit tests for OverlayCoordinator**
+
+  New tests in `tests/unit/renderer/overlay-coordinator.test.ts`:
+  - `showOverlay increments ref count and hides panels on first show` — verifies count goes 0→1 and `panel.hideForOverlay` is called
+  - `showOverlay does not re-hide panels when already active` — verifies count goes 1→2 but `panel.hideForOverlay` is NOT called again
+  - `hideOverlay decrements ref count and restores panels on last hide` — verifies count goes 2→1 and `panel.restoreAfterOverlay` is NOT called
+  - `hideOverlay restores panels when count reaches 0` — verifies count goes 1→0 and `panel.restoreAfterOverlay` IS called
+  - `getOverlayCount returns current ref count` — verifies count after multiple show/hide cycles
+  - `isActive returns false when no overlays are open` — verifies initial state and after full hide cycle
+  - `isActive returns true when at least one overlay is open` — verifies after showOverlay
+  - `double hideOverlay for same id does not crash or go negative` — verifies ref count stays ≥ 0
+  - `hideOverlay with unknown id is handled safely` — verifies no crash when id was never shown
+
+  Run: `npm run test -- tests/unit/renderer/overlay-coordinator.test.ts`
+  Expected: All new tests pass.
+
+- [ ] **Step 2: Typecheck + lint**
+
+  Run: `npm run typecheck`
+  Expected: PASS — no errors.
+
+  Run: `npm run lint`
+  Expected: PASS — no new errors.
+
+- [ ] **Step 3: Manual verification**
+
+  1. Open Command Palette → panels hide
+  2. Close Command Palette → panels restore
+  3. Open Command Palette again → panels hide (ref count 2 → 1)
+  4. Close Command Palette → panels restore (ref count 1 → 0)
+  5. Open Settings (workspace view, NOT overlay) → panels remain visible behind Settings
+  6. Open Command Palette while Settings is open → panels hide (Settings doesn't use coordinator, so CP gets ref count 1)
+  7. Close Command Palette → panels restore (Settings is still open, panels visible behind it)
+  8. Mismatched show/hide (e.g., double-close) → no crash, ref count never goes negative
 
 ---
 
@@ -45,7 +125,7 @@ The following Phase 5 infrastructure already exists and handles the two-renderer
 **Deliverables:**
 - `src/renderer/components/settings-screen.ts` — LitElement that reads `contributes.configuration` from all extensions and renders a collapsible form
 - `src/renderer/components/navigation-panel.ts` — replace `_coreItems` with single Settings item that dispatches `view-changed` with `view: '__settings__'`
-- `src/renderer/index.ts` — mount `settings-screen` into workspace when `view === '__settings__'`, using `OverlayCoordinator`
+- `src/renderer/index.ts` — mount `settings-screen` into workspace when `view === '__settings__'`
 
 **Implementation approach:**
 1. Create `settings-screen.ts`:
@@ -58,17 +138,20 @@ The following Phase 5 infrastructure already exists and handles the two-renderer
      - `object` → textarea with JSON validation
    - Reads current values via `financeShell.settings.get(key)` on mount
    - Writes values via `financeShell.settings.set(key, value)` on change (debounced 300ms)
-   - Shows the extension's `displayName` as the section header
-2. Replace the hardcoded `_coreItems` in `navigation-panel.ts` (lines 83–86):
-   ```ts
-   private static readonly _coreItems: NavItem[] = [
-     { extensionId: 'core', id: 'settings', label: 'Settings', command: '__settings__', group: 'General' },
-   ];
-   ```
-   - Change `_onNav` so that when `cmd === '__settings__'`, it dispatches `view-changed` (not `command-selected`)
-3. Wire `__settings__` into `renderer/index.ts`:
-   - In the `view-changed` handler, when `view === '__settings__'`, mount `settings-screen.ts` into the workspace content area
-   - Use `OverlayCoordinator` so panels hide when Settings screen opens and restore when it closes
+    - Shows the extension's `displayName` as the section header
+    - All settings are persisted in a SQLite database at `<userData>/finance.db` in the `settings` table (`key TEXT PRIMARY KEY, value TEXT NOT NULL`). Values are JSON-stringified. The renderer reads/writes through the preload bridge (`financeShell.settings.get/set`), which calls through to `settings-service.ts` in Main.
+   2. Replace the hardcoded `_coreItems` in `navigation-panel.ts` (lines 83–86):
+    ```ts
+    private static readonly _coreItems: NavItem[] = [
+      { extensionId: 'core', id: 'settings', label: 'Settings', command: '__settings__', group: 'General' },
+    ];
+    ```
+    - The current `_coreItems` contains `app-preferences` and `manage-extensions`. These are removed from the nav panel in Task 1 — their functionality will be exposed as sections inside the Settings screen in a later task, or deferred to Phase 8.
+    - Per the design mockup (`docs/design/phase7-settings/settings.html`), the Settings view nav panel will eventually contain three items: Settings, Keyboard Shortcuts, and Backup & Restore. Keyboard Shortcuts and Backup & Restore items will be added to `_coreItems` when their screens are built in Tasks 4 and 6.
+    - Change `_onNav` so that when `cmd === '__settings__'`, it dispatches `view-changed` (not `command-selected`)
+  3. Wire `__settings__` into `renderer/index.ts`:
+    - In the `view-changed` handler, when `view === '__settings__'`, mount `settings-screen.ts` into the workspace content area
+    - Settings is a workspace view, not an overlay — panels remain visible and interactive behind it
 4. The existing `financeShell.settings` bridge in both `preload.ts` and `panel-preload.ts` already works — no changes needed there
 
 **Verification:**
@@ -87,7 +170,7 @@ The following Phase 5 infrastructure already exists and handles the two-renderer
   New tests in `tests/unit/services/settings-service.test.ts`:
   - `stores and retrieves core.financialYear.current` — Core FY keys are persisted like any other setting
   - `stores and retrieves core.financialYear.start` — FY boundary key persists
-  - `extensions cannot set core.financialYear.current (namespace guard)` — `assertExtensionKey` prevents extensions from writing Core keys
+  - `extensions cannot set core.financialYear.current (namespace guard)` — `assertCoreKey` prevents extensions from writing Core keys
 
   New tests in `tests/unit/renderer/navigation-panel.test.ts`:
   - `_getVisibleItems returns Settings nav item when currentView is __settings__` — nav panel shows only Settings item when Settings view is active
@@ -112,22 +195,60 @@ The following Phase 5 infrastructure already exists and handles the two-renderer
 **What:** Add Core-owned financial year settings that all extensions read. No per-extension FY settings.
 
 **Deliverables:**
-- `core.financialYear.current` setting — the FY label (e.g., `2026-2027`)
-- `core.financialYear.start` setting — the FY boundary (default `07-01`, hardcoded)
-- FY picker dropdown in the Core settings section showing available FYs from the data
-- FY filter in the payslip list
-- Dashboard YTD cards respect the selected FY
+- `src/renderer/components/settings-screen.ts` — modified (created in Task 1): add Core Financial Year section with `core.financialYear.current` dropdown and `core.financialYear.start` text input
+- `extensions/salary-history/src/main.ts` — modified: replace `salary-history.financialYearStart` read with `core.financialYear.start` for `financialYearStart` mountData; pass `core.financialYear.current` as FY context to orchestrator
+- `extensions/salary-history/src/ui/payslip-form.ts` — modified: read `core.financialYear.start` from settings (fallback to `'07-01'`) instead of relying solely on mountData; add `financialYear` property that reads `core.financialYear.current` and re-computes `finance_year` when FY changes
+- `extensions/dashboard/src/main.ts` — modified: replace `dashboard.financialYearStart` with `core.financialYear.start`; pass `core.financialYear.current` to aggregator
+- `extensions/dashboard/src/services/aggregator-service.ts` — modified: add `financialYearCurrent` to `DashboardSettings`; update `buildAggregator` to pass FY to `aggregateYearToDate`
+- `extensions/salary-history/src/ui/payslip-list.ts` — modified: read `core.financialYear.start` from settings; add `financialYear` filter property; re-filter on FY change
+- No changes to `src/main/services/settings-service.ts`, `src/main/main.ts`, or `src/preload/preload.ts`
 
 **Implementation approach:**
-1. Add `core.financialYear.current` and `core.financialYear.start` to the Core settings section in `settings-screen.ts`
-2. `core.financialYear.start` defaults to `07-01` (hardcoded, no fallback to extension settings)
-3. FY picker dropdown queries distinct `finance_year` values from `salary_history_pay_slips` and populates the dropdown
-4. Dashboard YTD cards read `core.financialYear.current` and use it with `core.financialYear.start` to compute the YTD range
-5. Payslip list filters by `core.financialYear.current`
-6. **Override pattern:** Extensions do NOT declare their own `financialYearStart` or `financialYear.current`. They read Core's settings only.
+
+1. **`src/renderer/components/settings-screen.ts`** (created in Task 1, modified in Task 2) — Add Core Financial Year section:
+   - Add a "Core" collapsible section at the top of the settings form
+   - `core.financialYear.start` — render as a text input (type `text`, placeholder `MM-DD`, default `07-01`), read via `financeShell.settings.get('core.financialYear.start')`, write on change (debounced 300ms)
+   - `core.financialYear.current` — render as a dropdown (`<select>`), populated with the last 3 financial years computed from the current date (e.g., `2026-2027`, `2025-2026`, `2024-2025`), no DB query needed
+     - Compute in renderer: current year minus 1 through current year plus 1, formatted as `YYYY-YY`
+     - Read current value via `financeShell.settings.get('core.financialYear.current')` to select the active option
+     - On change, write via `financeShell.settings.set('core.financialYear.current', selectedFy)`
+
+2. **`extensions/dashboard/src/main.ts`** — Update `readSettings` to read from Core FY settings:
+   - Replace `finance.settings?.get('dashboard.financialYearStart')` with `finance.settings?.get('core.financialYear.start')`
+   - Replace any `dashboard.financialYearStart` references with `core.financialYear.start`
+   - The `financialYearStart` default remains `'07-01'` (hardcoded, no fallback to extension settings)
+   - Pass `core.financialYear.current` as the active FY context to `buildAggregator` so YTD cards respect the selected FY
+
+3. **`extensions/dashboard/src/services/aggregator-service.ts`** — Update `DashboardSettings` and `buildAggregator`:
+   - Change `DashboardSettings.financialYearStart` to `financialYearStart: string` (still from Core, but now explicitly named to reflect its Core origin)
+   - Add `financialYearCurrent?: string` to `DashboardSettings` so the aggregator can filter YTD computation to the selected FY
+   - Update `buildAggregator` to pass `financialYearCurrent` through to `aggregateYearToDate` so only payslips in the selected FY are included in YTD cards
+   - The `YtdSalaryCard.financialYearStart` field remains for display purposes
+
+4. **`extensions/salary-history/src/ui/payslip-list.ts`** — Add FY filter and read Core FY start:
+   - Change the `financialYearStart` property default from `'07-01'` to read from `financeShell.settings.get('core.financialYear.start')` on mount (fallback to `'07-01'`)
+   - Add a `financialYear` property that reads `financeShell.settings.get('core.financialYear.current')` and filters the payslip list to only show rows matching the selected FY
+   - When `core.financialYear.current` changes (listen via `financeShell.settings.onChange` or re-fetch on `connectedCallback`), re-filter the table
+   - The FY column in the table header and the `finance_year` cell in each row remain as-is; the filter is applied to the `payslips` array before rendering
+
+5. **`extensions/salary-history/src/main.ts`** — Migrate mountData to read from Core FY settings:
+   - Replace `finance.settings?.get('salary-history.financialYearStart')` with `finance.settings?.get('core.financialYear.start')` when constructing `settingsMountData`
+   - Remove the `salary-history.financialYearStart` setting key from the extension's configuration (it is no longer used; Core owns the FY boundary)
+   - The `financialYearStart` default remains `'07-01'` (hardcoded, no fallback to extension settings)
+   - Add `financialYearCurrent` to `settingsMountData` by reading `finance.settings?.get('core.financialYear.current')` so the orchestrator and child components receive the active FY context
+
+6. **`extensions/salary-history/src/ui/payslip-form.ts`** — Read Core FY start directly and add FY awareness:
+   - Change the `financialYearStart` property to read from `financeShell.settings.get('core.financialYear.start')` on mount (fallback to `'07-01'`) instead of relying solely on mountData from the orchestrator
+   - Add a `financialYear` property that reads `financeShell.settings.get('core.financialYear.current')` and re-computes the `finance_year` auto-fill when the FY changes
+   - When `core.financialYear.current` changes (listen via `financeShell.settings.onChange` or re-fetch on `connectedCallback`), re-derive `finance_year` from `pay_date` + the Core FY boundary
+   - The `computeFinanceYear(payDate, this.financialYearStart)` calls now use the Core boundary, ensuring FY auto-fill is consistent with the Core setting
+
+7. **Override pattern enforcement** — Extensions do NOT declare their own `financialYearStart` or `financialYear.current` settings. Extensions that previously declared `financialYearStart` in their own namespace (e.g., `salary-history.financialYearStart`) must migrate to reading `core.financialYear.start` instead.
+
+8. **No data migration needed** — If `core.financialYear.start` is not set, it falls back to `'07-01'` in the extension code. Existing `salary-history.financialYearStart` data in the settings database is simply ignored after the extension code migrates to read `core.financialYear.start`.
 
 **Verification:**
-1. Open Settings → Core section shows `core.financialYear.current` (dropdown) and `core.financialYear.start` (text input)
+1. Open Settings → Core section shows `core.financialYear.current` (dropdown with last 3 years) and `core.financialYear.start` (text input)
 2. Change `core.financialYear.current` → Dashboard YTD updates to that FY
 3. Payslip list filters to the selected FY
 4. No `financialYearStart` or `paygTaxYear` settings appear under Dashboard or Salary History sections
@@ -138,7 +259,6 @@ The following Phase 5 infrastructure already exists and handles the two-renderer
   New tests in `tests/unit/services/settings-service.test.ts`:
   - `stores and retrieves core.financialYear.current` — FY label persists
   - `stores and retrieves core.financialYear.start` — FY boundary persists
-  - `extensions cannot set core.financialYear.current (namespace guard)` — guard prevents extension writes
 
   Run: `npm run test -- tests/unit/services/settings-service.test.ts`
   Expected: All new tests pass.
@@ -160,7 +280,10 @@ The following Phase 5 infrastructure already exists and handles the two-renderer
 **Deliverables:**
 - `src/renderer/components/reorder-cards-modal.ts` — Core-built modal for `dashboard.cardOrder`
 - `src/renderer/components/reorder-sections-modal.ts` — Core-built modal for `salary-history.sectionOrder` (moved from extension)
-- Removed extension-internal `reorder-sections-modal.ts` from `extensions/salary-history/src/ui/`
+- `extensions/salary-history/src/ui/payslip-form.ts` — remove the "Reorder Sections" button, its CSS, and the `_onReorder()` handler; the extension no longer launches its own reorder modal
+- `extensions/salary-history/src/ui/index.ts` — remove the `import './reorder-sections-modal.js'` line
+- `extensions/salary-history/src/orchestrator.ts` — remove `_onReorderRequest` and `_onSectionOrderChange` navigation logic; the extension no longer handles section order changes itself
+- `extensions/salary-history/src/ui/reorder-sections-modal.ts` — deleted (implementation lives in Core)
 
 **Implementation approach:**
 1. Create `reorder-cards-modal.ts`:
@@ -169,20 +292,20 @@ The following Phase 5 infrastructure already exists and handles the two-renderer
    - Writes back via `financeShell.settings.set('dashboard.cardOrder', newOrder)` on confirm
    - Cancel discards changes
    - Default: `['net-worth', 'ytd-salary', 'last-payslip', 'accounts-summary']`
-2. Move `reorder-sections-modal.ts` from `extensions/salary-history/src/ui/` to `src/renderer/components/`:
-   - Same up/down arrow pattern
-   - Reads/writes `salary-history.sectionOrder`
-   - Remove the extension-internal copy from `extensions/salary-history/src/ui/`
-   - Default: `['period','totals','earnings','deductions','super','leave','notes']`
-3. Both modals are launched from the Core settings screen (not from inside extensions)
+   2. Move `reorder-sections-modal.ts` from `extensions/salary-history/src/ui/` to `src/renderer/components/`:
+     - Same up/down arrow pattern
+     - Reads/writes `salary-history.sectionOrder`
+     - Default: `['period','totals','earnings','deductions','super','leave','notes']`
+     - The extension no longer imports or navigates to this modal — remove those references
+   3. Both modals are launched from the Core settings screen (not from inside extensions)
 
 **Verification:**
 1. Open Settings → Dashboard section shows "Reorder Cards" button
 2. Click "Reorder Cards" → modal opens with current card order
 3. Move cards up/down → click Confirm → `dashboard.cardOrder` updated
 4. Click Cancel → no change
-5. Salary History section shows "Reorder Sections" button → same behavior
-6. Extension-internal `reorder-sections-modal.ts` no longer exists in `extensions/salary-history/src/ui/`
+  5. Salary History section shows "Reorder Sections" button → same behavior
+  6. `extensions/salary-history/src/ui/reorder-sections-modal.ts` is deleted; the extension no longer imports or navigates to it
 
 - [ ] **Step 1: Write unit tests for reorder modals**
 
@@ -225,6 +348,9 @@ The following Phase 5 infrastructure already exists and handles the two-renderer
 **Where shortcuts live today:**
 - Manifest declarations: `manifest-schema.ts` line 24 (`keybinding: z.string().optional()`)
 - Hardcoded renderer bindings: `renderer/index.ts` lines 253–278
+  - `Ctrl+J` — toggle AI panel (`toggleAiPanel`)
+  - `Ctrl+Alt+H` — View: Pay History (`salary.show-pay-history`)
+  - `Ctrl+Alt+R` — View: Pay Rate History (`salary.show-pay-rate-history`)
 - Salary History commands declare `Ctrl+Alt+H` and `Ctrl+Alt+R` in `extensions/salary-history/package.json`
 
 **Implementation approach:**
@@ -239,13 +365,14 @@ The following Phase 5 infrastructure already exists and handles the two-renderer
    - Click a shortcut → prompt for new key combo → call registry `update()` → persist to `finance.settings`
    - "Reset to defaults" button per extension
    - Register with `OverlayCoordinator` so panels hide when shortcuts screen is open
-3. Remove the hardcoded `keydown` listeners in `renderer/index.ts` (lines 253–278)
+3. Remove the hardcoded `keydown` listeners in `renderer/index.ts` (lines 253–278), including `Ctrl+J` (toggle AI panel), `Ctrl+Alt+H`, and `Ctrl+Alt+R`
+4. Wire the centralized shortcut registry to handle the `toggle-ai` command (currently hardcoded in the `command-selected` handler at line 206) so it can be rebound or disabled via the shortcuts screen
 
 **Easy analogy:** Like VS Code's Keyboard Shortcuts settings — a searchable list where you can rebind any command.
 
 **Verification:** Open Shortcuts screen → see `Ctrl+Alt+H` for "View: Pay History" → rebind to `Ctrl+Shift+H` → press new combo → command executes.
 
-- [ ] **Step N: Write unit tests for shortcut-registry**
+- [ ] **Step 1: Write unit tests for shortcut-registry**
 
   New tests in `tests/unit/main/services/shortcut-registry.test.ts`:
   - `registers shortcuts from manifest keybindings` — verifies `build()` scans all loaded extensions' manifests and populates the registry Map
@@ -257,7 +384,53 @@ The following Phase 5 infrastructure already exists and handles the two-renderer
   Run: `npm run test -- tests/unit/main/services/shortcut-registry.test.ts`
   Expected: All new tests pass.
 
-- [ ] **Step N+1: Typecheck + lint**
+- [ ] **Step 2: Typecheck + lint**
+
+  Run: `npm run typecheck`
+  Expected: PASS — no errors.
+
+  Run: `npm run lint`
+  Expected: PASS — no new errors.
+
+---
+
+### Task 5: Core Theme Propagation to Panels
+
+**What:** When `core.theme` changes in the main renderer, propagate the theme to all active WebviewPanel iframes so the panel area also reflects the light/dark mode.
+
+**Files to modify:**
+- `src/renderer/index.ts` (broadcast theme change to panels)
+- `src/preload/preload.ts` (expose `panel.broadcastTheme` to renderer)
+- `src/preload/panel-preload.ts` (expose `theme` API to panel renderers)
+- `src/main/services/webview-panel-manager.ts` (broadcast theme to all active panels)
+- `src/main/resources/panel-bootstrap.ts` (apply theme class on panel load + listen for changes)
+- `src/types/finance.d.ts` (add `theme` API to `FinanceApi` if exposed to extensions)
+
+**Root cause:** The main renderer applies `body.light-theme` to its own `document.body` (lines 119–120 of `src/renderer/index.ts`). Panel iframes run in separate `WebContentsView` instances with their own DOM — they never receive the theme class toggle. The panel preload (`panel-preload.ts`) has no theme-related IPC channel, and the panel bootstrap (`panel-bootstrap.ts`) applies no theme on load.
+
+**Implementation approach:**
+  1. In `src/renderer/index.ts`, when `core.theme` changes (after `toggleTheme()` succeeds), call `window.financeShell?.panel?.broadcastTheme?.(newTheme)` — a new preload bridge method that delegates to Main
+  2. In `src/main/main.ts`, add an IPC handler for `theme:broadcast` that calls `webviewPanelManager?.broadcastTheme(theme)`
+   3. In `src/main/services/webview-panel-manager.ts`, add a `broadcastTheme(theme: string)` method that iterates all open panels and calls `panel.webContents.send('theme:changed', theme)`
+     - This is the single source of truth for panel broadcast; the renderer does NOT iterate panels directly
+   4. In `src/preload/panel-preload.ts`, add a `theme` namespace to the panel API:
+    - `get(): Promise<string>` — reads current theme via existing `settings.get('core.theme')`
+    - `onChange(callback: (theme: string) => void): () => void` — subscribes to `theme:changed` IPC events from Main
+     - `broadcastTheme(theme: string): void` — tells Main to broadcast a theme change to all panels (renderer calls this after toggling theme)
+   5. In `src/main/resources/panel-bootstrap.ts`, on panel init:
+   - Read current theme via `financeShell.theme.get()`
+   - Apply `document.body.classList.add('light-theme')` or remove it based on the theme value
+    - Subscribe to `financeShell.theme.onChange()` to apply future theme changes without reload
+   6. In `src/types/finance.d.ts`, add `theme` to the `FinanceApi` interface exposed to extensions (optional — extensions can also read `core.theme` via `finance.settings.get`)
+
+**Verification:**
+1. Open Settings → toggle theme from Dark to Light → main renderer UI updates immediately
+2. All active panel iframes also switch to light theme without reload
+3. Switch back to Dark → panels update to dark theme
+4. Open a new panel after theme change → new panel inherits the current theme
+ 5. Restart app → panels load with the persisted theme applied
+
+- [ ] **Step 1: Typecheck + lint**
 
   Run: `npm run typecheck`
   Expected: PASS — no errors.
@@ -784,11 +957,11 @@ The following Phase 5 infrastructure already exists and handles the two-renderer
 
 | Stage | Tasks | Duration | Rationale |
 |---|---|---|---|
-| **1** | 1, 2, 3, 4 | 4–5 days | Settings UI, FY context, array modals, and shortcuts are the most visible Phase 7 features |
-| **2** | 5, 6, 7 | 4–5 days | Security (CSP), data safety (backup), and architecture (event bus) |
-| **3** | 8, 9, 10 | 3.5–4.5 days | Workspace improvements + memory management |
-| **4** | 11, 12, 13, 14, 15 | 3–4 days | Extension authoring experience improvements |
-| **5** | 16, 17, 18, 19, 20 | 4.5–6 days | Developer tooling + polish |
+| **1** | 1, 2, 3, 4, 5 | 5–6 days | Settings UI, FY context, array modals, shortcuts, and theme propagation to panels |
+| **2** | 6, 7, 8 | 4–5 days | Security (CSP), data safety (backup), and architecture (event bus) |
+| **3** | 9, 10, 11 | 3.5–4.5 days | Workspace improvements + memory management |
+| **4** | 12, 13, 14, 15, 16 | 3–4 days | Extension authoring experience improvements |
+| **5** | 17, 18, 19, 20, 21 | 4.5–6 days | Developer tooling + polish |
 
 **Total:** ~18–24 days
 
