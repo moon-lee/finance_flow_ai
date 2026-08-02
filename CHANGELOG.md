@@ -1,7 +1,7 @@
 ---
-version: 0.7.3
+version: 0.8.0
 created: 2026-06-14
-last_updated: 2026-08-01T15:45:00+10:00
+last_updated: 2026-08-02T09:54:51+10:00
 ---
 
 # Changelog
@@ -10,6 +10,27 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.8.0] - 2026-08-02
+
+### Added
+
+- **Phase 5: WebviewPanels & Multi-Extension UI** (`docs/superpowers/plans/2026-07-18-phase5-webviews-multiextension.md`). Multi-extension workspace with sandboxed `WebContentsView` panels, Dashboard aggregator extension, Domain Service Registry, per-extension IPC allowlists, dirty-state lifecycle, and overlay coordination.
+
+### Changed
+
+- **Workspace now uses flat tab list** (`src/renderer/components/workspace.ts`). Replaced the phantom `WorkspaceNode` split tree with a flat `_tabs: Tab[]` + `_activePanelId` model (ADR-0006). Persisted layouts are versioned flat JSON (`{ version: 1, tabs, activePanelId }`); legacy `{ type: 'tab', ... }` payloads are migrated on restore. Split-pane rendering deferred to Phase 7+.
+
+### Fixed
+
+- **CSP violation on "+ Add Payslip" button** (`extensions/salary-history/src/ui/payslip-list.ts`). Replaced `<a href="javascript:void(0)">` with `<button>` to comply with the panel's strict `script-src 'self' finance-shell:` CSP. `javascript:` URLs cannot be allowed via hash/nonce; removing the URL is the only CSP-safe fix.
+- **Activity Bar highlight out of sync on startup restore** (`src/renderer/components/workspace.ts`, `src/renderer/index.ts`). The workspace now dispatches `view-changed` whenever the active panel changes (restore, focus, add, close), keeping the Activity Bar and Navigation Panel in sync with the actual active tab. Internal views (e.g. `pay-rate-history-view`) highlight their parent extension's Activity Bar button.
+- **Navigation panel showing all extension items for internal views** (`src/renderer/index.ts`). Internal views not in the manifest's `contributions.views` now resolve their `extensionId` from `window.financeShell.panel.list()` instead of falling back to `''`, so the nav panel correctly filters to the owning extension's items.
+
+### Administrative
+
+- **Phase 5 handoff doc** (`docs/phase5-handoff.md`). Captures verification findings, key decision rationales (WebContentsView, onStartup, Domain Service Registry, allowlists, dirty-state protection, ADR-0006 flat layout, overlay coordinator), six explicit deferrals with phase targets, and reading-order guidance for future agents.
+- **Implementation design updated** (`docs/superpowers/specs/2026-06-13-implementation-design.md`). Phase 5 marked complete (2026-08-02, 0.8.0); actual time ~4 days; Phase 5 breakdown added.
 
 ## [Unreleased]
 

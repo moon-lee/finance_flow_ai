@@ -97,7 +97,7 @@ status: active
   - Drag-and-drop reorder, versioned settings, real component library (Storybook/Histoire) → Phase 7+.
   - Row-level access control (e.g. "Tax can only read salary_history_pay_slips for tax year X") → future ADR.
 
-### Phase 5: WebviewPanels & Multi-Extension UI (Est: 4 – 6 Days)
+### ✅ Phase 5: WebviewPanels & Multi-Extension UI (Complete — 2026-08-02, shipped as 0.8.0)
 
 > *Carries forward 5+ deferred items from Phase 4 (see Phase 4 "Out of Scope" list): `WebviewPanel` rendering, `finance.services.*` Domain Services, NavigationProvider, DAO operators `$join`/`$orderBy`/`$limit`/`$offset`, and two Main-side security allowlists. Scope grew since the original plan — budget accordingly.*
 
@@ -109,7 +109,10 @@ status: active
 - **NavigationProvider data-driven sidebar** — replaces the static id→name map that Phase 3 introduced and Phase 4 extended for `salary-history` view ids; side-panel trees driven by extension contributions.
 - **DAO operator expansion** — implements `$join` (cross-table aggregation for Dashboard), `$orderBy` / `$limit` / `$offset` (sort + paginate; Phase 4 `.find()` only returned PK-DESC). `$raw` remains unsupported.
 - **Security hardening (two surfaces)** — Phase 4 opened a second writeback IPC path (`extensions:ui-event`, Decision 12) alongside `executeCommand`. Phase 5 adds a **per-extension allowlist on Main** for both commands *and* ui-events (closes the Phase 3 §7 / Phase 4 Review Finding 3 deferral).
-- **Deliverable**: Multiple tabs with live charts in Dashboard; Domain Services consumed consistently across extensions; sandboxed WebviewPanel UI; navigation driven by contributions; hardened per-extension IPC allowlists.
+- **WebviewPanel hosting model** — extensions render inside sandboxed `WebContentsView` iframes via custom `finance-shell://` protocol; panel preload exposes `financeShell.extensions.{list,executeCommand,uiEvent,readTable,writeTable,setDirty,autoSaveDraft}` + `financeShell.settings` + `financeShell.accounts` + `financeShell.onPanelInit/onNavigate/onMountUpdate`.
+- **Dirty-state lifecycle** — `finance.ui.setDirty`, `finance.ui.autoSaveDraft`, `finance.ui.onBeforeUnmount` exposed to extensions; `autoSaveDraft` wrapped in 500 ms timeout; dirty panels protected from lazy unmount.
+- **Overlay coordination** — centralized `OverlayCoordinator` hides `WebContentsView` panels when main-renderer DOM overlays (command palette, modals) are open and restores them on close.
+- **Deliverable**: Multiple tabs with live charts in Dashboard; Domain Services consumed consistently across extensions; sandboxed WebviewPanel UI; navigation driven by contributions; hardened per-extension IPC allowlists; dirty-state protection; overlay coordination.
 
 ### Phase 6: AI Assistant (Deferred until Phase 5 Complete) (Est: 3 – 5 Days)
 - Ollama integration (default local only)
@@ -138,12 +141,12 @@ Based on a single full-time developer or agent working sequentially, the project
 | **Phase 2** | Database & Settings Backbone | 2 – 3 Days | 1 Day | Medium |
 | **Phase 3** | Extension Host & IPC Foundation | 5 – 7 Days | ~8 Days (incl. 5 review rounds, ESM bundling fix, post-test bug fixes) | High |
 | **Phase 4** | Salary History Extension (Slice) | 6 – 8 Days | ~13 Days (2026-07-04 → 2026-07-17, incl. 2 review rounds + doc/self-review) | Medium |
-| **Phase 5** | WebviewPanels & Multi-Extension UI | 4 – 6 Days | — | High |
+| **Phase 5** | WebviewPanels & Multi-Extension UI | 4 – 6 Days | ~4 Days (2026-07-18 → 2026-08-02, incl. planning + review + bug fixes) | High |
 | **Phase 6** | AI Assistant (Local-first) | 3 – 5 Days | — | Medium |
 | **Phase 7** | Production Polish & Encryption | 3 – 4 Days | — | Medium |
 | **Phase 8** | Extension Ecosystem & SDK | 3 – 5 Days | — | High |
 | **Buffer** | Integration, build debugging, platform adjustments | 4 – 5 Days | — | - |
-| **Total** | **Sleek Desktop Finance Workspace** | **30 – 43 Days** | **~9.5 Days so far** | **High** |
+| **Total** | **Sleek Desktop Finance Workspace** | **30 – 43 Days** | **~14 Days so far** | **High** |
 
 **Phase 3 actual breakdown** (estimate-vs-actual):
 - Initial implementation (17-task plan executed): ~3 Days
@@ -158,6 +161,12 @@ Based on a single full-time developer or agent working sequentially, the project
 - Manual testing & bug surfacing (TU1–TU5 GUI walk-throughs; TU8 typecheck/lint/tests; TU9 build verification; leave-accrual self-reference fix, 2-decimal display, hour-input persistence, migration 006/007/008 fixes): ~2 Days
 - Doc/self-review wrap-up (Task 18 self-review §1–§10, CHANGELOG 0.7.0 release, file-reference + ADR sync, design-doc update): ~1 Day
 - Phase 4 overran the 6–8 day estimate by ~5 days. The bulk of the overrun was the review-finding churn (7 plan amendments + 22 review findings reshaping the data model, calculation engine, and migration set) and the manual test-unit pass, not the core implementation — the 17 architecture decisions were settled up front, so rework was targeted rather than architectural.
+
+**Phase 5 actual breakdown** (estimate-vs-actual):
+- Initial implementation (20-task plan: Tasks 1–17 multi-extension infrastructure, Dashboard extension, DAO operators, allowlists, CSP, ADRs): ~2 Days
+- Review fix integration rounds (CSP fix for `javascript:` URLs, Activity Bar sync on panel focus, internal view highlighting, overlay coordinator): ~1 Day
+- Manual testing & bug surfacing (CSP-safe Add Payslip button, Activity Bar highlight sync on restore, internal view parent-button mapping, `finance.ui` panel-context verification): ~1 Day
+- Phase 5 came in within the 4–6 day estimate. The flat-workspace deviation (ADR-0006) eliminated the phantom split-tree rework that would have consumed the buffer.
 
 ### Key Complexity & Risk Drivers
 - **Multi-Process IPC Boundary (Phase 3 & 5)**: Routing JSON-RPC requests across isolated Node process wrappers and sandboxed Webview iframes.

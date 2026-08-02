@@ -1,7 +1,7 @@
 {
   "name": "finance_flow_ai",
   "productName": "Finance Flow AI",
-  "version": "0.7.3",
+  "version": "0.8.0",
   "description": "",
   "main": "dist/main/main.js",
   "directories": {

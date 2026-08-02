@@ -1,8 +1,8 @@
 ---
 title: Phase 5 — Webview Panels, Multi-Extension UI & Cross-Extension Services
 date: 2026-07-18
-last_updated: 2026-07-22T13:19:27+10:00
-status: review finished — awaiting implementation
+last_updated: 2026-08-02T09:54:51+10:00
+status: complete
 target_version: 0.8.0
 spec_source: docs/superpowers/specs/2026-06-13-implementation-design.md (Phase 5 section, lines 100–113)
 vision_alignment:
@@ -1513,7 +1513,7 @@ The task list below (1–20) is organized for document clarity, not execution se
 - [x] 20.2 In `docs/decisions/README.md`, add ADR-0005 to the index.
 - [x] 20.3 In `docs/extension-api.md`, document the Phase 5 API additions (Task 17.1).
 - [x] 20.4 Write `docs/phase5-handoff.md` following the Phase 3 handoff pattern (`docs/archives/phase3-handoff.md`).
-- [ ] 20.5 In `CHANGELOG.md`, add `## [0.8.0] - TBD` header with `### Administrative` entry citing this plan file; date on release.
+- [x] 20.5 In `CHANGELOG.md`, add `## [0.8.0] - 2026-08-02` header with `### Administrative` entry citing this plan file.
 
 **Verification:** all doc files updated; `CHANGELOG.md` version bumped; `package.json#version` synced to `0.8.0`.
 
