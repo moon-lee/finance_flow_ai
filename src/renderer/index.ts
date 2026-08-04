@@ -3,6 +3,7 @@ import './components/navigation-panel';
 import './components/workspace';
 import './components/ai-panel';
 import './components/command-palette';
+import { OverlayCoordinator } from './overlay-coordinator';
 import type { ActivityView } from './components/activity-bar';
 import type { PaletteCommand } from './components/command-palette';
 import type { HostLogEntry, HostStatus } from '../types/finance-shell';
@@ -12,6 +13,8 @@ const app = document.querySelector<HTMLElement>('#app');
 const commandPalette = document.querySelector<HTMLElement & { focusInput(): void; extensionCommands: PaletteCommand[] }>('#command-palette');
 const navigationPanel = document.querySelector<NavigationPanel>('#navigation-panel');
 const activityBar = document.querySelector<HTMLElement & { views: ActivityView[]; activeView: string }>('#activity-bar');
+
+const overlayCoordinator = new OverlayCoordinator();
 
 /** Maps viewId → extensionId so nav panel can filter by active extension. */
 const viewToExtension = new Map<string, string>();
@@ -67,27 +70,11 @@ if (window.financeShell?.extensions?.onHostStatus) {
   });
 }
 
-const overlayCoordinator = {
-  _refCount: 0,
-  show(): void {
-    this._refCount += 1;
-    if (this._refCount === 1) {
-      window.financeShell?.panel?.hideForOverlay?.();
-    }
-  },
-  hide(): void {
-    if (this._refCount > 0) this._refCount -= 1;
-    if (this._refCount === 0) {
-      window.financeShell?.panel?.restoreAfterOverlay?.();
-    }
-  },
-};
-
 function setCommandPaletteVisible(visible: boolean): void {
   const currentlyVisible = !(commandPalette?.classList.contains('hidden') ?? true);
   commandPalette?.classList.toggle('hidden', !visible);
-  if (visible && !currentlyVisible) overlayCoordinator.show();
-  else if (!visible && currentlyVisible) overlayCoordinator.hide();
+  if (visible && !currentlyVisible) overlayCoordinator.showOverlay('command-palette');
+  else if (!visible && currentlyVisible) overlayCoordinator.hideOverlay('command-palette');
   if (visible) commandPalette?.focusInput();
 }
 
@@ -167,6 +154,11 @@ window.addEventListener('click', (event) => {
 window.addEventListener('view-changed', (event: Event) => {
   const customEvent = event as CustomEvent<{ view: string; source: string }>;
   const viewId = customEvent.detail.view;
+  if (viewId === '__settings__') {
+    if (activityBar) activityBar.activeView = '__settings__';
+    if (navigationPanel) navigationPanel.setView('__settings__');
+    return;
+  }
   const extId = viewToExtension.get(viewId);
   if (!extId) {
     window.financeShell?.panel?.list?.().then((panels) => {

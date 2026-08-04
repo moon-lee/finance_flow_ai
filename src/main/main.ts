@@ -157,6 +157,7 @@ export async function createWindow(): Promise<BrowserWindow> {
     minHeight: 640,
     backgroundColor: backgroundColor,
     title: "Finance Flow AI",
+    focusable: true,
     webPreferences: {
       preload: resolvePreloadPath(),
       contextIsolation: true,

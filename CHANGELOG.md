@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Inline `overlayCoordinator` extracted into reusable `OverlayCoordinator` class** (`src/renderer/overlay-coordinator.ts`, `src/renderer/index.ts`, `tests/unit/renderer/overlay-coordinator.test.ts`). The previous inline object in `src/renderer/index.ts` was reference-counted but only used by the command palette; future overlays (Shortcuts, Backup) would have bypassed it and caused panels to reappear while another overlay was still open. The new `OverlayCoordinator` singleton tracks overlays by ID, only hides panels on the 0→1 transition, and only restores them on the 1→0 transition. Unknown IDs and double-hides are safely ignored. App focus/shortcut propagation to `WebContentsView` panels is deferred to Task 4.
+
 ### Administrative
 
 - **Phase 7 production polish plan updated** (`docs/superpowers/plans/2026-08-02-phase7-production-polish.md`). Task 0 added: extract inline `overlayCoordinator` in `src/renderer/index.ts:70-84` into standalone `OverlayCoordinator` class with ref-counted `showOverlay(id)` / `hideOverlay(id)` API, with unit tests. Task 1 clarified: Settings is a workspace view (not an overlay) and does not use `OverlayCoordinator`. Task 2 simplified: removed `callerNamespace` / `assertCoreKey` from `settings-service.ts`; `core.financialYear.current` dropdown populated with last 3 computed years in renderer (no DB query, no new IPC); no data migration required. Task 3 corrected: `reorder-sections-modal.ts` moves to `src/renderer/components/` and the extension's copy is deleted; extension also removes the reorder button, CSS, and `_onReorder()` handler from `payslip-form.ts`. Task 5 fixed: `panel-bootstrap.js` → `panel-bootstrap.ts`; added `src/preload/preload.ts` to modified files; fixed duplicate step numbering. Added note that all settings persist in `<userData>/finance.db` `settings` table (`key TEXT PRIMARY KEY, value TEXT NOT NULL`), JSON-stringified, accessed via `financeShell.settings.get/set`.
