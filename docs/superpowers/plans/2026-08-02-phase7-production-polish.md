@@ -63,7 +63,8 @@ The Phase 7 plan adds two new main-renderer overlays (Keyboard Shortcuts, Backup
   - `hideOverlay(id: string): void` — unregisters an overlay, decrements ref count, restores panels when last overlay closes (1→0 transition)
   - `getOverlayCount(): number` — returns current active overlay count (for debugging/testing)
   - `isActive(): boolean` — returns whether any overlay is open
-  - Throws in development if `hideOverlay` is called with an ID that was never shown (detects mismatched show/hide calls)
+  - Guards against double-show / double-hide of same ID in dev
+  - Unknown IDs passed to `hideOverlay` are ignored safely — no crash if hideOverlay is called with an ID that was never shown
 - `src/renderer/index.ts` — replace inline `overlayCoordinator` object with import of `OverlayCoordinator`
 - `src/renderer/components/command-palette.ts` — update to use `OverlayCoordinator.showOverlay('command-palette')` / `hideOverlay('command-palette')` instead of direct IPC calls
 
