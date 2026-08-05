@@ -1,6 +1,6 @@
 import type Database from 'better-sqlite3';
 import { getDatabase } from './database-service';
-import type { FinanceExtensionManifest } from '../../types/finance';
+import type { FinanceExtensionManifest, ManifestConfigurationContribution } from '../../types/finance';
 
 /** [Review fix §4.2] After this many recorded crashes, the extension is auto-disabled. */
 export const AUTO_DISABLE_CRASH_THRESHOLD = 3;
@@ -225,6 +225,18 @@ export class ExtensionRegistry {
       if (!this.isEnabled(manifest.id)) continue;
       for (const nav of manifest.contributions.navigation ?? []) {
         out.push({ extensionId: manifest.id, navigation: nav });
+      }
+    }
+    return out;
+  }
+
+  /** Aggregate all enabled extensions' configuration contributions. */
+  configuration(): Array<{ extensionId: string; configuration: ManifestConfigurationContribution }> {
+    const out: Array<{ extensionId: string; configuration: ManifestConfigurationContribution }> = [];
+    for (const { manifest } of this.byId.values()) {
+      if (!this.isEnabled(manifest.id)) continue;
+      for (const config of manifest.contributions.configuration ?? []) {
+        out.push({ extensionId: manifest.id, configuration: config });
       }
     }
     return out;

@@ -44,27 +44,7 @@ export class Orchestrator {
     await this._loadSectionOrder();
     this._bindEvents();
     let initialView = (this._mountData.viewId as string) || 'payslip-list';
-    if (initialView === 'payslip-list') {
-      initialView = await this._resolveSeedView();
-    }
     this.navigate(initialView, this._mountData);
-  }
-
-  /**
-   * First-run onboarding (Phase 4 Task 11.3): when the Core-owned `accounts`
-   * table is empty, mount the seed modal instead of the payslip list. The
-   * accounts table is read-only for extensions (Decision 4), so the decision
-   * uses the Core-owned `accounts.count` bridge. Runs once per panel mount;
-   * a dismissal navigates to `payslip-list` without re-checking.
-   */
-  private async _resolveSeedView(): Promise<string> {
-    try {
-      const { count } = await window.financeShell.accounts.count();
-      if (count === 0) return 'accounts-seed-modal';
-    } catch (err) {
-      console.error('[salary-history] accounts.count failed:', err);
-    }
-    return 'payslip-list';
   }
 
   destroy(): void {
@@ -82,9 +62,6 @@ export class Orchestrator {
       this._container.addEventListener(name, wrapped);
     };
 
-    on('account-create', this._onAccountCreate);
-    on('account-seed-skip', this._onSeedDismiss);
-    on('account-seed-cancel', this._onSeedDismiss);
     on('payslip-add-request', this._onAddPayslip);
     on('payslip-create', this._onCreatePayslip);
     on('payslip-edit-request', this._onEditRequest);
@@ -173,23 +150,6 @@ export class Orchestrator {
       } catch { /* ignore malformed saved order */ }
     }
   }
-
-  // ── Account events ─────────────────────────────────────────────────
-
-  private _onAccountCreate = async (e: Event): Promise<void> => {
-    const detail = (e as CustomEvent).detail as AccountSeed;
-    try {
-      await window.financeShell.accounts.create(detail);
-    } catch (err) {
-      console.error('[salary-history] account creation failed:', err);
-      return;
-    }
-    this.navigate('payslip-form', this._mountData);
-  };
-
-  private _onSeedDismiss = (): void => {
-    this.navigate('payslip-list', this._mountData);
-  };
 
   // ── Payslip events ─────────────────────────────────────────────────
 

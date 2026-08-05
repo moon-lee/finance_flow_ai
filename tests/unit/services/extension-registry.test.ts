@@ -212,4 +212,39 @@ describe('ExtensionRegistry', () => {
     expect(registry.get('salary-history')).toBeDefined();
     expect(registry.isEnabled('salary-history')).toBe(false);
   });
+
+  it('configuration() returns config items from enabled extensions', () => {
+    const withConfig = manifest({
+      contributions: {
+        commands: [{ id: 'salary.show-pay-history', title: 'View: Pay History' }],
+        configuration: [
+          { key: 'salary-history.paygToleranceDollars', type: 'number', label: 'PAYG Tolerance', default: 5 }
+        ]
+      }
+    });
+    registry.upsert(withConfig);
+    const [entry] = registry.configuration();
+    expect(entry).toBeDefined();
+    expect(entry!.extensionId).toBe('salary-history');
+    expect(entry!.configuration.key).toBe('salary-history.paygToleranceDollars');
+    expect(entry!.configuration.type).toBe('number');
+  });
+
+  it('configuration() excludes disabled extensions', () => {
+    registry.upsert(manifest({
+      contributions: {
+        commands: [{ id: 'salary.show-pay-history', title: 'View: Pay History' }],
+        configuration: [
+          { key: 'salary-history.paygToleranceDollars', type: 'number', label: 'PAYG Tolerance', default: 5 }
+        ]
+      }
+    }));
+    registry.setEnabled('salary-history', false);
+    expect(registry.configuration()).toHaveLength(0);
+  });
+
+  it('configuration() returns empty array for extensions with no configuration', () => {
+    registry.upsert(manifest());
+    expect(registry.configuration()).toHaveLength(0);
+  });
 });

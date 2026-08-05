@@ -127,6 +127,7 @@ The Phase 7 plan adds two new main-renderer overlays (Keyboard Shortcuts, Backup
 - `extensions:list` IPC handler extended to return `configuration` arrays from each extension's manifest (not currently included in the `{ views, commands, navigation }` response)
 - `settings-service.ts` initialized with `core` namespace registered
 - `__settings__` early-return already wired in `view-changed` handler at `src/renderer/index.ts:157-160`
+- `OverlayCoordinator` singleton available in `src/renderer/index.ts` for panel hide/restore
 
 **What:** Build the Settings screen component and wire it into the main workspace via the Activity Bar and Navigation Panel.
 
@@ -172,8 +173,10 @@ The Phase 7 plan adds two new main-renderer overlays (Keyboard Shortcuts, Backup
    - Change `_onNav` so that when `cmd === '__settings__'`, it dispatches `view-changed` with `detail: { view: '__settings__', source: 'core' }` instead of `command-selected`
 
 4. Wire `__settings__` into `renderer/index.ts`:
-   - In the `view-changed` handler, when `view === '__settings__'`, create a `<settings-screen>` element and append it to `#workspace`
-   - Settings is a workspace view, not an overlay — panels remain visible and interactive behind it
+   - In the `view-changed` handler, when `view === '__settings__'`, append `<settings-screen>` into `#workspace` if not already present
+   - Call `overlayCoordinator.showOverlay('settings')` to hide any open WebContentsView panels while Settings is active
+   - When navigating away from Settings, remove `<settings-screen>` and call `overlayCoordinator.hideOverlay('settings')` to restore panels
+   - Settings is a main-renderer workspace view rendered as a DOM overlay; panels are hidden during Settings to avoid the WebContentsView layering issue
 
 5. The existing `financeShell.settings` bridge in both `preload.ts` and `panel-preload.ts` already works — no changes needed there
 
@@ -191,17 +194,23 @@ The Phase 7 plan adds two new main-renderer overlays (Keyboard Shortcuts, Backup
 
 - [ ] **Step 1: Write unit tests for settings-service and navigation behavior**
 
-  New tests in `tests/unit/services/settings-service.test.ts`:
-  - `stores and retrieves a namespaced setting key` — verifies `setSetting`/`getSetting` round-trip for any registered namespace
-  - `rejects writes to unregistered namespaces` — verifies `setSetting` throws for unknown namespace prefixes
-  - `deletes a setting key` — verifies `deleteSetting` removes the row and subsequent `getSetting` returns undefined
+  New tests in `tests/unit/services/extension-registry.test.ts`:
+  - `configuration() returns config items from enabled extensions` — verifies `configuration()` returns `{ extensionId, configuration }` entries for extensions that declare `contributes.configuration`
+  - `configuration() excludes disabled extensions` — verifies disabled extensions are not included
+  - `configuration() returns empty array for extensions with no configuration` — verifies extensions without configuration contributions return nothing
+
+  Existing tests in `tests/unit/services/settings-service.test.ts` already cover:
+  - `stores and retrieves a namespaced setting key`
+  - `rejects writes to unregistered namespaces`
+  - `deletes a setting key`
 
   New tests in `tests/unit/renderer/navigation-panel.test.ts`:
   - `_getVisibleItems returns Settings nav item when currentView is __settings__` — nav panel shows only Settings item when Settings view is active
+  - `built-in Settings group renders Settings item` — verifies the Settings section contains only the Settings nav item, not App Preferences or Manage Extensions
   - `clicking Settings nav item dispatches view-changed with __settings__` — click handler dispatches correct event (not `command-selected`)
   - `_onNav dispatches view-changed for __settings__ command` — Settings item routes through view system, not command system
 
-  Run: `npm run test -- tests/unit/services/settings-service.test.ts tests/unit/renderer/navigation-panel.test.ts`
+  Run: `npm run test -- tests/unit/services/extension-registry.test.ts tests/unit/renderer/navigation-panel.test.ts`
   Expected: All new tests pass; all existing tests still pass.
 
 - [ ] **Step 2: Typecheck + lint**

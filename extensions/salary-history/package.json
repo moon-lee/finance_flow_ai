@@ -46,9 +46,6 @@
         }
       ],
       "allowedUiEvents": [
-        "account-create",
-        "account-seed-skip",
-        "account-seed-cancel",
         "payslip-add-request",
         "payslip-create",
         "payslip-edit-request",

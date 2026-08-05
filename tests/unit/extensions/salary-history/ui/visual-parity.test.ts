@@ -6,7 +6,6 @@ import { resolve } from 'node:path';
 
 import '../../../../../extensions/salary-history/src/ui/payslip-form';
 import '../../../../../extensions/salary-history/src/ui/payslip-list';
-import '../../../../../extensions/salary-history/src/ui/accounts-seed-modal';
 import '../../../../../extensions/salary-history/src/ui/pay-rate-history-view';
 import '../../../../../extensions/salary-history/src/ui/rate-row-form';
 import '../../../../../extensions/salary-history/src/ui/reorder-sections-modal';
@@ -96,19 +95,6 @@ describe('Task 11.8 visual parity — component DOM vs approved mock', () => {
     const compSet = new Set(headers);
     for (const h of mockHeaders) if (!compSet.has(h)) soft(`payslip-list: mock header "${h}" missing in component`);
     for (const h of headers) if (!mockSet.has(h)) soft(`payslip-list: component header "${h}" not in mock (mock uses "${[...mockSet].find((m) => m.toLowerCase() === h.toLowerCase()) ?? '—'})`);
-  });
-
-  it('accounts-seed-modal: title + 3 action buttons match mock', async () => {
-    const mock = parseMock('accounts-seed.html');
-    const mockBtns = texts(mock, '.modal-footer button');
-    const el = make<ParityEl>('accounts-seed-modal');
-    (el as unknown as { open: boolean }).open = true;
-    await el.updateComplete;
-
-    const title = sr(el).querySelector('[data-testid="seed-title"]')?.textContent?.trim();
-    expect(title).toBe('Welcome to Salary History');
-    const btns = texts(sr(el), '.actions button');
-    expect(btns.sort()).toEqual(mockBtns.sort());
   });
 
   it('pay-rate-history-view: add button + Current/History badges + edit/view match mock', async () => {

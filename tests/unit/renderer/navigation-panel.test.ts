@@ -101,16 +101,52 @@ describe('NavigationPanel', () => {
     document.body.removeChild(panel);
   });
 
-  it('built-in Settings group renders Core items', async () => {
+  it('built-in Settings group renders Settings item', async () => {
     const panel = createPanel();
-    // Switch to settings view
     panel.setView('__settings__');
     await panel.updateComplete;
 
     const navItems = panel.shadowRoot!.querySelectorAll('.nav-item');
     const labels = Array.from(navItems).map(n => n.textContent);
-    expect(labels).toContain('App Preferences');
-    expect(labels).toContain('Manage Extensions');
+    expect(labels).toContain('Settings');
+    expect(labels).not.toContain('App Preferences');
+    expect(labels).not.toContain('Manage Extensions');
+
+    document.body.removeChild(panel);
+  });
+
+  it('clicking Settings nav item dispatches view-changed with __settings__', async () => {
+    const panel = createPanel();
+    panel.setView('__settings__');
+    await panel.updateComplete;
+
+    let receivedDetail: unknown = null;
+    panel.addEventListener('view-changed', ((e: CustomEvent) => {
+      receivedDetail = e.detail;
+    }) as EventListener);
+
+    const navItem = panel.shadowRoot!.querySelector('[data-testid="nav-settings"]') as HTMLElement;
+    navItem.click();
+
+    expect(receivedDetail).toEqual({ view: '__settings__', source: 'core' });
+
+    document.body.removeChild(panel);
+  });
+
+  it('_onNav dispatches view-changed for __settings__ command', async () => {
+    const panel = createPanel();
+    panel.setView('__settings__');
+    await panel.updateComplete;
+
+    let receivedDetail: unknown = null;
+    panel.addEventListener('view-changed', ((e: CustomEvent) => {
+      receivedDetail = e.detail;
+    }) as EventListener);
+
+    const navItem = panel.shadowRoot!.querySelector('[data-testid="nav-settings"]') as HTMLElement;
+    navItem.click();
+
+    expect(receivedDetail).toEqual({ view: '__settings__', source: 'core' });
 
     document.body.removeChild(panel);
   });

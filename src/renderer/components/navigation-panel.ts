@@ -73,6 +73,22 @@ export class NavigationPanel extends LitElement {
 
   private _onNav(cmd: string) {
     if (!cmd) return;
+    if (cmd === '__settings__') {
+      this.dispatchEvent(new CustomEvent('view-changed', {
+        detail: { view: '__settings__', source: 'core' },
+        bubbles: true,
+        composed: true,
+      }));
+      return;
+    }
+    if (cmd === '__accounts__') {
+      this.dispatchEvent(new CustomEvent('view-changed', {
+        detail: { view: '__accounts__', source: 'core' },
+        bubbles: true,
+        composed: true,
+      }));
+      return;
+    }
     this.dispatchEvent(new CustomEvent('command-selected', {
       detail: { command: cmd, extensionCommand: true },
       bubbles: true,
@@ -81,8 +97,8 @@ export class NavigationPanel extends LitElement {
   }
 
   private static readonly _coreItems: NavItem[] = [
-    { extensionId: 'core', id: 'app-preferences', label: 'App Preferences', command: 'core.appPreferences', group: 'Settings' },
-    { extensionId: 'core', id: 'manage-extensions', label: 'Manage Extensions', command: 'core.manageExtensions', group: 'Settings' },
+    { extensionId: 'core', id: 'accounts', label: 'Accounts', command: '__accounts__', group: 'General' },
+    { extensionId: 'core', id: 'settings', label: 'Settings', command: '__settings__', group: 'General' },
   ];
 
   private _groupedItems(): Map<string | undefined, NavItem[]> {
@@ -96,7 +112,7 @@ export class NavigationPanel extends LitElement {
   }
 
   private _getVisibleItems(): NavItem[] {
-    if (this._currentView === '__settings__') {
+    if (this._currentView === '__settings__' || this._currentView === '__accounts__') {
       return [...NavigationPanel._coreItems];
     }
     if (this._currentExtensionId) {

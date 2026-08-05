@@ -12,7 +12,6 @@
 
 import './payslip-form.js';
 import './payslip-list.js';
-import './accounts-seed-modal.js';
 import './pay-rate-history-view.js';
 import './rate-row-form.js';
 import './reorder-sections-modal.js';

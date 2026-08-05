@@ -3,6 +3,8 @@ import './components/navigation-panel';
 import './components/workspace';
 import './components/ai-panel';
 import './components/command-palette';
+import './components/settings-screen';
+import './components/accounts-manager';
 import { OverlayCoordinator } from './overlay-coordinator';
 import type { ActivityView } from './components/activity-bar';
 import type { PaletteCommand } from './components/command-palette';
@@ -13,6 +15,7 @@ const app = document.querySelector<HTMLElement>('#app');
 const commandPalette = document.querySelector<HTMLElement & { focusInput(): void; extensionCommands: PaletteCommand[] }>('#command-palette');
 const navigationPanel = document.querySelector<NavigationPanel>('#navigation-panel');
 const activityBar = document.querySelector<HTMLElement & { views: ActivityView[]; activeView: string }>('#activity-bar');
+const workspace = document.querySelector<HTMLElement & { hideTabStrip?: boolean }>('#workspace');
 
 const overlayCoordinator = new OverlayCoordinator();
 
@@ -157,8 +160,33 @@ window.addEventListener('view-changed', (event: Event) => {
   if (viewId === '__settings__') {
     if (activityBar) activityBar.activeView = '__settings__';
     if (navigationPanel) navigationPanel.setView('__settings__');
+    const existing = workspace?.querySelector('settings-screen');
+    if (!existing) {
+      const screen = document.createElement('settings-screen');
+      workspace?.appendChild(screen);
+    }
+    if (workspace) workspace.hideTabStrip = true;
+    overlayCoordinator.showOverlay('settings');
     return;
   }
+  if (viewId === '__accounts__') {
+    if (activityBar) activityBar.activeView = '__accounts__';
+    if (navigationPanel) navigationPanel.setView('__accounts__');
+    const existing = workspace?.querySelector('accounts-manager');
+    if (!existing) {
+      const screen = document.createElement('accounts-manager');
+      workspace?.appendChild(screen);
+    }
+    if (workspace) workspace.hideTabStrip = false;
+    overlayCoordinator.hideOverlay('settings');
+    return;
+  }
+  const settingsScreen = document.querySelector('settings-screen');
+  if (settingsScreen) settingsScreen.remove();
+  const accountsManager = document.querySelector('accounts-manager');
+  if (accountsManager) accountsManager.remove();
+  if (workspace) workspace.hideTabStrip = false;
+  overlayCoordinator.hideOverlay('settings');
   const extId = viewToExtension.get(viewId);
   if (!extId) {
     window.financeShell?.panel?.list?.().then((panels) => {
@@ -220,6 +248,23 @@ window.addEventListener('DOMContentLoaded', async () => {
     const firstExtId = viewToExtension.get(firstViewId) ?? '';
     if (firstViewId && firstExtId) {
       navigationPanel.setView(firstViewId, firstExtId);
+    }
+  }
+
+  // Phase 7 — Core-owned first-run gate. If no accounts exist and no
+  // extension view is active, route to the Accounts manager so the user
+  // can create their first account without depending on any extension.
+  if (navigationPanel && viewToExtension.size === 0) {
+    try {
+      const { count } = await window.financeShell?.accounts?.count?.() ?? { count: 0 };
+      if (count === 0) {
+        navigationPanel.setView('__accounts__');
+        const accountsScreen = document.createElement('accounts-manager');
+        workspace?.appendChild(accountsScreen);
+        if (workspace) workspace.hideTabStrip = false;
+      }
+    } catch {
+      // ignore — fall back to default empty state
     }
   }
 

@@ -7,6 +7,7 @@ import {
   closeDatabase,
   getDatabase,
 } from "./services/database-service";
+import { AccountManagementService } from "./services/account-management";
 import {
   initializeSettings,
   closeSettings,
@@ -54,6 +55,7 @@ let commandAllowlist: CommandAllowlist | null = null;
 let uiEventAllowlist: UiEventAllowlist | null = null;
 let domainServiceRegistry: DomainServiceRegistry | null = null;
 let webviewPanelManager: WebviewPanelManager | null = null;
+let accountService: AccountManagementService | null = null;
 
 function resolvePreloadPath(): string {
   return join(mainDir, "../preload/preload.cjs");
@@ -218,11 +220,12 @@ function registerIpcHandlers(): void {
   });
 
   ipcMain.handle("extensions:list", () => {
-    if (!extensionRegistry) return { views: [], commands: [], navigation: [] };
+    if (!extensionRegistry) return { views: [], commands: [], navigation: [], configuration: [] };
     return {
       views: extensionRegistry.views(),
       commands: extensionRegistry.commands(),
       navigation: extensionRegistry.navigation(),
+      configuration: extensionRegistry.configuration(),
     };
   });
 
@@ -540,38 +543,32 @@ function registerIpcHandlers(): void {
   // the extension's own `finance.db`. The DAO service is bypassed deliberately
   // (it would reject the write as SharedTableReadOnly); this is a trusted,
   // input-validated Core insert.
-  ipcMain.handle(
-    "accounts:create",
-    (_event, input: { name: string; institution: string | null }) => {
-      if (
-        !input ||
-        typeof input.name !== "string" ||
-        input.name.trim() === ""
-      ) {
-        throw new Error("accounts:create requires a non-empty name");
-      }
-      const db = getDatabase();
-      const info = db
-        .prepare(
-          "INSERT INTO accounts (name, institution, is_active, created_at) VALUES (?, ?, 1, ?)",
-        )
-        .run(
-          input.name.trim(),
-          input.institution ?? null,
-          new Date().toISOString(),
-        );
-      const id = Number(info.lastInsertRowid);
-      void notifyOpenDashboardAfterAccountChange();
-      return { id };
-    },
-  );
+  ipcMain.handle("accounts:create", (_event, input: { name: string; institution: string | null }) => {
+    const result = accountService!.create(input);
+    void notifyOpenDashboardAfterAccountChange();
+    return result;
+  });
 
   // Core-owned account count — used by the renderer's first-run seed check.
   // Runs directly against the SQLite DB, no Extension IPC required.
   ipcMain.handle("accounts:count", () => {
-    const db = getDatabase();
-    const row = db.prepare("SELECT COUNT(*) AS count FROM accounts").get() as { count: number };
-    return { count: row.count };
+    return accountService!.count();
+  });
+
+  ipcMain.handle("accounts:list", () => {
+    return accountService!.list();
+  });
+
+  ipcMain.handle("accounts:update", (_event, input: { id: number; name: string; institution: string | null; is_active: boolean }) => {
+    const result = accountService!.update(input);
+    void notifyOpenDashboardAfterAccountChange();
+    return result;
+  });
+
+  ipcMain.handle("accounts:delete", (_event, input: { id: number }) => {
+    const result = accountService!.delete(input);
+    void notifyOpenDashboardAfterAccountChange();
+    return result;
   });
 }
 
@@ -657,6 +654,7 @@ app.whenReady().then(async () => {
     console.log(`[main] database path: ${dbPath}`);
     initializeDatabase(dbPath);
     initializeSettings();
+    accountService = new AccountManagementService();
 
     // Boot extensions BEFORE the window so the renderer can fetch contributions on first paint.
     // Phase 4 Task 9.2 — instantiate the schema registry and DAO service

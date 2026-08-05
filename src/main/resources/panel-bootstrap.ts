@@ -36,17 +36,15 @@ interface PanelPayload {
  * extension's UI components emit (per its manifest's `allowedUiEvents`).
  */
 const FORWARDED_EVENTS = [
-  'account-seed-skip',
-  'account-seed-cancel',
   'payslip-add-request',
   'payslip-create',
   'payslip-edit-request',
   'payslip-edit',
   'payslip-cancel',
   'payslip-delete',
-  'rate-add-request',
   'rate-edit-request',
   'rate-view-request',
+  'rate-add-request',
   'rate-create',
   'rate-edit',
   'rate-form-cancel',

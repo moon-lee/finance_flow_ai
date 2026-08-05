@@ -16,6 +16,7 @@ export interface ExtensionsApi {
     views: Array<{ extensionId: string; view: ManifestViewContribution }>;
     commands: Array<{ extensionId: string; command: ManifestCommandContribution }>;
     navigation: Array<{ extensionId: string; navigation: ManifestNavigationContribution }>;
+    configuration: Array<{ extensionId: string; configuration: ManifestConfigurationContribution }>;
   }>;
   activateView: (viewId: string) => Promise<{ activated: boolean; reason?: string }>;
   // [Review fix §4.6] Wires the renderer to call extension commands through the
@@ -91,12 +92,11 @@ export type HostStatus =
   | { status: 'restart-failed'; error: string };
 
 export interface AccountsApi {
-  /** Core-owned account creation (the `accounts` table is read-only for
-   * extensions per Decision 4, so the first-run seed modal routes its write
-   * here rather than through `finance.db`). Returns the new row id. */
   create: (input: { name: string; institution: string | null }) => Promise<{ id: number }>;
-  /** Core-owned account count — no Extension IPC required. */
   count: () => Promise<{ count: number }>;
+  list: () => Promise<Array<{ id: number; name: string; institution: string | null; is_active: boolean; created_at: string }>>;
+  update: (input: { id: number; name: string; institution: string | null; is_active: boolean }) => Promise<{ updated: boolean }>;
+  delete: (input: { id: number }) => Promise<{ deleted: boolean }>;
 }
 
 export interface FinanceShellApi {

@@ -14,13 +14,20 @@ const shellApi = {
     create: async (input: { name: string; institution: string | null }): Promise<{ id: number }> =>
       ipcRenderer.invoke('accounts:create', input) as Promise<{ id: number }>,
     count: async (): Promise<{ count: number }> =>
-      ipcRenderer.invoke('accounts:count') as Promise<{ count: number }>
+      ipcRenderer.invoke('accounts:count') as Promise<{ count: number }>,
+    list: async (): Promise<Array<{ id: number; name: string; institution: string | null; is_active: boolean; created_at: string }>> =>
+      ipcRenderer.invoke('accounts:list') as Promise<Array<{ id: number; name: string; institution: string | null; is_active: boolean; created_at: string }>>,
+    update: async (input: { id: number; name: string; institution: string | null; is_active: boolean }): Promise<{ updated: boolean }> =>
+      ipcRenderer.invoke('accounts:update', input) as Promise<{ updated: boolean }>,
+    delete: async (input: { id: number }): Promise<{ deleted: boolean }> =>
+      ipcRenderer.invoke('accounts:delete', input) as Promise<{ deleted: boolean }>,
   },
   extensions: {
     list: async (): Promise<{
       views: Array<{ extensionId: string; view: { id: string; name: string; icon: string } }>;
       commands: Array<{ extensionId: string; command: { id: string; title: string; keybinding?: string } }>;
       navigation: Array<{ extensionId: string; navigation: { id: string; label: string; command: string; group?: string } }>;
+      configuration: Array<{ extensionId: string; configuration: { key: string; type: string; label: string; default?: unknown; enumOptions?: string[] } }>;
     }> => ipcRenderer.invoke('extensions:list'),
     activateView: async (viewId: string): Promise<{ activated: boolean; reason?: string }> =>
       ipcRenderer.invoke('extensions:activate-view', viewId),

@@ -1,7 +1,7 @@
 ---
 version: 0.8.0
 created: 2026-06-14
-last_updated: 2026-08-03T01:35:30+10:00
+last_updated: 2026-08-06T03:55:00+10:00
 ---
 
 # Changelog
@@ -12,6 +12,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+### Added
+
+- **Settings screen + Navigation wiring** (`src/renderer/components/settings-screen.ts`, `src/renderer/components/navigation-panel.ts`, `src/renderer/index.ts`, `src/main/services/extension-registry.ts`, `src/main/main.ts`, `src/preload/preload.ts`, `src/types/finance-shell.d.ts`). Introduced a Core-owned Settings workspace view that reads `contributes.configuration` from all enabled extensions and renders a collapsible form. The navigation panel now has a single Settings item that routes through `view-changed` with `view: '__settings__'`. Settings is rendered as a main-renderer DOM element inside `#workspace`; `OverlayCoordinator` hides `WebContentsView` panels while Settings is open to avoid OS-level layering issues. `extensions:list` IPC now includes `configuration` arrays. App focus/shortcut propagation to `WebContentsView` panels is deferred to Task 4.
+- **Phase 7 Account Management** (`docs/superpowers/plans/2026-08-05-account-management.md`, `src/main/services/account-management.ts`, `src/renderer/components/accounts-manager.ts`, `src/renderer/components/navigation-panel.ts`, `src/renderer/index.ts`, `src/main/main.ts`, `src/types/finance-shell.d.ts`, `src/preload/preload.ts`, `src/preload/panel-preload.ts`). Replaced the one-off salary-history seed modal with a Core-owned account management workspace view. Added `accounts:list`, `accounts:update`, and `accounts:delete` IPC handlers via `AccountManagementService`. The renderer now auto-routes to `__accounts__` on first run when the accounts table is empty, independent of any extension. Extensions can no longer create accounts through UI events; all writes flow through the Core bridge. Removed `accounts-seed-modal.ts`, seed event bindings from the salary-history orchestrator, and forwarded events from panel bootstrap.
 
 ### Fixed
 

@@ -1,5 +1,5 @@
 import { LitElement, css, html } from 'lit';
-import { customElement, state } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import './tab-bar';
 import type { Tab } from './types';
 export type { Tab };
@@ -55,6 +55,9 @@ export class WorkspacePanel extends LitElement {
 
   @state()
   private _activePanelId = DEFAULT_TAB.panelId;
+
+  @property({ type: Boolean })
+  hideTabStrip = false;
 
   private _viewIdToLabel = new Map<string, string>();
 
@@ -340,7 +343,7 @@ export class WorkspacePanel extends LitElement {
   render() {
     const tabs = this._tabs.filter(t => !!t.panelId);
 
-    if (!tabs.length) {
+    if (!tabs.length || this.hideTabStrip) {
       return html`
         <div class="content">
           <slot>
