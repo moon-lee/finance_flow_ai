@@ -19,7 +19,6 @@
       - Cite the file paths changed and, where applicable, the spec/ADR/vision line numbers.
       - If the work warrants a version bump (patch for fixes, minor for new features and plans, major for breaking changes — per SemVer), add a new dated version header (e.g., `## [0.6.0] - 2026-07-15`).
    2. **Update frontmatter:**
-      - Bump `version` to match the new release header.
       - Update `last_updated` to the current ISO timestamp with timezone (e.g., `2026-07-15T14:30:00+10:00`).
    3. **Sync related files when applicable:**
       - `package.json#version` — CHANGELOG is the source of truth; sync `package.json` to it.
