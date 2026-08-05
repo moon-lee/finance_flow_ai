@@ -1,11 +1,13 @@
 ---
-title: Phase 7 — Production Readiness & Polish
+title: Phase 7 — Production Readiness & Polish (master plan)
 date: 2026-08-02
-last_updated: 2026-08-02T11:50:20+10:00
+last_updated: 2026-08-05T23:38:00+10:00
 status: ready for implementation
 target_version: 0.9.0
 spec_source: docs/superpowers/specs/2026-06-13-implementation-design.md (Phase 7 section, lines 123-127)
 ---
+
+<!-- markdownlint-disable MD025 -->
 
 # Phase 7 — Production Readiness & Polish
 
@@ -43,6 +45,7 @@ The following Phase 5 infrastructure already exists and handles the two-renderer
 **What:** The Phase 5 implementation includes a working reference-counted overlay coordinator, but it is embedded as an inline object inside `src/renderer/index.ts` (lines 70–84). It is only used by the command palette. Before Phase 7 adds Keyboard Shortcuts and Backup screens — which are main-renderer overlays — the coordinator needs to be extracted into a proper reusable class. Settings is a workspace view and does not use the coordinator.
 
 **Current status:**
+
 - `src/renderer/index.ts:70-84` — `overlayCoordinator` is a plain object with `_refCount`, `show()`, and `hide()` methods
 - It correctly uses reference counting: `show()` increments count and only hides panels when count transitions 0→1; `hide()` decrements and only restores panels when count transitions 1→0
 - It is only called by `setCommandPaletteVisible()` at lines 86-92
@@ -53,6 +56,7 @@ The following Phase 5 infrastructure already exists and handles the two-renderer
 The Phase 7 plan adds two new main-renderer overlays (Keyboard Shortcuts, Backup/Restore) and one workspace view (Settings). Users can open overlays in any combination (e.g., Settings → then Shortcuts on top). Without a centralized coordinator, each overlay would call hide/restore independently, causing panels to reappear while an underlying overlay is still open.
 
 **Target state after Task 0:**
+
 - `src/renderer/overlay-coordinator.ts` — standalone `OverlayCoordinator` class with `showOverlay(id)` / `hideOverlay(id)` API
 - Any renderer overlay can register itself by ID; the coordinator tracks which overlays are active via reference counting
 - `src/renderer/index.ts` — imports and uses `OverlayCoordinator` instead of inline object
@@ -60,6 +64,7 @@ The Phase 7 plan adds two new main-renderer overlays (Keyboard Shortcuts, Backup
 - Main-process `WebviewPanelManager.hidePanelsForOverlay()` / `restorePanels()` remain unchanged; they are called by the coordinator via preload IPC
 
 **Deliverables:**
+
 - `src/renderer/overlay-coordinator.ts` — new file
   - `showOverlay(id: string): void` — registers an overlay, increments ref count, hides panels on first overlay (0→1 transition)
   - `hideOverlay(id: string): void` — unregisters an overlay, decrements ref count, restores panels when last overlay closes (1→0 transition)
@@ -71,6 +76,7 @@ The Phase 7 plan adds two new main-renderer overlays (Keyboard Shortcuts, Backup
 - `src/renderer/components/command-palette.ts` — update to use `OverlayCoordinator.showOverlay('command-palette')` / `hideOverlay('command-palette')` instead of direct IPC calls
 
 **Implementation approach:**
+
 1. Create `src/renderer/overlay-coordinator.ts`:
    - Class with private `refCount: number` and private `activeIds: Set<string>`
    - `showOverlay(id)` — add id to set, increment count, if count === 1 send `panel:hide-overlay` via preload
@@ -116,15 +122,31 @@ The Phase 7 plan adds two new main-renderer overlays (Keyboard Shortcuts, Backup
 
 ### Task 1: Settings Screen + Navigation Wiring
 
+**Prerequisites:**
+
+- `extensions:list` IPC handler extended to return `configuration` arrays from each extension's manifest (not currently included in the `{ views, commands, navigation }` response)
+- `settings-service.ts` initialized with `core` namespace registered
+- `__settings__` early-return already wired in `view-changed` handler at `src/renderer/index.ts:157-160`
+
 **What:** Build the Settings screen component and wire it into the main workspace via the Activity Bar and Navigation Panel.
 
 **Deliverables:**
+
 - `src/renderer/components/settings-screen.ts` — LitElement that reads `contributes.configuration` from all extensions and renders a collapsible form
 - `src/renderer/components/navigation-panel.ts` — replace `_coreItems` with single Settings item that dispatches `view-changed` with `view: '__settings__'`
 - `src/renderer/index.ts` — mount `settings-screen` into workspace when `view === '__settings__'`
+- `src/main/main.ts` — extend `extensions:list` IPC handler to include `configuration` in response
+- `src/types/finance.d.ts` / preload types — extend `extensions.list` return type to include `configuration`
 
 **Implementation approach:**
-1. Create `settings-screen.ts`:
+
+1. Extend `extensions:list` to include `configuration`:
+   - In `src/main/main.ts`, add `configuration: extensionRegistry.configuration()` to the `extensions:list` IPC response
+   - In `src/main/services/extension-registry.ts`, add a `configuration()` getter following the same pattern as `views()`, `commands()`, and `navigation()`
+   - Update the preload type for `extensions.list` to include `configuration` in the return shape
+   - This is a prerequisite for `settings-screen.ts` to render any settings sections
+
+2. Create `settings-screen.ts`:
    - Calls `window.financeShell.extensions.list()` to get all active extensions + their `configuration` arrays
    - Renders one collapsible section per extension, with form fields matching each config item's `type`:
      - `string` → text input
@@ -134,23 +156,29 @@ The Phase 7 plan adds two new main-renderer overlays (Keyboard Shortcuts, Backup
      - `object` → textarea with JSON validation
    - Reads current values via `financeShell.settings.get(key)` on mount
    - Writes values via `financeShell.settings.set(key, value)` on change (debounced 300ms)
-    - Shows the extension's `displayName` as the section header
-    - All settings are persisted in a SQLite database at `<userData>/finance.db` in the `settings` table (`key TEXT PRIMARY KEY, value TEXT NOT NULL`). Values are JSON-stringified. The renderer reads/writes through the preload bridge (`financeShell.settings.get/set`), which calls through to `settings-service.ts` in Main.
-   2. Replace the hardcoded `_coreItems` in `navigation-panel.ts` (lines 83–86):
-    ```ts
-    private static readonly _coreItems: NavItem[] = [
-      { extensionId: 'core', id: 'settings', label: 'Settings', command: '__settings__', group: 'General' },
-    ];
-    ```
-    - The current `_coreItems` contains `app-preferences` and `manage-extensions`. These are removed from the nav panel in Task 1 — their functionality will be exposed as sections inside the Settings screen in a later task, or deferred to Phase 8.
-    - Per the design mockup (`docs/design/phase7-settings/settings.html`), the Settings view nav panel will eventually contain three items: Settings, Keyboard Shortcuts, and Backup & Restore. Keyboard Shortcuts and Backup & Restore items will be added to `_coreItems` when their screens are built in Tasks 4 and 6.
-    - Change `_onNav` so that when `cmd === '__settings__'`, it dispatches `view-changed` (not `command-selected`)
-  3. Wire `__settings__` into `renderer/index.ts`:
-    - In the `view-changed` handler, when `view === '__settings__'`, mount `settings-screen.ts` into the workspace content area
-    - Settings is a workspace view, not an overlay — panels remain visible and interactive behind it
-4. The existing `financeShell.settings` bridge in both `preload.ts` and `panel-preload.ts` already works — no changes needed there
+   - Shows the extension's `displayName` as the section header
+   - All settings are persisted in a SQLite database at `<userData>/finance.db` in the `settings` table (`key TEXT PRIMARY KEY, value TEXT NOT NULL`). Values are JSON-stringified. The renderer reads/writes through the preload bridge (`financeShell.settings.get/set`), which calls through to `settings-service.ts` in Main.
+
+3. Replace `_coreItems` in `navigation-panel.ts` (lines 83–86):
+
+   ```ts
+   private static readonly _coreItems: NavItem[] = [
+     { extensionId: 'core', id: 'settings', label: 'Settings', command: '__settings__', group: 'General' },
+   ];
+   ```
+
+   - Remove the existing `app-preferences` and `manage-extensions` entries. Their commands (`core.appPreferences`, `core.manageExtensions`) are no longer reachable from the nav panel; their functionality will be exposed as sections inside the Settings screen in a later task, or deferred to Phase 8.
+   - Per the design mockup (`docs/design/phase7-settings/settings.html`), the Settings view nav panel will eventually contain three items: Settings, Keyboard Shortcuts, and Backup & Restore. Keyboard Shortcuts and Backup & Restore items will be added to `_coreItems` when their screens are built in Tasks 4 and 7.
+   - Change `_onNav` so that when `cmd === '__settings__'`, it dispatches `view-changed` with `detail: { view: '__settings__', source: 'core' }` instead of `command-selected`
+
+4. Wire `__settings__` into `renderer/index.ts`:
+   - In the `view-changed` handler, when `view === '__settings__'`, create a `<settings-screen>` element and append it to `#workspace`
+   - Settings is a workspace view, not an overlay — panels remain visible and interactive behind it
+
+5. The existing `financeShell.settings` bridge in both `preload.ts` and `panel-preload.ts` already works — no changes needed there
 
 **Verification:**
+
 1. Click Activity Bar Settings button → workspace shows Settings screen (Activity Bar highlights Settings)
 2. Click Navigation Panel Settings → same screen opens (both paths converge on `view: '__settings__'`)
 3. See sections for Dashboard and Salary History with correct input types
@@ -164,9 +192,9 @@ The Phase 7 plan adds two new main-renderer overlays (Keyboard Shortcuts, Backup
 - [ ] **Step 1: Write unit tests for settings-service and navigation behavior**
 
   New tests in `tests/unit/services/settings-service.test.ts`:
-  - `stores and retrieves core.financialYear.current` — Core FY keys are persisted like any other setting
-  - `stores and retrieves core.financialYear.start` — FY boundary key persists
-  - `extensions cannot set core.financialYear.current (namespace guard)` — `assertCoreKey` prevents extensions from writing Core keys
+  - `stores and retrieves a namespaced setting key` — verifies `setSetting`/`getSetting` round-trip for any registered namespace
+  - `rejects writes to unregistered namespaces` — verifies `setSetting` throws for unknown namespace prefixes
+  - `deletes a setting key` — verifies `deleteSetting` removes the row and subsequent `getSetting` returns undefined
 
   New tests in `tests/unit/renderer/navigation-panel.test.ts`:
   - `_getVisibleItems returns Settings nav item when currentView is __settings__` — nav panel shows only Settings item when Settings view is active
@@ -184,13 +212,127 @@ The Phase 7 plan adds two new main-renderer overlays (Keyboard Shortcuts, Backup
   Run: `npm run lint`
   Expected: PASS — no new errors.
 
----
+ ---
+
+### Task 1.5: Account Management
+
+ **What:** Introduce a Core-owned account management workspace view with full CRUD, replace the one-off seed modal with a Core-level first-run gate, and expose a complete `AccountsApi` bridge.
+
+ **Why this matters today:** Account creation is currently triggered only by the salary-history extension's first-run seed modal. There is no way to list, edit, or deactivate accounts after creation. The first-run check lives in extension code, so disabling salary-history also disables the only account-creation path. A Core-owned manager makes accounts a first-class platform resource.
+
+ **Current state:**
+
+- `accounts` table exists (`003-shared-accounts`) with `id`, `name`, `institution`, `is_active`, `created_at`
+- Main IPC exposes only `accounts:create` and `accounts:count`
+- Preloads expose `financeShell.accounts.create` and `financeShell.accounts.count`
+- The seed modal (`extensions/salary-history/src/ui/accounts-seed-modal.ts`) is wired only into salary-history's orchestrator via `_resolveSeedView()` and `_onAccountCreate`
+- No `accounts:list`, `accounts:update`, or `accounts:delete` IPC exists
+- `notifyOpenDashboardAfterAccountChange()` refreshes open Dashboard panels after insert
+
+ **Files to modify:**
+
+- `src/main/main.ts` — add `accounts:list`, `accounts:update`, `accounts:delete` IPC handlers
+- `src/types/finance-shell.d.ts` — extend `AccountsApi`
+- `src/preload/preload.ts` — expose new `accounts.*` methods
+- `src/preload/panel-preload.ts` — expose new `accounts.*` methods inside panels
+- `src/renderer/components/navigation-panel.ts` — add Accounts nav item
+- `src/renderer/index.ts` — wire `__accounts__` view into workspace + Core first-run gate
+- `src/renderer/components/accounts-manager.ts` — new LitElement for account CRUD
+- `extensions/salary-history/src/orchestrator.ts` — remove `_resolveSeedView()` and `_onAccountCreate`/`_onSeedDismiss` seed logic
+- `extensions/salary-history/src/ui/accounts-seed-modal.ts` — deleted
+- `extensions/salary-history/src/ui/index.ts` — remove modal import
+- `extensions/salary-history/package.json` — remove `account-seed-*` from `allowedUiEvents`
+- `src/main/resources/panel-bootstrap.ts` — remove `account-seed-*` from `FORWARDED_EVENTS`
+
+ **Files created:**
+
+- `src/renderer/components/accounts-manager.ts`
+- `tests/unit/main/services/account-management.test.ts`
+- `tests/unit/renderer/accounts-manager.test.ts`
+
+ **Implementation approach:**
+
+ 1. **Extend Core account IPC + preload bridges:**
+    - Add `accounts:list` — `SELECT id, name, institution, is_active, created_at FROM accounts ORDER BY created_at DESC`
+    - Add `accounts:update` — `UPDATE accounts SET name=?, institution=?, is_active=? WHERE id=?`; validate `id` exists and `name` is non-empty
+    - Add `accounts:delete` — `DELETE FROM accounts WHERE id=?`; guard against deleting the last active account; warn if referenced by `salary_history_pay_slips.account_id` but allow (historical payslips retain FK)
+    - Expose all methods in both preloads and update `AccountsApi` in `finance-shell.d.ts`
+ 2. **Core-level first-run gate:**
+    - In `src/renderer/index.ts`, on `DOMContentLoaded`, call `financeShell.accounts.count()`
+    - If count is 0 and no view is active, dispatch `view-changed` to `__accounts__`
+    - This removes the coupling between salary-history activation and account creation
+ 3. **Build `accounts-manager.ts`:**
+    - List mode: rows with name, institution, active badge, created date, and action buttons (Edit, Deactivate/Activate, Delete)
+    - Form mode: inline edit/create form with name (required), institution (optional), active toggle
+    - Empty state: centered "Create your first account" prompt
+    - Delete guard: refuse to delete the last active account
+    - Data flow: reads via `financeShell.accounts.list()`, writes via `financeShell.accounts.create/update/delete`
+    - Styling: follow existing dark Obsidian theme
+ 4. **Wire into workspace:**
+    - `navigation-panel.ts`: add `{ extensionId: 'core', id: 'accounts', label: 'Accounts', command: '__accounts__', group: 'General' }` to `_coreItems`
+    - `renderer/index.ts`: mount `accounts-manager` into `#workspace` when `view === '__accounts__'`
+ 5. **Remove the one-off seed modal:**
+    - Delete `extensions/salary-history/src/ui/accounts-seed-modal.ts`
+    - Remove modal import from `extensions/salary-history/src/ui/index.ts`
+    - Remove `_resolveSeedView()`, `_onAccountCreate`, `_onSeedDismiss` from orchestrator
+    - Remove `account-create`, `account-seed-skip`, `account-seed-cancel` bindings from `_bindEvents()`
+    - Remove `account-seed-*` from `allowedUiEvents` in package.json
+    - Remove `account-seed-*` from `FORWARDED_EVENTS` in `panel-bootstrap.ts`
+
+ **Verification:**
+
+ 1. Fresh DB (`rm finance.db` → restart) → app opens Accounts view automatically (Core first-run gate)
+ 2. Accounts view shows empty state with "Create your first account" prompt
+ 3. Create account → row appears in list with active badge and correct timestamps
+ 4. Edit account → name/institution update in place
+ 5. Deactivate account → badge changes to inactive; row remains visible
+ 6. Reactivate account → badge changes back to active
+ 7. Attempt to delete last active account → guard message shown, delete blocked
+ 8. Delete inactive account → row removed
+ 9. Restart app → accounts persist and reload
+ 10. Disable salary-history extension → first-run account gate still works
+ 11. Dashboard + Salary History panels still read `accounts` via `finance.db.table('accounts')` — unaffected
+
+- [ ] **Step 1: Write unit tests for account management**
+
+   New tests in `tests/unit/main/services/account-management.test.ts`:
+  - `accounts:list returns all accounts sorted by created_at DESC`
+  - `accounts:create inserts a new account and returns { id }`
+  - `accounts:create rejects empty name`
+  - `accounts:update modifies name, institution, and is_active`
+  - `accounts:update rejects empty name`
+  - `accounts:delete removes the account`
+  - `accounts:delete blocks deleting the last active account`
+  - `accounts:count returns the correct count after create/delete`
+
+   New tests in `tests/unit/renderer/accounts-manager.test.ts`:
+  - `renders empty state when no accounts exist`
+  - `renders account rows with name, institution, active badge, and actions`
+  - `create account submits form and refreshes list`
+  - `edit account updates row in place`
+  - `deactivate/activate toggle works`
+  - `delete blocks last active account`
+  - `delete removes inactive account`
+
+   Run: `npm run test -- tests/unit/main/services/account-management.test.ts tests/unit/renderer/accounts-manager.test.ts`
+   Expected: All new tests pass; all existing tests still pass.
+
+- [ ] **Step 2: Typecheck + lint**
+
+   Run: `npm run typecheck`
+   Expected: PASS — no errors.
+
+   Run: `npm run lint`
+   Expected: PASS — no new errors.
+
+ ---
 
 ### Task 2: Core Financial Year Context
 
 **What:** Add Core-owned financial year settings that all extensions read. No per-extension FY settings.
 
 **Deliverables:**
+
 - `src/renderer/components/settings-screen.ts` — modified (created in Task 1): add Core Financial Year section with `core.financialYear.current` dropdown and `core.financialYear.start` text input
 - `extensions/salary-history/src/main.ts` — modified: replace `salary-history.financialYearStart` read with `core.financialYear.start` for `financialYearStart` mountData; pass `core.financialYear.current` as FY context to orchestrator
 - `extensions/salary-history/src/ui/payslip-form.ts` — modified: read `core.financialYear.start` from settings (fallback to `'07-01'`) instead of relying solely on mountData; add `financialYear` property that reads `core.financialYear.current` and re-computes `finance_year` when FY changes
@@ -244,6 +386,7 @@ The Phase 7 plan adds two new main-renderer overlays (Keyboard Shortcuts, Backup
 8. **No data migration needed** — If `core.financialYear.start` is not set, it falls back to `'07-01'` in the extension code. Existing `salary-history.financialYearStart` data in the settings database is simply ignored after the extension code migrates to read `core.financialYear.start`.
 
 **Verification:**
+
 1. Open Settings → Core section shows `core.financialYear.current` (dropdown with last 3 years) and `core.financialYear.start` (text input)
 2. Change `core.financialYear.current` → Dashboard YTD updates to that FY
 3. Payslip list filters to the selected FY
@@ -274,6 +417,7 @@ The Phase 7 plan adds two new main-renderer overlays (Keyboard Shortcuts, Backup
 **What:** Replace raw JSON textareas and extension-internal modals for array-type settings with Core-built modals.
 
 **Deliverables:**
+
 - `src/renderer/components/reorder-cards-modal.ts` — Core-built modal for `dashboard.cardOrder`
 - `src/renderer/components/reorder-sections-modal.ts` — Core-built modal for `salary-history.sectionOrder` (moved from extension)
 - `extensions/salary-history/src/ui/payslip-form.ts` — remove the "Reorder Sections" button, its CSS, and the `_onReorder()` handler; the extension no longer launches its own reorder modal
@@ -282,6 +426,7 @@ The Phase 7 plan adds two new main-renderer overlays (Keyboard Shortcuts, Backup
 - `extensions/salary-history/src/ui/reorder-sections-modal.ts` — deleted (implementation lives in Core)
 
 **Implementation approach:**
+
 1. Create `reorder-cards-modal.ts`:
    - Reads `financeShell.settings.get('dashboard.cardOrder')` on open
    - Renders each card id as a row with move-up/move-down arrows
@@ -296,12 +441,13 @@ The Phase 7 plan adds two new main-renderer overlays (Keyboard Shortcuts, Backup
    3. Both modals are launched from the Core settings screen (not from inside extensions)
 
 **Verification:**
+
 1. Open Settings → Dashboard section shows "Reorder Cards" button
 2. Click "Reorder Cards" → modal opens with current card order
 3. Move cards up/down → click Confirm → `dashboard.cardOrder` updated
 4. Click Cancel → no change
-  5. Salary History section shows "Reorder Sections" button → same behavior
-  6. `extensions/salary-history/src/ui/reorder-sections-modal.ts` is deleted; the extension no longer imports or navigates to it
+5. Salary History section shows "Reorder Sections" button → same behavior
+6. `extensions/salary-history/src/ui/reorder-sections-modal.ts` is deleted; the extension no longer imports or navigates to it
 
 - [ ] **Step 1: Write unit tests for reorder modals**
 
@@ -337,6 +483,7 @@ The Phase 7 plan adds two new main-renderer overlays (Keyboard Shortcuts, Backup
 **Why this matters today:** The current shortcuts are hardcoded `keydown` listeners in `src/renderer/index.ts` lines 245–270. They only fire when the main renderer's DOM has focus. When a `WebContentsView` panel has focus, keyboard events go to that panel's `webContents`, so `Ctrl+Shift+P` (command palette), `Ctrl+J` (toggle AI), and `Ctrl+Alt+H`/`Ctrl+Alt+R` (extension commands) silently fail. Users must click back into the main shell before shortcuts work.
 
 **Files to modify:**
+
 - `src/main/main.ts` (attach `before-input-event` to every `WebContents`, including panels)
 - `src/main/services/webview-panel-manager.ts` (expose or wire shortcut forwarding when panels are created)
 - `src/renderer/index.ts` (remove hardcoded `keydown` listeners; receive shortcut commands from Main via IPC)
@@ -346,6 +493,7 @@ The Phase 7 plan adds two new main-renderer overlays (Keyboard Shortcuts, Backup
 - `src/types/finance-shell.d.ts` (add renderer-facing shortcut bridge types if needed)
 
 **Where shortcuts live today:**
+
 - Manifest declarations: `manifest-schema.ts` line 24 (`keybinding: z.string().optional()`)
 - Hardcoded renderer bindings: `renderer/index.ts` lines 245–270
   - `Ctrl+Shift+P` — toggle Command Palette
@@ -355,6 +503,7 @@ The Phase 7 plan adds two new main-renderer overlays (Keyboard Shortcuts, Backup
 - Salary History commands declare `Ctrl+Alt+H` and `Ctrl+Alt+R` in `extensions/salary-history/package.json`
 
 **Implementation approach:**
+
 1. Fix focus propagation:
    - In `src/main/main.ts`, when a `WebContentsView` panel is created (via `WebviewPanelManager`), attach `before-input-event` to its `webContents`.
    - On shortcut matches, send a single IPC message to the main renderer (e.g., `shell:shortcut`, `shell:toggle-command-palette`, `shell:toggle-ai-panel`) so the existing renderer-side handlers execute regardless of which `WebContents` had focus.
@@ -376,6 +525,7 @@ The Phase 7 plan adds two new main-renderer overlays (Keyboard Shortcuts, Backup
 **Easy analogy:** Like VS Code's Keyboard Shortcuts settings — a searchable list where you can rebind any command, and shortcuts work whether you're typing in the editor, the sidebar, or a panel.
 
 **Verification:**
+
 1. Click inside a `WebContentsView` panel so it has OS focus
 2. Press `Ctrl+Shift+P` → Command Palette opens (previously failed)
 3. Press `Ctrl+J` → AI panel toggles (previously failed)
@@ -410,6 +560,7 @@ The Phase 7 plan adds two new main-renderer overlays (Keyboard Shortcuts, Backup
 **What:** When `core.theme` changes in the main renderer, propagate the theme to all active WebviewPanel iframes so the panel area also reflects the light/dark mode.
 
 **Files to modify:**
+
 - `src/renderer/index.ts` (broadcast theme change to panels)
 - `src/preload/preload.ts` (expose `panel.broadcastTheme` to renderer)
 - `src/preload/panel-preload.ts` (expose `theme` API to panel renderers)
@@ -420,26 +571,30 @@ The Phase 7 plan adds two new main-renderer overlays (Keyboard Shortcuts, Backup
 **Root cause:** The main renderer applies `body.light-theme` to its own `document.body` (lines 119–120 of `src/renderer/index.ts`). Panel iframes run in separate `WebContentsView` instances with their own DOM — they never receive the theme class toggle. The panel preload (`panel-preload.ts`) has no theme-related IPC channel, and the panel bootstrap (`panel-bootstrap.ts`) applies no theme on load.
 
 **Implementation approach:**
+
   1. In `src/renderer/index.ts`, when `core.theme` changes (after `toggleTheme()` succeeds), call `window.financeShell?.panel?.broadcastTheme?.(newTheme)` — a new preload bridge method that delegates to Main
   2. In `src/main/main.ts`, add an IPC handler for `theme:broadcast` that calls `webviewPanelManager?.broadcastTheme(theme)`
-   3. In `src/main/services/webview-panel-manager.ts`, add a `broadcastTheme(theme: string)` method that iterates all open panels and calls `panel.webContents.send('theme:changed', theme)`
+  3. In `src/main/services/webview-panel-manager.ts`, add a `broadcastTheme(theme: string)` method that iterates all open panels and calls `panel.webContents.send('theme:changed', theme)`
      - This is the single source of truth for panel broadcast; the renderer does NOT iterate panels directly
-   4. In `src/preload/panel-preload.ts`, add a `theme` namespace to the panel API:
+  4. In `src/preload/panel-preload.ts`, add a `theme` namespace to the panel API:
     - `get(): Promise<string>` — reads current theme via existing `settings.get('core.theme')`
     - `onChange(callback: (theme: string) => void): () => void` — subscribes to `theme:changed` IPC events from Main
      - `broadcastTheme(theme: string): void` — tells Main to broadcast a theme change to all panels (renderer calls this after toggling theme)
-   5. In `src/main/resources/panel-bootstrap.ts`, on panel init:
-   - Read current theme via `financeShell.theme.get()`
-   - Apply `document.body.classList.add('light-theme')` or remove it based on the theme value
-    - Subscribe to `financeShell.theme.onChange()` to apply future theme changes without reload
+  5. In `src/main/resources/panel-bootstrap.ts`, on panel init:
+
+- Read current theme via `financeShell.theme.get()`
+- Apply `document.body.classList.add('light-theme')` or remove it based on the theme value
+- Subscribe to `financeShell.theme.onChange()` to apply future theme changes without reload
+
    6. In `src/types/finance.d.ts`, add `theme` to the `FinanceApi` interface exposed to extensions (optional — extensions can also read `core.theme` via `finance.settings.get`)
 
 **Verification:**
+
 1. Open Settings → toggle theme from Dark to Light → main renderer UI updates immediately
 2. All active panel iframes also switch to light theme without reload
 3. Switch back to Dark → panels update to dark theme
 4. Open a new panel after theme change → new panel inherits the current theme
- 5. Restart app → panels load with the persisted theme applied
+5. Restart app → panels load with the persisted theme applied
 
 - [ ] **Step 1: Typecheck + lint**
 
@@ -453,21 +608,24 @@ The Phase 7 plan adds two new main-renderer overlays (Keyboard Shortcuts, Backup
 
 ## Stage 2 — Security & Data Integrity
 
-### Task 5: Main Renderer `'unsafe-eval'` CSP Removal
+### Task 6: Main Renderer `'unsafe-eval'` CSP Removal
 
 **What:** Phase 5 closed the panel-side CSP gap. The main renderer still allows `'unsafe-eval'` because of blob-URL dynamic imports. Remove it.
 
 **Files to modify:**
+
 - `src/main/main.ts` (CSP header)
 - `src/renderer/index.html` or CSP meta tag location
 - `src/renderer/index.ts` (any `URL.createObjectURL` or blob imports)
 - `src/preload/preload.ts` (if any eval-style bridges exist)
 
 **Where the problem is today:**
+
 - Phase 5 plan line 684: "The main renderer's CSP is unchanged from Phase 4... `'unsafe-eval'` remains because the renderer still uses blob URLs"
 - The Phase 5 `panel-template.html` uses strict CSP (`script-src 'self'`); the main renderer's equivalent is still loose
 
 **Implementation approach:**
+
 1. Audit `src/renderer/` for any `new Function()`, `eval()`, `URL.createObjectURL(blob)`, or dynamic `import()` from blobs
 2. Replace blob imports with static Vite-powered imports where possible
 3. Tighten the main renderer's CSP header/meta tag to match the panel's strict policy
@@ -485,21 +643,24 @@ The Phase 7 plan adds two new main-renderer overlays (Keyboard Shortcuts, Backup
 
 ---
 
-### Task 6: Database Backup/Restore + Encryption
+### Task 7: Database Backup/Restore + Encryption
 
 **What:** Let users export/import their database with optional encryption.
 
 **Files to modify:**
+
 - `src/main/services/backup-service.ts` (new)
 - `src/main/main.ts` (wire backup service, add menu items or commands)
 - `src/renderer/components/backup-screen.ts` (new)
 - `src/types/finance.d.ts` (add `finance.backup.*` API if exposed to extensions)
 
 **Where the DB lives today:**
+
 - `src/main/services/database-service.ts` — manages the SQLite file path, connection, and corrupt-DB recovery
 - The DB file is at `<userData>/myfinance.db` (or similar)
 
 **Implementation approach:**
+
 1. Create `backup-service.ts`:
    - `exportDatabase()` → copy the SQLite file to a user-chosen location (via `dialog.showSaveDialog`)
    - `importDatabase(path)` → validate the file (SQLite magic bytes + schema version check), replace current DB, restart
@@ -526,11 +687,12 @@ The Phase 7 plan adds two new main-renderer overlays (Keyboard Shortcuts, Backup
 
 ---
 
-### Task 7: `finance.events.*` Global Event Bus
+### Task 8: `finance.events.*` Global Event Bus
 
 **What:** Replace ad-hoc IPC channels with a proper cross-process pub/sub event bus.
 
 **Files to modify:**
+
 - `src/shared/json-rpc-methods.ts` (add `RPC_METHOD.EventSubscribe`, `RPC_METHOD.EventPublish`)
 - `src/shared/json-rpc.ts` (add `RpcErrorCode` for event errors if needed)
 - `src/main/services/event-bus.ts` (new)
@@ -540,12 +702,14 @@ The Phase 7 plan adds two new main-renderer overlays (Keyboard Shortcuts, Backup
 - `src/types/finance.d.ts` (add `EventsApi` interface)
 
 **Where ad-hoc channels exist today:**
+
 - `extensions:ui-event` (panel → renderer → Host)
 - `extensions:host-log` (Host stdout → renderer console)
 - `panel:mount-update`, `panel:auto-save-failed`, `panel:resize`
 - DOM `CustomEvent` in renderer (`view-changed`, `command-selected`, `workspace:focus-panel`)
 
 **Implementation approach:**
+
 1. Create `event-bus.ts` in Main:
    - `subscribe(topic, callback)` / `unsubscribe(topic, callback)`
    - `publish(topic, payload)` — routes to all subscribers across Host + renderer
@@ -571,11 +735,12 @@ The Phase 7 plan adds two new main-renderer overlays (Keyboard Shortcuts, Backup
 
 ## Stage 3 — Workspace & Memory
 
-### Task 8: Full Grid Layout (3+ Panes, `version: 2`)
+### Task 9: Full Grid Layout (3+ Panes, `version: 2`)
 
 **What:** Replace the flat tab list with a VS Code-style `EditorGroup` model supporting 2x2 and 3-pane grids.
 
 **Files to modify:**
+
 - `src/renderer/components/workspace.ts` (rewrite)
 - `src/renderer/components/split-pane.ts` (unimport → wire in)
 - `src/renderer/components/tab-bar.ts` (update to work per-group)
@@ -584,12 +749,15 @@ The Phase 7 plan adds two new main-renderer overlays (Keyboard Shortcuts, Backup
 - `src/main/services/webview-panel-manager.ts` (support multiple visible panels at once)
 
 **Where the flat model lives today:**
+
 - `workspace.ts` — `_tabs: Tab[]` + `_activePanelId`, persisted as `{ version: 1, tabs, activePanelId }`
 - `split-pane.ts` — exists but unimported dead code with a 2-pane drag splitter
 - Layout stored in `localStorage['core.workspace.layout']`
 
 **Implementation approach:**
+
 1. Define `version: 2` layout shape:
+
    ```ts
    interface EditorGroup {
      id: string;
@@ -602,6 +770,7 @@ The Phase 7 plan adds two new main-renderer overlays (Keyboard Shortcuts, Backup
      activeGroupId: string;
    }
    ```
+
 2. Rewrite `workspace.ts`:
    - Root renders a flex row of `EditorGroup` components (each is a column or row, depending on split direction)
    - Each group has its own tab strip + content area
@@ -636,20 +805,23 @@ The Phase 7 plan adds two new main-renderer overlays (Keyboard Shortcuts, Backup
 
 ---
 
-### Task 9: `host.shutdown` Graceful Draining
+### Task 10: `host.shutdown` Graceful Draining
 
 **What:** Instead of a 1-second hard-kill, drain pending JSON-RPC requests before shutting down the Host.
 
 **Files to modify:**
+
 - `src/main/services/extension-ipc.ts` (modify `stop()` method)
 - `src/extension-host/host.ts` (add graceful drain handler)
 
 **Current behavior:**
+
 - `main.ts` line 939: `app.on("will-quit", shutdownPersistence)`
 - `shutdownPersistence()` calls `extensionIPC?.stop()` which sends `host.shutdown` then 1-second timeout then `host.kill`
 - Host exits immediately on `host.shutdown` — any in-flight RPC requests are abandoned
 
 **Implementation approach:**
+
 1. In `extension-ipc.ts` `stop()`:
    - Set `shuttingDown = true`
    - Send `host.shutdown`
@@ -671,21 +843,24 @@ The Phase 7 plan adds two new main-renderer overlays (Keyboard Shortcuts, Backup
 
 ---
 
-### Task 10: Lazy Unmount Timer Config + Memory Pooling
+### Task 11: Lazy Unmount Timer Config + Memory Pooling
 
 **What:** Auto-unmount inactive panels after a configurable timeout, with dirty-state protection.
 
 **Files to modify:**
+
 - `src/main/services/webview-panel-manager.ts` (add lazy-unmount loop)
 - `src/main/services/settings-service.ts` (register `core.workspace.lazyUnmountTimeout` setting)
 - `src/renderer/components/workspace.ts` (optional: show "tab asleep" indicator)
 
 **Current state:**
+
 - `webview-panel-manager.ts` has `dirtyPanelIds: Set<string>` but no timer consults it
 - `destroyAll()` exists for app quit but not for runtime unmount
 - `autoSaveDraft` timeout is hardcoded 500ms
 
 **Implementation approach:**
+
 1. Add `startLazyUnmountTimer()` / `stopLazyUnmountTimer()` to `WebviewPanelManager`:
    - Every 30 seconds, iterate open panels
    - Skip dirty panels (`dirtyPanelIds.has(panelId)`)
@@ -709,11 +884,12 @@ The Phase 7 plan adds two new main-renderer overlays (Keyboard Shortcuts, Backup
 
 ## Stage 4 — Extension Experience
 
-### Task 11: `autoSaveDraft` Timeout Configurable
+### Task 12: `autoSaveDraft` Timeout Configurable
 
 **What:** Make the 500ms `autoSaveDraft` timeout a user/extension setting.
 
 **Files to modify:**
+
 - `src/main/services/webview-panel-manager.ts` (read from settings instead of hardcoded 500)
 - `src/types/finance.d.ts` (document the setting key)
 
@@ -731,11 +907,12 @@ The Phase 7 plan adds two new main-renderer overlays (Keyboard Shortcuts, Backup
 
 ---
 
-### Task 12: Per-Extension `keepAlive` Hint
+### Task 13: Per-Extension `keepAlive` Hint
 
 **What:** Let extensions opt out of lazy unmount.
 
 **Files to modify:**
+
 - `src/extension-host/manifest-schema.ts` (add `keepAlive: z.boolean().optional()` to manifest)
 - `src/main/services/webview-panel-manager.ts` (check manifest flag before unmounting)
 - `src/main/services/extension-loader.ts` (pass manifest to panel manager)
@@ -752,15 +929,17 @@ The Phase 7 plan adds two new main-renderer overlays (Keyboard Shortcuts, Backup
 
 ---
 
-### Task 13: Wildcard `ui-event` Flag
+### Task 14: Wildcard `ui-event` Flag
 
 **What:** Let extensions declare `"wildcard: true"` in `allowedUiEvents` to accept any event name without enumerating them all.
 
 **Files to modify:**
+
 - `src/extension-host/manifest-schema.ts` (allow `wildcard` in `allowedUiEvents` schema)
 - `src/main/services/ui-event-allowlist.ts` (check wildcard flag before set lookup)
 
 **Implementation:**
+
 ```ts
 // In manifest:
 "allowedUiEvents": ["*"]  // or keep explicit list
@@ -778,11 +957,12 @@ The Phase 7 plan adds two new main-renderer overlays (Keyboard Shortcuts, Backup
 
 ---
 
-### Task 14: `onStartupAfterReady` Activation Event
+### Task 15: `onStartupAfterReady` Activation Event
 
 **What:** New activation event for extensions that need to delay their UI mount until after data loads.
 
 **Files to modify:**
+
 - `src/extension-host/manifest-schema.ts` (add `onStartupAfterReady` to `ActivationEvent` enum)
 - `src/extension-host/host.ts` (emit new event after `host.ready` + extensions activated)
 - `src/main/main.ts` (handle new event, activate after default view mounts)
@@ -801,11 +981,12 @@ The Phase 7 plan adds two new main-renderer overlays (Keyboard Shortcuts, Backup
 
 ---
 
-### Task 15: VS Code-Style Tree Views / NavigationProvider Callback API
+### Task 16: VS Code-Style Tree Views / NavigationProvider Callback API
 
 **What:** Let extensions provide dynamic, context-sensitive navigation trees instead of static `navigation` arrays.
 
 **Files to modify:**
+
 - `src/renderer/components/navigation-panel.ts` (add tree view renderer)
 - `src/types/finance.d.ts` (add `TreeViewProvider` API)
 - `src/extension-host/api/navigation.ts` (new)
@@ -813,13 +994,16 @@ The Phase 7 plan adds two new main-renderer overlays (Keyboard Shortcuts, Backup
 - `src/preload/preload.ts` (expose tree view events)
 
 **Implementation approach:**
+
 1. Add `finance.navigation.registerTreeView(id, provider)` to the Host API:
+
    ```ts
    interface TreeViewProvider {
      getChildren(elementId?: string): Promise<TreeNode[]>;
      onDidChangeTreeData?: (callback: (elementId: string) => void) => void;
    }
    ```
+
 2. In `navigation-panel.ts`:
    - If active extension has registered a tree view → render collapsible tree
    - If static `navigation` array → render current flat list (fallback)
@@ -839,11 +1023,12 @@ The Phase 7 plan adds two new main-renderer overlays (Keyboard Shortcuts, Backup
 
 ## Stage 5 — Developer Experience
 
-### Task 16: Typed DAO Generation from Manifest Schemas
+### Task 17: Typed DAO Generation from Manifest Schemas
 
 **What:** Generate TypeScript types from manifest table declarations so extensions get compile-time type safety.
 
 **Files to modify:**
+
 - `src/types/finance.d.ts` (add generated types)
 - `src/extension-host/api/db.ts` (add `typedTable<T>()` method)
 - `src/main/services/table-schema-registry.ts` (emit TypeScript declaration files)
@@ -853,6 +1038,7 @@ The Phase 7 plan adds two new main-renderer overlays (Keyboard Shortcuts, Backup
 **After:** `finance.db.typedTable<SalaryHistoryPaySlip>('salary_history_pay_slips').find({})` returns `SalaryHistoryPaySlip[]` with full type inference.
 
 **Implementation approach:**
+
 1. After manifest validation, write a `.d.ts` file per extension to `dist/extensions/<id>.d.ts`
 2. The file exports interfaces matching the declared table columns
 3. Extensions import their own types: `import type { SalaryHistoryPaySlip } from './extensions/salary-history.d.ts'`
@@ -868,16 +1054,18 @@ The Phase 7 plan adds two new main-renderer overlays (Keyboard Shortcuts, Backup
 
 ---
 
-### Task 17: Drag-and-Drop Reorder + Versioned Settings
+### Task 18: Drag-and-Drop Reorder + Versioned Settings
 
 **What:** Add drag-and-drop to the navigation panel and settings UI; version settings to support migrations.
 
 **Files to modify:**
+
 - `src/renderer/components/navigation-panel.ts` (add drag handles + reorder logic)
 - `src/renderer/components/settings-screen.ts` (drag reorder for `dashboard.cardOrder`)
 - `src/main/services/settings-service.ts` (add version tracking + migration hooks)
 
 **Implementation approach:**
+
 1. Navigation panel: add `draggable` attribute + drag handlers to nav items; reorder the underlying `navigation` contribution array on drop
 2. Settings screen: for `type: 'object'` settings like `dashboard.cardOrder` (array), render as a draggable list
 3. Settings versioning: store `_version` per key; on read, if version < current, run migration function (future-proofs schema changes)
@@ -892,11 +1080,12 @@ The Phase 7 plan adds two new main-renderer overlays (Keyboard Shortcuts, Backup
 
 ---
 
-### Task 18: Real Component Library Integration
+### Task 19: Real Component Library Integration
 
 **What:** Add Storybook or Histoire for visual component development.
 
 **Files to modify:**
+
 - `package.json` (add dev dependency)
 - `src/renderer/components/` (add `.stories.ts` files alongside each component)
 
@@ -912,11 +1101,12 @@ The Phase 7 plan adds two new main-renderer overlays (Keyboard Shortcuts, Backup
 
 ---
 
-### Task 19: ESM-Friendly Production Source-Map Stripping
+### Task 20: ESM-Friendly Production Source-Map Stripping
 
 **What:** Strip source maps from production bundles to reduce file size and hide source code.
 
 **Files to modify:**
+
 - `vite.config.ts` + all 5 variant configs (set `build.sourcemap: false` for production)
 
 **Current:** Vite emits sourcemaps by default in all modes.
@@ -933,11 +1123,12 @@ The Phase 7 plan adds two new main-renderer overlays (Keyboard Shortcuts, Backup
 
 ---
 
-### Task 20: Migration Runner Evaluation (Umzug)
+### Task 21: Migration Runner Evaluation (Umzug)
 
 **What:** Evaluate replacing the inline migration runner with Umzug.
 
 **Files to modify:**
+
 - `src/main/services/database-service.ts` (replace `registerMigration` + `migration_log` with Umzug)
 - `src/main/services/infrastructure-migration.ts` (adapt to Umzug's `Migration` interface)
 - All extension migration files (004–008) (adapt to Umzug format)
@@ -947,6 +1138,7 @@ The Phase 7 plan adds two new main-renderer overlays (Keyboard Shortcuts, Backup
 **Why Umzug:** Provides up/down migrations, transaction wrapping, and a cleaner API. The current inline runner works but doesn't support down migrations.
 
 **Implementation approach:**
+
 1. Add `umzug` to dependencies
 2. Replace `registerAllMigrations()` with Umzug's `createUmzug({ migrations: [...] })`
 3. Run `umzug.up()` on startup instead of `initializeDatabase()`

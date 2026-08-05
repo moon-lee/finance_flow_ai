@@ -38,6 +38,7 @@
 ## Task 1: `WebviewPanelManager` overlay coordination (TDD)
 
 **Files:**
+
 - Modify: `src/main/services/webview-panel-manager.ts`
 - Test: `tests/unit/main/services/webview-panel-manager.test.ts`
 
@@ -257,6 +258,7 @@ Expected: PASS — no new errors.
 ## Task 2: IPC bridge (Main handlers + preload + types)
 
 **Files:**
+
 - Modify: `src/main/main.ts` (insert after line 473, the `});` closing `panel:show`)
 - Modify: `src/preload/preload.ts` (inside the `panel` object, after the `show` method, line 97)
 - Modify: `src/types/finance-shell.d.ts` (both `panel` interface sites)
@@ -321,6 +323,7 @@ Expected: PASS — no new errors.
 ## Task 3: Renderer `overlayCoordinator` + palette wiring
 
 **Files:**
+
 - Modify: `src/renderer/index.ts` (lines 70-73, `setCommandPaletteVisible`)
 
 - [ ] **Step 1: Add the coordinator and transition-based visibility**
@@ -389,6 +392,7 @@ Expected: no step shows a panel covering the palette.
 ## Task 4: CHANGELOG
 
 **Files:**
+
 - Modify: `CHANGELOG.md`
 
 - [ ] **Step 1: Add the entry**
