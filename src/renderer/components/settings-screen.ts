@@ -452,7 +452,7 @@ export class SettingsScreen extends LitElement {
     if (this._loading) {
       return html`
         <div class="settings-header">
-          <h1>Settings</h1>
+          <h1>App Preferences</h1>
           <p class="subtitle">Loading...</p>
         </div>
       `;
@@ -460,7 +460,7 @@ export class SettingsScreen extends LitElement {
     if (this._error) {
       return html`
         <div class="settings-header">
-          <h1>Settings</h1>
+          <h1>App Preferences</h1>
           <p class="subtitle error">${this._error}</p>
         </div>
       `;
@@ -471,14 +471,14 @@ export class SettingsScreen extends LitElement {
     if (filtered.length === 0 && this._searchQuery) {
       return html`
         <div class="settings-header">
-          <h1>Settings</h1>
+          <h1>App Preferences</h1>
           <p class="subtitle">Configure Dashboard, Salary History, and Core preferences</p>
         </div>
         <div class="search-bar">
           <span class="search-icon">⌕</span>
           <input
             type="text"
-            placeholder="Search settings..."
+            placeholder="Search preferences..."
             .value=${this._searchQuery}
             @input=${(e: Event) => { this._searchQuery = (e.target as HTMLInputElement).value; }}
           />
@@ -492,14 +492,14 @@ export class SettingsScreen extends LitElement {
 
     return html`
       <div class="settings-header">
-        <h1>Settings</h1>
+        <h1>App Preferences</h1>
         <p class="subtitle">Configure Dashboard, Salary History, and Core preferences</p>
       </div>
       <div class="search-bar">
         <span class="search-icon">⌕</span>
         <input
           type="text"
-          placeholder="Search settings..."
+          placeholder="Search preferences..."
           .value=${this._searchQuery}
           @input=${(e: Event) => { this._searchQuery = (e.target as HTMLInputElement).value; }}
         />

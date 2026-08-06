@@ -58,6 +58,8 @@ export class ActivityBar extends LitElement {
     }
 
     .empty-hint {
+
+    .empty-hint {
       color: #475569;
       font-size: 10px;
       margin-top: 8px;

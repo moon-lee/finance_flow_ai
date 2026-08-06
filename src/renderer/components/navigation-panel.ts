@@ -97,8 +97,8 @@ export class NavigationPanel extends LitElement {
   }
 
   private static readonly _coreItems: NavItem[] = [
-    { extensionId: 'core', id: 'accounts', label: 'Accounts', command: '__accounts__', group: 'General' },
-    { extensionId: 'core', id: 'settings', label: 'Settings', command: '__settings__', group: 'General' },
+    { extensionId: 'core', id: 'app-preferences', label: 'App Preferences', command: '__settings__', group: 'Settings' },
+    { extensionId: 'core', id: 'accounts', label: 'Accounts', command: '__accounts__', group: 'Settings' },
   ];
 
   private _groupedItems(): Map<string | undefined, NavItem[]> {

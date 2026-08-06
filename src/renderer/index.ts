@@ -157,28 +157,32 @@ window.addEventListener('click', (event) => {
 window.addEventListener('view-changed', (event: Event) => {
   const customEvent = event as CustomEvent<{ view: string; source: string }>;
   const viewId = customEvent.detail.view;
-  if (viewId === '__settings__') {
+  if (viewId === '__settings__' || viewId === '__accounts__') {
     if (activityBar) activityBar.activeView = '__settings__';
-    if (navigationPanel) navigationPanel.setView('__settings__');
-    const existing = workspace?.querySelector('settings-screen');
-    if (!existing) {
-      const screen = document.createElement('settings-screen');
-      workspace?.appendChild(screen);
+    if (navigationPanel) navigationPanel.setView(viewId);
+    const settingsScreen = document.querySelector('settings-screen');
+    if (settingsScreen) settingsScreen.remove();
+    const accountsManager = document.querySelector('accounts-manager');
+    if (accountsManager) accountsManager.remove();
+    if (viewId === '__settings__') {
+      const existing = workspace?.querySelector('settings-screen');
+      if (!existing) {
+        const screen = document.createElement('settings-screen');
+        workspace?.appendChild(screen);
+      }
+      if (workspace) workspace.hideTabStrip = true;
+      overlayCoordinator.hideOverlay('accounts');
+      overlayCoordinator.showOverlay('settings');
+    } else {
+      const existing = workspace?.querySelector('accounts-manager');
+      if (!existing) {
+        const screen = document.createElement('accounts-manager');
+        workspace?.appendChild(screen);
+      }
+      if (workspace) workspace.hideTabStrip = true;
+      overlayCoordinator.hideOverlay('settings');
+      overlayCoordinator.showOverlay('accounts');
     }
-    if (workspace) workspace.hideTabStrip = true;
-    overlayCoordinator.showOverlay('settings');
-    return;
-  }
-  if (viewId === '__accounts__') {
-    if (activityBar) activityBar.activeView = '__accounts__';
-    if (navigationPanel) navigationPanel.setView('__accounts__');
-    const existing = workspace?.querySelector('accounts-manager');
-    if (!existing) {
-      const screen = document.createElement('accounts-manager');
-      workspace?.appendChild(screen);
-    }
-    if (workspace) workspace.hideTabStrip = false;
-    overlayCoordinator.hideOverlay('settings');
     return;
   }
   const settingsScreen = document.querySelector('settings-screen');
@@ -187,6 +191,7 @@ window.addEventListener('view-changed', (event: Event) => {
   if (accountsManager) accountsManager.remove();
   if (workspace) workspace.hideTabStrip = false;
   overlayCoordinator.hideOverlay('settings');
+  overlayCoordinator.hideOverlay('accounts');
   const extId = viewToExtension.get(viewId);
   if (!extId) {
     window.financeShell?.panel?.list?.().then((panels) => {
@@ -229,7 +234,7 @@ window.addEventListener('command-selected', (event: Event) => {
   setCommandPaletteVisible(false);
 });
 
-window.addEventListener('DOMContentLoaded', async () => {
+async function initApp(): Promise<void> {
   const version = await window.financeShell?.getVersion() ?? 'dev-browser';
 
   const theme = await window.financeShell?.settings.get('core.theme');
@@ -240,9 +245,6 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   await loadExtensionContributions();
 
-  // Dashboard activates on startup (onStartup: true), so filter nav to
-  // dashboard items from the start.  The first view in contributions is
-  // always dashboard (loaded first in the extensions list).
   if (navigationPanel && viewToExtension.size > 0) {
     const firstViewId = activityBar?.views?.[0]?.id ?? '';
     const firstExtId = viewToExtension.get(firstViewId) ?? '';
@@ -251,9 +253,6 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // Phase 7 — Core-owned first-run gate. If no accounts exist and no
-  // extension view is active, route to the Accounts manager so the user
-  // can create their first account without depending on any extension.
   if (navigationPanel && viewToExtension.size === 0) {
     try {
       const { count } = await window.financeShell?.accounts?.count?.() ?? { count: 0 };
@@ -261,7 +260,9 @@ window.addEventListener('DOMContentLoaded', async () => {
         navigationPanel.setView('__accounts__');
         const accountsScreen = document.createElement('accounts-manager');
         workspace?.appendChild(accountsScreen);
-        if (workspace) workspace.hideTabStrip = false;
+        if (workspace) workspace.hideTabStrip = true;
+        overlayCoordinator.showOverlay('accounts');
+        if (activityBar) activityBar.activeView = '__settings__';
       }
     } catch {
       // ignore — fall back to default empty state
@@ -285,7 +286,13 @@ window.addEventListener('DOMContentLoaded', async () => {
     versionTag.textContent = `v${version}`;
     statusBar.appendChild(versionTag);
   }
-});
+}
+
+if (document.readyState === 'loading') {
+  window.addEventListener('DOMContentLoaded', initApp);
+} else {
+  initApp();
+}
 
 window.addEventListener('keydown', (event) => {
   const commandKey = event.ctrlKey || event.metaKey;

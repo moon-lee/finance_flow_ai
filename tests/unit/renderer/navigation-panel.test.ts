@@ -101,21 +101,20 @@ describe('NavigationPanel', () => {
     document.body.removeChild(panel);
   });
 
-  it('built-in Settings group renders Settings item', async () => {
+  it('built-in Settings group renders App Preferences item', async () => {
     const panel = createPanel();
     panel.setView('__settings__');
     await panel.updateComplete;
 
     const navItems = panel.shadowRoot!.querySelectorAll('.nav-item');
     const labels = Array.from(navItems).map(n => n.textContent);
-    expect(labels).toContain('Settings');
-    expect(labels).not.toContain('App Preferences');
-    expect(labels).not.toContain('Manage Extensions');
+    expect(labels).toContain('App Preferences');
+    expect(labels).not.toContain('Settings');
 
     document.body.removeChild(panel);
   });
 
-  it('clicking Settings nav item dispatches view-changed with __settings__', async () => {
+  it('clicking App Preferences nav item dispatches view-changed with __settings__', async () => {
     const panel = createPanel();
     panel.setView('__settings__');
     await panel.updateComplete;
@@ -125,7 +124,7 @@ describe('NavigationPanel', () => {
       receivedDetail = e.detail;
     }) as EventListener);
 
-    const navItem = panel.shadowRoot!.querySelector('[data-testid="nav-settings"]') as HTMLElement;
+    const navItem = panel.shadowRoot!.querySelector('[data-testid="nav-app-preferences"]') as HTMLElement;
     navItem.click();
 
     expect(receivedDetail).toEqual({ view: '__settings__', source: 'core' });
@@ -143,7 +142,7 @@ describe('NavigationPanel', () => {
       receivedDetail = e.detail;
     }) as EventListener);
 
-    const navItem = panel.shadowRoot!.querySelector('[data-testid="nav-settings"]') as HTMLElement;
+    const navItem = panel.shadowRoot!.querySelector('[data-testid="nav-app-preferences"]') as HTMLElement;
     navItem.click();
 
     expect(receivedDetail).toEqual({ view: '__settings__', source: 'core' });

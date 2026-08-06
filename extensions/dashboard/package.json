@@ -54,7 +54,7 @@
       "allowedCommands": ["dashboard.refresh", "dashboard.open-net-worth-detail"],
       "allowedUiEvents": ["dashboard-refresh"],
       "configuration": [
-        { "key": "dashboard.cardOrder", "type": "string", "label": "Card Order", "default": '["net-worth","ytd-salary","last-payslip","accounts-summary"]' }
+        { "key": "dashboard.cardOrder", "type": "string", "label": "Card Order", "default": "[\"net-worth\",\"ytd-salary\",\"last-payslip\",\"accounts-summary\"]" }
       ]
     }
   }
