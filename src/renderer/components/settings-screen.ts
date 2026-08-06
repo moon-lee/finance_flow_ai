@@ -1,5 +1,6 @@
 import { LitElement, css, html } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
+import { baseViewStyles, headerHighlightStyles } from '../styles/base-view-styles';
 
 interface ExtensionSettings {
   extensionId: string;
@@ -27,19 +28,8 @@ const CORE_SETTINGS: ExtensionSettings = {
 @customElement('settings-screen')
 export class SettingsScreen extends LitElement {
   static styles = css`
-    :host {
-      display: flex;
-      flex-direction: column;
-      height: 100%;
-      overflow: hidden;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: #1e1e1e;
-      color: #d4d4d4;
-      font-size: 14px;
-      line-height: 1.5;
-      padding: 24px;
-      box-sizing: border-box;
-    }
+    ${baseViewStyles}
+    ${headerHighlightStyles}
 
     .settings-body {
       flex: 1;
@@ -159,7 +149,7 @@ export class SettingsScreen extends LitElement {
       align-items: flex-start;
       justify-content: space-between;
       gap: 24px;
-      padding: 10px 0;
+      padding: 15px 15px;
       border-bottom: 1px solid #2a2a2a;
     }
 
@@ -262,30 +252,6 @@ export class SettingsScreen extends LitElement {
     .action-btn:hover {
       border-color: #007acc;
     }
-
-    .error {
-      color: #f48771;
-      font-size: 13px;
-      margin-top: 8px;
-    }
-
-    .empty-state {
-      text-align: center;
-      padding: 80px 24px;
-      color: #858585;
-    }
-
-    .empty-state h3 {
-      font-size: 16px;
-      font-weight: 500;
-      color: #d4d4d4;
-      margin: 0 0 8px;
-    }
-
-    .empty-state p {
-      font-size: 13px;
-      margin: 0;
-    }
   `;
 
   @state()
@@ -299,6 +265,9 @@ export class SettingsScreen extends LitElement {
 
   @state()
   private _searchQuery = '';
+
+  @state()
+  private _values = new Map<string, unknown>();
 
   private _debounceTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
@@ -337,6 +306,7 @@ export class SettingsScreen extends LitElement {
       const list = await window.financeShell?.extensions.list();
       const configs = list?.configuration ?? [];
       const grouped = new Map<string, ExtensionSettings>();
+      const keys: string[] = [];
       for (const item of configs) {
         const existing = grouped.get(item.extensionId);
         if (existing) {
@@ -348,8 +318,13 @@ export class SettingsScreen extends LitElement {
             items: [item.configuration],
           });
         }
+        keys.push(item.configuration.key);
       }
       this._sections = [CORE_SETTINGS, ...Array.from(grouped.values())];
+      await this._loadValues([
+        ...CORE_SETTINGS.items.map((item) => item.key),
+        ...keys,
+      ]);
     } catch (err) {
       this._error = err instanceof Error ? err.message : 'Failed to load settings';
     } finally {
@@ -357,11 +332,25 @@ export class SettingsScreen extends LitElement {
     }
   }
 
-  private _currentValue(key: string): unknown {
-    return window.financeShell?.settings?.get(key) ?? undefined;
+  private async _loadValues(keys: string[]): Promise<void> {
+    const results = await Promise.all(
+      keys.map(async (key) => {
+        try {
+          const value = await window.financeShell?.settings?.get?.(key);
+          return [key, value] as const;
+        } catch {
+          return [key, undefined] as const;
+        }
+      }),
+    );
+    this._values = new Map(results);
   }
 
-  private _commit(key: string, value: unknown) {
+  private _currentValue(key: string): unknown {
+    return this._values.get(key) ?? undefined;
+  }
+
+  private async _commit(key: string, value: unknown) {
     const existing = this._debounceTimers.get(key);
     if (existing) clearTimeout(existing);
     const timer = setTimeout(() => {
@@ -373,6 +362,8 @@ export class SettingsScreen extends LitElement {
       }
     }, 300);
     this._debounceTimers.set(key, timer);
+    this._values.set(key, value);
+    this.requestUpdate();
   }
 
   private _toggleSection(section: ExtensionSettings) {

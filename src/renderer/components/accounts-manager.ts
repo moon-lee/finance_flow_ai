@@ -1,5 +1,6 @@
 import { LitElement, css, html } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
+import { baseViewStyles, headerHighlightStyles } from '../styles/base-view-styles';
 
 interface Account {
   id: number;
@@ -14,19 +15,8 @@ type FormMode = 'view' | 'create' | 'edit';
 @customElement('accounts-manager')
 export class AccountsManager extends LitElement {
   static styles = css`
-    :host {
-      display: flex;
-      flex-direction: column;
-      height: 100%;
-      overflow: hidden;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: #1e1e1e;
-      color: #d4d4d4;
-      font-size: 14px;
-      line-height: 1.5;
-      padding: 24px;
-      box-sizing: border-box;
-    }
+    ${baseViewStyles}
+    ${headerHighlightStyles}
 
     .header {
       display: flex;
@@ -81,18 +71,21 @@ export class AccountsManager extends LitElement {
     .account-list {
       flex: 1;
       min-height: 0;
+      min-width: 0;
       overflow-y: auto;
+      overflow-x: hidden;
     }
 
     .account-row {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 24px;
       padding: 12px 16px;
       background: #252526;
       border: 1px solid #3e3e3e;
       border-radius: 6px;
       margin-bottom: 8px;
+      min-width: 0;
     }
 
     .account-info {
@@ -141,12 +134,14 @@ export class AccountsManager extends LitElement {
       border-radius: 6px;
       padding: 16px;
       margin-bottom: 16px;
+      min-width: 0;
     }
 
     .form-row {
       display: flex;
       gap: 12px;
       margin-bottom: 12px;
+      min-width: 0;
     }
 
     .form-field {
@@ -171,6 +166,7 @@ export class AccountsManager extends LitElement {
       font-family: inherit;
       font-size: 13px;
       box-sizing: border-box;
+      width: 100%;
     }
 
     .form-field input[type="text"]:focus {
@@ -201,36 +197,6 @@ export class AccountsManager extends LitElement {
       display: flex;
       gap: 8px;
       justify-content: flex-end;
-    }
-
-    .empty-state {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      color: #858585;
-      text-align: center;
-      gap: 12px;
-    }
-
-    .empty-state h3 {
-      font-size: 16px;
-      font-weight: 600;
-      color: #d4d4d4;
-      margin: 0;
-    }
-
-    .empty-state p {
-      font-size: 13px;
-      margin: 0;
-      max-width: 360px;
-    }
-
-    .error {
-      color: #f48771;
-      font-size: 13px;
-      margin-top: 8px;
     }
   `;
 
