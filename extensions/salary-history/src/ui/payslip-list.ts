@@ -378,7 +378,7 @@ export class PayslipList extends LitElement {
     const start = page * PAGE_SIZE;
     const end = Math.min(start + PAGE_SIZE, total);
     const rows = this.payslips.slice(start, end);
-        const subtitle = `FY ${this._fyDisplay(this._fyLabel())} · Account: ${this.accounts[0]?.name ?? '—'} · ${total} payslips`;
+    const subtitle = `FY ${this._fyDisplay(this._fyLabel())} · Account: ${this.accounts[0]?.name ?? '—'} · ${total} payslips`;
 
     return html`
       <div class="topbar">

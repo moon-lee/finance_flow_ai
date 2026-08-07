@@ -38,6 +38,8 @@ export class ReorderCardsModal extends LitElement {
       border-radius: 8px;
       padding: 20px;
       width: 320px;
+      color: #d4d4d4;;
+      font: 13px/1.5 system-ui, sans-serif;
     }
     h2 {
       margin: 0 0 12px;
@@ -66,6 +68,10 @@ export class ReorderCardsModal extends LitElement {
     }
     button {
       padding: 3px 9px;
+      border: 0;
+      border-radius: 4px;
+      cursor: pointer;
+      font: inherit;
     }
     button:disabled {
       opacity: 0.35;

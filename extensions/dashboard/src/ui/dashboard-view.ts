@@ -12,6 +12,7 @@
  */
 
 import { LitElement, html, css } from 'lit';
+import { property } from 'lit/decorators.js';
 import type { DashboardData } from '../services/aggregator-service.js';
 
 export class DashboardView extends LitElement {
@@ -42,11 +43,42 @@ export class DashboardView extends LitElement {
   static styles = css`
     :host {
       display: block;
-      padding: 24px;
       box-sizing: border-box;
+      font: 14px/1.5 system-ui, sans-serif;
+    }
+    .subtitle { 
+      color: #858585; 
+      font: 13px/1.5 system-ui, sans-serif;
+    }
+    .topbar {
+      background: #252526;
+      border-bottom: 1px solid #3e3e3e;
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .topbar .crumb-current {
+      color: #d4d4d4;
+      font-weight: 500;
+    }
+    .topbar .spacer {
+      flex: 1;
+    }
+    .topbar .reorder-btn {
+      background: #3c3c3c;
+      color: #d4d4d4;
+      border: 1px solid #3e3e3e;
+      padding: 5px 12px;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+    .topbar .reorder-btn:hover {
+      border-color: #007acc;
     }
     .grid {
       display: grid;
+      padding: 24px 20px 20px 20px;
       grid-template-columns: repeat(2, 1fr);
       gap: 16px;
     }
@@ -119,21 +151,14 @@ export class DashboardView extends LitElement {
     @media (max-width: 640px) {
       .grid { grid-template-columns: 1fr; }
     }
-    .reorder-btn {
-      margin-top: 16px;
-      background: #3c3c3c;
-      color: #d4d4d4;
-      border: 1px solid #3e3e3e;
-      padding: 8px 16px;
-      border-radius: 3px;
-      font-size: 13px;
-      cursor: pointer;
-      font-family: inherit;
-    }
-    .reorder-btn:hover {
-      border-color: #007acc;
-    }
   `;
+
+  @property({ type: String })
+  referenceDate = '';
+  
+  @property({ type: String })
+  financialYearStart = '07-01';
+
 
   private _formatCurrency(value: number | null, fallbackCurrency = 'AUD'): string {
     if (value === null || value === undefined) return '—';
@@ -265,13 +290,38 @@ export class DashboardView extends LitElement {
     );
   }
 
+  private _fyLabel(): string {
+    const ref = this.referenceDate || new Date().toISOString().slice(0, 10);
+    const [ry, rm] = ref.split('-').map(Number);
+    const [sm] = this.financialYearStart.split('-').map(Number);
+    const startYear = rm >= sm ? ry : ry - 1;
+    return `${startYear}-${startYear + 1}`;
+  }
+
+  /** Expand a stored `YYYY-YY` finance year to `YYYY-YYYY` for display. */
+  private _fyDisplay(fy: string): string {
+    const m = /^(\d{4})-(\d{2})$/.exec(fy.trim());
+    if (!m) return fy;
+    const start = Number(m[1]);
+    const end2 = Number(m[2]);
+    const century = Math.floor(start / 100);
+    return `${start}-${century * 100 + end2}`;
+  }
+
   render() {
     const cards = this.cardOrder.map(id => this._renderCard(id));
+    const subtitle = `(FY ${this._fyDisplay(this._fyLabel())})`;
+    
     return html`
+      <div class="topbar">
+        <span class="crumb-current">Dashboard</span>
+        <span class="subtitle">${subtitle}</span>
+        <div class="spacer"></div>
+        <button class="reorder-btn" @click="${this._onReorder}">⇅ Reorder Cards</button>
+      </div>
       <div class="grid">
         ${cards}
       </div>
-      <button class="reorder-btn" @click="${this._onReorder}">⇅ Reorder Cards</button>
     `;
   }
 }
