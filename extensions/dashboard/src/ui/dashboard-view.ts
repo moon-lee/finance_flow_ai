@@ -119,6 +119,20 @@ export class DashboardView extends LitElement {
     @media (max-width: 640px) {
       .grid { grid-template-columns: 1fr; }
     }
+    .reorder-btn {
+      margin-top: 16px;
+      background: #3c3c3c;
+      color: #d4d4d4;
+      border: 1px solid #3e3e3e;
+      padding: 8px 16px;
+      border-radius: 3px;
+      font-size: 13px;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .reorder-btn:hover {
+      border-color: #007acc;
+    }
   `;
 
   private _formatCurrency(value: number | null, fallbackCurrency = 'AUD'): string {
@@ -245,12 +259,19 @@ export class DashboardView extends LitElement {
     }
   }
 
+  private _onReorder(): void {
+    this.dispatchEvent(
+      new CustomEvent('reorder-cards', { bubbles: true, composed: true }),
+    );
+  }
+
   render() {
     const cards = this.cardOrder.map(id => this._renderCard(id));
     return html`
       <div class="grid">
         ${cards}
       </div>
+      <button class="reorder-btn" @click="${this._onReorder}">⇅ Reorder Cards</button>
     `;
   }
 }

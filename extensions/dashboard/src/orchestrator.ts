@@ -1,0 +1,159 @@
+/**
+ * Phase 7 Task 3 — Navigation orchestrator for the dashboard extension.
+ *
+ * Mirrors the salary-history orchestrator pattern: owns runtime state for
+ * card order, loads/saves it via finance.settings, and drives navigation
+ * between the dashboard view and the reorder modal.
+ */
+
+import type { FinanceApi } from 'finance';
+import { buildAggregator, type DashboardData, type DashboardSettings } from './services/aggregator-service.js';
+
+export const CANONICAL_CARD_ORDER = [
+  'net-worth',
+  'ytd-salary',
+  'last-payslip',
+  'accounts-summary',
+] as const;
+
+export type CardId = (typeof CANONICAL_CARD_ORDER)[number];
+
+const CARD_LABELS: Record<string, string> = {
+  'net-worth': 'Net Worth',
+  'ytd-salary': 'Year-to-Date Salary',
+  'last-payslip': 'Last Payslip',
+  'accounts-summary': 'Accounts Summary',
+};
+
+export class DashboardOrchestrator {
+  private _finance: FinanceApi;
+  private _container: HTMLElement;
+  private _currentTag = '';
+  private _mountData: Record<string, unknown> = {};
+  private _cardOrder: string[] = [...CANONICAL_CARD_ORDER];
+  private _aggregator: DashboardData | null = null;
+
+  constructor(finance: FinanceApi, container: HTMLElement, mountData: Record<string, unknown> = {}) {
+    this._finance = finance;
+    this._container = container;
+    this._mountData = mountData;
+  }
+
+  async init(): Promise<void> {
+    const settings = await this._loadDashboardSettings();
+    this._cardOrder = settings.cardOrder;
+    this._bindEvents();
+    this.navigate('dashboard-view', this._mountData);
+  }
+
+  destroy(): void {
+    this._unbindEvents();
+  }
+
+  // ── Event binding ──────────────────────────────────────────────────
+
+  private readonly _handlers = new Map<string, EventListener>();
+
+  private _bindEvents(): void {
+    const on = (name: string, handler: (e: Event) => void): void => {
+      const wrapped = handler as EventListener;
+      this._handlers.set(name, wrapped);
+      this._container.addEventListener(name, wrapped);
+    };
+
+    on('reorder-cards', this._onReorderRequest);
+    on('card-order-change', this._onCardOrderChange);
+    on('card-order-cancel', this._onReorderCancel);
+  }
+
+  private _unbindEvents(): void {
+    for (const [name, handler] of this._handlers) {
+      this._container.removeEventListener(name, handler);
+    }
+    this._handlers.clear();
+  }
+
+  // ── Navigation ─────────────────────────────────────────────────────
+
+  navigate(tag: string, mountData: Record<string, unknown> = {}): void {
+    this._currentTag = tag;
+    this._mountData = mountData;
+    void this._mountChild();
+  }
+
+  private async _mountChild(): Promise<void> {
+    if (!this._currentTag) return;
+    try {
+      const child = document.createElement(this._currentTag);
+      const childEl = child as unknown as Record<string, unknown>;
+
+    if (this._currentTag === 'dashboard-view') {
+      const settings = await this._loadDashboardSettings();
+      this._aggregator = await buildAggregator(this._finance, settings);
+      childEl.aggregator = this._aggregator;
+      childEl.cardOrder = this._cardOrder;
+    } else if (this._currentTag === 'reorder-cards-modal') {
+      childEl.cardOrder = this._cardOrder;
+    }
+
+      this._container.replaceChildren(child);
+    } catch (err) {
+      console.error(`[dashboard] orchestrator mount failed for ${this._currentTag}:`, err);
+    }
+  }
+
+  // ── Settings persistence ───────────────────────────────────────────
+
+  private async _loadDashboardSettings(): Promise<DashboardSettings> {
+    const fyRaw = await this._finance.settings?.get('dashboard.financialYearStart');
+    const financialYearStart =
+      (typeof fyRaw === 'string' ? fyRaw : undefined) ?? '07-01';
+
+    let cardOrder: string[] = [...CANONICAL_CARD_ORDER];
+    if (this._finance.settings) {
+      const saved = await this._finance.settings.get('dashboard.cardOrder');
+      if (typeof saved === 'string') {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) {
+            // Filter to only valid card IDs
+            const validOrder = parsed.filter(
+              (id): id is typeof CANONICAL_CARD_ORDER[number] =>
+                CANONICAL_CARD_ORDER.includes(id as typeof CANONICAL_CARD_ORDER[number])
+            );
+            // If we have at least one valid ID, use it; otherwise, keep the canonical order
+            if (validOrder.length > 0) {
+              cardOrder = validOrder as string[];
+            }
+          }
+        } catch { /* ignore */ }
+      }
+    }
+
+    return { financialYearStart, cardOrder };
+  }
+
+  // ── Card reorder events ────────────────────────────────────────────
+
+  private _onReorderRequest = (): void => {
+    this.navigate('reorder-cards-modal', this._mountData);
+  };
+
+  private _onCardOrderChange = async (e: Event): Promise<void> => {
+    const order = (e as CustomEvent).detail as string[];
+    if (!Array.isArray(order)) return;
+    if (this._finance.settings) {
+      try {
+        await this._finance.settings.set('dashboard.cardOrder', JSON.stringify(order));
+        this._cardOrder = order;
+      } catch (err) {
+        console.error('[dashboard] failed to persist card order:', err);
+      }
+    }
+    this.navigate('dashboard-view', this._mountData);
+  };
+
+  private _onReorderCancel = (): void => {
+    this.navigate('dashboard-view', this._mountData);
+  };
+}

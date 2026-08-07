@@ -1,7 +1,7 @@
 ---
 version: 0.8.0
 created: 2026-06-14
-last_updated: 2026-08-06T03:55:00+10:00
+last_updated: 2026-08-07T09:45:00+10:00
 ---
 
 # Changelog
@@ -21,6 +21,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **Inline `overlayCoordinator` extracted into reusable `OverlayCoordinator` class** (`src/renderer/overlay-coordinator.ts`, `src/renderer/index.ts`, `tests/unit/renderer/overlay-coordinator.test.ts`). The previous inline object in `src/renderer/index.ts` was reference-counted but only used by the command palette; future overlays (Shortcuts, Backup) would have bypassed it and caused panels to reappear while another overlay was still open. The new `OverlayCoordinator` singleton tracks overlays by ID, only hides panels on the 0→1 transition, and only restores them on the 1→0 transition. Unknown IDs and double-hides are safely ignored. App focus/shortcut propagation to `WebContentsView` panels is deferred to Task 4.
+- **Dashboard card order now persists across refresh and app restart** (`extensions/dashboard/src/main.ts`). Modified `readSettings` to load saved `dashboard.cardOrder` from settings, filtering to valid card IDs, ensuring the order is used in the initial aggregator, refresh command, and orchestrator.
+- **Fixed dashboard card order not being used in panel renderer context** (`extensions/dashboard/src/main.ts`). The orchestrator was incorrectly falling back to canonical card order instead of using the card order from settings when initialized in the panel renderer context.
+- **Fixed dashboard data disappearing after card order change** (`extensions/dashboard/src/orchestrator.ts`). The orchestrator was reusing the same aggregator instance which could return stale or null data after initial use. Now creates a fresh aggregator instance each time the dashboard-view is mounted, ensuring current data is always displayed.
 
 ### Administrative
 

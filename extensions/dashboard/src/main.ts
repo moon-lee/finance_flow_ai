@@ -1,58 +1,71 @@
-/**
+﻿/**
  * Phase 5 Task 9 — Dashboard extension entry point.
  *
  * The Dashboard is the default-landing aggregator extension (Decision 2).
  * It arrives at `onStartup` activation and:
- *  1. Reads `dashboard.cardOrder` and `dashboard.financialYearStart` settings.
- *  2. Calls `buildAggregator` to fetch data from `accounts` (shared table)
- *     and `finance.services.pay.*` (cross-extension contract).
- *  3. Requests a UI mount for the `dashboard-view` Lit element with the
- *     aggregator payload + settings as mount data.
- *  4. Registers the `dashboard.refresh` command (re-runs the aggregator).
+ *   1. Reads `dashboard.financialYearStart` setting.
+ *   2. Calls `buildAggregator` to fetch data from `accounts` (shared table)
+ *      and `finance.services.pay.*` (cross-extension contract).
+ *   3. Instantiates a `DashboardOrchestrator` to own card-order state and
+ *      navigation between the dashboard view and the reorder modal.
+ *   4. Registers the `dashboard.refresh` command (re-runs the aggregator).
  *
- * If salary-history is missing/disabled, every `finance.services.invoke`
- * call returns `null` and the cards show graceful-degradation placeholders.
+ * Card order is managed extension-side via `finance.settings.get/set`
+ * on the `dashboard.cardOrder` key, mirroring the salary-history
+ * section-order pattern.
  */
 
 import type { FinanceApi } from 'finance';
 import { buildAggregator, type DashboardData, type DashboardSettings } from './services/aggregator-service.js';
+import { DashboardOrchestrator, CANONICAL_CARD_ORDER } from './orchestrator.js';
 
-const DEFAULT_CARD_ORDER = ['net-worth', 'ytd-salary', 'last-payslip', 'accounts-summary'];
+const DEFAULT_FINANCIAL_YEAR_START = '07-01';
 
-/**
- * Register the extension's custom elements. The Extension Host runs in a
- * Node `utilityProcess` with no DOM, so Lit components MUST NOT be loaded
- * there. The Renderer (browser) calls this once per mount and awaits it
- * before creating an element.
- */
 export async function registerUIComponents(): Promise<void> {
   if (typeof HTMLElement === 'undefined') return;
   await import('./ui/index.js');
 }
 
 async function readSettings(finance: FinanceApi): Promise<DashboardSettings> {
-  const cardOrderRaw = await finance.settings?.get('dashboard.cardOrder');
-  const cardOrder = Array.isArray(cardOrderRaw)
-    ? cardOrderRaw.filter((c): c is string => typeof c === 'string')
-    : DEFAULT_CARD_ORDER;
   const fyRaw = await finance.settings?.get('dashboard.financialYearStart');
   const financialYearStart =
-    (typeof fyRaw === 'string' ? fyRaw : undefined) ?? '07-01';
-  return { cardOrder, financialYearStart };
+    (typeof fyRaw === 'string' ? fyRaw : undefined) ?? DEFAULT_FINANCIAL_YEAR_START;
+
+  let cardOrder: (typeof CANONICAL_CARD_ORDER)[number][] = [...CANONICAL_CARD_ORDER];
+  if (finance.settings) {
+    const saved = await finance.settings.get('dashboard.cardOrder');
+    if (typeof saved === 'string') {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          // Filter to only valid card IDs
+          const validOrder = parsed.filter(
+            (id): id is typeof CANONICAL_CARD_ORDER[number] =>
+              CANONICAL_CARD_ORDER.includes(id as typeof CANONICAL_CARD_ORDER[number])
+          );
+          // If we have at least one valid ID, use it; otherwise, keep the canonical order
+          if (validOrder.length > 0) {
+            cardOrder = validOrder as (typeof CANONICAL_CARD_ORDER)[number][];
+          }
+        }
+      } catch { /* ignore */ }
+    }
+  }
+
+  return { financialYearStart, cardOrder };
 }
 
 export async function activate(finance: FinanceApi, hostMountData?: Record<string, unknown>): Promise<void> {
   const settings = await readSettings(finance);
   const aggregator = await buildAggregator(finance, settings);
-  const mountData = { aggregator, cardOrder: settings.cardOrder };
 
-  // Register commands in ALL contexts so refresh works in the panel too.
   finance.commands.registerCommand('dashboard.refresh', 'View: Refresh Dashboard', () => {
-    return buildAggregator(finance, settings)
+    return readSettings(finance)
+      .then((settings) => buildAggregator(finance, settings))
       .then((data) => {
         finance.ui?.requestMount('dashboard-view', {
           aggregator: data,
-          cardOrder: settings.cardOrder
+          cardOrder: settings.cardOrder,
         });
       })
       .catch((err) => console.error('[dashboard] refresh failed:', err));
@@ -62,28 +75,23 @@ export async function activate(finance: FinanceApi, hostMountData?: Record<strin
     console.log('[dashboard] Net Worth Detail — placeholder for Phase 7 detail view');
   });
 
-  // Panel renderer context — mount dashboard-view directly into #app.
-  // Distinguished from the Host (Node) context by the presence of the panel's
-  // `<div id="app">` container element. The Host has no DOM; happy-dom test
-  // environments define HTMLElement but lack the panel's DOM structure.
   if (typeof HTMLElement !== 'undefined' && document.getElementById('app')) {
     await import('./ui/index.js');
     const container = document.getElementById('app');
     if (container) {
-      const el = document.createElement('dashboard-view');
-      // Prefer hostMountData (computed in Host with real service bindings)
-      // over locally computed values (panel's services.invoke is noopAsync).
-      const hostAgg = hostMountData?.aggregator as DashboardData | undefined;
-      const hostOrder = hostMountData?.cardOrder as string[] | undefined;
-      (el as unknown as Record<string, unknown>).aggregator = hostAgg ?? aggregator;
-      (el as unknown as Record<string, unknown>).cardOrder = hostOrder ?? settings.cardOrder;
-      container.appendChild(el);
+      const orchestrator = new DashboardOrchestrator(finance, container, {
+        aggregator: hostMountData?.aggregator ?? aggregator,
+        cardOrder: (hostMountData?.cardOrder as string[] | undefined) ?? settings.cardOrder,
+      });
+      await orchestrator.init();
     }
     return;
   }
 
-  // Host context (Node) — request mount via IPC.
-  finance.ui?.requestMount('dashboard-view', mountData);
+  finance.ui?.requestMount('dashboard-view', {
+    aggregator,
+    cardOrder: settings.cardOrder,
+  });
 }
 
 export function deactivate(): void {

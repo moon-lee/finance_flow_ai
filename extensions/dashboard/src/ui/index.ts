@@ -7,6 +7,7 @@
  */
 
 import { DashboardView } from './dashboard-view.js';
+import './reorder-cards-modal.js';
 
 export async function registerUIComponents(): Promise<void> {
   if (typeof HTMLElement === 'undefined') return;

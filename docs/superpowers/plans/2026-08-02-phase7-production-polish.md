@@ -421,67 +421,65 @@ The Phase 7 plan adds two new main-renderer overlays (Keyboard Shortcuts, Backup
 
 ---
 
-### Task 3: Array Settings Modals (Core-Owned)
+### Task 3: Array Settings Modals (Extension-Side)
 
-**What:** Replace raw JSON textareas and extension-internal modals for array-type settings with Core-built modals.
+**What:** Implement `dashboard.cardOrder` in the dashboard extension, mirroring the architectural pattern and logic used in the salary-history section ordering system. Card order is managed extension-side rather than being exposed as a generic Core setting.
 
 **Deliverables:**
 
-- `src/renderer/components/reorder-cards-modal.ts` — Core-built modal for `dashboard.cardOrder`
-- `src/renderer/components/reorder-sections-modal.ts` — Core-built modal for `salary-history.sectionOrder` (moved from extension)
-- `extensions/salary-history/src/ui/payslip-form.ts` — remove the "Reorder Sections" button, its CSS, and the `_onReorder()` handler; the extension no longer launches its own reorder modal
-- `extensions/salary-history/src/ui/index.ts` — remove the `import './reorder-sections-modal.js'` line
-- `extensions/salary-history/src/orchestrator.ts` — remove `_onReorderRequest` and `_onSectionOrderChange` navigation logic; the extension no longer handles section order changes itself
-- `extensions/salary-history/src/ui/reorder-sections-modal.ts` — deleted (implementation lives in Core)
+- `extensions/dashboard/src/orchestrator.ts` — new lightweight orchestrator that loads `dashboard.cardOrder` from `finance.settings` on init, persists changes on save, and navigates between the dashboard view and the reorder modal
+- `extensions/dashboard/src/ui/reorder-cards-modal.ts` — new Lit modal element with up/down arrows, reset-to-default, save/cancel, and `card-order-change`/`card-order-cancel` CustomEvents
+- `extensions/dashboard/src/ui/dashboard-view.ts` — add "Reorder Cards" button that dispatches `reorder-cards` event; listens for orchestrator-driven navigation
+- `extensions/dashboard/src/ui/index.ts` — import `reorder-cards-modal.js`
+- `extensions/dashboard/src/main.ts` — refactor to instantiate `DashboardOrchestrator` instead of directly mounting the view
+- `extensions/dashboard/package.json` — remove `dashboard.cardOrder` from `contributes.configuration`; add `card-order-change` to `allowedUiEvents`
 
 **Implementation approach:**
 
-1. Create `reorder-cards-modal.ts`:
-   - Reads `financeShell.settings.get('dashboard.cardOrder')` on open
-   - Renders each card id as a row with move-up/move-down arrows
-   - Writes back via `financeShell.settings.set('dashboard.cardOrder', newOrder)` on confirm
-   - Cancel discards changes
-   - Default: `['net-worth', 'ytd-salary', 'last-payslip', 'accounts-summary']`
-   2. Move `reorder-sections-modal.ts` from `extensions/salary-history/src/ui/` to `src/renderer/components/`:
-     - Same up/down arrow pattern
-     - Reads/writes `salary-history.sectionOrder`
-     - Default: `['period','totals','earnings','deductions','super','leave','notes']`
-     - The extension no longer imports or navigates to this modal — remove those references
-   3. Both modals are launched from the Core settings screen (not from inside extensions)
+1. Create `DashboardOrchestrator` in `extensions/dashboard/src/orchestrator.ts`:
+   - Owns `_cardOrder` state, initialized to `CANONICAL_CARD_ORDER`
+   - `_loadCardOrder()` reads `dashboard.cardOrder` from `finance.settings` on init, parses JSON, falls back to canonical on malformed data
+   - `_bindEvents()` listens for `reorder-cards`, `card-order-change`, and `card-order-cancel` on the container
+   - `_mountChild()` creates either `dashboard-view` or `reorder-cards-modal` and injects `cardOrder` as a property
+   - `_onCardOrderChange` updates `_cardOrder`, persists via `finance.settings.set('dashboard.cardOrder', JSON.stringify(order))`, then navigates back to `dashboard-view`
+   - `_onReorderCancel` navigates back to `dashboard-view` without persisting
+
+2. Create `ReorderCardsModal` in `extensions/dashboard/src/ui/reorder-cards-modal.ts`:
+   - Accepts `cardOrder` property (array of card IDs)
+   - Renders 4 rows with up/down arrows; first row has disabled up + green left border, last row has disabled down + purple left border
+   - Dispatches `card-order-change` (detail: `string[]`) on Save
+   - Dispatches `card-order-cancel` on Cancel
+   - Reset-to-default restores `CANONICAL_CARD_ORDER`
+
+3. Update `dashboard-view.ts`:
+   - Add "Reorder Cards" button that dispatches `reorder-cards` CustomEvent with `bubbles: true, composed: true`
+   - Button styled with existing dark theme
+
+4. Update `main.ts`:
+   - Replace direct mount logic with `DashboardOrchestrator` instantiation
+   - Orchestrator handles aggregator building and view mounting
+   - `activate()` creates orchestrator, calls `init()`, which loads settings and renders the dashboard
+
+5. Update `package.json`:
+   - Remove `dashboard.cardOrder` from `contributes.configuration`
+   - Add `"card-order-change"` to `allowedUiEvents`
 
 **Verification:**
 
-1. Open Settings → Dashboard section shows "Reorder Cards" button
-2. Click "Reorder Cards" → modal opens with current card order
-3. Move cards up/down → click Confirm → `dashboard.cardOrder` updated
+1. Open Dashboard → 4 cards render in default order
+2. Click "Reorder Cards" → modal opens with current order
+3. Move cards up/down → click Save → `dashboard.cardOrder` updated in settings
 4. Click Cancel → no change
-5. Salary History section shows "Reorder Sections" button → same behavior
-6. `extensions/salary-history/src/ui/reorder-sections-modal.ts` is deleted; the extension no longer imports or navigates to it
+5. Restart app → cards render in persisted order
+6. Malformed JSON in settings → falls back to canonical order without crash
 
-- [ ] **Step 1: Write unit tests for reorder modals**
+- [ ] **Step 1: Typecheck + lint**
 
-  New tests in `tests/unit/renderer/reorder-cards-modal.test.ts`:
-  - `opens with current dashboard.cardOrder` — reads setting and renders rows
-  - `move up/down updates order` — clicking arrows changes row position
-  - `confirm writes new order to settings` — calls `financeShell.settings.set`
-  - `cancel discards changes` — setting unchanged after cancel
+   Run: `npm run typecheck`
+   Expected: PASS — no errors.
 
-  New tests in `tests/unit/renderer/reorder-sections-modal.test.ts`:
-  - `opens with current salary-history.sectionOrder` — reads setting and renders rows
-  - `move up/down updates order` — clicking arrows changes row position
-  - `confirm writes new order to settings` — calls `financeShell.settings.set`
-  - `cancel discards changes` — setting unchanged after cancel
-
-  Run: `npm run test -- tests/unit/renderer/reorder-cards-modal.test.ts tests/unit/renderer/reorder-sections-modal.test.ts`
-  Expected: All new tests pass.
-
-- [ ] **Step 2: Typecheck + lint**
-
-  Run: `npm run typecheck`
-  Expected: PASS — no errors.
-
-  Run: `npm run lint`
-  Expected: PASS — no new errors.
+   Run: `npm run lint`
+   Expected: PASS — no new errors.
 
 ---
 
