@@ -113,21 +113,22 @@ export class DashboardOrchestrator {
     let cardOrder: string[] = [...CANONICAL_CARD_ORDER];
     if (this._finance.settings) {
       const saved = await this._finance.settings.get('dashboard.cardOrder');
+      let parsed: unknown;
       if (typeof saved === 'string') {
         try {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed)) {
-            // Filter to only valid card IDs
-            const validOrder = parsed.filter(
-              (id): id is typeof CANONICAL_CARD_ORDER[number] =>
-                CANONICAL_CARD_ORDER.includes(id as typeof CANONICAL_CARD_ORDER[number])
-            );
-            // If we have at least one valid ID, use it; otherwise, keep the canonical order
-            if (validOrder.length > 0) {
-              cardOrder = validOrder as string[];
-            }
-          }
+          parsed = JSON.parse(saved);
         } catch { /* ignore */ }
+      } else {
+        parsed = saved;
+      }
+      if (Array.isArray(parsed)) {
+        const validOrder = parsed.filter(
+          (id): id is typeof CANONICAL_CARD_ORDER[number] =>
+            CANONICAL_CARD_ORDER.includes(id as typeof CANONICAL_CARD_ORDER[number])
+        );
+        if (validOrder.length > 0) {
+          cardOrder = validOrder as string[];
+        }
       }
     }
 

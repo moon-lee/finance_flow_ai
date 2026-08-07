@@ -34,21 +34,22 @@ async function readSettings(finance: FinanceApi): Promise<DashboardSettings> {
   let cardOrder: (typeof CANONICAL_CARD_ORDER)[number][] = [...CANONICAL_CARD_ORDER];
   if (finance.settings) {
     const saved = await finance.settings.get('dashboard.cardOrder');
+    let parsed: unknown;
     if (typeof saved === 'string') {
       try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          // Filter to only valid card IDs
-          const validOrder = parsed.filter(
-            (id): id is typeof CANONICAL_CARD_ORDER[number] =>
-              CANONICAL_CARD_ORDER.includes(id as typeof CANONICAL_CARD_ORDER[number])
-          );
-          // If we have at least one valid ID, use it; otherwise, keep the canonical order
-          if (validOrder.length > 0) {
-            cardOrder = validOrder as (typeof CANONICAL_CARD_ORDER)[number][];
-          }
-        }
+        parsed = JSON.parse(saved);
       } catch { /* ignore */ }
+    } else {
+      parsed = saved;
+    }
+    if (Array.isArray(parsed)) {
+      const validOrder = parsed.filter(
+        (id): id is typeof CANONICAL_CARD_ORDER[number] =>
+          CANONICAL_CARD_ORDER.includes(id as typeof CANONICAL_CARD_ORDER[number])
+      );
+      if (validOrder.length > 0) {
+        cardOrder = validOrder as (typeof CANONICAL_CARD_ORDER)[number][];
+      }
     }
   }
 
@@ -59,16 +60,17 @@ export async function activate(finance: FinanceApi, hostMountData?: Record<strin
   const settings = await readSettings(finance);
   const aggregator = await buildAggregator(finance, settings);
 
-  finance.commands.registerCommand('dashboard.refresh', 'View: Refresh Dashboard', () => {
-    return readSettings(finance)
-      .then((settings) => buildAggregator(finance, settings))
-      .then((data) => {
-        finance.ui?.requestMount('dashboard-view', {
-          aggregator: data,
-          cardOrder: settings.cardOrder,
-        });
-      })
-      .catch((err) => console.error('[dashboard] refresh failed:', err));
+  finance.commands.registerCommand('dashboard.refresh', 'View: Refresh Dashboard', async () => {
+    try {
+      const settings = await readSettings(finance);
+      const data = await buildAggregator(finance, settings);
+      finance.ui?.requestMount('dashboard-view', {
+        aggregator: data,
+        cardOrder: settings.cardOrder,
+      });
+    } catch (err) {
+      console.error('[dashboard] refresh failed:', err);
+    }
   });
 
   finance.commands.registerCommand('dashboard.open-net-worth-detail', 'View: Net Worth Detail', () => {
