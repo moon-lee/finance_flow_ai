@@ -241,3 +241,4 @@
 | `docs/superpowers/plans/2026-08-02-phase7-production-polish.md` | new | Phase 7 implementation plan: 18 tasks across 5 stages (Settings & Keyboard, Security & Data, Workspace & Memory, Extension UX, Developer DX) |
 | `docs/design/phase7-settings/index.html` | new | Settings UI mockup index |
 | `docs/design/phase7-settings/settings.html` | new | Pre-approved visual contract for the generic settings screen: collapsible sections per extension, form fields by type (string/number/boolean/enum/object), default values shown |
+| `tests/unit/extensions/dashboard/orchestrator.test.ts` | new | 3 tests covering the dashboard orchestrator's mount path: prefers the host-computed `mountData.aggregator` over a local rebuild (panel `services.invoke` is a noop), keeps it after a `card-order-change` remount, and falls back to a local rebuild when no mountData aggregator is shipped. Regression guard for the data-disappearing-after-reorder bug. |

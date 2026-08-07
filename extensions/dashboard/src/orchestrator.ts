@@ -89,7 +89,8 @@ export class DashboardOrchestrator {
 
     if (this._currentTag === 'dashboard-view') {
       const settings = await this._loadDashboardSettings();
-      this._aggregator = await buildAggregator(this._finance, settings);
+      const hostAgg = this._mountData.aggregator as DashboardData | undefined;
+      this._aggregator = hostAgg ?? await buildAggregator(this._finance, settings);
       childEl.aggregator = this._aggregator;
       childEl.cardOrder = this._cardOrder;
     } else if (this._currentTag === 'reorder-cards-modal') {
