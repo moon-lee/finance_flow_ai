@@ -1,7 +1,7 @@
 ---
 version: 0.8.0
 created: 2026-06-14
-last_updated: 2026-08-07T22:56:00+10:00
+last_updated: 2026-08-08T00:00:00+10:00
 ---
 
 # Changelog
@@ -26,6 +26,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Fixed dashboard refresh using stale card order from extension startup** (`extensions/dashboard/src/main.ts`). The `dashboard.refresh` handler used `.then((settings) => ...)` then `.then((data) => { cardOrder: settings.cardOrder })`; the second callback resolved `settings` to the outer `activate()` scope variable instead of the fresh settings, so any card-order change after startup was ignored on refresh. Converted the handler to `async/await` to keep the same `settings` binding.
 - **Fixed dashboard card order not being used in panel renderer context** (`extensions/dashboard/src/main.ts`). The orchestrator was incorrectly falling back to canonical card order instead of using the card order from settings when initialized in the panel renderer context.
 - **Fixed dashboard data disappearing after card order change** (`extensions/dashboard/src/orchestrator.ts`, `tests/unit/extensions/dashboard/orchestrator.test.ts`). `_mountChild` always re-ran `buildAggregator(this._finance, settings)` when remounting `dashboard-view`; in the panel renderer `finance.services.invoke` is a noop that resolves null, so the pay-backed cards (YTD salary, last payslip) lost their data after a reorder. The orchestrator now prefers the host-computed `mountData.aggregator` when present, falling back to a local rebuild only when none is shipped. Regression tests added.
+- **Fixed active tab changing after workspace layout restore** (`src/renderer/components/workspace.ts`, `tests/unit/renderer/workspace.test.ts`). `_activateRestoredTabs` called `activateView` for every restored tab; each activation mounts a panel, which fires `onMounted` → `_focusPanel`, overwriting the restored `activePanelId` with whichever tab mounted last. Focus-stealing is now suppressed while restoring tabs (`_restoringTabs` guard) and the restored active tab is re-asserted once all panels are mounted. Regression test added.
+- **Fixed workspace always restoring the first tab instead of the last active tab** (`src/renderer/components/workspace.ts`, `tests/unit/renderer/workspace.test.ts`). The Dashboard view auto-mounts at startup (`onStartup` activation) *before* the host reports `ready`; its `panel:mounted` fired `_onPanelMounted` while the restore guard was off, so it focused the first tab and clobbered the restored `activePanelId`. The saved active panel id is now captured in `_restoreLayout` (`_restoredActivePanelId`, `_restorePending`), mounts of already-restored tabs are ignored until restore completes, and `_activateRestoredTabs` re-asserts the captured panel instead of the possibly-clobbered current one. Regression test added for a second-tab-active layout with an onStartup first-tab mount.
 
 ### Changed
 

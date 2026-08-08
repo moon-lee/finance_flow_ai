@@ -64,6 +64,7 @@ export class WorkspacePanel extends LitElement {
   private _saveTimer: ReturnType<typeof setTimeout> | null = null;
   private _panelUnmountListener: (() => void) | null = null;
   private _requestBoundsListener: (() => void) | null = null;
+  private _restoreFallbackTimer: ReturnType<typeof setTimeout> | null = null;
 
   connectedCallback() {
     super.connectedCallback();
@@ -78,6 +79,17 @@ export class WorkspacePanel extends LitElement {
         this._activateRestoredTabs();
       }
     });
+    // Safety net: if the host never reports 'ready' (e.g. it was already
+    // ready when we connected, so the subscription never re-fires), release
+    // the restore guard so later real user mounts can focus normally.
+    if (this._restorePending) {
+      this._restoreFallbackTimer = setTimeout(() => {
+        if (this._restorePending) {
+          this._restorePending = false;
+          this._restoredActivePanelId = '';
+        }
+      }, 5000);
+    }
     // Track commandId for internal views mounted via nav commands
     window.addEventListener('command-selected', ((event: Event) => {
       const customEvent = event as CustomEvent<{ command: string; extensionCommand: boolean }>;
@@ -94,8 +106,20 @@ export class WorkspacePanel extends LitElement {
   }
 
   private _pendingCommandId: string | null = null;
+  private _restoringTabs = false;
+  private _restorePending = false;
+  private _restoredActivePanelId = '';
 
   private async _onPanelMounted(panelId: string): Promise<void> {
+    const isRestoredTab = this._tabs.some(t => t.panelId === panelId);
+    if (this._restoringTabs || (this._restorePending && isRestoredTab)) {
+      // Panels mounted while restoring saved tabs (including onStartup panels
+      // like the Dashboard that auto-mount before the host reports 'ready')
+      // must not steal focus from the restored activePanelId; the
+      // orchestrator re-asserts it once every saved tab is mounted.
+      this._sendBoundsToPanel(panelId);
+      return;
+    }
     await this._refreshPanels();
     // Focus the tab if the panel is already open; otherwise add it.
     if (!this._tabs.some(t => t.panelId === panelId)) {
@@ -126,6 +150,10 @@ export class WorkspacePanel extends LitElement {
   disconnectedCallback() {
     super.disconnectedCallback();
     if (this._saveTimer) clearTimeout(this._saveTimer);
+    if (this._restoreFallbackTimer) {
+      clearTimeout(this._restoreFallbackTimer);
+      this._restoreFallbackTimer = null;
+    }
     if (this._resizeObserver) this._resizeObserver.disconnect();
     if (this._panelUnmountListener) {
       this._panelUnmountListener();
@@ -183,11 +211,18 @@ export class WorkspacePanel extends LitElement {
             typeof saved.activePanelId === 'string' && tabs.some(t => t.panelId === saved.activePanelId)
               ? saved.activePanelId
               : tabs[0].panelId;
+          // Remember the restored active tab so _activateRestoredTabs can
+          // re-assert it even if an onStartup panel (e.g. Dashboard) mounts
+          // and steals focus before the host reports 'ready'.
+          this._restoredActivePanelId = this._activePanelId;
+          this._restorePending = true;
         }
       } else if (saved?.type === 'tab' && typeof saved.panelId === 'string') {
         // Legacy single-tab layout (pre-flat-model): migrate to flat format.
         this._tabs = [{ panelId: saved.panelId, label: saved.label ?? DEFAULT_TAB.label }];
         this._activePanelId = saved.panelId;
+        this._restoredActivePanelId = this._activePanelId;
+        this._restorePending = true;
       }
     } catch {
       // ignore corrupted layout
@@ -207,27 +242,49 @@ export class WorkspacePanel extends LitElement {
       const panelId = `panel-${v.extensionId}-${v.view.id}`;
       panelIdToViewId.set(panelId, v.view.id);
     }
-    for (const tab of this._tabs) {
-      const viewId = panelIdToViewId.get(tab.panelId);
-      console.log('[workspace] _activateRestoredTabs: tab panelId', tab.panelId, '-> viewId', viewId ?? '(internal)', 'commandId', tab.commandId);
-      if (viewId) {
-        try {
-          await window.financeShell.extensions.activateView(viewId);
-        } catch {
-          // ignore activation failures
+    // Each activated view mounts its panel and fires onMounted -> _onPanelMounted,
+    // which would otherwise overwrite the restored activePanelId with whichever
+    // tab activated last. Hold the restored active tab aside while activating.
+    const restoredActive = this._restoredActivePanelId || this._activePanelId;
+    this._restoringTabs = true;
+    try {
+      for (const tab of this._tabs) {
+        const viewId = panelIdToViewId.get(tab.panelId);
+        console.log('[workspace] _activateRestoredTabs: tab panelId', tab.panelId, '-> viewId', viewId ?? '(internal)', 'commandId', tab.commandId);
+        if (viewId) {
+          try {
+            await window.financeShell.extensions.activateView(viewId);
+          } catch {
+            // ignore activation failures
+          }
+        } else if (tab.commandId) {
+          // Internal view with saved commandId - execute it to restore
+          console.log('[workspace] _activateRestoredTabs: executing command for internal view', tab.commandId);
+          try {
+            await window.financeShell.extensions.executeCommand(tab.commandId);
+          } catch {
+            // ignore activation failures
+          }
+        } else {
+          // Tab for an internal view without commandId - will be mounted on-demand
+          console.log('[workspace] _activateRestoredTabs: skipping internal view panelId', tab.panelId);
         }
-      } else if (tab.commandId) {
-        // Internal view with saved commandId - execute it to restore
-        console.log('[workspace] _activateRestoredTabs: executing command for internal view', tab.commandId);
-        try {
-          await window.financeShell.extensions.executeCommand(tab.commandId);
-        } catch {
-          // ignore activation failures
-        }
-      } else {
-        // Tab for an internal view without commandId - will be mounted on-demand
-        console.log('[workspace] _activateRestoredTabs: skipping internal view panelId', tab.panelId);
       }
+    } finally {
+      this._restoringTabs = false;
+    }
+    // Restore is complete: a mount that arrives after this point is a real
+    // user-driven mount and may focus normally.
+    if (this._restoreFallbackTimer) {
+      clearTimeout(this._restoreFallbackTimer);
+      this._restoreFallbackTimer = null;
+    }
+    this._restorePending = false;
+    this._restoredActivePanelId = '';
+    // Re-assert the restored active tab now that every saved panel is mounted;
+    // activation above focuses each panel in turn, so the last one would win.
+    if (this._tabs.some((t) => t.panelId === restoredActive)) {
+      this._focusPanel(restoredActive);
     }
   }
 

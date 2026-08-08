@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { describe, expect, it, beforeEach } from 'vitest';
+import { describe, expect, it, beforeEach, vi } from 'vitest';
 import { WorkspacePanel, type Tab } from '../../../src/renderer/components/workspace';
 
 describe('workspace-panel', () => {
@@ -149,6 +149,119 @@ describe('workspace-panel', () => {
     const el = makeEl();
     await new Promise((r) => setTimeout(r, 0));
     expect(el._tabs).toEqual([DASHBOARD]);
+    document.body.removeChild(document.querySelector('workspace-panel')!);
+  });
+
+  it('keeps the restored activePanelId when tabs are re-activated', async () => {
+    // Saved layout has 2 tabs; the ACTIVE tab is the first one (Dashboard).
+    const saved = {
+      version: 1,
+      tabs: [DASHBOARD, SALARY],
+      activePanelId: DASHBOARD.panelId,
+    };
+    localStorage.setItem('core.workspace.layout', JSON.stringify(saved));
+
+    // Simulate Main: each activateView mounts a panel and emits panel:mounted,
+    // which fires the workspace's onMounted listener -> _onPanelMounted.
+    const mounted = new Map<string, (panelId: string) => void>();
+    const views = [
+      { extensionId: 'dashboard', view: { id: 'dashboard-view', name: 'Dashboard' } },
+      { extensionId: 'salary-history', view: { id: 'salary-history', name: 'Salary History' } },
+    ];
+    (window as unknown as { financeShell: unknown }).financeShell = {
+      extensions: {
+        list: async () => ({ views, commands: [], navigation: [] }),
+        activateView: vi.fn(async (viewId: string) => {
+          const ext = views.find((v) => v.view.id === viewId);
+          if (ext) {
+            const panelId = `panel-${ext.extensionId}-${ext.view.id}`;
+            mounted.get(panelId)?.(panelId);
+          }
+          return { activated: true };
+        }),
+      },
+      panel: {
+        onMounted: (cb: (panelId: string) => void) => {
+          mounted.set('panel-dashboard-dashboard-view', cb);
+          mounted.set('panel-salary-history-salary-history', cb);
+          return () => mounted.clear();
+        },
+        show: vi.fn(),
+        resize: vi.fn(),
+        list: async () => [],
+      },
+    };
+
+    const el = makeEl() as unknown as {
+      _tabs: Tab[];
+      _activePanelId: string;
+      _activateRestoredTabs: () => Promise<void>;
+    };
+    expect(el._tabs).toEqual([DASHBOARD, SALARY]);
+    expect(el._activePanelId).toBe(DASHBOARD.panelId);
+
+    await el._activateRestoredTabs();
+    // After both panels mounted, the active tab must still be the restored one.
+    expect(el._activePanelId).toBe(DASHBOARD.panelId);
+
+    document.body.removeChild(document.querySelector('workspace-panel')!);
+  });
+
+  it('restores the second tab as active even when the first tab auto-mounts onStartup', async () => {
+    // Saved layout has 2 tabs; the ACTIVE tab is the SECOND one (Salary History).
+    const saved = {
+      version: 1,
+      tabs: [DASHBOARD, SALARY],
+      activePanelId: SALARY.panelId,
+    };
+    localStorage.setItem('core.workspace.layout', JSON.stringify(saved));
+
+    const mounted = new Map<string, (panelId: string) => void>();
+    const views = [
+      { extensionId: 'dashboard', view: { id: 'dashboard-view', name: 'Dashboard' } },
+      { extensionId: 'salary-history', view: { id: 'salary-history', name: 'Salary History' } },
+    ];
+    (window as unknown as { financeShell: unknown }).financeShell = {
+      extensions: {
+        list: async () => ({ views, commands: [], navigation: [] }),
+        activateView: vi.fn(async (viewId: string) => {
+          const ext = views.find((v) => v.view.id === viewId);
+          if (ext) {
+            const panelId = `panel-${ext.extensionId}-${ext.view.id}`;
+            mounted.get(panelId)?.(panelId);
+          }
+          return { activated: true };
+        }),
+      },
+      panel: {
+        onMounted: (cb: (panelId: string) => void) => {
+          mounted.set('panel-dashboard-dashboard-view', cb);
+          mounted.set('panel-salary-history-salary-history', cb);
+          return () => mounted.clear();
+        },
+        show: vi.fn(),
+        resize: vi.fn(),
+        list: async () => [],
+      },
+    };
+
+    const el = makeEl() as unknown as {
+      _tabs: Tab[];
+      _activePanelId: string;
+      _activateRestoredTabs: () => Promise<void>;
+    };
+    expect(el._tabs).toEqual([DASHBOARD, SALARY]);
+    expect(el._activePanelId).toBe(SALARY.panelId);
+
+    // Dashboard activates onStartup and mounts its panel BEFORE the host
+    // reports 'ready' (i.e. before _activateRestoredTabs runs). This mount
+    // must not steal focus from the restored active tab.
+    await mounted.get('panel-dashboard-dashboard-view')?.('panel-dashboard-dashboard-view');
+    expect(el._activePanelId).toBe(SALARY.panelId);
+
+    await el._activateRestoredTabs();
+    expect(el._activePanelId).toBe(SALARY.panelId);
+
     document.body.removeChild(document.querySelector('workspace-panel')!);
   });
 });
