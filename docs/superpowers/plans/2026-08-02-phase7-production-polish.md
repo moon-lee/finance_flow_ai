@@ -1,7 +1,7 @@
 ---
 title: Phase 7 — Production Readiness & Polish (master plan)
 date: 2026-08-02
-last_updated: 2026-08-08T12:05:00+10:00
+last_updated: 2026-08-08T12:45:00+10:00
 status: ready for implementation
 target_version: 0.9.0
 spec_source: docs/superpowers/specs/2026-06-13-implementation-design.md (Phase 7 section, lines 123-127)
@@ -339,6 +339,8 @@ The Phase 7 plan adds two new main-renderer overlays (Keyboard Shortcuts, Backup
 ### Task 2: Core Financial Year Context
 
 **What:** Add Core-owned financial year settings that all extensions read. No per-extension FY settings.
+
+**Status:** Partial — renderer portion landed. The Settings screen renders `core.financialYear.current` as an auto-formatting text input (defaults to current FY) and `core.financialYear.start` as an `MM-DD` text input, both now with `pattern`/`formatHint` validation and `Format:` helper text per spec `docs/superpowers/specs/2026-08-08-settings-validation-design.md` (see plan `docs/superpowers/plans/2026-08-08-settings-validation.md`). Extension-side migration (salary-history / dashboard reads switching from per-extension keys to `core.financialYear.*`) is still pending.
 
 **Deliverables:**
 

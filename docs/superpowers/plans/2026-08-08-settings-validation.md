@@ -1,8 +1,8 @@
 ---
 title: Settings Input Validation & Format Display Implementation Plan
 date: 2026-08-08
-last_updated: 2026-08-08T12:45:00+10:00
-status: ready for implementation
+last_updated: 2026-08-08T15:35:00+10:00
+status: implementation completed
 target_version: 0.9.0
 spec_source: docs/superpowers/specs/2026-08-08-settings-validation-design.md
 ---
@@ -25,7 +25,7 @@ spec_source: docs/superpowers/specs/2026-08-08-settings-validation-design.md
 - Modify: `src/renderer/components/settings-screen.ts`
 - Test: `tests/unit/renderer/settings-screen.test.ts`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append the following tests to `tests/unit/renderer/settings-screen.test.ts` (before the final closing of the `SettingsScreen financial year dropdown (Task 2)` describe block's scope — add new describe blocks after it):
 
@@ -157,12 +157,12 @@ describe('SettingsScreen formatted input validation', () => {
 });
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `npx vitest run tests/unit/renderer/settings-screen.test.ts`
 Expected: FAIL — `formatFinanceYearStart is not exported`, and the render tests fail because `data-testid` attributes / helper text do not exist yet.
 
-- [ ] **Step 3: Update the item metadata interface and CORE_SETTINGS**
+- [x] **Step 3: Update the item metadata interface and CORE_SETTINGS**
 
 In `src/renderer/components/settings-screen.ts`, change the `ExtensionSettings.items[]` element type and `_renderControl` signature type from:
 
@@ -200,7 +200,7 @@ interface ExtensionSettings {
 }
 ```
 
-- [ ] **Step 4: Add the `formatFinanceYearStart` normalizer**
+- [x] **Step 4: Add the `formatFinanceYearStart` normalizer**
 
 In `src/renderer/components/settings-screen.ts`, after the `formatFinanceYear` function (line 51), add:
 
@@ -227,7 +227,7 @@ export function formatFinanceYearStart(raw: string): string {
 }
 ```
 
-- [ ] **Step 5: Update CORE_SETTINGS for the two formatted inputs**
+- [x] **Step 5: Update CORE_SETTINGS for the two formatted inputs**
 
 In `src/renderer/components/settings-screen.ts`, replace the first two `CORE_SETTINGS.items` entries:
 
@@ -251,7 +251,7 @@ const CORE_SETTINGS: ExtensionSettings = {
     { key: 'core.financialYear.start', type: 'string', label: 'Month and day the financial year starts. Used to compute FY labels from dates.', default: '07-01', format: formatFinanceYearStart, pattern: /^\d{2}-\d{2}$/, formatHint: 'MM-DD' },
 ```
 
-- [ ] **Step 6: Add error state field and CSS**
+- [x] **Step 6: Add error state field and CSS**
 
 In `src/renderer/components/settings-screen.ts`:
 
@@ -283,7 +283,7 @@ In `src/renderer/components/settings-screen.ts`:
     }
 ```
 
-- [ ] **Step 7: Add validation logic to `_renderControl`**
+- [x] **Step 7: Add validation logic to `_renderControl`**
 
 In `src/renderer/components/settings-screen.ts`:
 
@@ -367,12 +367,12 @@ In `src/renderer/components/settings-screen.ts`:
 
 Note: `aria-describedby=${... : null}` renders no attribute when null — acceptable for a non-formatted plain string input. The test asserts on the formatted inputs only.
 
-- [ ] **Step 8: Run the tests to verify they pass**
+- [x] **Step 8: Run the tests to verify they pass**
 
 Run: `npx vitest run tests/unit/renderer/settings-screen.test.ts`
 Expected: PASS — all existing + new tests pass.
 
-- [ ] **Step 9: Run typecheck and lint**
+- [x] **Step 9: Run typecheck and lint**
 
 Run: `npm run typecheck`
 Expected: PASS — no errors.
@@ -380,7 +380,7 @@ Expected: PASS — no errors.
 Run: `npm run lint`
 Expected: PASS — no new errors.
 
-- [ ] **Step 10: Commit**
+- [ ] **Step 10: Commit — SKIPPED.** AGENTS.md rule 6: never `git commit` without explicit user permission. Awaiting user go-ahead.
 
 ```bash
 git add src/renderer/components/settings-screen.ts tests/unit/renderer/settings-screen.test.ts docs/superpowers/specs/2026-08-08-settings-validation-design.md
@@ -396,7 +396,7 @@ git commit -m "feat: validate and annotate formatted settings inputs"
 - Modify: `docs/file-reference.md`
 - Modify: `docs/superpowers/plans/2026-08-02-phase7-production-polish.md`
 
-- [ ] **Step 1: Update CHANGELOG.md**
+- [x] **Step 1: Update CHANGELOG.md**
 
 Under the `### Changed` subsection of the current unreleased header, append a bullet:
 
@@ -404,7 +404,7 @@ Under the `### Changed` subsection of the current unreleased header, append a bu
 - **Formatted settings inputs now validate and show format hints** (`src/renderer/components/settings-screen.ts`, `src/extension-host/manifest-schema.ts`, `src/types/finance.d.ts`, `tests/unit/renderer/settings-screen.test.ts`, `tests/unit/extension-host/manifest-schema.test.ts`, `extensions/salary-history/package.json`, `extensions/dashboard/package.json`). Inputs with format/pattern metadata render a placeholder example plus persistent `Format: <hint>` helper text, and invalid values are blocked from being saved with an inline error (`aria-invalid`, `aria-describedby`). `core.financialYear.current` gains a `YYYY-YYYY` pattern; `core.financialYear.start` gains a new `formatFinanceYearStart()` normalizer (`0701` → `07-01`, `7-1` → `07-01`) and an `MM-DD` pattern. Extension manifests may now declare `pattern`/`formatHint`/`placeholder` on configuration contributions (validated at load; malformed patterns reject the manifest), and the `salary-history` + `dashboard` financial-year/tax-year string settings carry `MM-DD` / `YYYY-YYYY` hints. Per spec `docs/superpowers/specs/2026-08-08-settings-validation-design.md`.
 ```
 
-- [ ] **Step 2: Update `docs/file-reference.md`**
+- [x] **Step 2: Update `docs/file-reference.md`**
 
 Add or update a row for the spec:
 
@@ -412,11 +412,11 @@ Add or update a row for the spec:
 | `docs/superpowers/specs/2026-08-08-settings-validation-design.md` | new | Design for formatted-input validation + format hints in the Settings screen. |
 ```
 
-- [ ] **Step 3: Update the Phase 7 plan's frontmatter and Task 2 record**
+- [x] **Step 3: Update the Phase 7 plan's frontmatter and Task 2 record**
 
 In `docs/superpowers/plans/2026-08-02-phase7-production-polish.md`, update `last_updated` to `2026-08-08T12:45:00+10:00` and add a bullet under the task record noting the validation/format behavior landed.
 
-- [ ] **Step 4: Verify**
+- [x] **Step 4: Verify**
 
 Run: `npm run typecheck`
 Expected: PASS — no errors.
@@ -424,7 +424,7 @@ Expected: PASS — no errors.
 Run: `npm run lint`
 Expected: PASS — no new errors.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: Commit — SKIPPED.** AGENTS.md rule 6: never `git commit` without explicit user permission. Awaiting user go-ahead.
 
 ```bash
 git add CHANGELOG.md docs/file-reference.md docs/superpowers/plans/2026-08-02-phase7-production-polish.md
@@ -442,7 +442,7 @@ git commit -m "docs: record settings input validation work"
 - Test: `tests/unit/extension-host/manifest-schema.test.ts`
 - Test: `tests/unit/renderer/settings-screen.test.ts`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 In `tests/unit/extension-host/manifest-schema.test.ts`, add a describe block:
 
@@ -528,12 +528,12 @@ In `tests/unit/renderer/settings-screen.test.ts`, add a test inside the existing
   });
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `npx vitest run tests/unit/extension-host/manifest-schema.test.ts tests/unit/renderer/settings-screen.test.ts`
 Expected: FAIL — manifest schema rejects unknown `pattern` fields (Zod strips unknown keys), and the renderer test fails because extension config items don't carry pattern metadata through.
 
-- [ ] **Step 3: Add fields to `ManifestConfigurationContribution`**
+- [x] **Step 3: Add fields to `ManifestConfigurationContribution`**
 
 In `src/types/finance.d.ts`, extend `ManifestConfigurationContribution` (lines 80-88):
 
@@ -555,7 +555,7 @@ export interface ManifestConfigurationContribution {
 }
 ```
 
-- [ ] **Step 4: Add fields to the configuration Zod schema**
+- [x] **Step 4: Add fields to the configuration Zod schema**
 
 In `src/extension-host/manifest-schema.ts`, change `configurationContributionSchema` (lines 33-42) from:
 
@@ -606,7 +606,7 @@ function isValidRegex(source: string): boolean {
 }
 ```
 
-- [ ] **Step 5: Update the renderer item shape and `_loadSettings`**
+- [x] **Step 5: Update the renderer item shape and `_loadSettings`**
 
 In `src/renderer/components/settings-screen.ts`:
 
@@ -715,12 +715,12 @@ to:
 
 Note: `_validateFormatted` already accepts `pattern?: RegExp`; passing the compiled `RegExp` keeps it type-safe. The manifest schema guarantees string patterns compile, so `new RegExp` cannot throw for manifest-declared patterns.
 
-- [ ] **Step 6: Run the tests to verify they pass**
+- [x] **Step 6: Run the tests to verify they pass**
 
 Run: `npx vitest run tests/unit/extension-host/manifest-schema.test.ts tests/unit/renderer/settings-screen.test.ts`
 Expected: PASS — all tests pass.
 
-- [ ] **Step 7: Run typecheck and lint**
+- [x] **Step 7: Run typecheck and lint**
 
 Run: `npm run typecheck`
 Expected: PASS — no errors.
@@ -728,7 +728,7 @@ Expected: PASS — no errors.
 Run: `npm run lint`
 Expected: PASS — no new errors.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit — SKIPPED (as instructed).** AGENTS.md rule 6 requires explicit user permission.
 
 **SKIP — do NOT commit.** AGENTS.md rule 6 requires explicit user permission.
 
@@ -740,7 +740,7 @@ Expected: PASS — no new errors.
 - Modify: `extensions/salary-history/package.json`
 - Modify: `extensions/dashboard/package.json`
 
-- [ ] **Step 1: Update `extensions/salary-history/package.json`**
+- [x] **Step 1: Update `extensions/salary-history/package.json`**
 
 In the `contributions.configuration` array, replace the four string entries with:
 
@@ -754,7 +754,7 @@ In the `contributions.configuration` array, replace the four string entries with
       ]
 ```
 
-- [ ] **Step 2: Update `extensions/dashboard/package.json`**
+- [x] **Step 2: Update `extensions/dashboard/package.json`**
 
 In the `contributions.configuration` array, replace the two string entries with:
 
@@ -781,7 +781,7 @@ In the `contributions.configuration` array, replace the two string entries with:
       ]
 ```
 
-- [ ] **Step 3: Verify manifests validate**
+- [x] **Step 3: Verify manifests validate**
 
 Run: `npx vitest run tests/unit/extension-host/manifest-schema.test.ts tests/unit/services/extension-loader.test.ts`
 Expected: PASS.
@@ -792,6 +792,6 @@ Expected: PASS — no errors.
 Run: `npm run lint`
 Expected: PASS — no new errors.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit — SKIPPED (as instructed).** AGENTS.md rule 6 requires explicit user permission.
 
 **SKIP — do NOT commit.** AGENTS.md rule 6 requires explicit user permission.

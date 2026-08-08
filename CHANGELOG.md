@@ -1,7 +1,7 @@
 ---
 version: 0.8.0
 created: 2026-06-14
-last_updated: 2026-08-08T14:10:00+10:00
+last_updated: 2026-08-08T15:35:00+10:00
 ---
 
 # Changelog
@@ -38,7 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Administrative
 
-- **Settings input validation spec + plan** (`docs/superpowers/specs/2026-08-08-settings-validation-design.md`, `docs/superpowers/plans/2026-08-08-settings-validation.md`). Added a design spec and implementation plan for block-write validation + format hints on formatted settings inputs, covering Core (`formatFinanceYearStart` normalizer, `YYYY-YYYY`/`MM-DD` patterns) and extension-declared configuration (`pattern`/`formatHint`/`placeholder` manifest fields validated at load).
+- **Settings input validation spec + plan** (`docs/superpowers/specs/2026-08-08-settings-validation-design.md`, `docs/superpowers/plans/2026-08-08-settings-validation.md`). Added a design spec and implementation plan for block-write validation + format hints on formatted settings inputs, covering Core (`formatFinanceYearStart` normalizer, `YYYY-YYYY`/`MM-DD` patterns) and extension-declared configuration (`pattern`/`formatHint`/`placeholder` manifest fields validated at load). Implementation completed (2026-08-08); plan status set to `implementation completed`, all steps checked except the two commit steps (skipped pending user permission per AGENTS.md rule 6).
 - **Phase 7 plan: Task 2.5 added — Dashboard Financial Year Configuration** (`docs/superpowers/plans/2026-08-02-phase7-production-polish.md`). Added an extension-side task declaring `dashboard.financialYearStart` + `dashboard.financeYear` configuration keys, independent of Task 2's Core-owned FY migration (relationship documented in the task). Updated the execution-order table and plan frontmatter.
 - **Phase 7 production polish plan updated** (`docs/superpowers/plans/2026-08-02-phase7-production-polish.md`). Task 0 added: extract inline `overlayCoordinator` in `src/renderer/index.ts:70-84` into standalone `OverlayCoordinator` class with ref-counted `showOverlay(id)` / `hideOverlay(id)` API, with unit tests. Task 1 clarified: Settings is a workspace view (not an overlay) and does not use `OverlayCoordinator`. Task 2 simplified: removed `callerNamespace` / `assertCoreKey` from `settings-service.ts`; `core.financialYear.current` dropdown populated with last 3 computed years in renderer (no DB query, no new IPC); no data migration required. Task 3 corrected: `reorder-sections-modal.ts` moves to `src/renderer/components/` and the extension's copy is deleted; extension also removes the reorder button, CSS, and `_onReorder()` handler from `payslip-form.ts`. Task 5 fixed: `panel-bootstrap.js` → `panel-bootstrap.ts`; added `src/preload/preload.ts` to modified files; fixed duplicate step numbering. Added note that all settings persist in `<userData>/finance.db` `settings` table (`key TEXT PRIMARY KEY, value TEXT NOT NULL`), JSON-stringified, accessed via `financeShell.settings.get/set`.
 
