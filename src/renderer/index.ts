@@ -157,13 +157,17 @@ window.addEventListener('click', (event) => {
 window.addEventListener('view-changed', (event: Event) => {
   const customEvent = event as CustomEvent<{ view: string; source: string }>;
   const viewId = customEvent.detail.view;
+  console.log(`[renderer] view-changed event: viewId=${viewId}, source=${customEvent.detail.source}`);
+  
   if (viewId === '__settings__' || viewId === '__accounts__') {
     if (activityBar) activityBar.activeView = '__settings__';
     if (navigationPanel) navigationPanel.setView(viewId);
+    
     const settingsScreen = document.querySelector('settings-screen');
     if (settingsScreen) settingsScreen.remove();
     const accountsManager = document.querySelector('accounts-manager');
     if (accountsManager) accountsManager.remove();
+    
     if (viewId === '__settings__') {
       const existing = workspace?.querySelector('settings-screen');
       if (!existing) {
@@ -185,13 +189,16 @@ window.addEventListener('view-changed', (event: Event) => {
     }
     return;
   }
+
   const settingsScreen = document.querySelector('settings-screen');
   if (settingsScreen) settingsScreen.remove();
   const accountsManager = document.querySelector('accounts-manager');
   if (accountsManager) accountsManager.remove();
   if (workspace) workspace.hideTabStrip = false;
+  
   overlayCoordinator.hideOverlay('settings');
   overlayCoordinator.hideOverlay('accounts');
+  
   const extId = viewToExtension.get(viewId);
   if (!extId) {
     window.financeShell?.panel?.list?.().then((panels) => {
