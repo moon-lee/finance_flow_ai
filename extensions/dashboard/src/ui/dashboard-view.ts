@@ -76,6 +76,16 @@ export class DashboardView extends LitElement {
     .topbar .reorder-btn:hover {
       border-color: #007acc;
     }
+    .reorder-btn {
+      background: transparent;
+      color: #858585;
+      border: 1px solid #3e3e3e;
+      padding: 4px 10px;
+      border-radius: 3px;
+      font-size: 12px;
+      cursor: pointer;
+      font-family: inherit;
+    }
     .grid {
       display: grid;
       padding: 24px 20px 20px 20px;
