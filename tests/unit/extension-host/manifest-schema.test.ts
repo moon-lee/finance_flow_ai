@@ -314,3 +314,56 @@ describe('validateManifest (tables[] — Phase 4 Task 8)', () => {
     }
   });
 });
+
+// Settings-validation Task 3 — extension-declared pattern/formatHint/placeholder
+// on configuration contributions (spec §5, tests 6-8).
+describe('configuration contribution format metadata', () => {
+  const baseManifest = {
+    id: 'test-ext',
+    displayName: 'Test Ext',
+    version: '0.1.0',
+    activationEvents: ['onStartup'],
+    main: 'src/main.ts',
+    contributions: {
+      configuration: [
+        { key: 'test-ext.start', type: 'string', label: 'Start date', pattern: '^\\d{2}-\\d{2}$', formatHint: 'MM-DD', placeholder: '07-01' },
+      ],
+    },
+  };
+
+  it('accepts pattern/formatHint/placeholder on a configuration contribution', () => {
+    const result = validateManifest(baseManifest);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.manifest.contributions.configuration![0]).toMatchObject({
+        pattern: '^\\d{2}-\\d{2}$',
+        formatHint: 'MM-DD',
+        placeholder: '07-01',
+      });
+    }
+  });
+
+  it('rejects a configuration contribution with an invalid pattern regex', () => {
+    const result = validateManifest({
+      ...baseManifest,
+      contributions: {
+        configuration: [
+          { key: 'test-ext.start', type: 'string', label: 'Start date', pattern: '[' },
+        ],
+      },
+    });
+    expect(result.ok).toBe(false);
+  });
+
+  it('accepts a configuration contribution without pattern fields (backward compatible)', () => {
+    const result = validateManifest({
+      ...baseManifest,
+      contributions: {
+        configuration: [
+          { key: 'test-ext.currency', type: 'string', label: 'Currency', default: 'AUD' },
+        ],
+      },
+    });
+    expect(result.ok).toBe(true);
+  });
+});

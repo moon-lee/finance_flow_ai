@@ -73,6 +73,7 @@ export interface DashboardData {
 
 export interface DashboardSettings {
   financialYearStart: string;
+  financeYear?: string;
   cardOrder: string[];
 }
 

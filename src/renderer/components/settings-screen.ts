@@ -11,15 +11,75 @@ interface ExtensionSettings {
     label: string;
     default?: unknown;
     enumOptions?: string[];
+    format?: (raw: string) => string;
+    pattern?: RegExp | string;
+    formatHint?: string;
+    placeholder?: string;
   }>;
+}
+
+const DEFAULT_FY_START = '07-01';
+
+/** Compute the current financial year label (e.g. `2026-2027`) containing `referenceDate`. */
+export function computeCurrentFinancialYear(referenceDate?: string): string {
+  const ref = referenceDate ?? new Date().toISOString().slice(0, 10);
+  const [ry, rm] = ref.split('-').map(Number);
+  const [sm] = DEFAULT_FY_START.split('-').map(Number);
+  const startYear = rm >= sm ? ry : ry - 1;
+  return `${startYear}-${startYear + 1}`;
+}
+
+/**
+ * Normalize a user-typed financial year into `YYYY-YYYY`.
+ * Accepts `20252026` (8 consecutive digits), `2025-2026`, and legacy `2025-26`.
+ * Anything unrecognized is returned unchanged.
+ */
+export function formatFinanceYear(raw: string): string {
+  const s = raw.trim();
+  if (/^\d{4}-\d{4}$/.test(s)) return s;
+
+  const legacy = /^(\d{4})-(\d{2})$/.exec(s);
+  if (legacy) {
+    const start = Number(legacy[1]);
+    const end2 = Number(legacy[2]);
+    return `${start}-${Math.floor(start / 100) * 100 + end2}`;
+  }
+
+  const digits = /^(\d{4})(\d{4})$/.exec(s);
+  if (digits) {
+    return `${digits[1]}-${digits[2]}`;
+  }
+
+  return s;
+}
+
+/**
+ * Normalize a user-typed financial-year start into `MM-DD`.
+ * Accepts `0701` (4 consecutive digits), `7-1` (single-digit month/day),
+ * and `07-01`. Anything unrecognized is returned unchanged.
+ */
+export function formatFinanceYearStart(raw: string): string {
+  const s = raw.trim();
+  if (/^\d{2}-\d{2}$/.test(s)) return s;
+
+  const digits = /^(\d{2})(\d{2})$/.exec(s);
+  if (digits) return `${digits[1]}-${digits[2]}`;
+
+  const parts = /^(\d{1,2})-(\d{1,2})$/.exec(s);
+  if (parts) {
+    const pad = (n: string) => n.padStart(2, '0');
+    return `${pad(parts[1])}-${pad(parts[2])}`;
+  }
+
+  return s;
 }
 
 const CORE_SETTINGS: ExtensionSettings = {
   extensionId: 'core',
   displayName: 'Core',
   items: [
-    { key: 'core.financialYear.current', type: 'enum', label: 'Current financial year context. Dashboard YTD, payslip filters, and reports use this value.', default: 'auto-detected', enumOptions: ['2026-2027', '2025-2026', '2024-2025'] },
-    { key: 'core.financialYear.start', type: 'string', label: 'Month and day the financial year starts. Used to compute FY labels from dates.', default: '07-01' },
+    { key: 'core.financialYear.current', type: 'string', label: 'Current financial year context (format YYYY-YYYY). Dashboard YTD, payslip filters, and reports use this value.', default: computeCurrentFinancialYear(), format: formatFinanceYear, pattern: /^\d{4}-\d{4}$/, formatHint: 'YYYY-YYYY' },
+    { key: 'core.financialYear.start', type: 'string', label: 'Month and day the financial year starts. Used to compute FY labels from dates.', default: '07-01', format: formatFinanceYearStart, pattern: /^\d{2}-\d{2}$/, formatHint: 'MM-DD' },
     { key: 'core.theme', type: 'enum', label: 'Application color theme.', default: 'dark', enumOptions: ['dark', 'light'] },
     { key: 'core.workspace.defaultView', type: 'string', label: 'Extension view to activate on startup. Requires the extension to declare onStartup.', default: 'dashboard' }
   ]
@@ -252,6 +312,23 @@ export class SettingsScreen extends LitElement {
     .action-btn:hover {
       border-color: #007acc;
     }
+
+    .setting-helper {
+      font-size: 11px;
+      color: #858585;
+      margin-top: 4px;
+      font-family: "SF Mono", Consolas, monospace;
+    }
+
+    .setting-helper.invalid {
+      color: #f48771;
+    }
+
+    .setting-control input.invalid,
+    .setting-control textarea.invalid {
+      border-color: #f48771;
+      outline: 1px solid #f48771;
+    }
   `;
 
   @state()
@@ -268,6 +345,9 @@ export class SettingsScreen extends LitElement {
 
   @state()
   private _values = new Map<string, unknown>();
+
+  @state()
+  private _errors = new Map<string, string>();
 
   private _debounceTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
@@ -302,20 +382,31 @@ export class SettingsScreen extends LitElement {
   private async _loadSettings() {
     this._loading = true;
     this._error = null;
+    this._errors.clear();
     try {
       const list = await window.financeShell?.extensions.list();
       const configs = list?.configuration ?? [];
       const grouped = new Map<string, ExtensionSettings>();
       const keys: string[] = [];
       for (const item of configs) {
+        const configItem: ExtensionSettings['items'][number] = {
+          key: item.configuration.key,
+          type: item.configuration.type,
+          label: item.configuration.label,
+          default: item.configuration.default,
+          enumOptions: item.configuration.enumOptions,
+          pattern: item.configuration.pattern,
+          formatHint: item.configuration.formatHint,
+          placeholder: item.configuration.placeholder,
+        };
         const existing = grouped.get(item.extensionId);
         if (existing) {
-          existing.items.push(item.configuration);
+          existing.items.push(configItem);
         } else {
           grouped.set(item.extensionId, {
             extensionId: item.extensionId,
             displayName: item.extensionId,
-            items: [item.configuration],
+            items: [configItem],
           });
         }
         keys.push(item.configuration.key);
@@ -371,7 +462,28 @@ export class SettingsScreen extends LitElement {
     el?.classList.toggle('collapsed');
   }
 
-  private _renderControl(item: { key: string; type: string; label: string; default?: unknown; enumOptions?: string[] }) {
+  private _formatValue(item: { key: string; format?: (raw: string) => string; default?: unknown }, value: unknown): string {
+    const raw = value !== undefined ? String(value) : String(item.default ?? '');
+    return item.format ? item.format(raw) : raw;
+  }
+
+  private _validateFormatted(item: { key: string; pattern?: RegExp; formatHint?: string }, formatted: string): string | null {
+    if (!item.pattern) return null;
+    return item.pattern.test(formatted) ? null : `Value must match format ${item.formatHint ?? String(item.pattern)}`;
+  }
+
+  private _setError(key: string, message: string): void {
+    this._errors.set(key, message);
+    this.requestUpdate();
+  }
+
+  private _clearError(key: string): void {
+    if (this._errors.delete(key)) {
+      this.requestUpdate();
+    }
+  }
+
+  private _renderControl(item: { key: string; type: string; label: string; default?: unknown; enumOptions?: string[]; format?: (raw: string) => string; pattern?: RegExp | string; formatHint?: string; placeholder?: string }) {
     const value = this._currentValue(item.key);
 
     if (item.type === 'boolean') {
@@ -430,13 +542,53 @@ export class SettingsScreen extends LitElement {
       `;
     }
 
+    const isFormatted = Boolean(item.format || item.pattern || item.formatHint);
+    const placeholder = isFormatted && item.formatHint ? this._defaultPlaceholder(item) : '';
+    const error = this._errors.get(item.key) ?? null;
+    const helperText = isFormatted && item.formatHint ? `Format: ${item.formatHint}` : '';
+    const fieldId = `input-${item.key}`;
+    const helperId = `helper-${item.key}`;
+    const errorId = `error-${item.key}`;
     return html`
       <input
+        id="${fieldId}"
+        data-testid="${fieldId}"
         type="text"
-        .value=${value !== undefined ? String(value) : String(item.default ?? '')}
-        @change=${(e: Event) => this._commit(item.key, (e.target as HTMLInputElement).value)}
+        placeholder="${placeholder}"
+        .value=${this._formatValue(item, value)}
+        aria-invalid=${error !== null ? 'true' : undefined}
+        aria-describedby=${isFormatted ? (error ? `${helperId} ${errorId}` : helperId) : null}
+        class=${error !== null ? 'invalid' : ''}
+        @input=${() => {
+          this._clearError(item.key);
+        }}
+        @change=${(e: Event) => {
+          const target = e.target as HTMLInputElement;
+          const raw = target.value;
+          const formatted = item.format ? item.format(raw) : raw;
+          target.value = formatted;
+          const pattern = typeof item.pattern === 'string' ? new RegExp(item.pattern) : item.pattern;
+          if (pattern) {
+            const err = this._validateFormatted({ ...item, pattern }, formatted);
+            if (err) {
+              this._setError(item.key, err);
+              return;
+            }
+          }
+          this._clearError(item.key);
+          this._commit(item.key, formatted);
+        }}
       />
+      ${isFormatted && helperText ? html`<div class="setting-helper" data-testid="${helperId}" id="${helperId}">${helperText}</div>` : ''}
+      ${error ? html`<div class="setting-helper setting-error invalid" data-testid="${errorId}" id="${errorId}" role="alert">${error}</div>` : ''}
     `;
+  }
+
+  private _defaultPlaceholder(item: { formatHint?: string; placeholder?: string }): string {
+    if (item.placeholder) return item.placeholder;
+    if (item.formatHint === 'YYYY-YYYY') return '2025-2026';
+    if (item.formatHint === 'MM-DD') return '07-01';
+    return '';
   }
 
   render() {

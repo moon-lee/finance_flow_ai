@@ -93,6 +93,8 @@ export class DashboardOrchestrator {
       this._aggregator = hostAgg ?? await buildAggregator(this._finance, settings);
       childEl.aggregator = this._aggregator;
       childEl.cardOrder = this._cardOrder;
+      childEl.financialYearStart = settings.financialYearStart;
+      childEl.financeYear = settings.financeYear ?? '';
     } else if (this._currentTag === 'reorder-cards-modal') {
       childEl.cardOrder = this._cardOrder;
     }
@@ -109,6 +111,9 @@ export class DashboardOrchestrator {
     const fyRaw = await this._finance.settings?.get('dashboard.financialYearStart');
     const financialYearStart =
       (typeof fyRaw === 'string' ? fyRaw : undefined) ?? '07-01';
+
+    const financeYearRaw = await this._finance.settings?.get('dashboard.financeYear');
+    const financeYear = typeof financeYearRaw === 'string' ? financeYearRaw : '';
 
     let cardOrder: string[] = [...CANONICAL_CARD_ORDER];
     if (this._finance.settings) {
@@ -132,7 +137,7 @@ export class DashboardOrchestrator {
       }
     }
 
-    return { financialYearStart, cardOrder };
+    return { financialYearStart, financeYear, cardOrder };
   }
 
   // ── Card reorder events ────────────────────────────────────────────

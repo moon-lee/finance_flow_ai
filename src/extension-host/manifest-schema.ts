@@ -30,15 +30,37 @@ export const menuContributionSchema = z.object({
   order: z.number().int().optional()
 });
 
+/**
+ * Validate a full-string `pattern` declared on a configuration contribution.
+ * Extensions declare patterns as strings in JSON manifests; the renderer
+ * compiles them to `RegExp` at runtime. A malformed pattern must reject the
+ * manifest at load time so a bad regex can never reach `new RegExp` in the
+ * renderer.
+ */
+function isValidRegex(source: string): boolean {
+  try {
+    new RegExp(source);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export const configurationContributionSchema = z.object({
   key: z.string().regex(/^[a-z0-9-]+\.[a-zA-Z0-9.-]+$/, 'configuration key must be "<extensionId>.<localKey>"'),
   type: z.enum(['string', 'number', 'boolean', 'enum', 'object']),
   label: z.string().min(1),
   default: z.unknown().optional(),
-  enumOptions: z.array(z.string()).optional()
+  enumOptions: z.array(z.string()).optional(),
+  pattern: z.string().optional(),
+  formatHint: z.string().optional(),
+  placeholder: z.string().optional()
 }).refine(
   (cfg) => cfg.type !== 'enum' || (cfg.enumOptions && cfg.enumOptions.length > 0),
   { message: 'enum type requires enumOptions', path: ['enumOptions'] }
+).refine(
+  (cfg) => cfg.pattern === undefined || isValidRegex(cfg.pattern),
+  { message: 'pattern must be a valid regular expression', path: ['pattern'] }
 );
 
 export const navigationContributionSchema = z.object({

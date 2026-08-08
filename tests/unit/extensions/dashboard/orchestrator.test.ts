@@ -45,6 +45,13 @@ function makePanelFinance(accounts: Array<Record<string, unknown>> = []): Financ
   } as unknown as FinanceApi;
 }
 
+/** Panel-style finance with FY settings backed by a simple map. */
+function makeFyFinance(fyValues: Record<string, string>): FinanceApi {
+  const base = makePanelFinance();
+  const get = vi.fn().mockImplementation(async (key: string) => fyValues[key]);
+  return { ...base, settings: { ...base.settings, get } } as unknown as FinanceApi;
+}
+
 const HOST_AGGREGATOR = {
   netWorth: {
     totalBalance: 20000,
@@ -151,6 +158,47 @@ describe('DashboardOrchestrator mount data', () => {
       };
       expect(view.tagName.toLowerCase()).toBe('dashboard-view');
       expect(view.aggregator.netWorth.totalBalance).toBe(1000);
+    });
+  });
+
+  it('forwards financialYearStart and financeYear settings to the view', async () => {
+    const container = makeContainer();
+    const orch = new DashboardOrchestrator(
+      makeFyFinance({
+        'dashboard.financialYearStart': '01-01',
+        'dashboard.financeYear': '2025-26',
+      }),
+      container,
+      {
+        cardOrder: ['net-worth', 'ytd-salary', 'last-payslip', 'accounts-summary'],
+      },
+    );
+    await orch.init();
+
+    await vi.waitFor(() => {
+      const view = container.firstElementChild as HTMLElement & {
+        financialYearStart: string;
+        financeYear: string;
+      };
+      expect(view.tagName.toLowerCase()).toBe('dashboard-view');
+      expect(view.financialYearStart).toBe('01-01');
+      expect(view.financeYear).toBe('2025-26');
+    });
+  });
+
+  it('passes empty financeYear to the view when no override is set', async () => {
+    const container = makeContainer();
+    const orch = new DashboardOrchestrator(makePanelFinance(), container, {
+      cardOrder: ['net-worth', 'ytd-salary', 'last-payslip', 'accounts-summary'],
+    });
+    await orch.init();
+
+    await vi.waitFor(() => {
+      const view = container.firstElementChild as HTMLElement & {
+        financeYear: string;
+      };
+      expect(view.tagName.toLowerCase()).toBe('dashboard-view');
+      expect(view.financeYear).toBe('');
     });
   });
 });

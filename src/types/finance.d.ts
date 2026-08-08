@@ -85,6 +85,12 @@ export interface ManifestConfigurationContribution {
   default?: unknown;
   /** Required for `enum` type. */
   enumOptions?: string[];
+  /** Full-string RegExp the value must match (string inputs). */
+  pattern?: string;
+  /** Human-readable expected format, shown as helper text (e.g. `MM-DD`). */
+  formatHint?: string;
+  /** Example value shown as the input placeholder. */
+  placeholder?: string;
 }
 
 export interface ManifestNavigationContribution {
