@@ -264,7 +264,7 @@ export class AccountsManager extends LitElement {
   }
 
   private _closeForm(): void {
-    this._mode = 'create';
+    this._mode = 'view';
     this._editId = null;
     this._formError = null;
   }
