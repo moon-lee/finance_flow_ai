@@ -122,6 +122,8 @@ The Phase 7 plan adds two new main-renderer overlays (Keyboard Shortcuts, Backup
 
 ### Task 1: Settings Screen + Navigation Wiring
 
+**Status:** Complete (implemented in the workspace). The Settings workspace view, navigation wiring, configuration aggregation, and Core-owned settings bridge are present and verified by unit tests and typecheck/lint.
+
 **Prerequisites:**
 
 - `extensions:list` IPC handler extended to return `configuration` arrays from each extension's manifest (not currently included in the `{ views, commands, navigation }` response)
@@ -192,7 +194,7 @@ The Phase 7 plan adds two new main-renderer overlays (Keyboard Shortcuts, Backup
 
 **Design mockup:** `docs/design/phase7-settings/settings.html`
 
-- [ ] **Step 1: Write unit tests for settings-service and navigation behavior**
+- [x] **Step 1: Write unit tests for settings-service and navigation behavior**
 
   New tests in `tests/unit/services/extension-registry.test.ts`:
   - `configuration() returns config items from enabled extensions` — verifies `configuration()` returns `{ extensionId, configuration }` entries for extensions that declare `contributes.configuration`
@@ -213,7 +215,7 @@ The Phase 7 plan adds two new main-renderer overlays (Keyboard Shortcuts, Backup
   Run: `npm run test -- tests/unit/services/extension-registry.test.ts tests/unit/renderer/navigation-panel.test.ts`
   Expected: All new tests pass; all existing tests still pass.
 
-- [ ] **Step 2: Typecheck + lint**
+- [x] **Step 2: Typecheck + lint**
 
   Run: `npm run typecheck`
   Expected: PASS — no errors.
@@ -224,6 +226,8 @@ The Phase 7 plan adds two new main-renderer overlays (Keyboard Shortcuts, Backup
  ---
 
 ### Task 1.5: Account Management
+
+**Status:** Implemented with one remaining test failure in the current workspace. The Core-owned account management workspace view, main/preload IPC bridges, navigation wiring, and first-run account gate are present. The only outstanding issue from verification is a failing account-management unit test around deleting the last active account.
 
  **What:** Introduce a Core-owned account management workspace view with full CRUD, replace the one-off seed modal with a Core-level first-run gate, and expose a complete `AccountsApi` bridge.
 
@@ -302,7 +306,7 @@ The Phase 7 plan adds two new main-renderer overlays (Keyboard Shortcuts, Backup
  10. Disable salary-history extension → first-run account gate still works
  11. Dashboard + Salary History panels still read `accounts` via `finance.db.table('accounts')` — unaffected
 
-- [ ] **Step 1: Write unit tests for account management**
+- [x] **Step 1: Write unit tests for account management**
 
    New tests in `tests/unit/main/services/account-management.test.ts`:
   - `accounts:list returns all accounts sorted by created_at DESC`
@@ -326,7 +330,7 @@ The Phase 7 plan adds two new main-renderer overlays (Keyboard Shortcuts, Backup
    Run: `npm run test -- tests/unit/main/services/account-management.test.ts tests/unit/renderer/accounts-manager.test.ts`
    Expected: All new tests pass; all existing tests still pass.
 
-- [ ] **Step 2: Typecheck + lint**
+- [x] **Step 2: Typecheck + lint**
 
    Run: `npm run typecheck`
    Expected: PASS — no errors.
