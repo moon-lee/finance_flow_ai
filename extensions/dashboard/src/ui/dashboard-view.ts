@@ -19,18 +19,18 @@ export class DashboardView extends LitElement {
   static properties = {
     aggregator: { attribute: false },
     cardOrder: { attribute: false },
-    financeYear: { attribute: false }
+    financialYearCurrent: { attribute: false }
   };
 
   aggregator: DashboardData | null = null;
   cardOrder: string[] = [];
-  financeYear = '';
+  financialYearCurrent = '';
 
   private _boundMountUpdate = (e: Event): void => {
     const detail = (e as CustomEvent).detail as Record<string, unknown>;
     if (detail?.aggregator) this.aggregator = detail.aggregator as DashboardData;
     if (detail?.cardOrder) this.cardOrder = detail.cardOrder as string[];
-    if (typeof detail?.financeYear === 'string') this.financeYear = detail.financeYear;
+    if (typeof detail?.financialYearCurrent === 'string') this.financialYearCurrent = detail.financialYearCurrent;
   };
 
   connectedCallback(): void {
@@ -304,7 +304,7 @@ export class DashboardView extends LitElement {
   }
 
   private _fyLabel(): string {
-    const override = (this.financeYear ?? '').trim();
+    const override = (this.financialYearCurrent ?? '').trim();
     if (override) return this._fyDisplay(override);
     const ref = this.referenceDate || new Date().toISOString().slice(0, 10);
     const [ry, rm] = ref.split('-').map(Number);

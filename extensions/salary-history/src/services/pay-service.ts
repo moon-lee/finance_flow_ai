@@ -300,8 +300,8 @@ export function validatePayslipInput(input: PaySlipInput): ValidationResult {
  * FY dropdown away from the auto-computed value, show an amber
  * callout" UX (Decision 14 + Review Finding 9).
  *
- * `financialYearStart` is an `MM-DD` string from the
- * `salary-history.financialYearStart` setting (default `'07-01'`).
+  * `financialYearStart` is an `MM-DD` string from the
+  * `core.financialYear.start` setting (default `'07-01'`).
  *
  * Returns `{ ok: true }` on match, `{ ok: false, errors }` with a
  * human-readable expected value otherwise. An invalid `payDate` is
@@ -437,8 +437,9 @@ export function aggregateYearToDate(
   payslips: readonly PaySlip[],
   financialYearStart: string,
   referenceDate: string = new Date().toISOString().slice(0, 10),
+  financialYear?: string,
 ): YtdAggregate {
-  const fyLabel = computeFinanceYear(referenceDate, financialYearStart);
+  const fyLabel = financialYear && financialYear.trim() ? financialYear : computeFinanceYear(referenceDate, financialYearStart);
   const zero: YtdAggregate = {
     gross: 0,
     net: 0,

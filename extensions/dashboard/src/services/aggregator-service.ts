@@ -73,7 +73,7 @@ export interface DashboardData {
 
 export interface DashboardSettings {
   financialYearStart: string;
-  financeYear?: string;
+  financialYearCurrent?: string;
   cardOrder: string[];
 }
 
@@ -88,7 +88,7 @@ export async function buildAggregator(
   const [accountsRow, lastPayslipRow, ytdSummaryRaw, currentRateRaw] = await Promise.all([
     finance.db.table('accounts').find({}),
     finance.services?.invoke<unknown>('pay', 'getLastPayslip'),
-    finance.services?.invoke<unknown>('pay', 'getYearToDateSummary', { financialYearStart: settings.financialYearStart }),
+    finance.services?.invoke<unknown>('pay', 'getYearToDateSummary', [settings.financialYearStart, undefined, settings.financialYearCurrent]),
     finance.services?.invoke<unknown>('pay', 'getCurrentRate'),
   ]);
 

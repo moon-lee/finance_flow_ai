@@ -53,26 +53,7 @@
       ],
       "allowedCommands": ["dashboard.refresh", "dashboard.open-net-worth-detail"],
       "allowedUiEvents": ["dashboard-refresh", "card-order-change"],
-      "configuration": [
-        {
-          "key": "dashboard.financialYearStart",
-          "type": "string",
-          "label": "Financial year start (MM-DD)",
-          "default": "07-01",
-          "pattern": "^\\d{2}-\\d{2}$",
-          "formatHint": "MM-DD",
-          "placeholder": "07-01"
-        },
-        {
-          "key": "dashboard.financeYear",
-          "type": "string",
-          "label": "Financial year label override (e.g. 2025-2026). Empty = auto-compute.",
-          "default": "",
-          "pattern": "^\\d{4}-\\d{4}$",
-          "formatHint": "YYYY-YYYY",
-          "placeholder": "2025-2026"
-        }
-      ]
+      "configuration": []
     }
   }
 }

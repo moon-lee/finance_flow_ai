@@ -61,11 +61,7 @@
         "section-order-change"
       ],
       "configuration": [
-        { "key": "salary-history.defaultCurrency", "type": "string", "label": "Default Currency", "default": "AUD", "pattern": "^[A-Z]{3}$", "formatHint": "AAA", "placeholder": "AUD" },
-        { "key": "salary-history.financialYearStart", "type": "string", "label": "Financial Year Start (MM-DD)", "default": "07-01", "pattern": "^\\d{2}-\\d{2}$", "formatHint": "MM-DD", "placeholder": "07-01" },
-        { "key": "salary-history.paygToleranceDollars", "type": "number", "label": "PAYG Tolerance ($)", "default": 5.0 },
-        { "key": "salary-history.paygTaxYear", "type": "string", "label": "PAYG Tax Year", "default": "2026-2027", "pattern": "^\\d{4}-\\d{4}$", "formatHint": "YYYY-YYYY", "placeholder": "2025-2026" },
-        { "key": "salary-history.financeYear", "type": "string", "label": "Financial Year", "default": "", "pattern": "^\\d{4}-\\d{4}$", "formatHint": "YYYY-YYYY", "placeholder": "2025-2026" }
+        { "key": "salary-history.paygToleranceDollars", "type": "number", "label": "PAYG Tolerance ($)", "default": 5.0 }
       ]
     },
     "tables": [

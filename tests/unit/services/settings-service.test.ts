@@ -50,6 +50,16 @@ describe('SettingsService', () => {
     expect(getSetting<typeof obj>('core.obj')).toEqual(obj);
   });
 
+  it('stores and retrieves a namespaced core.financialYear.current value', () => {
+    setSetting('core.financialYear.current', '2025-2026');
+    expect(getSetting('core.financialYear.current')).toBe('2025-2026');
+  });
+
+  it('stores and retrieves a namespaced core.financialYear.start value', () => {
+    setSetting('core.financialYear.start', '07-01');
+    expect(getSetting('core.financialYear.start')).toBe('07-01');
+  });
+
   it('returns undefined for non-existent keys', () => {
     expect(getSetting('core.nonexistent')).toBeUndefined();
   });

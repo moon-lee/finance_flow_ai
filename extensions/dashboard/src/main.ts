@@ -27,12 +27,12 @@ export async function registerUIComponents(): Promise<void> {
 }
 
 async function readSettings(finance: FinanceApi): Promise<DashboardSettings> {
-  const fyRaw = await finance.settings?.get('dashboard.financialYearStart');
+  const fyRaw = await finance.settings?.get('core.financialYear.start');
   const financialYearStart =
     (typeof fyRaw === 'string' ? fyRaw : undefined) ?? DEFAULT_FINANCIAL_YEAR_START;
 
-  const financeYearRaw = await finance.settings?.get('dashboard.financeYear');
-  const financeYear = typeof financeYearRaw === 'string' ? financeYearRaw : '';
+  const currentFyRaw = await finance.settings?.get('core.financialYear.current');
+  const financialYearCurrent = typeof currentFyRaw === 'string' ? currentFyRaw : '';
 
   let cardOrder: (typeof CANONICAL_CARD_ORDER)[number][] = [...CANONICAL_CARD_ORDER];
   if (finance.settings) {
@@ -56,7 +56,7 @@ async function readSettings(finance: FinanceApi): Promise<DashboardSettings> {
     }
   }
 
-  return { financialYearStart, financeYear, cardOrder };
+  return { financialYearStart, financialYearCurrent, cardOrder };
 }
 
 export async function activate(finance: FinanceApi, hostMountData?: Record<string, unknown>): Promise<void> {

@@ -16,7 +16,7 @@ import { LitElement, css, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import type { FinanceApi } from 'finance';
 import type { PaySlip } from '../dao/pay-slips.js';
-import { aggregateYearToDate, type YtdAggregate } from '../services/pay-service.js';
+import { aggregateYearToDate, normalizeFinanceYear, type YtdAggregate } from '../services/pay-service.js';
 import { sharedStyles, listStyles } from './shared-styles.js';
 
 export interface AccountOption {
@@ -195,6 +195,9 @@ export class PayslipList extends LitElement {
   financialYearStart = '07-01';
 
   @property({ type: String })
+  financialYear = '';
+
+  @property({ type: String })
   referenceDate = '';
 
   @state()
@@ -212,6 +215,7 @@ export class PayslipList extends LitElement {
   /** Fetch payslips + accounts when `finance` is provided. */
   async load(): Promise<void> {
     if (!this.finance || this._loaded) return;
+    await this._loadCoreFinancialYear();
     const rows = (await this.finance.db
       .table('salary_history_pay_slips')
       .find({}) as unknown) as PaySlip[];
@@ -227,6 +231,24 @@ export class PayslipList extends LitElement {
       }));
     }
     this._loaded = true;
+  }
+
+  private async _loadCoreFinancialYear(): Promise<void> {
+    if (!this.finance?.settings) return;
+    const fyStart = await this.finance.settings.get('core.financialYear.start');
+    if (typeof fyStart === 'string') {
+      this.financialYearStart = fyStart;
+    }
+    const fyCurrent = await this.finance.settings.get('core.financialYear.current');
+    if (typeof fyCurrent === 'string') {
+      this.financialYear = fyCurrent;
+    }
+  }
+
+  private get _filteredPayslips(): PaySlip[] {
+    if (!this.financialYear) return this.payslips;
+    const target = normalizeFinanceYear(this.financialYear);
+    return this.payslips.filter(p => normalizeFinanceYear(p.finance_year) === target);
   }
 
   connectedCallback(): void {
@@ -341,7 +363,7 @@ export class PayslipList extends LitElement {
 
   private _ytd(): YtdAggregate {
     const ref = this.referenceDate || new Date().toISOString().slice(0, 10);
-    return aggregateYearToDate(this.payslips, this.financialYearStart, ref);
+    return aggregateYearToDate(this._filteredPayslips, this.financialYearStart, ref, this.financialYear || undefined);
   }
 
   private _onEdit(id: number): void {
@@ -372,12 +394,12 @@ export class PayslipList extends LitElement {
 
   render(): unknown {
     const ytd = this._ytd();
-    const total = this.payslips.length;
+    const total = this._filteredPayslips.length;
     const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
     const page = Math.min(this._page, pages - 1);
     const start = page * PAGE_SIZE;
     const end = Math.min(start + PAGE_SIZE, total);
-    const rows = this.payslips.slice(start, end);
+    const rows = this._filteredPayslips.slice(start, end);
     const subtitle = `FY ${this._fyDisplay(this._fyLabel())} · Account: ${this.accounts[0]?.name ?? '—'} · ${total} payslips`;
 
     return html`

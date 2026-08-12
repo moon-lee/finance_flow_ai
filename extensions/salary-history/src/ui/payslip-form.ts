@@ -211,19 +211,23 @@ export class PayslipForm extends LitElement {
   @property({ type: Array })
   accounts: AccountOption[] = [];
 
-  /** `MM-DD` financial-year start (from `salary-history.financialYearStart`). */
+  /** `MM-DD` financial-year start (from `core.financialYear.start`). */
   @property({ type: String })
   financialYearStart = '07-01';
+
+  /** Current financial year label (from `core.financialYear.current`). */
+  @property({ type: String })
+  financialYear = '';
 
   /** PAYG tolerance in dollars (from `salary-history.paygToleranceDollars`). */
   @property({ type: Number })
   paygToleranceDollars = 5;
 
-  /** ATO tax year for PAYG validation (from `salary-history.paygTaxYear`). */
+  /** ATO tax year for PAYG validation (from `core.financialYear.current`). */
   @property({ type: String })
-  paygTaxYear = '2026-2027';
+  paygTaxYear = '';
 
-  /** Currency default (from `salary-history.defaultCurrency`). */
+  /** Currency default (from `core.defaultCurrency`). */
   @property({ type: String })
   defaultCurrency = 'AUD';
 
@@ -262,6 +266,23 @@ export class PayslipForm extends LitElement {
   _predecessorBalance: number | null = null;
 
   /**
+   * Read Core-owned financial year settings so this form does not depend on
+   * extension-scoped mountData for FY context.
+   */
+  private async _loadCoreFinancialYear(): Promise<void> {
+    if (!this.finance?.settings) return;
+    const fyStart = await this.finance.settings.get('core.financialYear.start');
+    if (typeof fyStart === 'string') {
+      this.financialYearStart = fyStart;
+    }
+    const fyCurrent = await this.finance.settings.get('core.financialYear.current');
+    if (typeof fyCurrent === 'string') {
+      this.financialYear = fyCurrent;
+      this.paygTaxYear = fyCurrent;
+    }
+  }
+
+  /**
    * Load the current rate row (for breakdown derivation) and the account
    * list for the Period dropdown. Called once on connect when `finance`
    * is available. Tests may skip this and set `_rate` / `accounts`
@@ -269,6 +290,7 @@ export class PayslipForm extends LitElement {
    */
   async loadReferenceData(): Promise<void> {
     if (!this.finance || this._referenceLoaded) return;
+    await this._loadCoreFinancialYear();
     const payDate = this._values.pay_date || todayISO();
     const [rateRow, accountRows] = await Promise.all([
       getRateForDate(this.finance, payDate) as Promise<unknown>,

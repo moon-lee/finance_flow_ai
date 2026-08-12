@@ -32,6 +32,10 @@ export class DashboardOrchestrator {
   private _mountData: Record<string, unknown> = {};
   private _cardOrder: string[] = [...CANONICAL_CARD_ORDER];
   private _aggregator: DashboardData | null = null;
+  private _dashboardSettings: { financialYearStart: string; financialYearCurrent: string } = {
+    financialYearStart: '07-01',
+    financialYearCurrent: '',
+  };
 
   constructor(finance: FinanceApi, container: HTMLElement, mountData: Record<string, unknown> = {}) {
     this._finance = finance;
@@ -42,6 +46,7 @@ export class DashboardOrchestrator {
   async init(): Promise<void> {
     const settings = await this._loadDashboardSettings();
     this._cardOrder = settings.cardOrder;
+    this._dashboardSettings = { financialYearStart: settings.financialYearStart, financialYearCurrent: settings.financialYearCurrent ?? '' };
     this._bindEvents();
     this.navigate('dashboard-view', this._mountData);
   }
@@ -94,7 +99,7 @@ export class DashboardOrchestrator {
       childEl.aggregator = this._aggregator;
       childEl.cardOrder = this._cardOrder;
       childEl.financialYearStart = settings.financialYearStart;
-      childEl.financeYear = settings.financeYear ?? '';
+      childEl.financialYearCurrent = settings.financialYearCurrent;
     } else if (this._currentTag === 'reorder-cards-modal') {
       childEl.cardOrder = this._cardOrder;
     }
@@ -108,12 +113,12 @@ export class DashboardOrchestrator {
   // ── Settings persistence ───────────────────────────────────────────
 
   private async _loadDashboardSettings(): Promise<DashboardSettings> {
-    const fyRaw = await this._finance.settings?.get('dashboard.financialYearStart');
+    const fyRaw = await this._finance.settings?.get('core.financialYear.start');
     const financialYearStart =
       (typeof fyRaw === 'string' ? fyRaw : undefined) ?? '07-01';
 
-    const financeYearRaw = await this._finance.settings?.get('dashboard.financeYear');
-    const financeYear = typeof financeYearRaw === 'string' ? financeYearRaw : '';
+    const currentFyRaw = await this._finance.settings?.get('core.financialYear.current');
+    const financialYearCurrent = typeof currentFyRaw === 'string' ? currentFyRaw : '';
 
     let cardOrder: string[] = [...CANONICAL_CARD_ORDER];
     if (this._finance.settings) {
@@ -137,7 +142,7 @@ export class DashboardOrchestrator {
       }
     }
 
-    return { financialYearStart, financeYear, cardOrder };
+    return { financialYearStart, financialYearCurrent, cardOrder };
   }
 
   // ── Card reorder events ────────────────────────────────────────────

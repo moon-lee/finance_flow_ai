@@ -161,12 +161,12 @@ describe('DashboardOrchestrator mount data', () => {
     });
   });
 
-  it('forwards financialYearStart and financeYear settings to the view', async () => {
+  it('forwards financialYearStart and financialYearCurrent settings to the view', async () => {
     const container = makeContainer();
     const orch = new DashboardOrchestrator(
       makeFyFinance({
-        'dashboard.financialYearStart': '01-01',
-        'dashboard.financeYear': '2025-26',
+        'core.financialYear.start': '01-01',
+        'core.financialYear.current': '2025-2026',
       }),
       container,
       {
@@ -178,15 +178,15 @@ describe('DashboardOrchestrator mount data', () => {
     await vi.waitFor(() => {
       const view = container.firstElementChild as HTMLElement & {
         financialYearStart: string;
-        financeYear: string;
+        financialYearCurrent: string;
       };
       expect(view.tagName.toLowerCase()).toBe('dashboard-view');
       expect(view.financialYearStart).toBe('01-01');
-      expect(view.financeYear).toBe('2025-26');
+      expect(view.financialYearCurrent).toBe('2025-2026');
     });
   });
 
-  it('passes empty financeYear to the view when no override is set', async () => {
+  it('passes empty financialYearCurrent to the view when no override is set', async () => {
     const container = makeContainer();
     const orch = new DashboardOrchestrator(makePanelFinance(), container, {
       cardOrder: ['net-worth', 'ytd-salary', 'last-payslip', 'accounts-summary'],
@@ -195,10 +195,10 @@ describe('DashboardOrchestrator mount data', () => {
 
     await vi.waitFor(() => {
       const view = container.firstElementChild as HTMLElement & {
-        financeYear: string;
+        financialYearCurrent: string;
       };
       expect(view.tagName.toLowerCase()).toBe('dashboard-view');
-      expect(view.financeYear).toBe('');
+      expect(view.financialYearCurrent).toBe('');
     });
   });
 });

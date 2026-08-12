@@ -74,11 +74,13 @@ export async function activate(
   _registeredFinance = finance;
 
   const defaultCurrency =
-    (await finance.settings?.get('salary-history.defaultCurrency')) ?? 'AUD';
+    (await finance.settings?.get('core.defaultCurrency')) ?? 'AUD';
   const financialYearStart =
-    (await finance.settings?.get('salary-history.financialYearStart')) ?? '07-01';
-   const settingsMountData = { defaultCurrency, financialYearStart };
-   console.log('[salary-history] activate', { defaultCurrency, financialYearStart });
+    (await finance.settings?.get('core.financialYear.start')) ?? '07-01';
+  const financialYearCurrent =
+    (await finance.settings?.get('core.financialYear.current')) ?? '';
+   const settingsMountData = { defaultCurrency, financialYearStart, financialYearCurrent };
+   console.log('[salary-history] activate', { defaultCurrency, financialYearStart, financialYearCurrent });
 
    // Register public pay service + commands in ALL contexts.
    const payAdapter = createPublicPayAdapter(finance);

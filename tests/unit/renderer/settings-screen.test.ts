@@ -229,7 +229,7 @@ describe('SettingsScreen formatted input validation', () => {
   it('validates an extension config item declared with a string pattern', async () => {
     (window as unknown as { financeShell: { extensions: { list: ReturnType<typeof vi.fn> } } }).financeShell.extensions.list.mockResolvedValue({
       configuration: [
-        { extensionId: 'salary-history', configuration: { key: 'salary-history.financialYearStart', type: 'string', label: 'FY Start', pattern: '^\\d{2}-\\d{2}$', formatHint: 'MM-DD', placeholder: '07-01' } },
+        { extensionId: 'budget', configuration: { key: 'budget.monthlyLimit', type: 'string', label: 'Monthly Limit', pattern: '^\\d+$', formatHint: 'digits', placeholder: '2000' } },
       ],
     });
     const el = document.createElement('settings-screen') as unknown as SettingsScreen;
@@ -238,16 +238,16 @@ describe('SettingsScreen formatted input validation', () => {
     await new Promise(r => setTimeout(r, 0));
 
     const setMock = (window as unknown as { financeShell: { settings: { set: ReturnType<typeof vi.fn> } } }).financeShell.settings.set;
-    const input = el.shadowRoot!.querySelector('.setting-control input[data-testid="input-salary-history.financialYearStart"]') as HTMLInputElement | null;
+    const input = el.shadowRoot!.querySelector('.setting-control input[data-testid="input-budget.monthlyLimit"]') as HTMLInputElement | null;
     expect(input).not.toBeNull();
-    expect(input!.placeholder).toBe('07-01');
+    expect(input!.placeholder).toBe('2000');
 
     input!.value = 'invalid';
     input!.dispatchEvent(new Event('change'));
     await new Promise(r => setTimeout(r, 0));
 
-    expect(setMock).not.toHaveBeenCalledWith('salary-history.financialYearStart', 'invalid');
-    const error = el.shadowRoot!.querySelector('.setting-error[data-testid="error-salary-history.financialYearStart"]');
+    expect(setMock).not.toHaveBeenCalledWith('budget.monthlyLimit', 'invalid');
+    const error = el.shadowRoot!.querySelector('.setting-error[data-testid="error-budget.monthlyLimit"]');
     expect(error).not.toBeNull();
   });
 });

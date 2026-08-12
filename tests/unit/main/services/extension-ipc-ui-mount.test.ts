@@ -87,7 +87,7 @@ describe('ExtensionIPC settings namespace enforcement (Task 16)', () => {
   it('accepts a correctly namespaced key (does not throw the namespace error)', () => {
     const ipc = new ExtensionIPC();
     expect(() =>
-      ipc.handleGetSetting({ extensionId: 'salary-history', key: 'salary-history.defaultCurrency' })
+      ipc.handleGetSetting({ extensionId: 'salary-history', key: 'core.defaultCurrency' })
     ).not.toThrow(/namespace/);
   });
 });

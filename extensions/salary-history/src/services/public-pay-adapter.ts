@@ -96,7 +96,7 @@ export interface PublicRateRow {
 }
 
 export interface PublicPayService {
-  getYearToDateSummary(financialYearStart: string, asOfDate?: string): Promise<YtdSummary | null>;
+  getYearToDateSummary(financialYearStart: string, asOfDate?: string, financialYear?: string): Promise<YtdSummary | null>;
   getLastPayslip(): Promise<PublicPaySlip | null>;
   getCurrentRate(): Promise<PublicRateRow | null>;
 }
@@ -107,10 +107,10 @@ export interface PublicPayService {
 
 export function createPublicPayAdapter(finance: FinanceApi): PublicPayService {
   return {
-    async getYearToDateSummary(financialYearStart: string, asOfDate?: string): Promise<YtdSummary | null> {
+    async getYearToDateSummary(financialYearStart: string, asOfDate?: string, financialYear?: string): Promise<YtdSummary | null> {
       try {
         const payslips = (await listPaySlips(finance, {})) as unknown as PublicPaySlip[];
-        const aggregate = aggregateYearToDate(payslips, financialYearStart, asOfDate);
+        const aggregate = aggregateYearToDate(payslips, financialYearStart, asOfDate, financialYear);
         return aggregate;
       } catch (err) {
         console.error('[public-pay-adapter] getYearToDateSummary failed:', err);

@@ -80,6 +80,7 @@ const CORE_SETTINGS: ExtensionSettings = {
   items: [
     { key: 'core.financialYear.current', type: 'string', label: 'Current financial year context (format YYYY-YYYY). Dashboard YTD, payslip filters, and reports use this value.', default: computeCurrentFinancialYear(), format: formatFinanceYear, pattern: /^\d{4}-\d{4}$/, formatHint: 'YYYY-YYYY' },
     { key: 'core.financialYear.start', type: 'string', label: 'Month and day the financial year starts. Used to compute FY labels from dates.', default: '07-01', format: formatFinanceYearStart, pattern: /^\d{2}-\d{2}$/, formatHint: 'MM-DD' },
+    { key: 'core.defaultCurrency', type: 'string', label: 'Default currency code for new payslips and monetary display.', default: 'AUD', pattern: /^[A-Z]{3}$/, formatHint: 'AAA', placeholder: 'AUD' },
     { key: 'core.theme', type: 'enum', label: 'Application color theme.', default: 'dark', enumOptions: ['dark', 'light'] },
     { key: 'core.workspace.defaultView', type: 'string', label: 'Extension view to activate on startup. Requires the extension to declare onStartup.', default: 'dashboard' }
   ]

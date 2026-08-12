@@ -70,7 +70,7 @@ export const BRACKETS_2026_27: readonly Bracket[] = [
  * Registry of bracket tables by financial-year label. The keys are the
  * string forms ATO uses (`"YYYY-YYYY"`, starting year first — so FY 2026-27
  * means the year starting 1 July 2026). Extension code reads
- * `settings.get('salary-history.paygTaxYear')` to pick a key.
+ * `settings.get('core.financialYear.current')` to pick a key.
  *
  * Adding a new FY: append a new entry here AND a new `BRACKETS_<fy>`
  * constant. The tuple-typing keeps both sides in sync at compile time.

@@ -28,7 +28,7 @@ function makeMockFinance(overrides: {
 
 const defaultSettings: DashboardSettings = {
   financialYearStart: '2026-07-01',
-  financeYear: '',
+  financialYearCurrent: '',
   cardOrder: ['netWorth', 'ytdSalary', 'lastPayslip', 'accountsSummary']
 };
 
@@ -67,7 +67,11 @@ describe('Dashboard aggregator service', () => {
     expect(finance.services!.invoke).toHaveBeenCalledWith(
       'pay',
       'getYearToDateSummary',
-      { financialYearStart: '2026-07-01' }
+      expect.arrayContaining([
+        '2026-07-01',
+        expect.anything(),
+        expect.anything(),
+      ])
     );
   });
 

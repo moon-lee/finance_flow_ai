@@ -476,6 +476,7 @@ export class ExtensionIPC {
    * cannot set `tax.financialYearStart`). Throws on violation.
    */
   private assertExtensionKey(extensionId: string, key: string): void {
+    if (key.startsWith('core.')) return;
     if (!key.startsWith(`${extensionId}.`)) {
       throw new Error(
         `Setting key "${key}" is outside the extension's namespace "${extensionId}."`
