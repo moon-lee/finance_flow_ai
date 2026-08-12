@@ -344,16 +344,28 @@ The Phase 7 plan adds two new main-renderer overlays (Keyboard Shortcuts, Backup
 
 **What:** Add Core-owned financial year settings that all extensions read. No per-extension FY settings.
 
-**Status:** Partial — renderer portion landed. The Settings screen renders `core.financialYear.current` as an auto-formatting text input (defaults to current FY) and `core.financialYear.start` as an `MM-DD` text input, both now with `pattern`/`formatHint` validation and `Format:` helper text per spec `docs/superpowers/specs/2026-08-08-settings-validation-design.md` (see plan `docs/superpowers/plans/2026-08-08-settings-validation.md`). Extension-side migration (salary-history / dashboard reads switching from per-extension keys to `core.financialYear.*`) is still pending.
+**Status:** Complete. The Settings screen renders `core.financialYear.current` and `core.financialYear.start` in the Core section. All extension-side migrations are done: salary-history and dashboard both read Core FY settings; per-extension FY keys are removed from manifests; `core.defaultCurrency` is also migrated to Core; extension namespace guard allows `core.*` reads; unit tests, typecheck, and lint pass.
 
 **Deliverables:**
 
-- `src/renderer/components/settings-screen.ts` — modified (created in Task 1): add Core Financial Year section with `core.financialYear.current` dropdown and `core.financialYear.start` text input
-- `extensions/salary-history/src/main.ts` — modified: replace `salary-history.financialYearStart` read with `core.financialYear.start` for `financialYearStart` mountData; pass `core.financialYear.current` as FY context to orchestrator
-- `extensions/salary-history/src/ui/payslip-form.ts` — modified: read `core.financialYear.start` from settings (fallback to `'07-01'`) instead of relying solely on mountData; add `financialYear` property that reads `core.financialYear.current` and re-computes `finance_year` when FY changes
-- `extensions/dashboard/src/main.ts` — modified: replace `dashboard.financialYearStart` with `core.financialYear.start`; pass `core.financialYear.current` to aggregator
-- `extensions/dashboard/src/services/aggregator-service.ts` — modified: add `financialYearCurrent` to `DashboardSettings`; update `buildAggregator` to pass FY to `aggregateYearToDate`
-- `extensions/salary-history/src/ui/payslip-list.ts` — modified: read `core.financialYear.start` from settings; add `financialYear` filter property; re-filter on FY change
+- `src/renderer/components/settings-screen.ts` — modified (created in Task 1): Core Financial Year section with `core.financialYear.current` and `core.financialYear.start`; also added `core.defaultCurrency`
+- `src/main/services/extension-ipc.ts` — modified: `assertExtensionKey` allows `core.*` reads from extensions
+- `extensions/salary-history/src/main.ts` — modified: reads `core.financialYear.start`, `core.financialYear.current`, and `core.defaultCurrency`; passes as `settingsMountData`
+- `extensions/salary-history/src/ui/payslip-form.ts` — modified: reads `core.financialYear.start`, `core.financialYear.current`, and `core.defaultCurrency` from `finance.settings`; `paygTaxYear` derived from `core.financialYear.current`
+- `extensions/salary-history/src/ui/payslip-list.ts` — modified: reads `core.financialYear.start` and `core.financialYear.current`; filters payslips by selected FY
+- `extensions/salary-history/package.json` — modified: removed `salary-history.financialYearStart`, `salary-history.financeYear`, and `salary-history.defaultCurrency` from `configuration`
+- `extensions/salary-history/src/services/pay-service.ts` — modified: `aggregateYearToDate` gains optional `financialYear` parameter
+- `extensions/salary-history/src/services/public-pay-adapter.ts` — modified: `getYearToDateSummary` accepts `financialYear`
+- `extensions/salary-history/src/services/payg-brackets.ts` — modified: comment updated to reference `core.financialYear.current`
+- `extensions/dashboard/src/main.ts` — modified: reads `core.financialYear.start` and `core.financialYear.current`
+- `extensions/dashboard/src/services/aggregator-service.ts` — modified: `DashboardSettings.financialYearCurrent` passed to `getYearToDateSummary`
+- `extensions/dashboard/src/orchestrator.ts` — modified: reads Core FY keys, forwards `financialYearCurrent` to `dashboard-view`
+- `extensions/dashboard/src/ui/dashboard-view.ts` — modified: `financialYearCurrent` property; `_fyLabel()` uses it as override
+- `extensions/dashboard/package.json` — modified: `configuration` is empty; removed `dashboard.financialYearStart`
+- `tests/unit/services/settings-service.test.ts` — modified: 2 new tests for `core.financialYear.current` and `core.financialYear.start`
+- `tests/unit/extensions/dashboard/orchestrator.test.ts` — modified: updated to use Core FY keys and `financialYearCurrent`
+- `tests/unit/extensions/dashboard/ui/dashboard-view.test.ts` — modified: uses `financialYearCurrent`
+- `tests/unit/extensions/dashboard/aggregator-service.test.ts` — modified: `defaultSettings` includes `financialYearCurrent`
 - No changes to `src/main/services/settings-service.ts`, `src/main/main.ts`, or `src/preload/preload.ts`
 
 **Implementation approach:**
@@ -408,87 +420,85 @@ The Phase 7 plan adds two new main-renderer overlays (Keyboard Shortcuts, Backup
 4. No `financialYearStart` or `paygTaxYear` settings appear under Dashboard or Salary History sections
 5. Extensions reading `financeShell.settings.get('core.financialYear.current')` get the correct value
 
-- [ ] **Step 1: Write unit tests for FY settings behavior**
+- [x] **Step 1: Write unit tests for FY settings behavior**
 
-  New tests in `tests/unit/services/settings-service.test.ts`:
-  - `stores and retrieves core.financialYear.current` — FY label persists
-  - `stores and retrieves core.financialYear.start` — FY boundary persists
+   New tests in `tests/unit/services/settings-service.test.ts`:
+   - `stores and retrieves core.financialYear.current` — FY label persists
+   - `stores and retrieves core.financialYear.start` — FY boundary persists
 
-  Run: `npm run test -- tests/unit/services/settings-service.test.ts`
-  Expected: All new tests pass.
+   Run: `npm run test -- tests/unit/services/settings-service.test.ts`
+   Expected: All new tests pass.
 
-- [ ] **Step 2: Typecheck + lint**
+ - [x] **Step 2: Typecheck + lint**
 
-  Run: `npm run typecheck`
-  Expected: PASS — no errors.
+   Run: `npm run typecheck`
+   Expected: PASS — no errors.
 
-  Run: `npm run lint`
-  Expected: PASS — no new errors.
+   Run: `npm run lint`
+   Expected: PASS — no new errors.
 
 ---
 
-### Task 2.5: Dashboard Financial Year Configuration (Extension-Side)
+### Task 2.5: Dashboard Financial Year Configuration (Consolidated under Core)
 
-**What:** Declare the dashboard extension's own financial-year configuration keys — `dashboard.financialYearStart` (the `MM-DD` FY boundary, already read by `main.ts`/`orchestrator.ts` but never declared in the manifest) and `dashboard.financeYear` (a manual FY label override) — in `extensions/dashboard/package.json` so they render in the Settings screen, and wire both through to the dashboard view's topbar FY label.
+**What:** The original Task 2.5 planned to add per-extension dashboard FY config keys (`dashboard.financialYearStart`, `dashboard.financeYear`). Instead, these were consolidated under Core-owned settings: `core.financialYear.start` (FY boundary) and `core.financialYear.current` (FY label). The dashboard extension now reads both from Core, and `dashboard-view.ts` uses `financialYearCurrent` as the topbar FY override, falling back to auto-computation when empty. No dashboard-owned FY configuration keys exist.
 
-**Relationship to Task 2 (Core Financial Year Context):** This task intentionally adds per-extension dashboard config keys and is implemented independently of Task 2. Task 2's Core-owned migration (replacing `dashboard.financialYearStart` reads with `core.financialYear.start`) remains planned as written; if/when Task 2 is implemented it supersedes the `financialYearStart` part of this task while the `financeYear` label override remains dashboard-owned. The two settings can coexist today because the dashboard namespace is auto-registered on extension load (`src/main/main.ts:683`).
+**Relationship to Task 2 (Core Financial Year Context):** This task is now the dashboard-side tail of Task 2. The original separation between Task 2 (Core FY boundary) and Task 2.5 (dashboard FY override) is collapsed: both the boundary and the label are Core-owned, and dashboard simply consumes them.
 
 **Deliverables:**
 
-- `extensions/dashboard/package.json` — modified: add `dashboard.financialYearStart` (string, default `'07-01'`) and `dashboard.financeYear` (string, default `''`) to `contributes.configuration` (currently `"configuration": []`)
-- `extensions/dashboard/src/services/aggregator-service.ts` — modified: add `financeYear?: string` to `DashboardSettings`
-- `extensions/dashboard/src/main.ts` — modified: `readSettings()` reads `dashboard.financeYear` and returns it in `DashboardSettings`
-- `extensions/dashboard/src/orchestrator.ts` — modified: `_loadDashboardSettings()` reads `dashboard.financeYear`; `_mountChild()` passes `financialYearStart` and `financeYear` to `dashboard-view`
-- `extensions/dashboard/src/ui/dashboard-view.ts` — modified: add `financeYear` property; `_fyLabel()` returns the override when set, otherwise auto-computes; handle `financeYear` in `mount-update`
-- `tests/unit/extensions/dashboard/aggregator-service.test.ts` — modified: `DashboardSettings` fixtures include `financeYear`
-- `tests/unit/extensions/dashboard/orchestrator.test.ts` — modified: add test asserting `financeYear` is forwarded to the view
-- `tests/unit/extensions/dashboard/ui/dashboard-view.test.ts` — new: assert `_fyLabel()` override + auto-compute
+- `extensions/dashboard/package.json` — modified: `configuration` is empty; no dashboard-owned FY keys
+- `extensions/dashboard/src/main.ts` — modified: `readSettings()` reads `core.financialYear.start` and `core.financialYear.current`
+- `extensions/dashboard/src/services/aggregator-service.ts` — modified: `DashboardSettings.financialYearCurrent` passed to `getYearToDateSummary`
+- `extensions/dashboard/src/orchestrator.ts` — modified: `_loadDashboardSettings()` reads Core FY keys; forwards `financialYearCurrent` to `dashboard-view`
+- `extensions/dashboard/src/ui/dashboard-view.ts` — modified: property renamed to `financialYearCurrent`; `_fyLabel()` uses it as override when non-empty
+- `tests/unit/extensions/dashboard/aggregator-service.test.ts` — modified: `defaultSettings` includes `financialYearCurrent`
+- `tests/unit/extensions/dashboard/orchestrator.test.ts` — modified: mock uses `core.financialYear.current`; asserts `financialYearCurrent` forwarded
+- `tests/unit/extensions/dashboard/ui/dashboard-view.test.ts` — modified: tests use `financialYearCurrent` property
 
 **Implementation approach:**
 
-1. **`extensions/dashboard/package.json`** — replace `"configuration": []` with:
-   - `{ "key": "dashboard.financialYearStart", "type": "string", "label": "Financial year start (MM-DD)", "default": "07-01" }`
-   - `{ "key": "dashboard.financeYear", "type": "string", "label": "Financial year label override (e.g. 2025-26). Empty = auto-compute.", "default": "" }`
-   - Keys follow the `configurationContributionSchema` shape (`src/extension-host/manifest-schema.ts:33-42`); string defaults are type-checked by `defaultMatchesType`
-2. **`extensions/dashboard/src/services/aggregator-service.ts`** — add `financeYear?: string` to `DashboardSettings` (optional, defaults to `''` when absent so existing callers compile unchanged)
-3. **`extensions/dashboard/src/main.ts`** — in `readSettings()`, read `dashboard.financeYear` (string, fallback `''`) and include it in the returned `DashboardSettings`
-4. **`extensions/dashboard/src/orchestrator.ts`** — in `_loadDashboardSettings()`, read `dashboard.financeYear` (string, fallback `''`); in `_mountChild()` for `dashboard-view`, set `childEl.financialYearStart` and `childEl.financeYear` so the topbar label honors both settings
-5. **`extensions/dashboard/src/ui/dashboard-view.ts`** — add `financeYear` property (default `''`); update `_boundMountUpdate` to accept `financeYear`; in `_fyLabel()`, if `this.financeYear` is non-empty return it as the FY label (after `_fyDisplay` normalisation) instead of auto-computing from `referenceDate`
+1. **`extensions/dashboard/src/main.ts`** — `readSettings()` reads `core.financialYear.start` and `core.financialYear.current`, returns them in `DashboardSettings`
+2. **`extensions/dashboard/src/services/aggregator-service.ts`** — `DashboardSettings` has `financialYearStart` + `financialYearCurrent`; `buildAggregator` passes `financialYearCurrent` to `getYearToDateSummary` as positional array args
+3. **`extensions/dashboard/src/orchestrator.ts`** — `_loadDashboardSettings()` reads Core FY keys; `_mountChild()` sets `childEl.financialYearStart` and `childEl.financialYearCurrent`
+4. **`extensions/dashboard/src/ui/dashboard-view.ts`** — `_fyLabel()` uses `financialYearCurrent` as override when set, otherwise auto-computes from `referenceDate` + `financialYearStart`
 
 **Verification:**
 
-1. Open Settings → Dashboard section shows `financialYearStart` and `financeYear` text inputs with defaults `07-01` / empty
-2. Set `dashboard.financeYear` to `2025-26` → dashboard topbar shows `(FY 2025-2026)`
-3. Clear `dashboard.financeYear` → topbar auto-computes from `referenceDate` + `financialYearStart`
-4. Change `dashboard.financialYearStart` → YTD aggregation + label use the new boundary
-5. Restart app → values persist
+1. Open Settings → Dashboard section has no FY settings (Core section owns them)
+2. Set `core.financialYear.current` in Core settings → dashboard topbar shows `(FY YYYY-YYYY)`
+3. Clear `core.financialYear.current` → topbar auto-computes from `referenceDate` + `core.financialYear.start`
+4. Change `core.financialYear.start` → dashboard YTD aggregation uses new boundary
+5. Restart app → values persist in Core settings
 
-- [ ] **Step 1: Write unit tests for FY config wiring**
+- [x] **Step 1: Write unit tests for FY config wiring**
 
-  New tests in `tests/unit/extensions/dashboard/ui/dashboard-view.test.ts`:
-  - `_fyLabel returns the financeYear override when set` — with `financeYear = '2025-26'` the label renders as `2025-2026`
-  - `_fyLabel auto-computes when financeYear is empty` — with no override the label derives from `referenceDate` + `financialYearStart`
-  - `financeYear updates via mount-update` — dispatching `mount-update` with `financeYear` updates the property
+   New tests in `tests/unit/extensions/dashboard/ui/dashboard-view.test.ts`:
+   - `_fyLabel returns the financialYearCurrent override when set` — with `financialYearCurrent = '2025-2026'` the label renders as `2025-2026`
+   - `_fyLabel auto-computes when financialYearCurrent is empty` — with no override the label derives from `referenceDate` + `financialYearStart`
+   - `financialYearCurrent updates via mount-update` — dispatching `mount-update` with `financialYearCurrent` updates the property
 
-  Modified tests in `tests/unit/extensions/dashboard/orchestrator.test.ts`:
-  - `forwards financialYearStart and financeYear settings to the view` — mounting with settings returns a view whose `financialYearStart`/`financeYear` reflect the settings
+   Modified tests in `tests/unit/extensions/dashboard/orchestrator.test.ts`:
+   - `forwards financialYearStart and financialYearCurrent settings to the view` — mounting with settings returns a view whose `financialYearStart`/`financialYearCurrent` reflect the Core settings
 
-  Run: `npm run test -- tests/unit/extensions/dashboard/orchestrator.test.ts tests/unit/extensions/dashboard/ui/dashboard-view.test.ts tests/unit/extensions/dashboard/aggregator-service.test.ts`
-  Expected: All new tests pass; existing dashboard tests still pass.
+   Run: `npm run test -- tests/unit/extensions/dashboard/orchestrator.test.ts tests/unit/extensions/dashboard/ui/dashboard-view.test.ts tests/unit/extensions/dashboard/aggregator-service.test.ts`
+   Expected: All new tests pass; existing dashboard tests still pass.
 
-- [ ] **Step 2: Typecheck + lint**
+ - [x] **Step 2: Typecheck + lint**
 
-  Run: `npm run typecheck`
-  Expected: PASS — no errors.
+   Run: `npm run typecheck`
+   Expected: PASS — no errors.
 
-  Run: `npm run lint`
-  Expected: PASS — no new errors.
+   Run: `npm run lint`
+   Expected: PASS — no new errors.
 
 ---
 
 ### Task 3: Array Settings Modals (Extension-Side)
 
 **What:** Implement `dashboard.cardOrder` in the dashboard extension, mirroring the architectural pattern and logic used in the salary-history section ordering system. Card order is managed extension-side rather than being exposed as a generic Core setting.
+
+**Status:** Complete. `DashboardOrchestrator` owns card-order state and persists `dashboard.cardOrder` via `finance.settings`. `reorder-cards-modal.ts` provides the Lit modal with up/down arrows, disabled edge states, green/purple borders, Save/Cancel/Reset, and `card-order-change`/`card-order-cancel` events. `dashboard-view.ts` dispatches `reorder-cards` from the topbar button. `dashboard/package.json` includes `card-order-change` in `allowedUiEvents` and has empty `configuration`. Typecheck, lint, and dashboard tests pass.
 
 **Deliverables:**
 
@@ -538,13 +548,13 @@ The Phase 7 plan adds two new main-renderer overlays (Keyboard Shortcuts, Backup
 5. Restart app → cards render in persisted order
 6. Malformed JSON in settings → falls back to canonical order without crash
 
-- [ ] **Step 1: Typecheck + lint**
+ - [x] **Step 1: Typecheck + lint**
 
-   Run: `npm run typecheck`
-   Expected: PASS — no errors.
+    Run: `npm run typecheck`
+    Expected: PASS — no errors.
 
-   Run: `npm run lint`
-   Expected: PASS — no new errors.
+    Run: `npm run lint`
+    Expected: PASS — no new errors.
 
 ---
 
