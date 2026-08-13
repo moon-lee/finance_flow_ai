@@ -423,13 +423,13 @@ The Phase 7 plan adds two new main-renderer overlays (Keyboard Shortcuts, Backup
 - [x] **Step 1: Write unit tests for FY settings behavior**
 
    New tests in `tests/unit/services/settings-service.test.ts`:
-   - `stores and retrieves core.financialYear.current` — FY label persists
-   - `stores and retrieves core.financialYear.start` — FY boundary persists
+      - `stores and retrieves core.financialYear.current` — FY label persists
+      - `stores and retrieves core.financialYear.start` — FY boundary persists
 
    Run: `npm run test -- tests/unit/services/settings-service.test.ts`
    Expected: All new tests pass.
 
- - [x] **Step 2: Typecheck + lint**
+- [x] **Step 2: Typecheck + lint**
 
    Run: `npm run typecheck`
    Expected: PASS — no errors.
@@ -474,17 +474,17 @@ The Phase 7 plan adds two new main-renderer overlays (Keyboard Shortcuts, Backup
 - [x] **Step 1: Write unit tests for FY config wiring**
 
    New tests in `tests/unit/extensions/dashboard/ui/dashboard-view.test.ts`:
-   - `_fyLabel returns the financialYearCurrent override when set` — with `financialYearCurrent = '2025-2026'` the label renders as `2025-2026`
-   - `_fyLabel auto-computes when financialYearCurrent is empty` — with no override the label derives from `referenceDate` + `financialYearStart`
-   - `financialYearCurrent updates via mount-update` — dispatching `mount-update` with `financialYearCurrent` updates the property
+      - `_fyLabel returns the financialYearCurrent override when set` — with `financialYearCurrent = '2025-2026'` the label renders as `2025-2026`
+      - `_fyLabel auto-computes when financialYearCurrent is empty` — with no override the label derives from `referenceDate` + `financialYearStart`
+      - `financialYearCurrent updates via mount-update` — dispatching `mount-update` with `financialYearCurrent` updates the property
 
    Modified tests in `tests/unit/extensions/dashboard/orchestrator.test.ts`:
-   - `forwards financialYearStart and financialYearCurrent settings to the view` — mounting with settings returns a view whose `financialYearStart`/`financialYearCurrent` reflect the Core settings
+      - `forwards financialYearStart and financialYearCurrent settings to the view` — mounting with settings returns a view whose `financialYearStart`/`financialYearCurrent` reflect the Core settings
 
    Run: `npm run test -- tests/unit/extensions/dashboard/orchestrator.test.ts tests/unit/extensions/dashboard/ui/dashboard-view.test.ts tests/unit/extensions/dashboard/aggregator-service.test.ts`
    Expected: All new tests pass; existing dashboard tests still pass.
 
- - [x] **Step 2: Typecheck + lint**
+- [x] **Step 2: Typecheck + lint**
 
    Run: `npm run typecheck`
    Expected: PASS — no errors.
@@ -548,7 +548,7 @@ The Phase 7 plan adds two new main-renderer overlays (Keyboard Shortcuts, Backup
 5. Restart app → cards render in persisted order
 6. Malformed JSON in settings → falls back to canonical order without crash
 
- - [x] **Step 1: Typecheck + lint**
+- [x] **Step 1: Typecheck + lint**
 
     Run: `npm run typecheck`
     Expected: PASS — no errors.
