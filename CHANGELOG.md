@@ -1,7 +1,7 @@
 ---
 version: 0.8.0
 created: 2026-06-14
-last_updated: 2026-08-15T00:05:00+10:00
+last_updated: 2026-08-15T01:52:00+10:00
 ---
 
 # Changelog
@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
+- **Local Windows product package with isolated real-data storage** (`package.json`, `package-lock.json`, `src/main/runtime-profile.ts`, `src/main/main.ts`, `tests/unit/main/runtime-profile.test.ts`, `docs/local-product-deployment.md`, `.gitignore`, `eslint.config.js`). `npm run package:local` now creates a self-contained `Finance Flow AI.exe` folder. The packaged app stores its database at `<product-folder>/data/finance.db`, while all source-workspace launches use the separate `%APPDATA%/Finance Flow AI Dev` profile. Packaged extension manifests are copied into the app resources; generated release output is excluded from version control and development linting. Per ADR-0007.
 
 - **YTD Overtime 1.5 hours chip in Pay History footer** (`extensions/salary-history/src/services/pay-service.ts`, `extensions/salary-history/src/ui/payslip-list.ts`, `tests/unit/extensions/salary-history/pay-service.test.ts`, `tests/unit/extensions/salary-history/ui/payslip-list.test.ts`). `YtdAggregate` now carries `overtime_1_5_hours`, summed per payslip across the active FY by `aggregateYearToDate` (alongside the existing dollar components), and `payslip-list` renders a `ytd-chip-overtime-1-5-hours` chip showing the YTD hours (e.g. `5.00h`) directly beside the existing `Overtime 1.5` money chip. The chip tuple gained an optional `fmt` discriminator (`'money' | 'hours'`) so hours render without the `$` prefix; all existing chips default to money. The chip is shown only when the YTD hours sum is materially > 0, matching the other breakdown chips.
 
@@ -43,6 +45,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Dashboard topbar merged directly into `dashboard-view`** (`extensions/dashboard/src/ui/dashboard-view.ts`, `extensions/dashboard/src/ui/index.ts`). Removed the standalone `dashboard-topbar` custom element and inlined its styles, breadcrumb title, and reorder action into `dashboard-view`. The reorder-cards button now lives in the dashboard view’s own topbar row rather than in a separate child component, while still emitting `reorder-cards` for the orchestrator.
 
 ### Administrative
+
+- **ADR-0007 local product deployment profile** (`docs/decisions/0007-local-product-deployment-profile.md`, `docs/decisions/README.md`, `docs/file-reference.md`). Documents the product-versus-development data boundary, local directory packaging choice, safeguards for copying existing records, and future revisit triggers.
 
 - **Settings input validation spec + plan** (`docs/superpowers/specs/2026-08-08-settings-validation-design.md`, `docs/superpowers/plans/2026-08-08-settings-validation.md`). Added a design spec and implementation plan for block-write validation + format hints on formatted settings inputs, covering Core (`formatFinanceYearStart` normalizer, `YYYY-YYYY`/`MM-DD` patterns) and extension-declared configuration (`pattern`/`formatHint`/`placeholder` manifest fields validated at load). Implementation completed (2026-08-08); plan status set to `implementation completed`, all steps checked except the two commit steps (skipped pending user permission per AGENTS.md rule 6).
 - **Phase 7 plan: Task 2.5 added — Dashboard Financial Year Configuration** (`docs/superpowers/plans/2026-08-02-phase7-production-polish.md`). Added an extension-side task declaring `dashboard.financialYearStart` + `dashboard.financeYear` configuration keys, independent of Task 2's Core-owned FY migration (relationship documented in the task). Updated the execution-order table and plan frontmatter.

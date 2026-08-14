@@ -1,5 +1,16 @@
 # File Reference
 
+## Local Product Deployment (ADR-0007)
+
+| File | Status | Purpose |
+|------|--------|---------|
+| `docs/decisions/0007-local-product-deployment-profile.md` | new | Defines isolated product and development runtime profiles, including packaged data and extension-resource locations. |
+| `docs/local-product-deployment.md` | new | User guide for building, moving, launching, protecting, and updating the local product folder. |
+| `src/main/runtime-profile.ts` | new | Pure resolver for the product/development app name, data directory, and extension-manifest location. |
+| `src/main/main.ts` | modified | Applies the runtime profile before accessing Electron `userData`, preventing development from opening the product database. |
+| `tests/unit/main/runtime-profile.test.ts` | new | Regression tests for product-local data and development profile isolation. |
+| `package.json` | modified | Adds `electron-builder` and `npm run package:local`, which creates a Windows self-contained directory package. |
+
 ## Phase 1 — Core Shell Prototype
 
 | File | Purpose |

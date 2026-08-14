@@ -29,21 +29,23 @@ import { registerPanelProtocol } from "./services/panel-protocol";
 import { WebviewPanelManager } from "./services/webview-panel-manager";
 import { activateAndOpenView } from "./services/view-activation";
 import { ShortcutRegistry, toAccelerator } from "./services/shortcut-registry";
+import { resolveRuntimeProfile } from "./runtime-profile";
 
 const mainDir = fileURLToPath(new URL(".", import.meta.url));
 const rendererDevUrl = process.env.ELECTRON_RENDERER_URL;
+const runtimeProfile = resolveRuntimeProfile({
+  isPackaged: app.isPackaged,
+  executablePath: process.execPath,
+  resourcesPath: process.resourcesPath,
+  sourceExtensionsPath: join(mainDir, "..", "..", "extensions"),
+});
 
-// Force the app name before any path lookup. Without this,
-// unpackaged dev launches (`electron dist/main/main.js`) report
-// `app.getName() === 'Electron'` and `app.getPath('userData')` then
-// resolves to `%APPDATA%/Electron/` instead of the production
-// path `%APPDATA%/Finance Flow AI/`. `productName` in package.json
-// is only honoured for packaged builds; for unpackaged dev we must
-// override explicitly. Pairing `productName` (for production) with
-// `app.setName(...)` (for dev) keeps userData identical in both
-
-// modes so the Phase 2 plan's expected path matches reality.
-app.setName("Finance Flow AI");
+// Must run before the first `app.getPath('userData')` call so development
+// cannot open the product database. See ADR-0007.
+app.setName(runtimeProfile.appName);
+if (runtimeProfile.userDataPath) {
+  app.setPath("userData", runtimeProfile.userDataPath);
+}
 
 let mainWindow: BrowserWindow | null = null;
 let windowStateSaveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -76,13 +78,7 @@ function resolveDatabasePath(): string {
 }
 
 function resolveExtensionsRoot(): string {
-  // Phase 3: extensions live inside the repo at the project root, e.g.
-  // `D:\finance_flow_ai\extensions\`. mainDir is `dist/main/` (the directory
-  // of the running bundled main.js), so '..' x2 brings us up to the project
-  // root. Using `app.getAppPath()` here would resolve to `dist/main/extensions`
-  // because Electron's getAppPath() returns the directory of the running
-  // entry point in unpackaged mode. Phase 8 will add a user-data root.
-  return join(mainDir, "..", "..", "extensions");
+  return runtimeProfile.extensionsPath;
 }
 
 function clearWindowStateSaveTimer(): void {

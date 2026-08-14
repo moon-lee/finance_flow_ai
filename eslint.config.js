@@ -21,6 +21,7 @@ export default tseslint.config(
   {
     ignores: [
       'dist/**',
+      'release/**',
       'node_modules/**',
       '.gitnexus/**',
       // `extensions/` contains per-extension packages, each with their own

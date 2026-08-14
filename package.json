@@ -4,10 +4,6 @@
   "version": "0.8.0",
   "description": "",
   "main": "dist/main/main.js",
-  "directories": {
-    "doc": "docs",
-    "test": "tests"
-  },
   "scripts": {
     "pretest": "node scripts/rebuild-better-sqlite3-node.mjs",
     "test": "vitest run",
@@ -30,6 +26,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test:e2e": "playwright test --config playwright.electron.config.ts",
+    "package:local": "npm run build && electron-builder --win dir",
     "rebuild": "electron-rebuild --force",
     "test:unit:watch": "vitest",
     "postinstall": "electron-rebuild --force"
@@ -52,6 +49,7 @@
     "concurrently": "^10.0.3",
     "cross-env": "^10.1.0",
     "electron": "^42.4.0",
+    "electron-builder": "^26.15.3",
     "eslint": "^10.5.0",
     "globals": "^17.6.0",
     "happy-dom": "^20.10.6",
@@ -61,5 +59,32 @@
     "vite": "^8.0.16",
     "vitest": "^4.1.9",
     "wait-on": "^9.0.10"
+  },
+  "build": {
+    "appId": "com.financeflowai.desktop",
+    "productName": "Finance Flow AI",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "package.json",
+      "!**/*.map"
+    ],
+    "extraResources": [
+      {
+        "from": "extensions",
+        "to": "extensions",
+        "filter": [
+          "**/package.json"
+        ]
+      }
+    ],
+    "asar": true,
+    "win": {
+      "target": [
+        "dir"
+      ]
+    }
   }
 }
