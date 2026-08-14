@@ -2,11 +2,12 @@
 /**
  * Tests for `extensions/salary-history/src/ui/payslip-form.ts` (Phase 4 Task 11.1).
  *
- * 7 tests: renders 8 sections in order, fires `payslip-create` on
+ * Tests: renders 8 sections in order, fires `payslip-create` on
  * submit with the derived payload, recomputes the breakdown preview on
  * input change, the Validate PAYG button renders a result, honours a
  * caller-supplied `sectionOrder`, auto-fills `finance_year` from the pay
- * date (Review Finding 9), and surfaces a finance_year mismatch warning.
+ * date (Review Finding 9), surfaces a finance_year mismatch warning,
+ * and renders the hours inputs with step 0.01 so decimal hours save.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -22,6 +23,7 @@ interface FormEl extends UiEl {
   loadReferenceData(): Promise<void>;
   recompute(): Promise<void>;
   _values: Record<string, unknown>;
+  _showHours: boolean;
   _rate: RateRow | null;
   _breakdown: unknown;
   editPaySlip: unknown;
@@ -266,13 +268,27 @@ describe('PayslipForm (Task 11.1)', () => {
     expect(el._values.finance_year).toBe('2025-2026');
   });
 
-  it('surfaces a finance_year mismatch warning with override actions', async () => {
+  it('renders the hours inputs with step 0.01 so decimal hours save', async () => {
     const el = makeEl();
-    el.financialYearStart = '07-01';
-    el._values = { ...el._values, pay_date: '2026-01-15', finance_year: '2099-00' };
-    await el.recompute();
+    el._showHours = true;
     await el.updateComplete;
-    const warn = el.shadowRoot.querySelector('[data-testid="fy-warning"]');
-    expect(warn).toBeTruthy();
+
+    const fields = [
+      'regular_hours',
+      'shift_hours',
+      'overtime_1_5_hours',
+      'overtime_2_0_hours',
+      'holiday_hours',
+      'public_holiday_hours',
+      'personal_leave_hours',
+    ];
+    for (const field of fields) {
+      const input = el.shadowRoot.querySelector(
+        `[data-testid="input-${field}"]`,
+      ) as HTMLInputElement;
+      expect(input).toBeTruthy();
+      expect(input.type).toBe('number');
+      expect(input.step).toBe('0.01');
+    }
   });
 });

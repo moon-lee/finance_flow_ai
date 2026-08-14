@@ -318,8 +318,9 @@ export class PayslipList extends LitElement {
       ['YTD SG', ytd.superannuation_guarantee, 'sg'],
       ['YTD Shift Allow.', ytd.shift_allowance, 'shift-allowance'],
     ];
-    const components: Array<[string, number, string]> = [
+    const components: Array<[label: string, value: number, key: string, fmt?: 'money' | 'hours']> = [
       ['Overtime 1.5', ytd.overtime_1_5x, 'overtime-1-5'],
+      ['Overtime 1.5 h', ytd.overtime_1_5_hours, 'overtime-1-5-hours', 'hours'],
       ['Overtime 2.0', ytd.overtime_2_0x, 'overtime-2-0'],
       ['Personal Leave', ytd.personal_leave, 'personal-leave'],
       ['Holiday Leave Loading', ytd.holiday_leave_loading, 'holiday-loading'],
@@ -332,10 +333,10 @@ export class PayslipList extends LitElement {
     return html`
       <div class="ytd-breakdown" data-testid="ytd-breakdown">
         ${chips.map(
-          ([label, value, key]) => html`
+          ([label, value, key, fmt]) => html`
             <span class="ytd-chip" data-testid="ytd-chip-${key}">
               <span class="chip-label">${label}</span>
-              <span class="chip-value">${this._money(value)}</span>
+              <span class="chip-value">${fmt === 'hours' ? `${value.toFixed(2)}h` : this._money(value)}</span>
             </span>
           `,
         )}

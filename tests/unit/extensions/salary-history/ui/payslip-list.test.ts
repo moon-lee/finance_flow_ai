@@ -2,7 +2,8 @@
 /**
  * Tests for `extensions/salary-history/src/ui/payslip-list.ts` (Phase 4 Task 11.2).
  *
- * 4 tests: renders the table, the YTD footer reflects the aggregate,
+ * 5 tests: renders the table, the YTD footer reflects the aggregate,
+ * the overtime-1.5-hours chip renders beside the overtime-1.5x chip,
  * the Edit button dispatches `payslip-edit-request`, and the Delete
  * button dispatches `payslip-delete`.
  */
@@ -47,7 +48,7 @@ const SLIPS: PaySlip[] = [
     personal_leave: 0,
     regular_hours: 38,
     shift_hours: 38,
-    overtime_1_5_hours: 0,
+    overtime_1_5_hours: 2.5,
     overtime_2_0_hours: 0,
     holiday_hours: 0,
     public_holiday_hours: 0,
@@ -111,6 +112,30 @@ describe('PayslipList (Task 11.2)', () => {
     expect(footer).toContain('36.00');
     expect(footer).not.toContain('300.00');
     expect(footer).not.toContain('240.00');
+  });
+
+  it('renders the overtime-1.5 hours chip beside the overtime-1.5x chip', async () => {
+    const el = makeEl();
+    el.payslips = [
+      { ...SLIPS[0], overtime_1_5x: 50, overtime_1_5_hours: 3 },
+      { ...SLIPS[1], overtime_1_5x: 50, overtime_1_5_hours: 2 },
+    ];
+    el.referenceDate = '2026-03-01';
+    el.financialYearStart = '07-01';
+    await el.updateComplete;
+
+    const moneyChip = el.shadowRoot.querySelector('[data-testid="ytd-chip-overtime-1-5"]');
+    const hoursChip = el.shadowRoot.querySelector('[data-testid="ytd-chip-overtime-1-5-hours"]');
+    expect(moneyChip).toBeTruthy();
+    expect(hoursChip).toBeTruthy();
+    expect(moneyChip.textContent).toContain('100.00');
+    expect(hoursChip.textContent).toContain('5.00h');
+
+    // Hours chip sits directly after the money chip in the breakdown row.
+    const chips = Array.from(el.shadowRoot.querySelectorAll('[data-testid^="ytd-chip-"]'));
+    const moneyIdx = chips.findIndex((c) => (c as HTMLElement).dataset.testid === 'ytd-chip-overtime-1-5');
+    const hoursIdx = chips.findIndex((c) => (c as HTMLElement).dataset.testid === 'ytd-chip-overtime-1-5-hours');
+    expect(hoursIdx).toBe(moneyIdx + 1);
   });
 
   it('Edit button dispatches payslip-edit-request', async () => {

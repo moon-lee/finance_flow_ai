@@ -742,13 +742,13 @@ export class PayslipForm extends LitElement {
       <div class="hours-block" data-testid="hours-fields">
         <div class="hours-block-title">Hours breakdown — drives earnings above via rate row</div>
         <div class="grid-3">
-          ${this._renderInput('leave', 'regular_hours', 'regular hours', 'number')}
-          ${this._renderInput('leave', 'shift_hours', 'shift hours', 'number')}
-          ${this._renderInput('leave', 'overtime_1_5_hours', 'overtime 1.5 hours', 'number')}
-          ${this._renderInput('leave', 'overtime_2_0_hours', 'overtime 2.0 hours', 'number')}
-          ${this._renderInput('leave', 'holiday_hours', 'holiday hours', 'number')}
-          ${this._renderInput('leave', 'public_holiday_hours', 'public holiday hours', 'number')}
-          ${this._renderInput('leave', 'personal_leave_hours', 'personal leave hours', 'number')}
+          ${this._renderInput('leave', 'regular_hours', 'regular hours', 'number', undefined, false, '0.01')}
+          ${this._renderInput('leave', 'shift_hours', 'shift hours', 'number', undefined, false, '0.01')}
+          ${this._renderInput('leave', 'overtime_1_5_hours', 'overtime 1.5 hours', 'number', undefined, false, '0.01')}
+          ${this._renderInput('leave', 'overtime_2_0_hours', 'overtime 2.0 hours', 'number', undefined, false, '0.01')}
+          ${this._renderInput('leave', 'holiday_hours', 'holiday hours', 'number', undefined, false, '0.01')}
+          ${this._renderInput('leave', 'public_holiday_hours', 'public holiday hours', 'number', undefined, false, '0.01')}
+          ${this._renderInput('leave', 'personal_leave_hours', 'personal leave hours', 'number', undefined, false, '0.01')}
         </div>
       </div>
     `;

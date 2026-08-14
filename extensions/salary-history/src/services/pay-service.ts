@@ -92,6 +92,7 @@ export interface YtdAggregate {
   // Earnings-breakdown components (summed per payslip, all >= 0):
   readonly shift_allowance: number;
   readonly overtime_1_5x: number;
+  readonly overtime_1_5_hours: number;
   readonly overtime_2_0x: number;
   readonly personal_leave: number;
   readonly holiday_leave_loading: number;
@@ -448,6 +449,7 @@ export function aggregateYearToDate(
     count: 0,
     shift_allowance: 0,
     overtime_1_5x: 0,
+    overtime_1_5_hours: 0,
     overtime_2_0x: 0,
     personal_leave: 0,
     holiday_leave_loading: 0,
@@ -462,6 +464,7 @@ export function aggregateYearToDate(
   let count = 0;
   let shift_allowance = 0;
   let overtime_1_5x = 0;
+  let overtime_1_5_hours = 0;
   let overtime_2_0x = 0;
   let personal_leave = 0;
   let holiday_leave_loading = 0;
@@ -477,6 +480,7 @@ export function aggregateYearToDate(
     sg += p.superannuation_guarantee;
     shift_allowance += p.shift_allowance;
     overtime_1_5x += p.overtime_1_5x;
+    overtime_1_5_hours += p.overtime_1_5_hours;
     overtime_2_0x += p.overtime_2_0x;
     personal_leave += p.personal_leave;
     holiday_leave_loading += p.holiday_leave_loading;
@@ -492,6 +496,7 @@ export function aggregateYearToDate(
     count,
     shift_allowance,
     overtime_1_5x,
+    overtime_1_5_hours,
     overtime_2_0x,
     personal_leave,
     holiday_leave_loading,

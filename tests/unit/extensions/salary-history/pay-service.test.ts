@@ -265,7 +265,7 @@ describe('pay-service', () => {
     it('returns zero aggregate for empty payslips', () => {
       expect(aggregateYearToDate([], '07-01', '2026-01-15')).toEqual({
         gross: 0, net: 0, payg: 0, superannuation_guarantee: 0, count: 0,
-        shift_allowance: 0, overtime_1_5x: 0, overtime_2_0x: 0,
+        shift_allowance: 0, overtime_1_5x: 0, overtime_1_5_hours: 0, overtime_2_0x: 0,
         personal_leave: 0, holiday_leave_loading: 0, holiday_pay: 0, public_holiday: 0,
       });
     });
@@ -274,7 +274,7 @@ describe('pay-service', () => {
       const inFY = validPaySlip({
         finance_year: '2025-26', gross: 2000, net: 1500, payg_withholding: 500,
         superannuation_guarantee: 240, shift_allowance: 100, overtime_1_5x: 50,
-        overtime_2_0x: 20, personal_leave: 10, holiday_leave_loading: 5,
+        overtime_1_5_hours: 3, overtime_2_0x: 20, personal_leave: 10, holiday_leave_loading: 5,
         holiday_pay: 8, public_holiday: 3,
       });
       const otherFY = validPaySlip({ finance_year: '2024-25', gross: 9999 });
@@ -286,6 +286,7 @@ describe('pay-service', () => {
       expect(agg.count).toBe(2);
       expect(agg.shift_allowance).toBe(200);
       expect(agg.overtime_1_5x).toBe(100);
+      expect(agg.overtime_1_5_hours).toBe(6);
       expect(agg.overtime_2_0x).toBe(40);
       expect(agg.personal_leave).toBe(20);
       expect(agg.holiday_leave_loading).toBe(10);
@@ -296,7 +297,7 @@ describe('pay-service', () => {
     it('returns zero aggregate when referenceDate cannot determine a FY', () => {
       expect(aggregateYearToDate([validPaySlip()], '07-01', 'garbage')).toEqual({
         gross: 0, net: 0, payg: 0, superannuation_guarantee: 0, count: 0,
-        shift_allowance: 0, overtime_1_5x: 0, overtime_2_0x: 0,
+        shift_allowance: 0, overtime_1_5x: 0, overtime_1_5_hours: 0, overtime_2_0x: 0,
         personal_leave: 0, holiday_leave_loading: 0, holiday_pay: 0, public_holiday: 0,
       });
     });
