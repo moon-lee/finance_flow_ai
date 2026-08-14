@@ -114,6 +114,7 @@ async function applyTheme(theme: unknown): Promise<void> {
 async function toggleTheme(): Promise<void> {
   const isLight = document.body.classList.toggle('light-theme');
   await window.financeShell?.settings.set('core.theme', isLight ? 'light' : 'dark');
+  window.financeShell?.panel?.broadcastTheme?.(isLight ? 'light' : 'dark');
 }
 
 async function loadExtensionContributions(): Promise<void> {

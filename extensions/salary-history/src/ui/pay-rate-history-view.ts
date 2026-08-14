@@ -35,7 +35,7 @@ export class PayRateHistoryView extends LitElement {
     listStyles,
     css`
       .container { max-width: 1080px; margin: 0 auto; padding: 24px 20px 40px; }
-      .subtitle { color: var(--ff-text-muted); font-size: 13px; margin: 0 0 16px; }
+      .subtitle { color: var(--ff-text-muted); font-size: 15px; margin: 0 0 16px; }
       .info-banner {
         background: var(--ff-bg-subpanel);
         border: 1px solid var(--ff-border);
@@ -46,7 +46,7 @@ export class PayRateHistoryView extends LitElement {
         color: var(--ff-text);
       }
       .info-banner strong { color: var(--ff-teal); }
-      table { width: 100%; border-collapse: collapse; font-size: 12px; }
+      table { width: 100%; border-collapse: collapse; font-size: 13px; }
       th {
         text-align: left;
         padding: 8px 10px;
@@ -86,7 +86,7 @@ export class PayRateHistoryView extends LitElement {
       .btn-danger-link:hover { color: #ff9a86; text-decoration: underline; }
       .empty-effective_to { color: var(--ff-teal); font-weight: 700; }
       .info-note {
-        font-size: 12px;
+        font-size: 13px;
         color: var(--ff-text-muted);
         font-style: italic;
         margin-top: 8px;

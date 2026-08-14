@@ -80,6 +80,7 @@ export interface PanelApi {
   unmountAll: () => void;
   onMounted: (callback: (panelId: string) => void) => () => void;
   onRequestBounds: (callback: (panelId: string) => void) => () => void;
+  broadcastTheme: (theme: string) => void;
 }
 
 /** [Fix] One log entry forwarded from the Extension Host. See
@@ -140,9 +141,14 @@ export interface PanelFinanceShellApi {
     readTable: (params: unknown) => Promise<unknown>;
     writeTable: (params: unknown) => Promise<unknown>;
     setDirty: (extensionId: string, dirty: boolean) => void;
-    autoSaveDraft: (extensionId: string) => Promise<void>;
+     autoSaveDraft: (extensionId: string) => Promise<void>;
   };
   accounts: AccountsApi;
+  theme: {
+    get: () => Promise<string>;
+    onChange: (callback: (theme: string) => void) => () => void;
+    broadcastTheme: (theme: string) => void;
+  };
   onPanelInit: (callback: (payload: unknown) => void) => () => void;
   onNavigate: (callback: (payload: unknown) => void) => () => void;
   onMountUpdate: (callback: (payload: unknown) => void) => () => void;

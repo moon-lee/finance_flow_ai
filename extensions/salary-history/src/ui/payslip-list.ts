@@ -35,7 +35,7 @@ export class PayslipList extends LitElement {
     listStyles,
     css`
       .container { max-width: 960px; margin: 0 auto; padding: 24px 20px 40px; }
-      .subtitle { color: #858585; font-size: 13px; margin: 0 0 16px; }
+      .subtitle { color: #858585; font-size: 15px; margin: 0 0 16px; }
       .summary-bar {
         display: flex;
         justify-content: space-between;
@@ -58,11 +58,11 @@ export class PayslipList extends LitElement {
       }
       .summary-item .summary-value, .kpi .value {
         font-family: "SF Mono", Consolas, monospace;
-        font-size: 16px;
+        font-size: 17px;
         color: var(--ff-text-strong);
         font-weight: 600;
       }
-      table { width: 100%; border-collapse: collapse; font-size: 13px; }
+      table { width: 100%; border-collapse: collapse; font-size: 15px; }
       th {
         text-align: left;
         padding: 10px 12px;
@@ -75,7 +75,7 @@ export class PayslipList extends LitElement {
       }
       th.sortable { cursor: pointer; user-select: none; }
       th.sortable:hover { color: #d4d4d4; }
-      th.sortable::after { content: ' ⇅'; color: #555; font-size: 10px; }
+      th.sortable::after { content: ' ⇅'; color: #555;         font-size: 11px; }
       th.sorted-desc::after { content: ' ↓'; color: #007acc; }
       th.sorted-asc::after { content: ' ↑'; color: #007acc; }
       td {
@@ -86,7 +86,7 @@ export class PayslipList extends LitElement {
       }
       th.num, td.num { text-align: right; }
       td.num { font-family: "SF Mono", Consolas, monospace; }
-      td.fy { font-family: "SF Mono", Consolas, monospace; color: #858585; font-size: 12px; }
+      td.fy { font-family: "SF Mono", Consolas, monospace; color: #858585;         font-size: 13px; }
       td.actions { text-align: right; white-space: nowrap; }
       td.actions .btn-link { margin-left: 8px; }
       td.actions .btn-link:first-child { margin-left: 0; }
@@ -133,12 +133,12 @@ export class PayslipList extends LitElement {
         border-radius: 4px;
         padding: 4px 8px;
         font-family: "SF Mono", Consolas, monospace;
-        font-size: 12px;
+        font-size: 13px;
         white-space: nowrap;
       }
       .ytd-chip .chip-label {
         color: var(--ff-text-muted);
-        font-size: 10px;
+        font-size: 11px;
         text-transform: uppercase;
         letter-spacing: 0.3px;
         overflow: hidden;
@@ -152,7 +152,7 @@ export class PayslipList extends LitElement {
         padding: 10px 16px;
         background: #2a2a2a;
         border-top: 1px solid #3e3e3e;
-        font-size: 12px;
+        font-size: 13px;
         color: #858585;
       }
       .pagination .pages { display: flex; gap: 4px; }
@@ -164,13 +164,13 @@ export class PayslipList extends LitElement {
         border-radius: 3px;
         cursor: pointer;
         font-family: inherit;
-        font-size: 12px;
+        font-size: 13px;
       }
       .pagination .page-btn:hover { border-color: #007acc; }
       .pagination .page-btn.current { background: #007acc; border-color: #007acc; color: #ffffff; }
       .pagination .page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
       .info-note {
-        font-size: 12px;
+        font-size: 13px;
         color: #858585;
         font-style: italic;
         margin-top: 8px;

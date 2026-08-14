@@ -27,46 +27,46 @@ export class AccountsManager extends LitElement {
     }
 
     .header h1 {
-      font-size: 20px;
+      font-size: 21px;
       font-weight: 600;
-      color: #ffffff;
+      color: var(--text-primary);
       margin: 0;
     }
 
     .btn {
-      background: #0e639c;
-      color: #ffffff;
+      background: var(--btn-primary-bg);
+      color: var(--btn-primary-text);
       border: none;
       padding: 8px 16px;
       border-radius: 3px;
-      font-size: 13px;
+      font-size: 11px;
       cursor: pointer;
       font-family: inherit;
     }
 
     .btn:hover {
-      background: #1177bb;
+      background: var(--btn-primary-hover-bg);
     }
 
     .btn-secondary {
-      background: #3c3c3c;
-      color: #d4d4d4;
-      border: 1px solid #3e3e3e;
+      background: var(--btn-secondary-bg);
+      color: var(--btn-secondary-text);
+      border: 1px solid var(--btn-secondary-border);
     }
 
     .btn-secondary:hover {
-      border-color: #007acc;
+      border-color: var(--btn-secondary-hover-border);
     }
 
     .btn-danger {
       background: transparent;
-      color: #f48771;
-      border: 1px solid #f48771;
+      color: var(--danger-color);
+      border: 1px solid var(--danger-border);
     }
 
     .btn-danger:hover {
-      background: #f48771;
-      color: #1e1e1e;
+      background: var(--danger-hover-bg);
+      color: var(--danger-hover-text);
     }
 
     .account-list {
@@ -82,8 +82,8 @@ export class AccountsManager extends LitElement {
       align-items: center;
       gap: 24px;
       padding: 12px 16px;
-      background: #252526;
-      border: 1px solid #3e3e3e;
+      background: var(--workspace-bg);
+      border: 1px solid var(--input-border);
       border-radius: 6px;
       margin-bottom: 8px;
       min-width: 0;
@@ -95,14 +95,14 @@ export class AccountsManager extends LitElement {
     }
 
     .account-name {
-      font-size: 14px;
+      font-size: 11px;
       font-weight: 600;
-      color: #ffffff;
+      color: var(--text-primary);
     }
 
     .account-meta {
-      font-size: 12px;
-      color: #858585;
+      font-size: 11px;
+      color: var(--text-tertiary);
       margin-top: 2px;
     }
 
@@ -120,8 +120,8 @@ export class AccountsManager extends LitElement {
     }
 
     .badge-inactive {
-      background: rgba(132, 132, 132, 0.15);
-      color: #858585;
+      background: var(--badge-inactive-bg);
+      color: var(--badge-inactive-text);
     }
 
     .row-actions {
@@ -130,8 +130,8 @@ export class AccountsManager extends LitElement {
     }
 
     .form-card {
-      background: #252526;
-      border: 1px solid #3e3e3e;
+      background: var(--workspace-bg);
+      border: 1px solid var(--input-border);
       border-radius: 6px;
       padding: 16px;
       margin-bottom: 16px;
@@ -154,25 +154,25 @@ export class AccountsManager extends LitElement {
     }
 
     .form-field label {
-      font-size: 12px;
-      color: #858585;
+      font-size: 11px;
+      color: var(--text-tertiary);
     }
 
     .form-field input[type="text"] {
-      background: #3c3c3c;
-      border: 1px solid #3e3e3e;
-      color: #d4d4d4;
+      background: var(--input-bg);
+      border: 1px solid var(--input-border);
+      color: var(--input-text);
       padding: 8px 10px;
       border-radius: 3px;
       font-family: inherit;
-      font-size: 13px;
+      font-size: 11px;
       box-sizing: border-box;
       width: 100%;
     }
 
     .form-field input[type="text"]:focus {
-      outline: 1px solid #007acc;
-      border-color: #007acc;
+      outline: 1px solid var(--input-focus-border);
+      border-color: var(--input-focus-border);
     }
 
     .toggle-row {
@@ -183,14 +183,14 @@ export class AccountsManager extends LitElement {
     }
 
     .toggle-row input[type="checkbox"] {
-      accent-color: #007acc;
+      accent-color: var(--input-focus-border);
       width: 16px;
       height: 16px;
     }
 
     .toggle-row label {
-      font-size: 13px;
-      color: #d4d4d4;
+      font-size: 11px;
+      color: var(--input-text);
       cursor: pointer;
     }
 

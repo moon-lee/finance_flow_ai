@@ -125,6 +125,61 @@ function createPanelFinanceApi(extensionId: string): FinanceApi {
 async function mountPanelComponent(payload: PanelPayload): Promise<void> {
   const { extensionId, viewId, mountData } = payload;
   console.log('[panel bootstrap] mountPanelComponent', { extensionId, viewId, hasMountData: !!mountData });
+
+  const theme = await financeShell.theme.get();
+  const root = document.documentElement;
+  if (theme === 'light') {
+    document.body.classList.add('light-theme');
+    root.style.setProperty('--ff-bg-base', '#f8fafc');
+    root.style.setProperty('--ff-bg-panel', '#ffffff');
+    root.style.setProperty('--ff-bg-subpanel', '#f1f5f9');
+    root.style.setProperty('--ff-bg-input', '#e2e8f0');
+    root.style.setProperty('--ff-border', '#e2e8f0');
+    root.style.setProperty('--ff-text', '#1e293b');
+    root.style.setProperty('--ff-text-muted', '#64748b');
+    root.style.setProperty('--ff-text-strong', '#0f172a');
+    root.style.setProperty('--ff-accent', '#007acc');
+    root.style.setProperty('--ff-accent-hover', '#1188dd');
+    root.style.setProperty('--ff-teal', '#4ec9b0');
+  } else {
+    document.body.classList.remove('light-theme');
+    root.style.setProperty('--ff-bg-base', '#1e1e1e');
+    root.style.setProperty('--ff-bg-panel', '#252526');
+    root.style.setProperty('--ff-bg-subpanel', '#2a2a2a');
+    root.style.setProperty('--ff-bg-input', '#3c3c3c');
+    root.style.setProperty('--ff-border', '#3e3e3e');
+    root.style.setProperty('--ff-text', '#d4d4d4');
+    root.style.setProperty('--ff-text-muted', '#858585');
+    root.style.setProperty('--ff-text-strong', '#ffffff');
+    root.style.setProperty('--ff-accent', '#007acc');
+    root.style.setProperty('--ff-accent-hover', '#1188dd');
+    root.style.setProperty('--ff-teal', '#4ec9b0');
+  }
+
+  financeShell.theme.onChange((newTheme: string) => {
+    if (newTheme === 'light') {
+      document.body.classList.add('light-theme');
+      root.style.setProperty('--ff-bg-base', '#f8fafc');
+      root.style.setProperty('--ff-bg-panel', '#ffffff');
+      root.style.setProperty('--ff-bg-subpanel', '#f1f5f9');
+      root.style.setProperty('--ff-bg-input', '#e2e8f0');
+      root.style.setProperty('--ff-border', '#e2e8f0');
+      root.style.setProperty('--ff-text', '#1e293b');
+      root.style.setProperty('--ff-text-muted', '#64748b');
+      root.style.setProperty('--ff-text-strong', '#0f172a');
+    } else {
+      document.body.classList.remove('light-theme');
+      root.style.setProperty('--ff-bg-base', '#1e1e1e');
+      root.style.setProperty('--ff-bg-panel', '#252526');
+      root.style.setProperty('--ff-bg-subpanel', '#2a2a2a');
+      root.style.setProperty('--ff-bg-input', '#3c3c3c');
+      root.style.setProperty('--ff-border', '#3e3e3e');
+      root.style.setProperty('--ff-text', '#d4d4d4');
+      root.style.setProperty('--ff-text-muted', '#858585');
+      root.style.setProperty('--ff-text-strong', '#ffffff');
+    }
+  });
+
   const bundleUrl = `finance-shell://extensions/${extensionId}.js`;
 
   try {

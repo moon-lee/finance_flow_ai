@@ -7,6 +7,7 @@ export interface NavItem {
   label: string;
   command: string;
   group?: string;
+  icon?: string;
 }
 
 @customElement('navigation-panel')
@@ -16,43 +17,66 @@ export class NavigationPanel extends LitElement {
       display: flex;
       flex-direction: column;
       min-height: 0;
-      padding: 8px;
+      padding: 8px 0;
     }
 
-    h2 {
-      margin: 6px 8px 14px;
-      color: #f2f2f2;
-      font-size: 13px;
-      font-weight: 600;
+    .nav-header {
+      padding: 4px 16px 8px;
+      font-size: 12px;
+      font-weight: 700;
       text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-tertiary);
     }
 
-    .nav-section {
-      margin-bottom: 16px;
-    }
-
-    .nav-title {
-      padding: 8px 8px 4px;
-      color: #a8a8a8;
-      font-size: 11px;
+    .nav-group-label {
+      color: var(--text-tertiary);
+      font-size: 12px;
+      font-weight: 700;
       text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 12px 16px 4px;
     }
 
     .nav-item {
-      padding: 5px 8px;
-      border-radius: 4px;
-      color: #d4d4d4;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 16px;
+      color: var(--text-secondary);
       cursor: pointer;
-      font-size: 13px;
+      font-size: 14px;
+      border-left: 2px solid transparent;
+      margin-bottom: 2px;
     }
 
     .nav-item:hover {
-      background: rgba(255, 255, 255, 0.08);
+      background: var(--section-header-hover-bg);
     }
 
     .nav-item.active {
-      background: rgba(0, 122, 204, 0.18);
-      color: #fff;
+      background: var(--tab-bg);
+      border-left-color: var(--accent);
+      color: var(--text-primary);
+    }
+
+    .nav-icon {
+      width: 18px;
+      height: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--btn-secondary-bg);
+      border-radius: 3px;
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--tab-icon-inactive-text);
+      flex-shrink: 0;
+    }
+
+    .nav-item.active .nav-icon {
+      background: var(--tab-icon-active-bg);
+      color: var(--tab-active-text);
     }
   `;
 
@@ -140,21 +164,24 @@ export class NavigationPanel extends LitElement {
     const sections = Array.from(grouped.entries()).map(([group, items]) => {
       const title = group ?? 'General';
       const children = items.map(item => html`
-        <div class="nav-item" data-testid="nav-${item.id}" @click="${() => this._onNav(item.command)}">${item.label}</div>
+        <div class="nav-item" data-testid="nav-${item.id}" @click="${() => this._onNav(item.command)}">
+          <span class="nav-icon">${item.label.split(' ')[1]?.charAt(0).toUpperCase() ?? item.label.charAt(0).toUpperCase()}</span>
+          <span>${item.label}</span>
+        </div>
       `);
       return html`
         <div class="nav-section">
-          <div class="nav-title">${title}</div>
+          <div class="nav-group-label">${title}</div>
           ${children}
         </div>
       `;
     });
 
     return html`
-      <h2>Explorer</h2>
+      <div class="nav-header">Explorer</div>
       ${sections}
       <div class="nav-section">
-        <div class="nav-title">Recent</div>
+        <div class="nav-group-label">Recent</div>
         <div class="nav-item">No recent items</div>
       </div>
     `;

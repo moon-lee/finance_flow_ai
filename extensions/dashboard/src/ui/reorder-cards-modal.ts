@@ -39,11 +39,11 @@ export class ReorderCardsModal extends LitElement {
       padding: 20px;
       width: 320px;
       color: #d4d4d4;;
-      font: 13px/1.5 system-ui, sans-serif;
+      font: 15px/1.5 system-ui, sans-serif;
     }
     h2 {
       margin: 0 0 12px;
-      font-size: 15px;
+      font-size: 16px;
     }
     .item {
       display: flex;

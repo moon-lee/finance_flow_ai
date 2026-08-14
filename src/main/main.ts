@@ -600,6 +600,10 @@ function registerIpcHandlers(): void {
     shortcutRegistry.build(extensionRegistry ? extensionRegistry.getAllManifests() : []);
     return shortcutRegistry.list();
   });
+
+  ipcMain.handle("theme:broadcast", (_event, theme: string) => {
+    webviewPanelManager?.broadcastTheme(theme);
+  });
 }
 
 /**

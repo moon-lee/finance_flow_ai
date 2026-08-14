@@ -36,13 +36,15 @@
           "id": "salary-pay-history",
           "label": "Pay History",
           "command": "salary.show-pay-history",
-          "group": "Salary"
+          "group": "Salary",
+          "icon": "H"
         },
         {
           "id": "salary-pay-rate-history",
           "label": "Pay Rate History",
           "command": "salary.show-pay-rate-history",
-          "group": "Salary"
+          "group": "Salary",
+          "icon": "R"
         }
       ],
       "allowedUiEvents": [

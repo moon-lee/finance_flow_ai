@@ -132,11 +132,11 @@ export class PayslipForm extends LitElement {
     formStyles,
     css`
       :host {
-        font: 14px/1.5 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        font: 16px/1.5 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       }
       * { box-sizing: border-box; }
       .container { max-width: 760px; margin: 0 auto; padding: 24px 20px 40px; }
-      .subtitle { color: #858585; font-size: 13px; margin: 0 0 24px; }
+      .subtitle { color: #858585; font-size: 15px; margin: 0 0 24px; }
       .section.readonly { border-color: #5a4a1a; }
       .section.accrual { border-color: #c2913a; }
       .reorder-btn {
@@ -151,11 +151,11 @@ export class PayslipForm extends LitElement {
       }
       .reorder-btn:hover { border-color: #007acc; color: #d4d4d4; }
       input[readonly], input:disabled { background: #2a2a2a; color: #858585; font-style: italic; }
-      .read-only-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; font-size: 13px; }
+      .read-only-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; font-size: 15px; }
       .edit-balance-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 0; }
       .edit-balance-row.balance-divider { border-top: 1px solid #3e3e3e; margin-top: 4px; padding-top: 8px; }
-      .edit-balance-label { color: #d4d4d4; font-size: 13px; }
-      .edit-balance-label .hint { color: #858585; font-weight: normal; font-size: 12px; }
+      .edit-balance-label { color: #d4d4d4; font-size: 15px; }
+      .edit-balance-label .hint { color: #858585; font-weight: normal; font-size: 14px; }
       .edit-balance-input {
         width: 160px;
         text-align: right;
@@ -164,38 +164,38 @@ export class PayslipForm extends LitElement {
         border: 1px solid #3e3e3e;
         border-radius: 3px;
         padding: 6px 10px;
-        font-size: 13px;
+        font-size: 12px;
         font-family: 'SF Mono', Consolas, monospace;
         outline: none;
       }
       .edit-balance-input:focus { border-color: #007acc; }
-      .read-only-row .label { color: #858585; font-family: 'SF Mono', Consolas, monospace; font-size: 12px; }
+      .read-only-row .label { color: #858585; font-family: 'SF Mono', Consolas, monospace; font-size: 14px; }
       .read-only-row .value { color: #d4d4d4; font-family: 'SF Mono', Consolas, monospace; }
       .toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; }
       .toggle-btn {
         display: inline-flex; align-items: center; gap: 6px;
         cursor: pointer; color: #6da3d6;
         background: #1e1e1e; border: 1px solid #3e3e3e; border-radius: 4px;
-        padding: 6px 12px; font-size: 13px; line-height: 1;
+        padding: 6px 12px; font-size: 15px; line-height: 1;
       }
       .toggle-btn:hover { background: #2a2a2a; border-color: #6da3d6; }
       .toggle-icon { font-size: 16px; line-height: 1; transform: translateY(1px); }
       .toggle-text { font-weight: 500; }
       .hours-block { background: #1e1e1e; border: 1px solid #3e3e3e; border-radius: 4px; padding: 12px; margin-top: 12px; }
-      .hours-block-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; color: #858585; margin-bottom: 8px; }
-      .amber { background: #4a3c00; border: 1px solid #cca700; color: #e8d28a; border-radius: 4px; padding: 8px 10px; margin: 8px 0; font-size: 12px; }
+      .hours-block-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; color: #858585; margin-bottom: 8px; }
+      .amber { background: #4a3c00; border: 1px solid #cca700; color: #e8d28a; border-radius: 4px; padding: 8px 10px; margin: 8px 0; font-size: 14px; }
       .amber button { margin-left: 6px; }
-      .green { background: #0d2e26; border: 1px solid #4ec9b0; color: #9fe6d6; border-radius: 4px; padding: 8px 10px; margin: 8px 0; font-size: 12px; }
-      .red { background: #3a1414; border: 1px solid #f48771; color: #f3b3a6; border-radius: 4px; padding: 8px 10px; margin: 8px 0; font-size: 12px; }
-      .errors { color: #f48771; font-size: 12px; margin: 8px 0; }
-      .formula { color: #8a8a8a; font-size: 11px; margin-top: 8px; font-family: 'SF Mono', Consolas, monospace; }
-      .btn-validate { background: #2a2a2a; color: #007acc; border: 1px solid #007acc; padding: 5px 12px; border-radius: 3px; font-size: 12px; cursor: pointer; font-family: inherit; }
+      .green { background: #0d2e26; border: 1px solid #4ec9b0; color: #9fe6d6; border-radius: 4px; padding: 8px 10px; margin: 8px 0; font-size: 14px; }
+      .red { background: #3a1414; border: 1px solid #f48771; color: #f3b3a6; border-radius: 4px; padding: 8px 10px; margin: 8px 0; font-size: 14px; }
+      .errors { color: #f48771; font-size: 14px; margin: 8px 0; }
+      .formula { color: #8a8a8a; font-size: 13px; margin-top: 8px; font-family: 'SF Mono', Consolas, monospace; }
+      .btn-validate { background: #2a2a2a; color: #007acc; border: 1px solid #007acc; padding: 5px 12px; border-radius: 3px; font-size: 14px; cursor: pointer; font-family: inherit; }
       .btn-validate:hover { background: #003a66; }
       .payg-btn-row { display: flex; align-items: center; gap: 12px; margin-top: 8px; flex-wrap: wrap; }
-      .payg-result { margin-top: 12px; padding: 10px 12px; background: #1e3a2e; border-left: 3px solid #4ec9b0; border-radius: 3px; font-size: 12px; color: #d4d4d4; }
+      .payg-result { margin-top: 12px; padding: 10px 12px; background: #1e3a2e; border-left: 3px solid #4ec9b0; border-radius: 3px; font-size: 14px; color: #d4d4d4; }
       .payg-result-icon { color: #4ec9b0; font-weight: 700; margin-right: 6px; }
-      .payg-detail { color: #858585; margin-top: 4px; font-family: 'SF Mono', Consolas, monospace; font-size: 11px; }
-      .info-note { font-size: 11px; color: #858585; font-style: italic; margin: 0 0 8px; }
+      .payg-detail { color: #858585; margin-top: 4px; font-family: 'SF Mono', Consolas, monospace; font-size: 13px; }
+      .info-note { font-size: 13px; color: #858585; font-style: italic; margin: 0 0 8px; }
     `,
   ];
 
@@ -711,7 +711,7 @@ export class PayslipForm extends LitElement {
       </div>
       <div class="payg-btn-row">
         <button type="button" class="btn-validate" data-testid="validate-payg" @click="${() => this._onValidatePayg()}">✓ Validate PAYG</button>
-        <span style="font-size:12px;color:#858585;">Compares derived PAYG to ATO weekly tax estimate</span>
+        <span style="font-size:11px;color:#858585;">Compares derived PAYG to ATO weekly tax estimate</span>
       </div>
       ${payg
         ? payg.bracketError

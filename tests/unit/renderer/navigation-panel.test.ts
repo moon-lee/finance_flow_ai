@@ -29,11 +29,16 @@ describe('NavigationPanel', () => {
     // 2 group sections + 1 built-in "Recent" section
     expect(sections.length).toBe(3);
 
-    const titles = panel.shadowRoot!.querySelectorAll('.nav-title');
+    const titles = panel.shadowRoot!.querySelectorAll('.nav-group-label');
     const titleTexts = Array.from(titles).map(t => t.textContent);
     expect(titleTexts).toContain('Salary');
     expect(titleTexts).toContain('Config');
     expect(titleTexts).toContain('Recent');
+
+    const navLabels = Array.from(panel.shadowRoot!.querySelectorAll('.nav-item')).map(n => n.textContent?.replace(/\s+/g, ' ').trim());
+    expect(navLabels).toContain('H Pay History');
+    expect(navLabels).toContain('H Rate History');
+    expect(navLabels).toContain('S Settings');
 
     document.body.removeChild(panel);
   });
@@ -80,9 +85,9 @@ describe('NavigationPanel', () => {
 
     navItems = panel.shadowRoot!.querySelectorAll('.nav-item');
     expect(navItems.length).toBe(2);
-    const labels = Array.from(navItems).map(n => n.textContent);
-    expect(labels).toContain('Budget Overview');
-    expect(labels).not.toContain('Pay History');
+    const labels = Array.from(navItems).map(n => n.textContent?.replace(/\s+/g, ' ').trim());
+    expect(labels).toContain('O Budget Overview');
+    expect(labels).not.toContain('H Pay History');
 
     document.body.removeChild(panel);
   });
@@ -107,8 +112,8 @@ describe('NavigationPanel', () => {
     await panel.updateComplete;
 
     const navItems = panel.shadowRoot!.querySelectorAll('.nav-item');
-    const labels = Array.from(navItems).map(n => n.textContent);
-    expect(labels).toContain('App Preferences');
+    const labels = Array.from(navItems).map(n => n.textContent?.replace(/\s+/g, ' ').trim());
+    expect(labels).toContain('P App Preferences');
     expect(labels).not.toContain('Settings');
 
     document.body.removeChild(panel);

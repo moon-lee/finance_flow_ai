@@ -38,7 +38,7 @@ export class ReorderSectionsModal extends LitElement {
       }
       h2 {
         margin: 0 0 12px;
-        font-size: 15px;
+        font-size: 16px;
       }
       .item {
         display: flex;

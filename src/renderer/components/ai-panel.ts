@@ -12,8 +12,8 @@ export class AIPanel extends LitElement {
     }
 
     .ai-header {
-      color: #f2f2f2;
-      font-size: 13px;
+      color: var(--text-primary);
+      font-size: 14px;
       font-weight: 600;
       margin-bottom: 12px;
     }
@@ -21,8 +21,8 @@ export class AIPanel extends LitElement {
     .ai-content {
       flex: 1;
       min-height: 0;
-      color: #c8c8c8;
-      font-size: 13px;
+      color: var(--text-secondary);
+      font-size: 14px;
     }
   `;
 

@@ -440,6 +440,14 @@ export class WebviewPanelManager {
     }
   }
 
+  broadcastTheme(theme: string): void {
+    for (const [, h] of this.panels) {
+      if (!h.view.webContents.isDestroyed()) {
+        h.view.webContents.send('theme:changed', theme);
+      }
+    }
+  }
+
   findByPanelId(panelId: string): PanelHandle | undefined {
     const found = Array.from(this.panels.values()).find((h) => h.panelId === panelId);
 /*     if (!found) {

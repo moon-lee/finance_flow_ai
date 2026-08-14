@@ -98,6 +98,7 @@ export interface ManifestNavigationContribution {
   label: string;
   command: string;
   group?: string;
+  icon?: string;
 }
 
 export interface ManifestContributions {

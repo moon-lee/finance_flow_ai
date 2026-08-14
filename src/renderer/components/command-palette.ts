@@ -29,10 +29,10 @@ export class CommandPalette extends LitElement {
       width: 100%;
       padding: 14px;
       border: 0;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      border-bottom: 1px solid var(--panel-border);
       background: transparent;
-      color: #ffffff;
-      font-size: 14px;
+      color: var(--text-primary);
+      font-size: 13px;
     }
 
     input:focus {
@@ -55,7 +55,7 @@ export class CommandPalette extends LitElement {
 
     .palette-item.selected {
       background: var(--accent);
-      color: #ffffff;
+      color: var(--text-primary);
     }
 
     .palette-item {
@@ -80,33 +80,33 @@ export class CommandPalette extends LitElement {
 
     .keybinding kbd {
       font-family: 'SF Mono', Consolas, monospace;
-      font-size: 10px;
+      font-size: 11px;
       line-height: 1;
       padding: 2px 5px;
       border-radius: 4px;
-      border: 1px solid rgba(255, 255, 255, 0.18);
+      border: 1px solid var(--panel-border);
       background: rgba(255, 255, 255, 0.06);
-      color: #cbd5e1;
+      color: var(--text-secondary);
     }
 
     .palette-item.selected .keybinding kbd {
-      border-color: rgba(255, 255, 255, 0.4);
+      border-color: var(--panel-border);
       background: rgba(255, 255, 255, 0.14);
-      color: #ffffff;
+      color: var(--text-primary);
     }
 
     .group-label {
       padding: 6px 12px 2px;
-      color: #94a3b8;
-      font-size: 10px;
+      color: var(--text-secondary);
+      font-size: 11px;
       text-transform: uppercase;
       letter-spacing: 0.05em;
     }
 
     .empty-hint {
       padding: 12px;
-      color: #94a3b8;
-      font-size: 12px;
+      color: var(--text-secondary);
+      font-size: 13px;
       text-align: center;
     }
   `;

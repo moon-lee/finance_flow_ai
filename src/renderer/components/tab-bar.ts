@@ -8,9 +8,9 @@ export class TabBar extends LitElement {
     :host {
       display: flex;
       min-width: 0;
-      height: 36px;
-      background: #2d2d30;
-      border-bottom: 1px solid #3e3e3e;
+      height: 38px;
+      background: var(--tab-bg);
+      border-bottom: 1px solid var(--tab-border);
     }
 
     .tabs {
@@ -26,10 +26,10 @@ export class TabBar extends LitElement {
       min-width: 100px;
       max-width: 200px;
       padding: 0 12px;
-      border-right: 1px solid #3e3e3e;
-      background: #2d2d30;
-      color: #858585;
-      font-size: 13px;
+      border-right: 1px solid var(--tab-border);
+      background: var(--tab-bg);
+      color: var(--tab-text);
+      font-size: 14px;
       cursor: pointer;
       user-select: none;
       gap: 8px;
@@ -37,13 +37,13 @@ export class TabBar extends LitElement {
     }
 
     .tab:hover {
-      background: #37373d;
+      background: var(--section-header-hover-bg);
     }
 
     .tab.active {
-      background: #1e1e1e;
-      color: #ffffff;
-      border-bottom: 1px solid #1e1e1e;
+      background: var(--tab-active-bg);
+      color: var(--tab-active-text);
+      border-bottom: 1px solid var(--tab-active-bg);
       margin-bottom: -1px;
     }
 
@@ -54,19 +54,19 @@ export class TabBar extends LitElement {
       align-items: center;
       justify-content: center;
       border-radius: 3px;
-      font-size: 11px;
+      font-size: 12px;
       font-weight: 700;
       flex-shrink: 0;
     }
 
     .tab.active .tab-icon {
-      background: #007acc;
-      color: #ffffff;
+      background: var(--tab-icon-active-bg);
+      color: var(--tab-active-text);
     }
 
     .tab:not(.active) .tab-icon {
-      background: #3c3c3c;
-      color: #cccccc;
+      background: var(--tab-icon-inactive-bg);
+      color: var(--tab-icon-inactive-text);
     }
 
     .tab-label {
@@ -83,19 +83,19 @@ export class TabBar extends LitElement {
       align-items: center;
       justify-content: center;
       border-radius: 3px;
-      font-size: 14px;
-      color: #858585;
+      font-size: 15px;
+      color: var(--tab-text);
       line-height: 1;
     }
 
     .tab-close:hover {
-      background: #3e3e3e;
-      color: #ffffff;
+      background: var(--tab-close-hover-bg);
+      color: var(--tab-active-text);
     }
 
     .tab.active .tab-close:hover {
-      background: #007acc;
-      color: #ffffff;
+      background: var(--tab-icon-active-bg);
+      color: var(--tab-active-text);
     }
   `;
 

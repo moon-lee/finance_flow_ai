@@ -31,7 +31,7 @@ const shellApi = {
     list: async (): Promise<{
       views: Array<{ extensionId: string; view: { id: string; name: string; icon: string } }>;
       commands: Array<{ extensionId: string; command: { id: string; title: string; keybinding?: string } }>;
-      navigation: Array<{ extensionId: string; navigation: { id: string; label: string; command: string; group?: string } }>;
+      navigation: Array<{ extensionId: string; navigation: { id: string; label: string; command: string; group?: string; icon?: string } }>;
       configuration: Array<{ extensionId: string; configuration: { key: string; type: string; label: string; default?: unknown; enumOptions?: string[] } }>;
     }> => ipcRenderer.invoke('extensions:list'),
     activateView: async (viewId: string): Promise<{ activated: boolean; reason?: string }> =>
@@ -104,6 +104,9 @@ const shellApi = {
     unmountAll: (): void => {
       console.log('[preload] panel.unmountAll');
       ipcRenderer.send('panel:unmount-all');
+    },
+    broadcastTheme: (theme: string): void => {
+      ipcRenderer.send('theme:broadcast', theme);
     },
     onMounted: (callback: (panelId: string) => void): (() => void) => {
       console.log('[preload] panel.onMounted subscriber registered');

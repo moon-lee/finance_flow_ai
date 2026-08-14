@@ -105,15 +105,15 @@ export class SettingsScreen extends LitElement {
     }
 
     .settings-header h1 {
-      font-size: 20px;
+      font-size: 21px;
       font-weight: 600;
-      color: #ffffff;
+      color: var(--text-primary);
       margin: 0 0 4px;
     }
 
     .settings-header .subtitle {
-      color: #858585;
-      font-size: 13px;
+      color: var(--text-tertiary);
+      font-size: 12px;
       margin: 0;
     }
 
@@ -126,23 +126,23 @@ export class SettingsScreen extends LitElement {
       width: 100%;
       max-width: 420px;
       padding: 8px 12px 8px 32px;
-      border: 1px solid #3e3e3e;
+      border: 1px solid var(--input-border);
       border-radius: 3px;
-      background: #3c3c3c;
-      color: #d4d4d4;
-      font-size: 13px;
+      background: var(--input-bg);
+      color: var(--input-text);
+      font-size: 12px;
       font-family: inherit;
       outline: none;
       box-sizing: border-box;
     }
 
     .search-bar input:focus {
-      border-color: #007acc;
-      outline: 1px solid #007acc;
+      border-color: var(--input-focus-border);
+      outline: 1px solid var(--input-focus-border);
     }
 
     .search-bar input::placeholder {
-      color: #858585;
+      color: var(--text-tertiary);
     }
 
     .search-icon {
@@ -150,14 +150,14 @@ export class SettingsScreen extends LitElement {
       left: 10px;
       top: 50%;
       transform: translateY(-50%);
-      color: #858585;
+      color: var(--text-tertiary);
       pointer-events: none;
-      font-size: 14px;
+      font-size: 12px;
     }
 
     .settings-section {
-      background: #252526;
-      border: 1px solid #3e3e3e;
+      background: var(--workspace-bg);
+      border: 1px solid var(--input-border);
       border-radius: 6px;
       margin-bottom: 16px;
       overflow: hidden;
@@ -165,11 +165,11 @@ export class SettingsScreen extends LitElement {
 
     .settings-section-header {
       padding: 12px 16px;
-      background: #2d2d30;
-      border-bottom: 1px solid #3e3e3e;
-      font-size: 13px;
+      background: var(--tab-bg);
+      border-bottom: 1px solid var(--input-border);
+      font-size: 12px;
       font-weight: 600;
-      color: #ffffff;
+      color: var(--section-header-text);
       cursor: pointer;
       display: flex;
       justify-content: space-between;
@@ -178,15 +178,15 @@ export class SettingsScreen extends LitElement {
     }
 
     .settings-section-header:hover {
-      background: #2a2a2a;
+      background: var(--section-header-hover-bg);
     }
 
     .badge {
-      font-size: 11px;
+      font-size: 12px;
       padding: 2px 8px;
       border-radius: 3px;
-      background: #3c3c3c;
-      color: #858585;
+      background: var(--btn-secondary-bg);
+      color: var(--text-tertiary);
       font-weight: 600;
     }
 
@@ -212,7 +212,7 @@ export class SettingsScreen extends LitElement {
       justify-content: space-between;
       gap: 24px;
       padding: 15px 15px;
-      border-bottom: 1px solid #2a2a2a;
+      border-bottom: 1px solid var(--section-row-border);
     }
 
     .setting-row:last-child {
@@ -226,27 +226,27 @@ export class SettingsScreen extends LitElement {
 
     .setting-key {
       font-family: "SF Mono", Consolas, monospace;
-      font-size: 13px;
+      font-size: 12px;
       color: #4ec9b0;
       margin-bottom: 2px;
     }
 
     .setting-desc {
       font-size: 12px;
-      color: #858585;
+      color: var(--text-tertiary);
     }
 
     .setting-default {
-      font-size: 11px;
-      color: #858585;
+      font-size: 12px;
+      color: var(--text-tertiary);
       margin-top: 4px;
     }
 
     .setting-default code {
-      background: #1e1e1e;
+      background: var(--code-bg);
       padding: 1px 4px;
       border-radius: 2px;
-      font-size: 11px;
+      font-size: 12px;
     }
 
     .setting-control {
@@ -259,21 +259,21 @@ export class SettingsScreen extends LitElement {
     .setting-control select,
     .setting-control textarea {
       width: 100%;
-      background: #3c3c3c;
-      border: 1px solid #3e3e3e;
-      color: #d4d4d4;
+      background: var(--input-bg);
+      border: 1px solid var(--input-border);
+      color: var(--input-text);
       padding: 6px 10px;
       border-radius: 3px;
       font-family: inherit;
-      font-size: 13px;
+      font-size: 12px;
       box-sizing: border-box;
     }
 
     .setting-control input:focus,
     .setting-control select:focus,
     .setting-control textarea:focus {
-      outline: 1px solid #007acc;
-      border-color: #007acc;
+      outline: 1px solid var(--input-focus-border);
+      border-color: var(--input-focus-border);
     }
 
     .setting-control textarea {
@@ -284,7 +284,7 @@ export class SettingsScreen extends LitElement {
     }
 
     .setting-control input[type="checkbox"] {
-      accent-color: #007acc;
+      accent-color: var(--input-focus-border);
       width: 16px;
       height: 16px;
     }
@@ -297,13 +297,13 @@ export class SettingsScreen extends LitElement {
 
     .toggle-label {
       font-size: 12px;
-      color: #858585;
+      color: var(--text-tertiary);
     }
 
     .action-btn {
-      background: #3c3c3c;
-      color: #d4d4d4;
-      border: 1px solid #3e3e3e;
+      background: var(--btn-secondary-bg);
+      color: var(--btn-secondary-text);
+      border: 1px solid var(--btn-secondary-border);
       padding: 6px 12px;
       border-radius: 3px;
       font-size: 12px;
@@ -312,24 +312,24 @@ export class SettingsScreen extends LitElement {
     }
 
     .action-btn:hover {
-      border-color: #007acc;
+      border-color: var(--btn-secondary-hover-border);
     }
 
     .setting-helper {
-      font-size: 11px;
-      color: #858585;
+      font-size: 12px;
+      color: var(--text-tertiary);
       margin-top: 4px;
       font-family: "SF Mono", Consolas, monospace;
     }
 
     .setting-helper.invalid {
-      color: #f48771;
+      color: var(--danger-color);
     }
 
     .setting-control input.invalid,
     .setting-control textarea.invalid {
-      border-color: #f48771;
-      outline: 1px solid #f48771;
+      border-color: var(--danger-color);
+      outline: 1px solid var(--danger-color);
     }
   `;
 

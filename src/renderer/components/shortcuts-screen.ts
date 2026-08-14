@@ -27,21 +27,21 @@ export class ShortcutsScreen extends LitElement {
     }
 
     .shortcuts-header h1 {
-      font-size: 20px;
+      font-size: 21px;
       font-weight: 600;
-      color: #ffffff;
+      color: var(--text-primary);
       margin: 0 0 4px;
     }
 
     .shortcuts-header .subtitle {
-      color: #858585;
-      font-size: 13px;
+      color: var(--text-tertiary);
+      font-size: 14px;
       margin: 0;
     }
 
     .shortcuts-section {
-      background: #252526;
-      border: 1px solid #3e3e3e;
+      background: var(--workspace-bg);
+      border: 1px solid var(--input-border);
       border-radius: 6px;
       margin-bottom: 16px;
       overflow: hidden;
@@ -49,11 +49,11 @@ export class ShortcutsScreen extends LitElement {
 
     .shortcuts-section-header {
       padding: 12px 16px;
-      background: #2d2d30;
-      border-bottom: 1px solid #3e3e3e;
-      font-size: 13px;
+      background: var(--tab-bg);
+      border-bottom: 1px solid var(--input-border);
+      font-size: 14px;
       font-weight: 600;
-      color: #ffffff;
+      color: var(--section-header-text);
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -72,14 +72,14 @@ export class ShortcutsScreen extends LitElement {
     }
 
     .shortcut-row:hover {
-      background: #2a2a2a;
+      background: var(--section-header-hover-bg);
     }
 
     .shortcut-label {
       flex: 1;
       min-width: 0;
-      font-size: 13px;
-      color: #d4d4d4;
+      font-size: 14px;
+      color: var(--input-text);
     }
 
     .shortcut-actions {
@@ -90,51 +90,66 @@ export class ShortcutsScreen extends LitElement {
 
     .shortcut-badge {
       font-family: 'SF Mono', Consolas, monospace;
-      font-size: 11px;
+      font-size: 12px;
       padding: 3px 8px;
       border-radius: 4px;
-      background: #3c3c3c;
-      color: #cbd5e1;
-      border: 1px solid #4a4a4a;
+      background: var(--btn-secondary-bg);
+      color: var(--text-secondary);
+      border: 1px solid var(--btn-secondary-border);
       cursor: pointer;
       min-width: 80px;
       text-align: center;
     }
 
     .shortcut-badge:hover {
-      border-color: #007acc;
-      color: #ffffff;
+      border-color: var(--input-focus-border);
+      color: var(--text-primary);
     }
 
     .shortcut-badge.core {
-      border-color: #4a4a4a;
-      color: #858585;
+      border-color: var(--btn-secondary-border);
+      color: var(--text-tertiary);
       cursor: default;
     }
 
     .shortcut-badge.core:hover {
-      border-color: #4a4a4a;
-      color: #858585;
+      border-color: var(--btn-secondary-border);
+      color: var(--text-tertiary);
     }
 
     .reset-btn {
       background: transparent;
-      border: 1px solid #3e3e3e;
-      color: #858585;
-      font-size: 11px;
+      border: 1px solid var(--input-border);
+      color: var(--text-tertiary);
+      font-size: 12px;
       padding: 3px 8px;
       border-radius: 4px;
       cursor: pointer;
     }
 
     .reset-btn:hover {
-      border-color: #f85149;
-      color: #f85149;
+      border-color: var(--danger-color);
+      color: var(--danger-color);
     }
 
-    .global-reset {
+    .shortcuts-footer {
       padding: 12px 16px;
-      border-top: 1px solid #3e3e3e;
+      border-top: 1px solid var(--input-border);
+    }
+
+    .status-loading {
+      color: var(--text-tertiary);
+      padding: 16px;
+    }
+
+    .status-error {
+      color: var(--danger-color);
+      padding: 16px;
+    }
+
+    .status-empty {
+      color: var(--text-tertiary);
+      padding: 16px 0;
     }
   `;
 
@@ -218,10 +233,10 @@ export class ShortcutsScreen extends LitElement {
 
   render() {
     if (this._loading) {
-      return html`<div class="shortcuts-body"><div style="color:#858585;padding:16px;">Loading shortcuts...</div></div>`;
+      return html`<div class="shortcuts-body"><div class="status-loading">Loading shortcuts...</div></div>`;
     }
     if (this._error) {
-      return html`<div class="shortcuts-body"><div style="color:#f85149;padding:16px;">Error: ${this._error}</div></div>`;
+      return html`<div class="shortcuts-body"><div class="status-error">Error: ${this._error}</div></div>`;
     }
 
     const groups = this._groupedShortcuts();
@@ -236,7 +251,7 @@ export class ShortcutsScreen extends LitElement {
         </div>
 
         ${noShortcuts ? html`
-          <div style="color:#858585;padding:16px 0;">No shortcuts registered.</div>
+          <div class="status-empty">No shortcuts registered.</div>
         ` : Array.from(groups.entries()).map(([extensionId, entries]) => html`
           <div class="shortcuts-section">
             <div class="shortcuts-section-header">
@@ -261,7 +276,7 @@ export class ShortcutsScreen extends LitElement {
         `)}
 
         <div class="shortcuts-section">
-          <div class="global-reset">
+          <div class="shortcuts-footer">
             <button class="reset-btn" @click=${() => this._resetAll()}>Reset All to Defaults</button>
           </div>
         </div>

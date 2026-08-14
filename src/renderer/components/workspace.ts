@@ -27,8 +27,8 @@ export class WorkspacePanel extends LitElement {
     .tab-strip {
       display: flex;
       min-width: 0;
-      background: #252526;
-      border-bottom: 1px solid #3c3c3c;
+      background: var(--tab-bg);
+      border-bottom: 1px solid var(--workspace-header-border);
     }
 
     .content {
@@ -45,8 +45,8 @@ export class WorkspacePanel extends LitElement {
       display: flex;
       align-items: center;
       justify-content: center;
-      color: #9a9a9a;
-      font-size: 14px;
+      color: var(--text-tertiary);
+      font-size: 13px;
     }
   `;
 

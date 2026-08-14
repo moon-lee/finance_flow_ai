@@ -67,7 +67,8 @@ export const navigationContributionSchema = z.object({
   id: z.string().regex(/^[a-z0-9-]+$/, 'navigation id must be lowercase alphanumeric/hyphen'),
   label: z.string().min(1),
   command: z.string().min(1),
-  group: z.string().optional()
+  group: z.string().optional(),
+  icon: z.string().min(1).max(2).optional()
 });
 
 export const manifestContributionsSchema = z.object({

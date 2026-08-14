@@ -37,7 +37,7 @@ export class SplitPane extends LitElement {
     }
 
     .splitter {
-      background: #3c3c3c;
+      background: var(--splitter-bg);
       z-index: 10;
     }
 
@@ -53,7 +53,7 @@ export class SplitPane extends LitElement {
 
     .splitter:hover,
     .splitter.dragging {
-      background: #6366f1;
+      background: var(--accent);
     }
   `;
 

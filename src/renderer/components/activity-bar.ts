@@ -25,7 +25,7 @@ export class ActivityBar extends LitElement {
       border: 0;
       border-radius: 6px;
       background: transparent;
-      color: #94a3b8;
+      color: var(--text-secondary);
       cursor: pointer;
       font: inherit;
       transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -34,7 +34,7 @@ export class ActivityBar extends LitElement {
     button:hover,
     button.active {
       background: rgba(255, 255, 255, 0.08);
-      color: #f8fafc;
+      color: var(--text-primary);
     }
 
     button:hover {
@@ -60,8 +60,8 @@ export class ActivityBar extends LitElement {
     .empty-hint {
 
     .empty-hint {
-      color: #475569;
-      font-size: 10px;
+      color: var(--text-secondary);
+      font-size: 11px;
       margin-top: 8px;
       writing-mode: vertical-rl;
       text-orientation: mixed;

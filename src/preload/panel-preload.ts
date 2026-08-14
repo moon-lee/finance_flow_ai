@@ -5,6 +5,7 @@ const listeners: { [channel: string]: Set<(payload: unknown) => void> } = {
   'panel:navigate': new Set(),
   'panel:mount-update': new Set(),
 };
+const themeListeners = new Set<(theme: string) => void>();
 const cachedPayloads: { [channel: string]: unknown } = {};
 
 ipcRenderer.on('panel:init', (_event, payload: unknown) => {
@@ -24,6 +25,12 @@ ipcRenderer.on('panel:navigate', (_event, payload: unknown) => {
 ipcRenderer.on('panel:mount-update', (_event, payload: unknown) => {
   for (const fn of listeners['panel:mount-update'] ?? []) {
     try { fn(payload); } catch { /* ignore listener errors */ }
+  }
+});
+
+ipcRenderer.on('theme:changed', (_event, theme: string) => {
+  for (const fn of themeListeners) {
+    try { fn(theme); } catch { /* ignore listener errors */ }
   }
 });
 
@@ -65,6 +72,16 @@ const panelApi = {
   settings: {
     get: async (key: string): Promise<unknown> => ipcRenderer.invoke('settings:get', key),
     set: (key: string, value: unknown): Promise<void> => ipcRenderer.invoke('settings:set', key, value)
+  },
+  theme: {
+    get: async (): Promise<string> => ipcRenderer.invoke('settings:get', 'core.theme') as Promise<string>,
+    onChange: (callback: (theme: string) => void): (() => void) => {
+      themeListeners.add(callback);
+      return () => { themeListeners.delete(callback); };
+    },
+    broadcastTheme: (theme: string): void => {
+      ipcRenderer.send('theme:broadcast', theme);
+    }
   },
   onPanelInit(callback: (payload: unknown) => void): () => void {
     const cached = cachedPayloads['panel:init'];

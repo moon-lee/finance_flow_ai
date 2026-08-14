@@ -8,9 +8,9 @@ export const baseViewStyles = css`
     width: 100%;
     overflow: hidden;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    background: #1e1e1e;
-    color: #d4d4d4;
-    font-size: 14px;
+    background: var(--workspace-bg);
+    color: var(--text-secondary);
+    font-size: 15px;
     line-height: 1.5;
     padding: 24px;
     box-sizing: border-box;
@@ -25,46 +25,46 @@ export const baseViewStyles = css`
   }
 
   .header h1 {
-    font-size: 20px;
+      font-size: 21px;
     font-weight: 600;
-    color: #ffffff;
+    color: var(--text-primary);
     margin: 0;
   }
 
   .btn {
-    background: #0e639c;
-    color: #ffffff;
+    background: var(--btn-primary-bg);
+    color: var(--btn-primary-text);
     border: none;
     padding: 8px 16px;
     border-radius: 3px;
-    font-size: 13px;
+      font-size: 12px;
     cursor: pointer;
     font-family: inherit;
   }
 
   .btn:hover {
-    background: #1177bb;
+    background: var(--btn-primary-hover-bg);
   }
 
   .btn-secondary {
-    background: #3c3c3c;
-    color: #d4d4d4;
-    border: 1px solid #3e3e3e;
+    background: var(--btn-secondary-bg);
+    color: var(--btn-secondary-text);
+    border: 1px solid var(--btn-secondary-border);
   }
 
   .btn-secondary:hover {
-    border-color: #007acc;
+    border-color: var(--btn-secondary-hover-border);
   }
 
   .btn-danger {
     background: transparent;
-    color: #f48771;
-    border: 1px solid #f48771;
+    color: var(--danger-color);
+    border: 1px solid var(--danger-border);
   }
 
   .btn-danger:hover {
-    background: #f48771;
-    color: #1e1e1e;
+    background: var(--danger-hover-bg);
+    color: var(--danger-hover-text);
   }
 
   .empty-state {
@@ -74,27 +74,27 @@ export const baseViewStyles = css`
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    color: #858585;
+    color: var(--text-tertiary);
     text-align: center;
     gap: 12px;
   }
 
   .empty-state h3 {
-    font-size: 16px;
+      font-size: 17px;
     font-weight: 600;
-    color: #d4d4d4;
+    color: var(--text-secondary);
     margin: 0;
   }
 
   .empty-state p {
-    font-size: 13px;
+    font-size: 14px;
     margin: 0;
     max-width: 360px;
   }
 
   .error {
-    color: #f48771;
-    font-size: 13px;
+    color: var(--danger-color);
+    font-size: 14px;
     margin-top: 8px;
   }
 `;

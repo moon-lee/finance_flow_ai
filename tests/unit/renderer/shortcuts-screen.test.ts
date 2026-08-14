@@ -107,7 +107,7 @@ describe('ShortcutsScreen', () => {
     const el = createEl();
     await settled(el);
 
-    const resetBtn = el.shadowRoot?.querySelector('.global-reset .reset-btn') as HTMLElement | null;
+    const resetBtn = el.shadowRoot?.querySelector('.shortcuts-footer .reset-btn') as HTMLElement | null;
     expect(resetBtn).not.toBeNull();
     resetBtn?.click();
     await settled(el);

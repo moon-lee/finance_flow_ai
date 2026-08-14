@@ -47,11 +47,11 @@ export class DashboardView extends LitElement {
     :host {
       display: block;
       box-sizing: border-box;
-      font: 14px/1.5 system-ui, sans-serif;
+      font: 16px/1.5 system-ui, sans-serif;
     }
     .subtitle { 
       color: #858585; 
-      font: 13px/1.5 system-ui, sans-serif;
+      font: 15px/1.5 system-ui, sans-serif;
     }
     .topbar {
       background: #252526;
@@ -115,7 +115,7 @@ export class DashboardView extends LitElement {
       letter-spacing: 0.3px;
     }
     .card-badge {
-      font-size: 11px;
+      font-size: 12px;
       padding: 2px 8px;
       border-radius: 3px;
       background: #4ec9b0;
@@ -132,7 +132,7 @@ export class DashboardView extends LitElement {
     }
     .card-value {
       font-family: "SF Mono", Consolas, monospace;
-      font-size: 22px;
+      font-size: 23px;
       font-weight: 600;
       color: #ffffff;
       margin-bottom: 4px;
