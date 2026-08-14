@@ -28,6 +28,7 @@ import { DomainServiceRegistry } from "./services/domain-service-registry";
 import { registerPanelProtocol } from "./services/panel-protocol";
 import { WebviewPanelManager } from "./services/webview-panel-manager";
 import { activateAndOpenView } from "./services/view-activation";
+import { ShortcutRegistry, toAccelerator } from "./services/shortcut-registry";
 
 const mainDir = fileURLToPath(new URL(".", import.meta.url));
 const rendererDevUrl = process.env.ELECTRON_RENDERER_URL;
@@ -56,6 +57,7 @@ let uiEventAllowlist: UiEventAllowlist | null = null;
 let domainServiceRegistry: DomainServiceRegistry | null = null;
 let webviewPanelManager: WebviewPanelManager | null = null;
 let accountService: AccountManagementService | null = null;
+let shortcutRegistry: ShortcutRegistry | null = null;
 
 function resolvePreloadPath(): string {
   return join(mainDir, "../preload/preload.cjs");
@@ -187,6 +189,20 @@ export async function createWindow(): Promise<BrowserWindow> {
   } else {
     await mainWindow.loadFile(resolveRendererIndex());
   }
+
+  mainWindow.webContents.on('before-input-event', (event, input) => {
+    if (input.type !== 'keyDown') return;
+    const accelerator = toAccelerator(input);
+    const entry = shortcutRegistry?.getCommandForAccelerator(accelerator);
+    if (entry && mainWindow && !mainWindow.isDestroyed()) {
+      event.preventDefault();
+      mainWindow.webContents.send('shell:shortcut', {
+        accelerator,
+        commandId: entry.commandId,
+        extensionId: entry.extensionId,
+      });
+    }
+  });
 
   return mainWindow;
 }
@@ -570,6 +586,24 @@ function registerIpcHandlers(): void {
     void notifyOpenDashboardAfterAccountChange();
     return result;
   });
+
+  // Phase 7 Task 4 — shortcut customization IPC.
+  ipcMain.handle("shortcuts:list", () => {
+    return shortcutRegistry?.list() ?? [];
+  });
+
+  ipcMain.handle("shortcuts:update", (_event, extensionId: string, commandId: string, accelerator: string) => {
+    if (!shortcutRegistry) return;
+    shortcutRegistry.update(extensionId, commandId, accelerator);
+    return shortcutRegistry.list();
+  });
+
+  ipcMain.handle("shortcuts:reset", (_event, extensionId?: string) => {
+    if (!shortcutRegistry) return;
+    shortcutRegistry.reset(extensionId);
+    shortcutRegistry.build(extensionRegistry ? extensionRegistry.getAllManifests() : []);
+    return shortcutRegistry.list();
+  });
 }
 
 /**
@@ -703,6 +737,10 @@ app.whenReady().then(async () => {
     uiEventAllowlist = new UiEventAllowlist();
     uiEventAllowlist.rebuild(discovery.extensions.map((e) => e.manifest));
 
+    // Phase 7 Task 4 — build shortcut registry from loaded extensions.
+    shortcutRegistry = new ShortcutRegistry();
+    shortcutRegistry.build(discovery.extensions.map((e) => e.manifest));
+
     // Phase 5 Task 7 — cross-extension domain service registry.
     domainServiceRegistry = new DomainServiceRegistry();
 
@@ -816,6 +854,17 @@ app.whenReady().then(async () => {
     // flush automatically when setMainWindow() is called after createWindow().
     webviewPanelManager = new WebviewPanelManager();
     console.log("[main] WebviewPanelManager created:", webviewPanelManager);
+
+    webviewPanelManager.setShortcutHandler((_webContents, accelerator) => {
+      const entry = shortcutRegistry?.getCommandForAccelerator(accelerator);
+      if (entry && mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('shell:shortcut', {
+          accelerator,
+          commandId: entry.commandId,
+          extensionId: entry.extensionId,
+        });
+      }
+    });
 
     webviewPanelManager.setUIHandler({
       onMountRequested: (extensionId, viewId, mountData) => {

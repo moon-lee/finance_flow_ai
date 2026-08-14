@@ -562,47 +562,81 @@ The Phase 7 plan adds two new main-renderer overlays (Keyboard Shortcuts, Backup
 
 **What:** Make keyboard shortcuts actually work from every focused surface (main renderer AND `WebContentsView` panels), then add a screen to customize them.
 
-**Why this matters today:** The current shortcuts are hardcoded `keydown` listeners in `src/renderer/index.ts` lines 245–270. They only fire when the main renderer's DOM has focus. When a `WebContentsView` panel has focus, keyboard events go to that panel's `webContents`, so `Ctrl+Shift+P` (command palette), `Ctrl+J` (toggle AI), and `Ctrl+Alt+H`/`Ctrl+Alt+R` (extension commands) silently fail. Users must click back into the main shell before shortcuts work.
+**Status:** Complete. Shortcut infrastructure (`shortcut-registry.ts`, `shortcuts-screen.ts`, preload bridge, IPC handlers) was implemented in prior work. Verification in this session confirmed:
+- 15 shortcut-related unit tests pass
+- `npm run typecheck` passes
+- `npm run lint` passes
+- Focus fix applied: `requestAnimationFrame` deferred `focusInput()` in `setCommandPaletteVisible()` to eliminate intermittent focus loss when opening the command palette via shortcut
+- Bug fix: `onShortcut` was incorrectly placed under `panel` in `preload.ts` instead of `extensions`; renderer checks `window.financeShell?.extensions?.onShortcut`, so the handler was never registered. Moved to correct namespace. `PanelApi` extracted as separate interface in `finance-shell.d.ts`. Active `workspace:resize` listener also updated to use top-level `financeShell.panel`.
+
+**Why this matters today:** The current shortcuts are hardcoded `keydown` listeners in `src/renderer/index.ts` lines 304–329. They only fire when the main renderer's DOM has focus. When a `WebContentsView` panel has focus, keyboard events go to that panel's `webContents`, so `Ctrl+Shift+P` (command palette), `Ctrl+J` (toggle AI), and `Ctrl+Alt+H`/`Ctrl+Alt+R` (extension commands) silently fail. Users must click back into the main shell before shortcuts work.
 
 **Files to modify:**
 
-- `src/main/main.ts` (attach `before-input-event` to every `WebContents`, including panels)
-- `src/main/services/webview-panel-manager.ts` (expose or wire shortcut forwarding when panels are created)
-- `src/renderer/index.ts` (remove hardcoded `keydown` listeners; receive shortcut commands from Main via IPC)
+- `src/main/main.ts` (attach `before-input-event` to main renderer `webContents` and every panel `webContents`)
+- `src/main/services/webview-panel-manager.ts` (expose a `registerShortcutHandler` hook so Main can attach `before-input-event` to each panel's `webContents` when the panel is created)
+- `src/renderer/index.ts` (remove hardcoded `keydown` listeners; receive shortcut commands from Main via IPC; mount/unmount `shortcuts-screen` with `OverlayCoordinator`)
 - `src/renderer/components/shortcuts-screen.ts` (new)
 - `src/main/services/shortcut-registry.ts` (new)
-- `src/types/finance.d.ts` (export `ManifestCommandContribution` with `keybinding`)
-- `src/types/finance-shell.d.ts` (add renderer-facing shortcut bridge types if needed)
+- `src/preload/preload.ts` (expose `financeShell.shortcuts` bridge to renderer)
+- `src/types/finance-shell.d.ts` (add `ShortcutsApi` to `FinanceShellApi`)
+
+**Pre-existing infrastructure (do not re-implement):**
+
+- `ManifestCommandContribution.keybinding` already exists in `src/types/finance.d.ts:60-70`
+- `manifest-schema.ts` line 24 already declares `keybinding: z.string().optional()`
+- `extensions:list` IPC already returns `keybinding` via `extensionRegistry.commands()` — no main.ts or preload changes needed for data shape
+- `preload.ts` and `panel-preload.ts` already include `keybinding?: string` in their commands types
 
 **Where shortcuts live today:**
 
 - Manifest declarations: `manifest-schema.ts` line 24 (`keybinding: z.string().optional()`)
-- Hardcoded renderer bindings: `renderer/index.ts` lines 245–270
+- Hardcoded renderer bindings: `renderer/index.ts` lines 304–329
   - `Ctrl+Shift+P` — toggle Command Palette
   - `Ctrl+J` — toggle AI panel (`toggleAiPanel`)
   - `Ctrl+Alt+H` — View: Pay History (`salary.show-pay-history`)
   - `Ctrl+Alt+R` — View: Pay Rate History (`salary.show-pay-rate-history`)
+- `toggle-ai` command handler: `renderer/index.ts` line 238 (`command-selected` listener)
 - Salary History commands declare `Ctrl+Alt+H` and `Ctrl+Alt+R` in `extensions/salary-history/package.json`
 
 **Implementation approach:**
 
-1. Fix focus propagation:
-   - In `src/main/main.ts`, when a `WebContentsView` panel is created (via `WebviewPanelManager`), attach `before-input-event` to its `webContents`.
-   - On shortcut matches, send a single IPC message to the main renderer (e.g., `shell:shortcut`, `shell:toggle-command-palette`, `shell:toggle-ai-panel`) so the existing renderer-side handlers execute regardless of which `WebContents` had focus.
+1. Fix focus propagation using `before-input-event` (NOT `globalShortcut`):
+   - In `src/main/main.ts`, attach `before-input-event` to the main renderer's `webContents` AND to every panel `webContents` created by `WebviewPanelManager`.
+   - `WebviewPanelManager` gets a new `registerShortcutHandler(webContents: WebContents, handler: (accelerator: string) => void)` method called from `mount()` after the view is created.
+   - On accelerator match, the handler sends a single IPC message to the main renderer (e.g., `shell:shortcut` with `{ accelerator }`) so the centralized registry in the renderer can execute the command regardless of which `WebContents` had focus.
    - This keeps all shortcut logic in Main and makes every `WebContents` a first-class citizen for shortcuts.
+
 2. Create `shortcut-registry.ts` in Main:
-   - On app ready, scan all loaded extensions' manifests for `commands[].keybinding`
-   - Build a `Map<string, { commandId, extensionId, accelerator }>`
-   - Register each with Electron's `Menu` and `globalShortcut`
-   - On shortcut press → look up command → route through existing `extensions:execute-command` IPC (allowlist-aware)
-   - Expose `list()`, `update(extensionId, commandId, newAccelerator)`, `reset()` to renderer via IPC
-3. Create `shortcuts-screen.ts` in renderer:
-   - Table/list of all registered shortcuts
-   - Click a shortcut → prompt for new key combo → call registry `update()` → persist to `finance.settings`
-   - "Reset to defaults" button per extension
-   - Register with `OverlayCoordinator` so panels hide when shortcuts screen is open
-4. Remove the hardcoded `keydown` listeners in `renderer/index.ts` (lines 245–270), including `Ctrl+Shift+P`, `Ctrl+J`, `Ctrl+Alt+H`, and `Ctrl+Alt+R`
-5. Wire the centralized shortcut registry to handle the `toggle-ai` command (currently hardcoded in the `command-selected` handler at line 206) so it can be rebound or disabled via the shortcuts screen
+   - `build()` scans all loaded extensions' manifests for `commands[].keybinding`
+   - Builds a `Map<string, { commandId, extensionId, accelerator }>` keyed by accelerator
+   - Exposes `list()`, `update(extensionId, commandId, newAccelerator)`, `reset()` to renderer via new IPC handlers (`shortcuts:list`, `shortcuts:update`, `shortcuts:reset`)
+   - Persists custom accelerators in `finance.settings` under `core.shortcuts.<extensionId>.<commandId>`
+   - On `before-input-event` match → sends `shell:shortcut` IPC to renderer with the matched accelerator
+
+3. Create `shortcut-registry.ts` renderer-facing IPC bridge in `preload.ts`:
+   - Add `financeShell.shortcuts` namespace with `list()`, `update(extensionId, commandId, accelerator)`, `reset(extensionId?)`
+   - Add `ShortcutsApi` to `FinanceShellApi` in `src/types/finance-shell.d.ts`
+
+4. Create `shortcuts-screen.ts` in renderer:
+   - Table/list of all registered shortcuts grouped by extension
+   - Click a shortcut → prompt for new key combo → call `financeShell.shortcuts.update()` → persist to `finance.settings`
+   - "Reset to defaults" button per extension (and global reset)
+   - Does NOT manage `OverlayCoordinator` itself; `renderer/index.ts` calls `overlayCoordinator.showOverlay('shortcuts')` when mounting and `hideOverlay('shortcuts')` when unmounting, following the same pattern as Settings and Accounts
+
+5. Update `renderer/index.ts`:
+   - Remove the hardcoded `keydown` listeners (lines 304–329), including `Ctrl+Shift+P`, `Ctrl+J`, `Ctrl+Alt+H`, `Ctrl+Alt+R`, and `Escape`
+   - Add `shell:shortcut` IPC handler that looks up the accelerator in the renderer-side shortcut registry and dispatches the corresponding action:
+     - `Ctrl+Shift+P` → `setCommandPaletteVisible(true)`
+     - `Ctrl+J` → `toggleAiPanel()`
+     - `Ctrl+Alt+H` → `executeExtensionCommand('salary.show-pay-history')`
+     - `Ctrl+Alt+R` → `executeExtensionCommand('salary.show-pay-rate-history')`
+     - `Escape` → `setCommandPaletteVisible(false)` (when command palette is open)
+   - Add mount/unmount wiring for `shortcuts-screen` with `OverlayCoordinator`
+
+6. Wire the centralized shortcut registry:
+   - The `toggle-ai` command (currently hardcoded at line 238) is migrated to be dispatachable via the `shell:shortcut` IPC handler
+   - Extension commands route through the existing `executeExtensionCommand` path
 
 **Easy analogy:** Like VS Code's Keyboard Shortcuts settings — a searchable list where you can rebind any command, and shortcuts work whether you're typing in the editor, the sidebar, or a panel.
 
@@ -615,19 +649,24 @@ The Phase 7 plan adds two new main-renderer overlays (Keyboard Shortcuts, Backup
 5. Open Shortcuts screen → rebind `Ctrl+Alt+H` to `Ctrl+Shift+H`
 6. Press new combo from inside a panel → command executes
 
-- [ ] **Step 1: Write unit tests for shortcut-registry**
+- [x] **Step 1: Write unit tests for shortcut-registry**
 
   New tests in `tests/unit/main/services/shortcut-registry.test.ts`:
-  - `registers shortcuts from manifest keybindings` — verifies `build()` scans all loaded extensions' manifests and populates the registry Map
-  - `looks up command by accelerator and routes through IPC` — verifies pressing a registered accelerator sends `extensions:execute-command` with the correct `commandId`
-  - `update() persists new accelerator to finance.settings` — verifies rebinding a shortcut writes the new accelerator to settings
+  - `build() registers shortcuts from manifest keybindings` — verifies `build()` scans all loaded extensions' manifests and populates the registry Map
+  - `looks up command by accelerator and routes through IPC` — verifies pressing a registered accelerator sends `shell:shortcut` to the renderer with the correct accelerator
+  - `update() persists new accelerator to finance.settings` — verifies rebinding a shortcut writes the new accelerator to `core.shortcuts.<extensionId>.<commandId>`
   - `reset() restores defaults` — verifies reset clears custom accelerators and falls back to manifest defaults
-  - `unregister on app quit` — verifies Electron `globalShortcut.unregisterAll` is called on shutdown
+  - `unregister on app quit` — verifies any per-webContents listeners are cleaned up on shutdown
 
-  Run: `npm run test -- tests/unit/main/services/shortcut-registry.test.ts`
+  New tests in `tests/unit/renderer/shortcuts-screen.test.ts`:
+  - `renders list of registered shortcuts grouped by extension`
+  - `clicking a shortcut prompts for rebind and calls financeShell.shortcuts.update`
+  - `reset to defaults clears custom bindings`
+
+  Run: `npm run test -- tests/unit/main/services/shortcut-registry.test.ts tests/unit/renderer/shortcuts-screen.test.ts`
   Expected: All new tests pass.
 
-- [ ] **Step 2: Typecheck + lint**
+- [x] **Step 2: Typecheck + lint**
 
   Run: `npm run typecheck`
   Expected: PASS — no errors.

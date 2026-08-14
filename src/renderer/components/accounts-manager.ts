@@ -1,6 +1,7 @@
 import { LitElement, css, html } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { baseViewStyles, headerHighlightStyles } from '../styles/base-view-styles';
+import { overlayCoordinator } from '../overlay-coordinator';
 
 interface Account {
   id: number;
@@ -230,6 +231,12 @@ export class AccountsManager extends LitElement {
   connectedCallback(): void {
     super.connectedCallback();
     this._loadAccounts();
+    overlayCoordinator.showOverlay('accounts');
+  }
+
+  disconnectedCallback(): void {
+    super.disconnectedCallback();
+    overlayCoordinator.hideOverlay('accounts');
   }
 
   private async _loadAccounts(): Promise<void> {

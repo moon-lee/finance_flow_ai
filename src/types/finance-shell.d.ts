@@ -6,6 +6,12 @@ import type { ManifestViewContribution, ManifestCommandContribution, ManifestNav
 
 export type { ManifestNavigationContribution } from './finance';
 
+export interface ShortcutsApi {
+  list: () => Promise<Array<{ commandId: string; extensionId: string; accelerator: string }>>;
+  update: (extensionId: string, commandId: string, accelerator: string) => Promise<Array<{ commandId: string; extensionId: string; accelerator: string }>>;
+  reset: (extensionId?: string) => Promise<Array<{ commandId: string; extensionId: string; accelerator: string }>>;
+}
+
 export interface SettingsApi {
   get: (key: string) => Promise<unknown>;
   set: (key: string, value: unknown) => Promise<void>;
@@ -58,18 +64,22 @@ export interface ExtensionsApi {
   uiEvent: (extensionId: string, eventName: string, detail: unknown) => void;
   // Phase 5 Task 4 — subscribe to ui-events forwarded from panels through Main.
   onUiEventFromPanel: (callback: (payload: { extensionId: string; eventName: string; detail: unknown }) => void) => () => void;
-  // Phase 5 Task 12 — workspace panel controls (focus + resize).
-  panel: {
-    focus: (panelId: string) => void;
-    show: (panelId: string) => void;
-    hideForOverlay: () => void;
-    restoreAfterOverlay: () => void;
-    getActive: () => Promise<string | null>;
-    list: () => Promise<Array<{ panelId: string; extensionId: string; viewId: string }>>;
-    resize: (panelId: string, bounds: { x: number; y: number; width: number; height: number }) => void;
-    unmount: (panelId: string) => void;
-    unmountAll: () => void;
-  };
+  // Phase 7 Task 4 — receive shortcut matches from Main.
+  onShortcut: (callback: (payload: { accelerator: string; commandId: string; extensionId: string }) => void) => () => void;
+}
+
+export interface PanelApi {
+  focus: (panelId: string) => void;
+  show: (panelId: string) => void;
+  hideForOverlay: () => void;
+  restoreAfterOverlay: () => void;
+  getActive: () => Promise<string | null>;
+  list: () => Promise<Array<{ panelId: string; extensionId: string; viewId: string }>>;
+  resize: (panelId: string, bounds: { x: number; y: number; width: number; height: number }) => void;
+  unmount: (panelId: string) => void;
+  unmountAll: () => void;
+  onMounted: (callback: (panelId: string) => void) => () => void;
+  onRequestBounds: (callback: (panelId: string) => void) => () => void;
 }
 
 /** [Fix] One log entry forwarded from the Extension Host. See
@@ -104,19 +114,8 @@ export interface FinanceShellApi {
   settings: SettingsApi;
   extensions: ExtensionsApi;
   accounts: AccountsApi;
-  panel: {
-    focus: (panelId: string) => void;
-    show: (panelId: string) => void;
-    hideForOverlay: () => void;
-    restoreAfterOverlay: () => void;
-    getActive: () => Promise<string | null>;
-    list: () => Promise<Array<{ panelId: string; extensionId: string; viewId: string }>>;
-    resize: (panelId: string, bounds: { x: number; y: number; width: number; height: number }) => void;
-    unmount: (panelId: string) => void;
-    unmountAll: () => void;
-    onMounted: (callback: (panelId: string) => void) => () => void;
-    onRequestBounds: (callback: (panelId: string) => void) => () => void;
-  };
+  shortcuts: ShortcutsApi;
+  panel: PanelApi;
 }
 
 /**

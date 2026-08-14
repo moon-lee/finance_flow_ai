@@ -245,4 +245,8 @@ export class ExtensionRegistry {
   get(extensionId: string): FinanceExtensionManifest | undefined {
     return this.byId.get(extensionId)?.manifest;
   }
+
+  getAllManifests(): FinanceExtensionManifest[] {
+    return Array.from(this.byId.values()).map((row) => row.manifest);
+  }
 }

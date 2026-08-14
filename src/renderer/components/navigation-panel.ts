@@ -89,6 +89,14 @@ export class NavigationPanel extends LitElement {
       }));
       return;
     }
+    if (cmd === '__shortcuts__') {
+      this.dispatchEvent(new CustomEvent('view-changed', {
+        detail: { view: '__shortcuts__', source: 'core' },
+        bubbles: true,
+        composed: true,
+      }));
+      return;
+    }
     this.dispatchEvent(new CustomEvent('command-selected', {
       detail: { command: cmd, extensionCommand: true },
       bubbles: true,
@@ -99,6 +107,7 @@ export class NavigationPanel extends LitElement {
   private static readonly _coreItems: NavItem[] = [
     { extensionId: 'core', id: 'app-preferences', label: 'App Preferences', command: '__settings__', group: 'Settings' },
     { extensionId: 'core', id: 'accounts', label: 'Accounts', command: '__accounts__', group: 'Settings' },
+    { extensionId: 'core', id: 'keyboard-shortcuts', label: 'Keyboard Shortcuts', command: '__shortcuts__', group: 'Settings' },
   ];
 
   private _groupedItems(): Map<string | undefined, NavItem[]> {
@@ -112,7 +121,7 @@ export class NavigationPanel extends LitElement {
   }
 
   private _getVisibleItems(): NavItem[] {
-    if (this._currentView === '__settings__' || this._currentView === '__accounts__') {
+    if (this._currentView === '__settings__' || this._currentView === '__accounts__' || this._currentView === '__shortcuts__') {
       return [...NavigationPanel._coreItems];
     }
     if (this._currentExtensionId) {

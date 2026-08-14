@@ -1,6 +1,7 @@
 import { LitElement, css, html } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { baseViewStyles, headerHighlightStyles } from '../styles/base-view-styles';
+import { overlayCoordinator } from '../overlay-coordinator';
 
 interface ExtensionSettings {
   extensionId: string;
@@ -355,6 +356,7 @@ export class SettingsScreen extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this._loadSettings();
+    overlayCoordinator.showOverlay('settings');
   }
 
   disconnectedCallback() {
@@ -363,6 +365,7 @@ export class SettingsScreen extends LitElement {
       clearTimeout(timer);
     }
     this._debounceTimers.clear();
+    overlayCoordinator.hideOverlay('settings');
   }
 
   private _getFilteredSections(): ExtensionSettings[] {

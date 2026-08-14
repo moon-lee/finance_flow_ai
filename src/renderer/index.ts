@@ -5,7 +5,8 @@ import './components/ai-panel';
 import './components/command-palette';
 import './components/settings-screen';
 import './components/accounts-manager';
-import { OverlayCoordinator } from './overlay-coordinator';
+import './components/shortcuts-screen';
+import { overlayCoordinator } from './overlay-coordinator';
 import type { ActivityView } from './components/activity-bar';
 import type { PaletteCommand } from './components/command-palette';
 import type { HostLogEntry, HostStatus } from '../types/finance-shell';
@@ -16,8 +17,6 @@ const commandPalette = document.querySelector<HTMLElement & { focusInput(): void
 const navigationPanel = document.querySelector<NavigationPanel>('#navigation-panel');
 const activityBar = document.querySelector<HTMLElement & { views: ActivityView[]; activeView: string }>('#activity-bar');
 const workspace = document.querySelector<HTMLElement & { hideTabStrip?: boolean }>('#workspace');
-
-const overlayCoordinator = new OverlayCoordinator();
 
 /** Maps viewId → extensionId so nav panel can filter by active extension. */
 const viewToExtension = new Map<string, string>();
@@ -78,7 +77,9 @@ function setCommandPaletteVisible(visible: boolean): void {
   commandPalette?.classList.toggle('hidden', !visible);
   if (visible && !currentlyVisible) overlayCoordinator.showOverlay('command-palette');
   else if (!visible && currentlyVisible) overlayCoordinator.hideOverlay('command-palette');
-  if (visible) commandPalette?.focusInput();
+  if (visible) {
+    requestAnimationFrame(() => commandPalette?.focusInput());
+  }
 }
 
 // Phase 5 Task 12 — workspace integration. The WebviewPanel system lives in
@@ -86,12 +87,12 @@ function setCommandPaletteVisible(visible: boolean): void {
 // events to Main via the preload bridge.
 /* window.addEventListener('workspace:focus-panel', (event: Event) => {
   const customEvent = event as CustomEvent<{ panelId: string }>;
-  window.financeShell?.extensions?.panel?.focus?.(customEvent.detail.panelId);
+  window.financeShell?.panel?.focus?.(customEvent.detail.panelId);
 });
- */
+*/
 window.addEventListener('workspace:resize', (event: Event) => {
   const customEvent = event as CustomEvent<{ panelId: string; bounds: { x: number; y: number; width: number; height: number } }>;
-  window.financeShell?.extensions?.panel?.resize?.(customEvent.detail.panelId, customEvent.detail.bounds);
+  window.financeShell?.panel?.resize?.(customEvent.detail.panelId, customEvent.detail.bounds);
 });
 
 // Phase 4 Task 14.5 — mount an extension's UI element into the workspace
@@ -159,14 +160,16 @@ window.addEventListener('view-changed', (event: Event) => {
   const viewId = customEvent.detail.view;
   console.log(`[renderer] view-changed event: viewId=${viewId}, source=${customEvent.detail.source}`);
   
-  if (viewId === '__settings__' || viewId === '__accounts__') {
-    if (activityBar) activityBar.activeView = '__settings__';
+  if (viewId === '__settings__' || viewId === '__accounts__' || viewId === '__shortcuts__') {
+    if (activityBar) activityBar.activeView = viewId;
     if (navigationPanel) navigationPanel.setView(viewId);
     
     const settingsScreen = document.querySelector('settings-screen');
     if (settingsScreen) settingsScreen.remove();
     const accountsManager = document.querySelector('accounts-manager');
     if (accountsManager) accountsManager.remove();
+    const shortcutsScreen = document.querySelector('shortcuts-screen');
+    if (shortcutsScreen) shortcutsScreen.remove();
     
     if (viewId === '__settings__') {
       const existing = workspace?.querySelector('settings-screen');
@@ -176,8 +179,9 @@ window.addEventListener('view-changed', (event: Event) => {
       }
       if (workspace) workspace.hideTabStrip = true;
       overlayCoordinator.hideOverlay('accounts');
+      overlayCoordinator.hideOverlay('shortcuts');
       overlayCoordinator.showOverlay('settings');
-    } else {
+    } else if (viewId === '__accounts__') {
       const existing = workspace?.querySelector('accounts-manager');
       if (!existing) {
         const screen = document.createElement('accounts-manager');
@@ -185,7 +189,18 @@ window.addEventListener('view-changed', (event: Event) => {
       }
       if (workspace) workspace.hideTabStrip = true;
       overlayCoordinator.hideOverlay('settings');
+      overlayCoordinator.hideOverlay('shortcuts');
       overlayCoordinator.showOverlay('accounts');
+    } else if (viewId === '__shortcuts__') {
+      const existing = workspace?.querySelector('shortcuts-screen');
+      if (!existing) {
+        const screen = document.createElement('shortcuts-screen');
+        workspace?.appendChild(screen);
+      }
+      if (workspace) workspace.hideTabStrip = true;
+      overlayCoordinator.hideOverlay('settings');
+      overlayCoordinator.hideOverlay('accounts');
+      overlayCoordinator.showOverlay('shortcuts');
     }
     return;
   }
@@ -194,10 +209,13 @@ window.addEventListener('view-changed', (event: Event) => {
   if (settingsScreen) settingsScreen.remove();
   const accountsManager = document.querySelector('accounts-manager');
   if (accountsManager) accountsManager.remove();
+  const shortcutsScreen = document.querySelector('shortcuts-screen');
+  if (shortcutsScreen) shortcutsScreen.remove();
   if (workspace) workspace.hideTabStrip = false;
   
   overlayCoordinator.hideOverlay('settings');
   overlayCoordinator.hideOverlay('accounts');
+  overlayCoordinator.hideOverlay('shortcuts');
   
   const extId = viewToExtension.get(viewId);
   if (!extId) {
@@ -301,32 +319,27 @@ if (document.readyState === 'loading') {
   initApp();
 }
 
-window.addEventListener('keydown', (event) => {
-  const commandKey = event.ctrlKey || event.metaKey;
-
-  if (commandKey && event.shiftKey && event.key.toLowerCase() === 'p') {
-    event.preventDefault();
-    setCommandPaletteVisible(commandPalette?.classList.contains('hidden') ?? true);
-  }
-
-  if (commandKey && event.key.toLowerCase() === 'j') {
-    event.preventDefault();
-    toggleAiPanel();
-  }
-
-  // Extension command shortcuts (Decision 17, bound per user request).
-  // Ctrl+Alt+H → Pay History, Ctrl+Alt+R → Pay Rate History.
-  if (commandKey && event.altKey && event.key.toLowerCase() === 'h') {
-    event.preventDefault();
-    executeExtensionCommand('salary.show-pay-history');
-  }
-  if (commandKey && event.altKey && event.key.toLowerCase() === 'r') {
-    event.preventDefault();
-    executeExtensionCommand('salary.show-pay-rate-history');
-  }
-
-  if (event.key === 'Escape') setCommandPaletteVisible(false);
-});
+// Phase 7 Task 4 — receive shortcut matches from Main so they work from
+// WebContentsView panels as well as the main renderer.
+if (window.financeShell?.extensions?.onShortcut) {
+  window.financeShell.extensions.onShortcut((payload) => {
+    const { commandId } = payload;
+    switch (commandId) {
+      case 'core.toggle-command-palette':
+        setCommandPaletteVisible(commandPalette?.classList.contains('hidden') ?? true);
+        break;
+      case 'core.toggle-ai':
+        toggleAiPanel();
+        break;
+      case 'core.close-palette':
+        setCommandPaletteVisible(false);
+        break;
+      default:
+        executeExtensionCommand(commandId);
+        break;
+    }
+  });
+}
 
 /** Forwards an extension command id to Main via the same path as palette selection. */
 function executeExtensionCommand(commandId: string): void {

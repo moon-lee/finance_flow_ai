@@ -28,3 +28,5 @@ export class OverlayCoordinator {
     return this.refCount > 0;
   }
 }
+
+export const overlayCoordinator = new OverlayCoordinator();

@@ -19,9 +19,10 @@
  * 
  */
 
-import { BrowserWindow, WebContentsView } from 'electron';
+import { BrowserWindow, WebContents, WebContentsView } from 'electron';
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { toAccelerator } from './shortcut-registry';
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 
@@ -61,6 +62,11 @@ export class WebviewPanelManager {
   private activePanelId: string | null = null;
   private overlayActive = false;
   private readonly dirtyPanelIds = new Set<string>();
+  private shortcutHandler: ((webContents: WebContents, accelerator: string) => void) | null = null;
+
+  setShortcutHandler(handler: (webContents: WebContents, accelerator: string) => void): void {
+    this.shortcutHandler = handler;
+  }
 
   setMainWindow(window: BrowserWindow): void {
     console.log('[setMainWindow] window:', window);
@@ -184,6 +190,15 @@ export class WebviewPanelManager {
 
     const panelUrl = `finance-shell://panel/${encodeURIComponent(extensionId)}/${encodeURIComponent(viewId)}.html`;
     view.webContents.loadURL(panelUrl);
+
+    if (this.shortcutHandler) {
+      const handler = this.shortcutHandler;
+      view.webContents.on('before-input-event', (_event, input) => {
+        if (input.type !== 'keyDown') return;
+        const accelerator = toAccelerator(input);
+        handler(view.webContents, accelerator);
+      });
+    }
 
     // Start hidden — the renderer sends panel:resize with correct workspace-area bounds.
     // If that never arrives (rAF / preload timing), the fallback timer makes the
