@@ -126,7 +126,14 @@ const shellApi = {
       ipcRenderer.on('workspace:request-bounds', listener);
       return () => { ipcRenderer.off('workspace:request-bounds', listener); };
     },
-  }
+  },
+  backup: {
+    export: async (): Promise<{ success: boolean; path?: string; error?: string }> => ipcRenderer.invoke('backup:export'),
+    import: async (): Promise<{ success: boolean; error?: string }> => ipcRenderer.invoke('backup:import'),
+    exportEncrypted: async (password: string): Promise<{ success: boolean; path?: string; error?: string }> => ipcRenderer.invoke('backup:export-encrypted', password),
+    importEncrypted: async (password: string): Promise<{ success: boolean; error?: string }> => ipcRenderer.invoke('backup:import-encrypted', password),
+    getLastBackupTime: async (): Promise<string | null> => ipcRenderer.invoke('backup:get-last-time'),
+  },
 };
 
 contextBridge.exposeInMainWorld('financeShell', shellApi);

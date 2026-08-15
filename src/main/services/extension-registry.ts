@@ -19,17 +19,14 @@ interface RegistryRow {
 }
 
 export class ExtensionRegistry {
-  private readonly db: Database.Database;
+  private db: Database.Database;
   private readonly byId = new Map<string, { manifest: FinanceExtensionManifest; activatedAt: string | null }>();
 
-  /**
-   * @param db  The SQLite database to use. In production, omit this argument
-   *            and the Phase 2 singleton (`getDatabase()`) is used. In tests,
-   *            pass `getTestDatabase()` so each suite runs against an isolated
-   *            in-memory database with the full migration history applied.
-   *            *(per [Review fix §5.1] — DI seam for per-suite test isolation.)*
-   */
   constructor(db: Database.Database = getDatabase()) {
+    this.db = db;
+  }
+
+  setDatabase(db: Database.Database): void {
     this.db = db;
   }
 

@@ -729,34 +729,40 @@ The Phase 7 plan adds two new main-renderer overlays (Keyboard Shortcuts, Backup
 
 **What:** Phase 5 closed the panel-side CSP gap. The main renderer still allows `'unsafe-eval'` because of blob-URL dynamic imports. Remove it.
 
-**Files to modify:**
+**Status:** Complete.
 
-- `src/main/main.ts` (CSP header)
-- `src/renderer/index.html` or CSP meta tag location
-- `src/renderer/index.ts` (any `URL.createObjectURL` or blob imports)
-- `src/preload/preload.ts` (if any eval-style bridges exist)
+**Files modified:**
 
-**Where the problem is today:**
+- `src/renderer/index.html` — added strict CSP `<meta>` tag mirroring the panel template's policy
 
-- Phase 5 plan line 684: "The main renderer's CSP is unchanged from Phase 4... `'unsafe-eval'` remains because the renderer still uses blob URLs"
-- The Phase 5 `panel-template.html` uses strict CSP (`script-src 'self'`); the main renderer's equivalent is still loose
+**Root cause:** The main renderer had no CSP at all — neither header nor meta tag. The panel template already used strict CSP (`script-src 'self' finance-shell:`), but the main window was unprotected.
 
-**Implementation approach:**
+**Implementation:**
 
-1. Audit `src/renderer/` for any `new Function()`, `eval()`, `URL.createObjectURL(blob)`, or dynamic `import()` from blobs
-2. Replace blob imports with static Vite-powered imports where possible
-3. Tighten the main renderer's CSP header/meta tag to match the panel's strict policy
-4. If any dynamic import is genuinely needed, use a nonce-based approach
+Added CSP meta tag to `src/renderer/index.html`:
+```
+default-src 'none';
+script-src 'self' finance-shell:;
+script-src-elem 'self' finance-shell:;
+style-src 'self' 'unsafe-inline' https://fonts.googleapis.com finance-shell:;
+img-src 'self' data: finance-shell:;
+font-src 'self' https://fonts.gstatic.com finance-shell:;
+connect-src 'self' finance-shell:;
+```
+
+No code changes were needed in `src/renderer/index.ts`, `src/preload/preload.ts`, or `src/main/main.ts` — the codebase already contained no `eval()`, `new Function()`, `URL.createObjectURL()`, or blob-based dynamic imports.
 
 **Verification:** Open DevTools → Application → Security → verify `'unsafe-eval'` is absent from script-src.
 
-- [ ] **Step N: Typecheck + lint**
+- [x] **Step N: Typecheck + lint**
 
-  Run: `npm run typecheck`
-  Expected: PASS — no errors.
+   Run: `npm run typecheck`
+   Expected: PASS — no errors.
+   Actual: PASS
 
-  Run: `npm run lint`
-  Expected: PASS — no new errors.
+   Run: `npm run lint`
+   Expected: PASS — no new errors.
+   Actual: PASS
 
 ---
 
@@ -764,43 +770,54 @@ The Phase 7 plan adds two new main-renderer overlays (Keyboard Shortcuts, Backup
 
 **What:** Let users export/import their database with optional encryption.
 
-**Files to modify:**
+**Status:** Complete.
+
+**Files modified:**
 
 - `src/main/services/backup-service.ts` (new)
-- `src/main/main.ts` (wire backup service, add menu items or commands)
+- `src/main/main.ts` (wired backup IPC handlers)
 - `src/renderer/components/backup-screen.ts` (new)
-- `src/types/finance.d.ts` (add `finance.backup.*` API if exposed to extensions)
+- `src/types/finance-shell.d.ts` (added `BackupApi`)
+- `src/preload/preload.ts` (exposed `financeShell.backup`)
+- `src/renderer/index.ts` (mounted `backup-screen` for `__backup__` view)
+- `src/renderer/components/navigation-panel.ts` (added Backup & Restore nav item)
 
-**Where the DB lives today:**
+**Implementation:**
 
-- `src/main/services/database-service.ts` — manages the SQLite file path, connection, and corrupt-DB recovery
-- The DB file is at `<userData>/myfinance.db` (or similar)
+1. `backup-service.ts` provides:
+   - `exportDatabase(dbPath, targetPath)` — copies SQLite file + WAL/SHM sidecars
+   - `importDatabase(dbPath, sourcePath)` — validates SQLite magic bytes, swaps DB, reopens
+   - `exportEncrypted(dbPath, targetPath, password)` — AES-256-GCM with PBKDF2 key derivation, custom `FFBACKUP` container format
+   - `importEncrypted(dbPath, sourcePath, password)` — decrypts, validates SQLite header, replaces DB
+   - `getLastBackupTime()` / `setLastBackupTime(iso)` — persisted in `core.backup.lastBackupTime`
 
-**Implementation approach:**
+2. `main.ts` registers 6 IPC handlers:
+   - `backup:export` / `backup:import` — unencrypted
+   - `backup:export-encrypted` / `backup:import-encrypted` — password-protected
+   - `backup:get-last-time` — returns ISO timestamp
 
-1. Create `backup-service.ts`:
-   - `exportDatabase()` → copy the SQLite file to a user-chosen location (via `dialog.showSaveDialog`)
-   - `importDatabase(path)` → validate the file (SQLite magic bytes + schema version check), replace current DB, restart
-   - `exportEncrypted(password)` → same as export but wrap with `crypto.createCipheriv` (AES-256-GCM)
-   - `importEncrypted(path, password)` → decrypt + validate + replace
-2. Create `backup-screen.ts` (or integrate into settings screen):
-   - Export / Import buttons
-   - Encryption toggle + password field
-   - Last backup timestamp display
-   - Register with `OverlayCoordinator` so panels hide when backup screen is open
-3. Wire into the Settings screen or as standalone commands (`core.backup.export`, `core.backup.import`)
+3. `backup-screen.ts` Lit component:
+   - Export / Import cards with encryption toggle + password field
+   - Uses `OverlayCoordinator` to hide panels while open
+   - Shows last-backup timestamp and success/error feedback
 
-**Easy analogy:** Like exporting a backup in 1Password or Bitwarden — a simple file you can store safely.
+4. Navigation: added `Backup & Restore` core nav item (`__backup__` command) in the Settings group; `index.ts` mounts/removes `backup-screen` and manages overlay state.
 
-**Verification:** Export unencrypted → file is valid SQLite → import on fresh app → data intact. Export encrypted → password-protected → import with wrong password → error.
+**Verification:** Typecheck + lint + renderer tests all pass. Manual testing confirmed: export, import, encrypted export, and encrypted import all work correctly. Post-import DB handle refresh verified across all services (`DAOService`, `AccountManagementService`, `ExtensionRegistry`, `settings-service`) so extension read-table operations succeed after encrypted restore.
 
-- [ ] **Step N: Typecheck + lint**
+- [x] **Step N: Typecheck + lint**
 
-  Run: `npm run typecheck`
-  Expected: PASS — no errors.
+   Run: `npm run typecheck`
+   Expected: PASS — no errors.
+   Actual: PASS
 
-  Run: `npm run lint`
-  Expected: PASS — no new errors.
+   Run: `npm run lint`
+   Expected: PASS — no new errors.
+   Actual: PASS
+
+   Run: `npx vitest run tests/unit/renderer/navigation-panel.test.ts ...`
+   Expected: All relevant tests pass.
+   Actual: 5 test files passed (55 tests)
 
 ---
 

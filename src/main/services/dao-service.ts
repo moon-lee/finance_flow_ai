@@ -268,10 +268,17 @@ export interface FindOptions {
  * registered before the DAO is called.
  */
 export class DAOService {
-  constructor(
-    private readonly db: BetterSqlite3.Database,
-    private readonly registry: TableSchemaRegistry
-  ) {}
+  private db: BetterSqlite3.Database;
+  private readonly registry: TableSchemaRegistry;
+
+  constructor(db: BetterSqlite3.Database, registry: TableSchemaRegistry) {
+    this.db = db;
+    this.registry = registry;
+  }
+
+  setDatabase(db: BetterSqlite3.Database): void {
+    this.db = db;
+  }
 
   /**
    * Find rows matching a query. Returns plain serialisable objects

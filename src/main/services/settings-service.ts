@@ -3,6 +3,10 @@ import { getDatabase } from './database-service';
 
 let db: Database.Database | null = null;
 
+export function setDatabase(dbInstance: Database.Database | null): void {
+  db = dbInstance;
+}
+
 const registeredNamespaces = new Set<string>();
 
 export function registerExtensionNamespace(namespace: string): void {

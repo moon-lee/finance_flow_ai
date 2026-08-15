@@ -14,7 +14,7 @@
     "dev:extensions": "vite build --config vite.extensions.config.ts --watch",
     "dev:panel-resources": "vite build --config vite.panel-resources.config.ts --watch",
     "dev:renderer": "vite --config vite.config.ts",
-    "start:dev": "wait-on http://127.0.0.1:5173 dist/main/main.js dist/preload/preload.cjs dist/extension-host/host.js dist/extensions/salary-history.js dist/resources/panel-bootstrap.js && cross-env ELECTRON_RENDERER_URL=http://127.0.0.1:5173 nodemon --watch dist/main/main.js --watch dist/extension-host/host.js --exec \"electron dist/main/main.js\"",
+    "start:dev": "wait-on http://127.0.0.1:5173 dist/main/main.js dist/preload/preload.cjs dist/extension-host/host.js dist/extensions/salary-history.js dist/resources/panel-bootstrap.js && cross-env ELECTRON_RENDERER_URL=http://127.0.0.1:5173 nodemon --watch dist/main/main.js --watch dist/preload/preload.cjs --watch dist/extension-host/host.js --exec \"electron dist/main/main.js\"",
     "start": "npm run build && electron dist/main/main.js",
     "build": "npm run build:main && npm run build:resources && npm run build:preload && npm run build:extension-host && npm run build:extensions && npm run build:renderer",
     "build:main": "vite build --config vite.main.config.ts",

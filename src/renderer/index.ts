@@ -6,6 +6,7 @@ import './components/command-palette';
 import './components/settings-screen';
 import './components/accounts-manager';
 import './components/shortcuts-screen';
+import './components/backup-screen';
 import { overlayCoordinator } from './overlay-coordinator';
 import type { ActivityView } from './components/activity-bar';
 import type { PaletteCommand } from './components/command-palette';
@@ -161,7 +162,7 @@ window.addEventListener('view-changed', (event: Event) => {
   const viewId = customEvent.detail.view;
   console.log(`[renderer] view-changed event: viewId=${viewId}, source=${customEvent.detail.source}`);
   
-  if (viewId === '__settings__' || viewId === '__accounts__' || viewId === '__shortcuts__') {
+  if (viewId === '__settings__' || viewId === '__accounts__' || viewId === '__shortcuts__' || viewId === '__backup__') {
     if (activityBar) activityBar.activeView = viewId;
     if (navigationPanel) navigationPanel.setView(viewId);
     
@@ -171,6 +172,8 @@ window.addEventListener('view-changed', (event: Event) => {
     if (accountsManager) accountsManager.remove();
     const shortcutsScreen = document.querySelector('shortcuts-screen');
     if (shortcutsScreen) shortcutsScreen.remove();
+    const backupScreen = document.querySelector('backup-screen');
+    if (backupScreen) backupScreen.remove();
     
     if (viewId === '__settings__') {
       const existing = workspace?.querySelector('settings-screen');
@@ -181,6 +184,7 @@ window.addEventListener('view-changed', (event: Event) => {
       if (workspace) workspace.hideTabStrip = true;
       overlayCoordinator.hideOverlay('accounts');
       overlayCoordinator.hideOverlay('shortcuts');
+      overlayCoordinator.hideOverlay('backup');
       overlayCoordinator.showOverlay('settings');
     } else if (viewId === '__accounts__') {
       const existing = workspace?.querySelector('accounts-manager');
@@ -191,6 +195,7 @@ window.addEventListener('view-changed', (event: Event) => {
       if (workspace) workspace.hideTabStrip = true;
       overlayCoordinator.hideOverlay('settings');
       overlayCoordinator.hideOverlay('shortcuts');
+      overlayCoordinator.hideOverlay('backup');
       overlayCoordinator.showOverlay('accounts');
     } else if (viewId === '__shortcuts__') {
       const existing = workspace?.querySelector('shortcuts-screen');
@@ -201,7 +206,19 @@ window.addEventListener('view-changed', (event: Event) => {
       if (workspace) workspace.hideTabStrip = true;
       overlayCoordinator.hideOverlay('settings');
       overlayCoordinator.hideOverlay('accounts');
+      overlayCoordinator.hideOverlay('backup');
       overlayCoordinator.showOverlay('shortcuts');
+    } else if (viewId === '__backup__') {
+      const existing = workspace?.querySelector('backup-screen');
+      if (!existing) {
+        const screen = document.createElement('backup-screen');
+        workspace?.appendChild(screen);
+      }
+      if (workspace) workspace.hideTabStrip = true;
+      overlayCoordinator.hideOverlay('settings');
+      overlayCoordinator.hideOverlay('accounts');
+      overlayCoordinator.hideOverlay('shortcuts');
+      overlayCoordinator.showOverlay('backup');
     }
     return;
   }
@@ -212,11 +229,14 @@ window.addEventListener('view-changed', (event: Event) => {
   if (accountsManager) accountsManager.remove();
   const shortcutsScreen = document.querySelector('shortcuts-screen');
   if (shortcutsScreen) shortcutsScreen.remove();
+  const backupScreen = document.querySelector('backup-screen');
+  if (backupScreen) backupScreen.remove();
   if (workspace) workspace.hideTabStrip = false;
   
   overlayCoordinator.hideOverlay('settings');
   overlayCoordinator.hideOverlay('accounts');
   overlayCoordinator.hideOverlay('shortcuts');
+  overlayCoordinator.hideOverlay('backup');
   
   const extId = viewToExtension.get(viewId);
   if (!extId) {

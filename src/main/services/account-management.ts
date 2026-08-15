@@ -2,9 +2,13 @@ import type Database from 'better-sqlite3';
 import { getDatabase } from './database-service';
 
 export class AccountManagementService {
-  private readonly db: Database.Database;
+  private db: Database.Database;
 
   constructor(db: Database.Database = getDatabase()) {
+    this.db = db;
+  }
+
+  setDatabase(db: Database.Database): void {
     this.db = db;
   }
 

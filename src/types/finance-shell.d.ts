@@ -6,6 +6,14 @@ import type { ManifestViewContribution, ManifestCommandContribution, ManifestNav
 
 export type { ManifestNavigationContribution } from './finance';
 
+export interface BackupApi {
+  export: () => Promise<{ success: boolean; path?: string; error?: string }>;
+  import: () => Promise<{ success: boolean; error?: string }>;
+  exportEncrypted: (password: string) => Promise<{ success: boolean; path?: string; error?: string }>;
+  importEncrypted: (password: string) => Promise<{ success: boolean; error?: string }>;
+  getLastBackupTime: () => Promise<string | null>;
+}
+
 export interface ShortcutsApi {
   list: () => Promise<Array<{ commandId: string; extensionId: string; accelerator: string }>>;
   update: (extensionId: string, commandId: string, accelerator: string) => Promise<Array<{ commandId: string; extensionId: string; accelerator: string }>>;
@@ -116,6 +124,7 @@ export interface FinanceShellApi {
   extensions: ExtensionsApi;
   accounts: AccountsApi;
   shortcuts: ShortcutsApi;
+  backup: BackupApi;
   panel: PanelApi;
 }
 

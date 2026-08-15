@@ -30,6 +30,15 @@ import { WebviewPanelManager } from "./services/webview-panel-manager";
 import { activateAndOpenView } from "./services/view-activation";
 import { ShortcutRegistry, toAccelerator } from "./services/shortcut-registry";
 import { resolveRuntimeProfile } from "./runtime-profile";
+import {
+  exportDatabase,
+  importDatabase,
+  exportEncrypted,
+  importEncrypted,
+  getDatabasePath,
+  getLastBackupTime,
+  setLastBackupTime,
+} from "./services/backup-service";
 
 const mainDir = fileURLToPath(new URL(".", import.meta.url));
 const rendererDevUrl = process.env.ELECTRON_RENDERER_URL;
@@ -603,6 +612,106 @@ function registerIpcHandlers(): void {
 
   ipcMain.on("theme:broadcast", (_event, theme: string) => {
     webviewPanelManager?.broadcastTheme(theme);
+  });
+
+  ipcMain.handle("backup:export", async () => {
+    if (!mainWindow) return { success: false };
+    const dbPath = getDatabasePath(app.getPath('userData'));
+    const defaultName = `finance-backup-${new Date().toISOString().slice(0,10)}.db`;
+    const result = await dialog.showSaveDialog(mainWindow, {
+      title: 'Export Database',
+      defaultPath: defaultName,
+      filters: [{ name: 'SQLite Database', extensions: ['db', 'sqlite', 'sqlite3'] }],
+    });
+    if (result.canceled || !result.filePath) return { success: false };
+    try {
+      exportDatabase(dbPath, result.filePath);
+      setLastBackupTime(new Date().toISOString());
+      return { success: true, path: result.filePath };
+    } catch (err) {
+      console.error('[backup] export failed:', err);
+      return { success: false, error: err instanceof Error ? err.message : 'Export failed' };
+    }
+  });
+
+  ipcMain.handle("backup:import", async () => {
+    if (!mainWindow) return { success: false };
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: 'Import Database',
+      filters: [{ name: 'SQLite Database', extensions: ['db', 'sqlite', 'sqlite3'] }],
+      properties: ['openFile'],
+    });
+    if (result.canceled || !result.filePaths[0]) return { success: false };
+    const sourcePath = result.filePaths[0];
+    try {
+      const dbPath = getDatabasePath(app.getPath('userData'));
+      importDatabase(dbPath, sourcePath);
+      setLastBackupTime(new Date().toISOString());
+
+      const freshDb = getDatabase();
+      daoService?.setDatabase(freshDb);
+      accountService?.setDatabase(freshDb);
+      extensionRegistry?.setDatabase(freshDb);
+      extensionIPC?.setDAOService(daoService!);
+
+      return { success: true };
+    } catch (err) {
+      console.error('[backup] import failed:', err);
+      return { success: false, error: err instanceof Error ? err.message : 'Import failed' };
+    }
+  });
+
+  ipcMain.handle("backup:export-encrypted", async (_event, password: string) => {
+    if (!mainWindow) return { success: false };
+    if (!password) return { success: false, error: 'Password required' };
+    const dbPath = getDatabasePath(app.getPath('userData'));
+    const defaultName = `finance-backup-${new Date().toISOString().slice(0,10)}.enc.db`;
+    const result = await dialog.showSaveDialog(mainWindow, {
+      title: 'Export Encrypted Database',
+      defaultPath: defaultName,
+      filters: [{ name: 'Encrypted Backup', extensions: ['enc.db'] }],
+    });
+    if (result.canceled || !result.filePath) return { success: false };
+    try {
+      exportEncrypted(dbPath, result.filePath, password);
+      setLastBackupTime(new Date().toISOString());
+      return { success: true, path: result.filePath };
+    } catch (err) {
+      console.error('[backup] encrypted export failed:', err);
+      return { success: false, error: err instanceof Error ? err.message : 'Encrypted export failed' };
+    }
+  });
+
+  ipcMain.handle("backup:import-encrypted", async (_event, password: string) => {
+    if (!mainWindow) return { success: false };
+    if (!password) return { success: false, error: 'Password required' };
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: 'Import Encrypted Database',
+      filters: [{ name: 'Encrypted Backup', extensions: ['enc.db'] }],
+      properties: ['openFile'],
+    });
+    if (result.canceled || !result.filePaths[0]) return { success: false };
+    const sourcePath = result.filePaths[0];
+    try {
+      const dbPath = getDatabasePath(app.getPath('userData'));
+      importEncrypted(dbPath, sourcePath, password);
+      setLastBackupTime(new Date().toISOString());
+
+      const freshDb = getDatabase();
+      daoService?.setDatabase(freshDb);
+      accountService?.setDatabase(freshDb);
+      extensionRegistry?.setDatabase(freshDb);
+      extensionIPC?.setDAOService(daoService!);
+
+      return { success: true };
+    } catch (err) {
+      console.error('[backup] encrypted import failed:', err);
+      return { success: false, error: err instanceof Error ? err.message : 'Encrypted import failed' };
+    }
+  });
+
+  ipcMain.handle("backup:get-last-time", () => {
+    return getLastBackupTime();
   });
 }
 
