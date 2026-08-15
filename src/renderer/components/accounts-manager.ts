@@ -11,41 +11,65 @@ interface Account {
   created_at: string;
 }
 
-type FormMode = 'view' | 'create' | 'edit';
-
 @customElement('accounts-manager')
 export class AccountsManager extends LitElement {
   static styles = css`
     ${baseViewStyles}
     ${headerHighlightStyles}
 
-    .accounts-header {
+    .page-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 24px;
+      margin-bottom: 20px;
+      min-width: 0;
     }
 
-    .accounts-header h1 {
+    .page-header h1 {
       font-size: 21px;
       font-weight: 600;
       color: var(--text-primary);
-      margin: 0 0 4px;
+      margin: 0 0 2px;
+    }
+
+    .page-header .subtitle {
+      color: var(--text-tertiary);
+      font-size: 12px;
+      margin: 0;
+    }
+
+    .accounts-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      gap: 12px;
+    }
+
+    .accounts-count {
+      color: var(--text-tertiary);
+      font-size: 12px;
     }
 
     .accounts-btn {
       background: var(--btn-primary-bg);
       color: var(--btn-primary-text);
       border: none;
-      padding: 8px 16px;
+      padding: 7px 14px;
       border-radius: 3px;
       font-size: 12px;
       cursor: pointer;
       font-family: inherit;
+      white-space: nowrap;
     }
 
     .accounts-btn:hover {
       background: var(--btn-primary-hover-bg);
+    }
+
+    .accounts-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
     }
 
     .accounts-btn-secondary {
@@ -69,6 +93,55 @@ export class AccountsManager extends LitElement {
       color: var(--danger-hover-text);
     }
 
+    .create-panel {
+      background: var(--tab-bg);
+      border: 1px solid var(--input-border);
+      border-radius: 6px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+
+    .create-panel-header {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 12px;
+    }
+
+    .create-form {
+      display: flex;
+      gap: 12px;
+      align-items: flex-end;
+      flex-wrap: wrap;
+    }
+
+    .form-field {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .form-field label {
+      font-size: 12px;
+      color: var(--text-tertiary);
+    }
+
+    .form-field input[type="text"] {
+      background: var(--input-bg);
+      border: 1px solid var(--input-border);
+      color: var(--input-text);
+      padding: 6px 10px;
+      border-radius: 3px;
+      font-family: inherit;
+      font-size: 12px;
+      min-width: 180px;
+    }
+
+    .form-field input[type="text"]:focus {
+      outline: 1px solid var(--input-focus-border);
+      border-color: var(--input-focus-border);
+    }
+
     .accounts-list {
       flex: 1;
       min-height: 0;
@@ -80,13 +153,17 @@ export class AccountsManager extends LitElement {
     .account-row {
       display: flex;
       align-items: center;
-      gap: 24px;
-      padding: 12px 16px;
+      gap: 16px;
+      padding: 10px 12px;
       background: var(--workspace-bg);
       border: 1px solid var(--input-border);
       border-radius: 6px;
       margin-bottom: 8px;
       min-width: 0;
+    }
+
+    .account-row:hover {
+      border-color: var(--btn-secondary-hover-border);
     }
 
     .account-info {
@@ -103,15 +180,16 @@ export class AccountsManager extends LitElement {
     .account-meta {
       font-size: 12px;
       color: var(--text-tertiary);
-      margin-top: 2px;
+      margin-top: 1px;
     }
 
     .badge {
-      font-size: 12px;
+      font-size: 11px;
       padding: 2px 8px;
       border-radius: 3px;
       font-weight: 600;
       text-transform: uppercase;
+      letter-spacing: 0.2px;
     }
 
     .badge-active {
@@ -126,51 +204,45 @@ export class AccountsManager extends LitElement {
 
     .row-actions {
       display: flex;
-      gap: 8px;
+      gap: 6px;
     }
 
-    .form-card {
-      background: var(--workspace-bg);
-      border: 1px solid var(--input-border);
-      border-radius: 6px;
-      padding: 16px;
-      margin-bottom: 16px;
-      min-width: 0;
+    .row-actions .accounts-btn {
+      padding: 5px 10px;
+      font-size: 11px;
     }
 
-    .form-row {
+    .edit-row {
       display: flex;
-      gap: 12px;
-      margin-bottom: 12px;
-      min-width: 0;
+      gap: 10px;
+      align-items: flex-end;
+      flex-wrap: wrap;
+      width: 100%;
     }
 
-    .form-field {
-      flex: 1;
-      min-width: 0;
+    .edit-row .form-field {
       display: flex;
       flex-direction: column;
       gap: 4px;
     }
 
-    .form-field label {
+    .edit-row label {
       font-size: 12px;
       color: var(--text-tertiary);
     }
 
-    .form-field input[type="text"] {
+    .edit-row input[type="text"] {
       background: var(--input-bg);
       border: 1px solid var(--input-border);
       color: var(--input-text);
-      padding: 8px 10px;
+      padding: 6px 10px;
       border-radius: 3px;
       font-family: inherit;
       font-size: 12px;
-      box-sizing: border-box;
-      width: 100%;
+      min-width: 160px;
     }
 
-    .form-field input[type="text"]:focus {
+    .edit-row input[type="text"]:focus {
       outline: 1px solid var(--input-focus-border);
       border-color: var(--input-focus-border);
     }
@@ -178,14 +250,13 @@ export class AccountsManager extends LitElement {
     .toggle-row {
       display: flex;
       align-items: center;
-      gap: 8px;
-      margin-bottom: 12px;
+      gap: 6px;
     }
 
     .toggle-row input[type="checkbox"] {
       accent-color: var(--input-focus-border);
-      width: 16px;
-      height: 16px;
+      width: 14px;
+      height: 14px;
     }
 
     .toggle-row label {
@@ -194,10 +265,42 @@ export class AccountsManager extends LitElement {
       cursor: pointer;
     }
 
-    .form-actions {
+    .empty-state {
+      flex: 1;
+      min-width: 0;
       display: flex;
-      gap: 8px;
-      justify-content: flex-end;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-tertiary);
+      text-align: center;
+      gap: 10px;
+      padding: 40px 20px;
+    }
+
+    .empty-state h3 {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin: 0;
+    }
+
+    .empty-state p {
+      font-size: 13px;
+      margin: 0;
+      max-width: 320px;
+    }
+
+    .status {
+      font-size: 12px;
+      color: #4ec9b0;
+      margin-bottom: 10px;
+    }
+
+    .error {
+      color: var(--danger-color);
+      font-size: 12px;
+      margin-bottom: 10px;
     }
   `;
 
@@ -208,25 +311,31 @@ export class AccountsManager extends LitElement {
   private _loading = true;
 
   @state()
+  private _status: string | null = null;
+
+  @state()
   private _error: string | null = null;
 
   @state()
-  private _mode: FormMode = 'view';
+  private _showCreate = false;
 
   @state()
-  private _editId: number | null = null;
+  private _createName = '';
 
   @state()
-  private _name = '';
+  private _createInstitution = '';
 
   @state()
-  private _institution = '';
+  private _editingId: number | null = null;
 
   @state()
-  private _isActive = true;
+  private _editName = '';
 
   @state()
-  private _formError: string | null = null;
+  private _editInstitution = '';
+
+  @state()
+  private _editActive = true;
 
   connectedCallback(): void {
     super.connectedCallback();
@@ -235,13 +344,14 @@ export class AccountsManager extends LitElement {
   }
 
   disconnectedCallback(): void {
-    super.disconnectedCallback();
     overlayCoordinator.hideOverlay('accounts');
+    super.disconnectedCallback();
   }
 
   private async _loadAccounts(): Promise<void> {
     this._loading = true;
     this._error = null;
+    this._status = null;
     try {
       const accounts = await window.financeShell?.accounts?.list?.();
       this._accounts = accounts ?? [];
@@ -252,66 +362,106 @@ export class AccountsManager extends LitElement {
     }
   }
 
-  private _openCreate(): void {
-    this._mode = 'create';
-    this._editId = null;
-    this._name = '';
-    this._institution = '';
-    this._isActive = true;
-    this._formError = null;
+  private _toggleCreate(): void {
+    this._showCreate = !this._showCreate;
+    if (this._showCreate) {
+      this._createName = '';
+      this._createInstitution = '';
+      this._error = null;
+      this._status = null;
+    }
   }
 
-  private _openEdit(account: Account): void {
-    this._mode = 'edit';
-    this._editId = account.id;
-    this._name = account.name;
-    this._institution = account.institution ?? '';
-    this._isActive = account.is_active;
-    this._formError = null;
-  }
-
-  private _closeForm(): void {
-    this._mode = 'view';
-    this._editId = null;
-    this._formError = null;
-  }
-
-  private async _submit(): Promise<void> {
-    this._formError = null;
-    const name = this._name.trim();
+  private async _create(): Promise<void> {
+    this._error = null;
+    this._status = null;
+    const name = this._createName.trim();
     if (name === '') {
-      this._formError = 'Account name is required.';
+      this._error = 'Account name is required.';
       return;
     }
     try {
-      if (this._mode === 'create') {
-        await window.financeShell?.accounts?.create?.({ name, institution: this._institution.trim() === '' ? null : this._institution.trim() });
-      } else if (this._editId !== null) {
-        await window.financeShell?.accounts?.update?.({ id: this._editId, name, institution: this._institution.trim() === '' ? null : this._institution.trim(), is_active: this._isActive });
-      }
-      this._closeForm();
+      await window.financeShell?.accounts?.create?.({
+        name,
+        institution: this._createInstitution.trim() === '' ? null : this._createInstitution.trim(),
+      });
+      this._createName = '';
+      this._createInstitution = '';
+      this._showCreate = false;
+      this._status = 'Account created.';
       await this._loadAccounts();
     } catch (err) {
-      this._formError = err instanceof Error ? err.message : 'Save failed';
+      this._error = err instanceof Error ? err.message : 'Create failed';
+    }
+  }
+
+  private _startEdit(account: Account): void {
+    this._editingId = account.id;
+    this._editName = account.name;
+    this._editInstitution = account.institution ?? '';
+    this._editActive = account.is_active;
+    this._error = null;
+    this._status = null;
+  }
+
+  private _cancelEdit(): void {
+    this._editingId = null;
+    this._editName = '';
+    this._editInstitution = '';
+    this._editActive = true;
+    this._error = null;
+  }
+
+  private async _saveEdit(): Promise<void> {
+    this._error = null;
+    this._status = null;
+    const name = this._editName.trim();
+    if (name === '' || this._editingId === null) {
+      this._error = 'Account name is required.';
+      return;
+    }
+    try {
+      await window.financeShell?.accounts?.update?.({
+        id: this._editingId,
+        name,
+        institution: this._editInstitution.trim() === '' ? null : this._editInstitution.trim(),
+        is_active: this._editActive,
+      });
+      this._cancelEdit();
+      this._status = 'Account updated.';
+      await this._loadAccounts();
+    } catch (err) {
+      this._error = err instanceof Error ? err.message : 'Save failed';
     }
   }
 
   private async _toggleActive(account: Account): Promise<void> {
+    this._error = null;
+    this._status = null;
     try {
-      await window.financeShell?.accounts?.update?.({ id: account.id, name: account.name, institution: account.institution, is_active: !account.is_active });
+      await window.financeShell?.accounts?.update?.({
+        id: account.id,
+        name: account.name,
+        institution: account.institution,
+        is_active: !account.is_active,
+      });
+      this._status = account.is_active ? 'Account deactivated.' : 'Account activated.';
       await this._loadAccounts();
     } catch (err) {
-      this._formError = err instanceof Error ? err.message : 'Update failed';
+      this._error = err instanceof Error ? err.message : 'Update failed';
     }
   }
 
   private async _delete(account: Account): Promise<void> {
+    this._error = null;
+    this._status = null;
     try {
       await window.financeShell?.accounts?.delete?.({ id: account.id });
-      if (this._editId === account.id) this._closeForm();
+      if (this._editingId === account.id) this._cancelEdit();
+      this._status = 'Account deleted.';
       await this._loadAccounts();
     } catch (err) {
-      this._formError = err instanceof Error ? err.message : 'Delete failed';
+      this._error = err instanceof Error ? err.message : 'Delete failed';
     }
   }
 
@@ -328,69 +478,89 @@ export class AccountsManager extends LitElement {
     if (this._loading) {
       return html`<div class="empty-state"><h3>Loading accounts...</h3></div>`;
     }
-    if (this._error) {
-      return html`<div class="empty-state"><h3>Error</h3><p>${this._error}</p></div>`;
-    }
-    if (this._accounts.length === 0 && this._mode !== 'create' && this._editId === null) {
-      return html`
-        <div class="accounts-header"><h1>Accounts</h1></div>
-        <div class="empty-state">
-          <h3>No accounts yet</h3>
-          <p>Create your first account to start tracking your finances.</p>
-          <button class="accounts-btn" @click="${this._openCreate}">Create your first account</button>
-        </div>
-      `;
-    }
-    const isFormOpen = this._mode === 'create' || this._editId !== null;
+
     return html`
-      <div class="accounts-header">
-        <h1>Accounts</h1>
-        ${!isFormOpen ? html`<button class="accounts-btn" @click="${this._openCreate}">New Account</button>` : ''}
+      <div class="page-header">
+        <div>
+          <h1>Accounts</h1>
+          <p class="subtitle">Manage your bank accounts and institutions</p>
+        </div>
+        <button class="accounts-btn" @click="${this._toggleCreate}">
+          ${this._showCreate ? 'Close' : 'New Account'}
+        </button>
       </div>
 
-      ${isFormOpen ? html`
-        <div class="form-card">
-          <div class="form-row">
+      ${this._error ? html`<div class="error">${this._error}</div>` : ''}
+      ${this._status ? html`<div class="status">${this._status}</div>` : ''}
+
+      ${this._showCreate ? html`
+        <div class="create-panel">
+          <div class="create-panel-header">New Account</div>
+          <div class="create-form">
             <div class="form-field">
-              <label>Account name</label>
-              <input type="text" .value="${this._name}" @input="${(e: Event) => { this._name = (e.target as HTMLInputElement).value; }}" placeholder="Primary Salary" />
+              <label for="new-account-name">Account name</label>
+              <input type="text" id="new-account-name" .value="${this._createName}" @input="${(e: Event) => { this._createName = (e.target as HTMLInputElement).value; }}" placeholder="Primary Salary" />
             </div>
             <div class="form-field">
-              <label>Institution (optional)</label>
-              <input type="text" .value="${this._institution}" @input="${(e: Event) => { this._institution = (e.target as HTMLInputElement).value; }}" placeholder="Bank" />
+              <label for="new-account-institution">Institution (optional)</label>
+              <input type="text" id="new-account-institution" .value="${this._createInstitution}" @input="${(e: Event) => { this._createInstitution = (e.target as HTMLInputElement).value; }}" placeholder="Bank" />
             </div>
-          </div>
-          ${this._mode === 'edit' ? html`
-            <div class="toggle-row">
-              <input type="checkbox" id="active-toggle" .checked="${this._isActive}" @change="${(e: Event) => { this._isActive = (e.target as HTMLInputElement).checked; }}" />
-              <label for="active-toggle">Active</label>
-            </div>
-          ` : ''}
-          ${this._formError ? html`<div class="error">${this._formError}</div>` : ''}
-          <div class="form-actions">
-            <button class="accounts-btn accounts-btn-secondary" @click="${this._closeForm}">Cancel</button>
-            <button class="accounts-btn" @click="${this._submit}">${this._mode === 'create' ? 'Create' : 'Save'}</button>
+            <button class="accounts-btn" @click="${this._create}" ?disabled="${this._loading}">Create</button>
           </div>
         </div>
       ` : ''}
 
+      <div class="accounts-toolbar">
+        <span class="accounts-count">${this._accounts.length} account${this._accounts.length === 1 ? '' : 's'}</span>
+      </div>
+
       <div class="accounts-list">
+        ${this._accounts.length === 0 ? html`
+          <div class="empty-state">
+            <h3>No accounts yet</h3>
+            <p>Create your first account to start tracking your finances.</p>
+          </div>
+        ` : ''}
         ${this._accounts.map((account) => html`
           <div class="account-row">
-            <div class="account-info">
-              <div class="account-name">${account.name}</div>
-              <div class="account-meta">${account.institution ?? 'No institution'} · ${this._formatDate(account.created_at)}</div>
-            </div>
-            <span class="badge ${account.is_active ? 'badge-active' : 'badge-inactive'}">${account.is_active ? 'Active' : 'Inactive'}</span>
-            <div class="row-actions">
-              <button class="accounts-btn accounts-btn-secondary" @click="${() => this._openEdit(account)}">Edit</button>
-              <button class="accounts-btn accounts-btn-secondary" @click="${() => this._toggleActive(account)}">${account.is_active ? 'Deactivate' : 'Activate'}</button>
-              <button class="accounts-btn accounts-btn-danger" @click="${() => this._delete(account)}">Delete</button>
-            </div>
+            ${this._editingId === account.id ? html`
+              <div class="edit-row">
+                <div class="form-field">
+                  <label>Account name</label>
+                  <input type="text" .value="${this._editName}" @input="${(e: Event) => { this._editName = (e.target as HTMLInputElement).value; }}" />
+                </div>
+                <div class="form-field">
+                  <label>Institution</label>
+                  <input type="text" .value="${this._editInstitution}" @input="${(e: Event) => { this._editInstitution = (e.target as HTMLInputElement).value; }}" />
+                </div>
+                <div class="toggle-row">
+                  <input type="checkbox" id="edit-active-${account.id}" .checked="${this._editActive}" @change="${(e: Event) => { this._editActive = (e.target as HTMLInputElement).checked; }}" />
+                  <label for="edit-active-${account.id}">Active</label>
+                </div>
+                <button class="accounts-btn" @click="${this._saveEdit}" ?disabled="${this._loading}">Save</button>
+                <button class="accounts-btn accounts-btn-secondary" @click="${this._cancelEdit}">Cancel</button>
+              </div>
+            ` : html`
+              <div class="account-info">
+                <div class="account-name">${account.name}</div>
+                <div class="account-meta">${account.institution ?? 'No institution'} · ${this._formatDate(account.created_at)}</div>
+              </div>
+              <span class="badge ${account.is_active ? 'badge-active' : 'badge-inactive'}">${account.is_active ? 'Active' : 'Inactive'}</span>
+              <div class="row-actions">
+                <button class="accounts-btn accounts-btn-secondary" @click="${() => this._startEdit(account)}">Edit</button>
+                <button class="accounts-btn accounts-btn-secondary" @click="${() => this._toggleActive(account)}">${account.is_active ? 'Deactivate' : 'Activate'}</button>
+                <button class="accounts-btn accounts-btn-danger" @click="${() => this._delete(account)}">Delete</button>
+              </div>
+            `}
           </div>
         `)}
       </div>
-      ${this._formError ? html`<div class="error">${this._formError}</div>` : ''}
     `;
+  }
+}
+
+declare global {
+  interface HTMLElementTagNameMap {
+    'accounts-manager': AccountsManager;
   }
 }

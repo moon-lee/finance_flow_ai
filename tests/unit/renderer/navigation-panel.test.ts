@@ -37,7 +37,7 @@ describe('NavigationPanel', () => {
 
     const navLabels = Array.from(panel.shadowRoot!.querySelectorAll('.nav-item')).map(n => n.textContent?.replace(/\s+/g, ' ').trim());
     expect(navLabels).toContain('H Pay History');
-    expect(navLabels).toContain('H Rate History');
+    expect(navLabels).toContain('R Rate History');
     expect(navLabels).toContain('S Settings');
 
     document.body.removeChild(panel);

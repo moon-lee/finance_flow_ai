@@ -92,6 +92,10 @@ export class WebviewPanelManager {
     return this.dirtyPanelIds.has(panelId);
   }
 
+  isOverlayActive(): boolean {
+    return this.overlayActive;
+  }
+
   findByExtensionId(extensionId: string): PanelHandle | undefined {
     return Array.from(this.panels.values()).find(h => h.extensionId === extensionId);
   }

@@ -36,7 +36,7 @@ describe('AccountsManager', () => {
     await settled(el);
     const sr = el.shadowRoot;
     expect(sr?.querySelector('h3')?.textContent?.trim()).toBe('No accounts yet');
-    expect(sr?.querySelector('button')?.textContent?.trim()).toBe('Create your first account');
+    expect(sr?.querySelector('.create-panel')).toBeFalsy();
   });
 
   it('renders account rows with name, institution, active badge, and actions', async () => {
@@ -85,17 +85,20 @@ describe('AccountsManager', () => {
     const el = createEl();
     await settled(el);
     const sr = el.shadowRoot;
-    const btn = sr?.querySelector('.empty-state .accounts-btn') as HTMLButtonElement | null;
-    btn?.click();
+
+    const newAccountBtn = sr?.querySelector('.page-header .accounts-btn') as HTMLButtonElement | null;
+    expect(newAccountBtn).toBeTruthy();
+    newAccountBtn?.click();
     await settled(el);
 
-    const currentSr = el.shadowRoot;
-    const nameInput = currentSr?.querySelector('.form-field input[type="text"]') as HTMLInputElement | null;
+    const formSr = el.shadowRoot;
+    const nameInput = formSr?.querySelector('.create-panel input[type="text"]') as HTMLInputElement | null;
+    expect(nameInput).toBeTruthy();
     if (nameInput) {
       nameInput.value = 'New';
       nameInput.dispatchEvent(new Event('input'));
-      const saveBtn = currentSr?.querySelector('.form-actions .accounts-btn:last-child') as HTMLButtonElement | null;
-      saveBtn?.click();
+      const createBtn = formSr?.querySelector('.create-panel .accounts-btn') as HTMLButtonElement | null;
+      createBtn?.click();
       await settled(el);
     }
 
@@ -127,11 +130,11 @@ describe('AccountsManager', () => {
     await settled(el);
 
     const currentSr = el.shadowRoot;
-    const nameInput = currentSr?.querySelector('.form-field input[type="text"]') as HTMLInputElement | null;
+    const nameInput = currentSr?.querySelector('.edit-row input[type="text"]') as HTMLInputElement | null;
     if (nameInput) {
       nameInput.value = 'Updated Name';
       nameInput.dispatchEvent(new Event('input'));
-      const saveBtn = currentSr?.querySelector('.form-actions .accounts-btn:last-child') as HTMLButtonElement | null;
+      const saveBtn = currentSr?.querySelector('.edit-row .accounts-btn') as HTMLButtonElement | null;
       saveBtn?.click();
       await settled(el);
     }
@@ -186,8 +189,11 @@ describe('AccountsManager', () => {
     await settled(el);
     const sr = el.shadowRoot;
     const deleteBtn = sr?.querySelector('.accounts-btn-danger') as HTMLButtonElement | null;
+    expect(deleteBtn).toBeTruthy();
     deleteBtn?.click();
-    await new Promise((r) => setTimeout(r, 100));
+    await settled(el);
+    await new Promise((r) => setTimeout(r, 50));
+    await settled(el);
     const errorEl = el.shadowRoot?.querySelector('.error');
     expect(errorEl?.textContent?.trim()).toBe('Cannot delete the last active account');
   });

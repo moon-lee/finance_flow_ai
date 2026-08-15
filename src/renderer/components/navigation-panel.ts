@@ -141,6 +141,22 @@ export class NavigationPanel extends LitElement {
     }));
   }
 
+  private _getItemIcon(item: NavItem, usedInitials: Set<string>): string {
+    const words = item.label.split(' ').filter((w) => w.length > 0);
+    if (words.length === 0) return '';
+    const lastInitial = words[words.length - 1].charAt(0).toUpperCase();
+    if (!usedInitials.has(lastInitial)) {
+      usedInitials.add(lastInitial);
+      return lastInitial;
+    }
+    const firstInitial = words[0].charAt(0).toUpperCase();
+    if (!usedInitials.has(firstInitial)) {
+      usedInitials.add(firstInitial);
+      return firstInitial;
+    }
+    return firstInitial;
+  }
+
   private _isActive(item: { command: string }): boolean {
     if (!this._activeCommand) return false;
     if (!item.command.startsWith('__')) return false;
@@ -181,14 +197,18 @@ export class NavigationPanel extends LitElement {
       map.set(item.group, g);
       return map;
     }, new Map());
+    const usedInitials = new Set<string>();
     const sections = Array.from(grouped.entries()).map(([group, items]) => {
       const title = group ?? 'General';
-      const children = items.map(item => html`
-        <div class="${'nav-item' + (this._isActive(item) ? ' active' : '')}" data-testid="nav-${item.id}" @click="${() => this._onNav(item.command)}">
-          <span class="nav-icon">${item.label.split(' ')[1]?.charAt(0).toUpperCase() ?? item.label.charAt(0).toUpperCase()}</span>
-          <span>${item.label}</span>
-        </div>
-      `);
+      const children = items.map(item => {
+        const icon = this._getItemIcon(item, usedInitials);
+        return html`
+          <div class="${'nav-item' + (this._isActive(item) ? ' active' : '')}" data-testid="nav-${item.id}" @click="${() => this._onNav(item.command)}">
+            <span class="nav-icon">${icon}</span>
+            <span>${item.label}</span>
+          </div>
+        `;
+      });
       return html`
         <div class="nav-section">
           <div class="nav-group-label">${title}</div>

@@ -728,6 +728,7 @@ function registerIpcHandlers(): void {
  */
 function notifyOpenDashboardAfterAccountChange(): void {
   if (!extensionIPC || !webviewPanelManager) return;
+  if (webviewPanelManager.isOverlayActive()) return;
   const dashboardMounted = webviewPanelManager
     .list()
     .some((h) => h.extensionId === "dashboard" && h.viewId === "dashboard-view");
