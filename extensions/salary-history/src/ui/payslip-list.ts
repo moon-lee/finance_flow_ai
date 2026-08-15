@@ -81,12 +81,12 @@ export class PayslipList extends LitElement {
       td {
         padding: 8px 12px;
         border-bottom: 1px solid #2a2a2a;
-        color: #d4d4d4;
+        color: #B7B7B7;
         text-align: left;
       }
       th.num, td.num { text-align: right; }
       td.num { font-family: "SF Mono", Consolas, monospace; }
-      td.fy { font-family: "SF Mono", Consolas, monospace; color: #858585;         font-size: 13px; }
+      td.fy { font-family: "SF Mono", Consolas, monospace; color: #686868;         font-size: 13px; }
       td.actions { text-align: right; white-space: nowrap; }
       td.actions .btn-link { margin-left: 8px; }
       td.actions .btn-link:first-child { margin-left: 0; }

@@ -66,7 +66,7 @@ export class PayRateHistoryView extends LitElement {
       }
       th.num, td.num { text-align: right; }
       td.num { font-family: "SF Mono", Consolas, monospace; }
-      tr.current { background: #1e2a1e; box-shadow: inset 3px 0 0 var(--ff-teal); }
+      tr.current { background:var(--ff-border); box-shadow: inset 3px 0 0 var(--ff-teal); }
       tr.current:hover { background: #233023; }
       .badge {
         display: inline-block;
