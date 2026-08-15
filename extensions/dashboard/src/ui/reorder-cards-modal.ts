@@ -33,12 +33,12 @@ export class ReorderCardsModal extends LitElement {
       z-index: 50;
     }
     .modal {
-      background: #252526;
-      border: 1px solid #3e3e3e;
+      background: var(--ff-bg-panel, #252526);
+      border: 1px solid var(--ff-border, #3e3e3e);
       border-radius: 8px;
       padding: 20px;
       width: 320px;
-      color: #d4d4d4;;
+      color: var(--ff-text, #d4d4d4);
       font: 15px/1.5 system-ui, sans-serif;
     }
     h2 {
@@ -51,14 +51,14 @@ export class ReorderCardsModal extends LitElement {
       justify-content: space-between;
       gap: 12px;
       padding: 6px 10px;
-      border: 1px solid #3c3c3c;
-      border-left: 4px solid #3c3c3c;
+      border: 1px solid var(--ff-bg-input, #3c3c3c);
+      border-left: 4px solid var(--ff-bg-input, #3c3c3c);
       border-radius: 4px;
       margin-bottom: 6px;
-      background: #1e1e1e;
+      background: var(--ff-bg-base, #1e1e1e);
     }
     .item.first {
-      border-left-color: #4ec9b0;
+      border-left-color: var(--ff-teal, #4ec9b0);
     }
     .item.last {
       border-left-color: #c586c0;
@@ -78,12 +78,12 @@ export class ReorderCardsModal extends LitElement {
       cursor: default;
     }
     .up {
-      background: #007acc;
-      color: #fff;
+      background: var(--ff-accent, #007acc);
+      color: var(--ff-text-strong, #fff);
     }
     .down {
       background: #6da3d6;
-      color: #fff;
+      color: var(--ff-text-strong, #fff);
     }
     .actions {
       display: flex;
@@ -93,12 +93,12 @@ export class ReorderCardsModal extends LitElement {
     }
     .ghost {
       background: transparent;
-      color: #d4d4d4;
-      border: 1px solid #3e3e3e;
+      color: var(--ff-text, #d4d4d4);
+      border: 1px solid var(--ff-border, #3e3e3e);
     }
     .primary {
-      background: #0e639c;
-      color: #ffffff;
+      background: var(--ff-accent, #0e639c);
+      color: var(--ff-text-strong, #ffffff);
       border: none;
     }
   `;

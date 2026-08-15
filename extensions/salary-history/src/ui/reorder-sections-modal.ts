@@ -46,14 +46,14 @@ export class ReorderSectionsModal extends LitElement {
         justify-content: space-between;
         gap: 12px;
         padding: 6px 10px;
-        border: 1px solid #3c3c3c;
-        border-left: 4px solid #3c3c3c;
+        border: 1px solid var(--ff-bg-input, #3c3c3c);
+        border-left: 4px solid var(--ff-bg-input, #3c3c3c);
         border-radius: 4px;
         margin-bottom: 6px;
-        background: #1e1e1e;
+        background: var(--ff-bg-base, #1e1e1e);
       }
       .item.first {
-        border-left-color: #4ec9b0;
+        border-left-color: var(--ff-teal, #4ec9b0);
       }
       .item.last {
         border-left-color: #c586c0;
@@ -69,12 +69,12 @@ export class ReorderSectionsModal extends LitElement {
         cursor: default;
       }
       .up {
-        background: #007acc;
-        color: #fff;
+        background: var(--ff-accent, #007acc);
+        color: var(--ff-text-strong, #fff);
       }
       .down {
-        background: #6da3d6;
-        color: #fff;
+        background: var(--ff-accent-hover, #6da3d6);
+        color: var(--ff-text-strong, #fff);
       }
     `,
   ];

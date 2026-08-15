@@ -35,7 +35,7 @@ export class PayRateHistoryView extends LitElement {
     listStyles,
     css`
       .container { max-width: 1080px; margin: 0 auto; padding: 24px 20px 40px; }
-      .subtitle { color: var(--ff-text-muted); font-size: 15px; margin: 0 0 16px; }
+      .subtitle { color: var(--ff-text-muted); font-size: 13px; margin: 0 0 16px; }
       .info-banner {
         background: var(--ff-bg-subpanel);
         border: 1px solid var(--ff-border);

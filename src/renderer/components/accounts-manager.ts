@@ -19,57 +19,57 @@ export class AccountsManager extends LitElement {
     ${baseViewStyles}
     ${headerHighlightStyles}
 
-    .header {
+    .accounts-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
       margin-bottom: 24px;
     }
 
-    .header h1 {
+    .accounts-header h1 {
       font-size: 21px;
       font-weight: 600;
       color: var(--text-primary);
-      margin: 0;
+      margin: 0 0 4px;
     }
 
-    .btn {
+    .accounts-btn {
       background: var(--btn-primary-bg);
       color: var(--btn-primary-text);
       border: none;
       padding: 8px 16px;
       border-radius: 3px;
-      font-size: 11px;
+      font-size: 12px;
       cursor: pointer;
       font-family: inherit;
     }
 
-    .btn:hover {
+    .accounts-btn:hover {
       background: var(--btn-primary-hover-bg);
     }
 
-    .btn-secondary {
+    .accounts-btn-secondary {
       background: var(--btn-secondary-bg);
       color: var(--btn-secondary-text);
       border: 1px solid var(--btn-secondary-border);
     }
 
-    .btn-secondary:hover {
+    .accounts-btn-secondary:hover {
       border-color: var(--btn-secondary-hover-border);
     }
 
-    .btn-danger {
+    .accounts-btn-danger {
       background: transparent;
       color: var(--danger-color);
       border: 1px solid var(--danger-border);
     }
 
-    .btn-danger:hover {
+    .accounts-btn-danger:hover {
       background: var(--danger-hover-bg);
       color: var(--danger-hover-text);
     }
 
-    .account-list {
+    .accounts-list {
       flex: 1;
       min-height: 0;
       min-width: 0;
@@ -95,19 +95,19 @@ export class AccountsManager extends LitElement {
     }
 
     .account-name {
-      font-size: 11px;
+      font-size: 12px;
       font-weight: 600;
       color: var(--text-primary);
     }
 
     .account-meta {
-      font-size: 11px;
+      font-size: 12px;
       color: var(--text-tertiary);
       margin-top: 2px;
     }
 
     .badge {
-      font-size: 11px;
+      font-size: 12px;
       padding: 2px 8px;
       border-radius: 3px;
       font-weight: 600;
@@ -154,7 +154,7 @@ export class AccountsManager extends LitElement {
     }
 
     .form-field label {
-      font-size: 11px;
+      font-size: 12px;
       color: var(--text-tertiary);
     }
 
@@ -165,7 +165,7 @@ export class AccountsManager extends LitElement {
       padding: 8px 10px;
       border-radius: 3px;
       font-family: inherit;
-      font-size: 11px;
+      font-size: 12px;
       box-sizing: border-box;
       width: 100%;
     }
@@ -189,7 +189,7 @@ export class AccountsManager extends LitElement {
     }
 
     .toggle-row label {
-      font-size: 11px;
+      font-size: 12px;
       color: var(--input-text);
       cursor: pointer;
     }
@@ -333,19 +333,19 @@ export class AccountsManager extends LitElement {
     }
     if (this._accounts.length === 0 && this._mode !== 'create' && this._editId === null) {
       return html`
-        <div class="header"><h1>Accounts</h1></div>
+        <div class="accounts-header"><h1>Accounts</h1></div>
         <div class="empty-state">
           <h3>No accounts yet</h3>
           <p>Create your first account to start tracking your finances.</p>
-          <button class="btn" @click="${this._openCreate}">Create your first account</button>
+          <button class="accounts-btn" @click="${this._openCreate}">Create your first account</button>
         </div>
       `;
     }
     const isFormOpen = this._mode === 'create' || this._editId !== null;
     return html`
-      <div class="header">
+      <div class="accounts-header">
         <h1>Accounts</h1>
-        ${!isFormOpen ? html`<button class="btn" @click="${this._openCreate}">New Account</button>` : ''}
+        ${!isFormOpen ? html`<button class="accounts-btn" @click="${this._openCreate}">New Account</button>` : ''}
       </div>
 
       ${isFormOpen ? html`
@@ -368,13 +368,13 @@ export class AccountsManager extends LitElement {
           ` : ''}
           ${this._formError ? html`<div class="error">${this._formError}</div>` : ''}
           <div class="form-actions">
-            <button class="btn btn-secondary" @click="${this._closeForm}">Cancel</button>
-            <button class="btn" @click="${this._submit}">${this._mode === 'create' ? 'Create' : 'Save'}</button>
+            <button class="accounts-btn accounts-btn-secondary" @click="${this._closeForm}">Cancel</button>
+            <button class="accounts-btn" @click="${this._submit}">${this._mode === 'create' ? 'Create' : 'Save'}</button>
           </div>
         </div>
       ` : ''}
 
-      <div class="account-list">
+      <div class="accounts-list">
         ${this._accounts.map((account) => html`
           <div class="account-row">
             <div class="account-info">
@@ -383,9 +383,9 @@ export class AccountsManager extends LitElement {
             </div>
             <span class="badge ${account.is_active ? 'badge-active' : 'badge-inactive'}">${account.is_active ? 'Active' : 'Inactive'}</span>
             <div class="row-actions">
-              <button class="btn btn-secondary" @click="${() => this._openEdit(account)}">Edit</button>
-              <button class="btn btn-secondary" @click="${() => this._toggleActive(account)}">${account.is_active ? 'Deactivate' : 'Activate'}</button>
-              <button class="btn btn-danger" @click="${() => this._delete(account)}">Delete</button>
+              <button class="accounts-btn accounts-btn-secondary" @click="${() => this._openEdit(account)}">Edit</button>
+              <button class="accounts-btn accounts-btn-secondary" @click="${() => this._toggleActive(account)}">${account.is_active ? 'Deactivate' : 'Activate'}</button>
+              <button class="accounts-btn accounts-btn-danger" @click="${() => this._delete(account)}">Delete</button>
             </div>
           </div>
         `)}

@@ -34,8 +34,8 @@ export class PayslipList extends LitElement {
     sharedStyles,
     listStyles,
     css`
-      .container { max-width: 960px; margin: 0 auto; padding: 24px 20px 40px; }
-      .subtitle { color: #858585; font-size: 15px; margin: 0 0 16px; }
+      .container { max-width: 1080px; margin: 0 auto; padding: 24px 20px 40px; }
+      .subtitle { color: #858585; font-size: 13px; margin: 0 0 16px; }
       .summary-bar {
         display: flex;
         justify-content: space-between;
@@ -145,40 +145,40 @@ export class PayslipList extends LitElement {
         text-overflow: ellipsis;
       }
       .ytd-chip .chip-value { color: var(--ff-text); font-weight: 600; flex-shrink: 0; }
-      .pagination {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 10px 16px;
-        background: #2a2a2a;
-        border-top: 1px solid #3e3e3e;
-        font-size: 13px;
-        color: #858585;
-      }
-      .pagination .pages { display: flex; gap: 4px; }
-      .pagination .page-btn {
-        background: transparent;
-        border: 1px solid #3e3e3e;
-        color: #d4d4d4;
-        padding: 4px 10px;
-        border-radius: 3px;
-        cursor: pointer;
-        font-family: inherit;
-        font-size: 13px;
-      }
-      .pagination .page-btn:hover { border-color: #007acc; }
-      .pagination .page-btn.current { background: #007acc; border-color: #007acc; color: #ffffff; }
-      .pagination .page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-      .info-note {
-        font-size: 13px;
-        color: #858585;
-        font-style: italic;
-        margin-top: 8px;
-        padding: 8px 12px;
-        background: #1e1e1e;
-        border-radius: 3px;
-      }
-      .info-note code { color: #4ec9b0; font-style: normal; }
+       .pagination {
+         display: flex;
+         justify-content: space-between;
+         align-items: center;
+         padding: 10px 16px;
+         background: var(--ff-bg-subpanel, #2a2a2a);
+         border-top: 1px solid var(--ff-border, #3e3e3e);
+         font-size: 13px;
+         color: var(--ff-text-muted, #858585);
+       }
+       .pagination .pages { display: flex; gap: 4px; }
+       .pagination .page-btn {
+         background: transparent;
+         border: 1px solid var(--ff-border, #3e3e3e);
+         color: var(--ff-text, #d4d4d4);
+         padding: 4px 10px;
+         border-radius: 3px;
+         cursor: pointer;
+         font-family: inherit;
+         font-size: 13px;
+       }
+       .pagination .page-btn:hover { border-color: var(--ff-accent, #007acc); }
+       .pagination .page-btn.current { background: var(--ff-accent, #007acc); border-color: var(--ff-accent, #007acc); color: var(--ff-text-strong, #ffffff); }
+       .pagination .page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+       .info-note {
+         font-size: 13px;
+         color: var(--ff-text-muted, #858585);
+         font-style: italic;
+         margin-top: 8px;
+         padding: 8px 12px;
+         background: var(--ff-bg-base, #1e1e1e);
+         border-radius: 3px;
+       }
+       .info-note code { color: var(--ff-teal, #4ec9b0); font-style: normal; }
     `,
   ];
 

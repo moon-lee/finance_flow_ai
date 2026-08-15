@@ -1,0 +1,883 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Finance Flow AI — Material Theme Mock</title>
+<style>
+  /* ─── Material Design 3 tokens ─── */
+  :root {
+    /* Primary palette (Indigo) */
+    --md-primary-40: #6750a4;
+    --md-primary-80: #d0bcff;
+    --md-on-primary-40: #ffffff;
+    --md-on-primary-80: #21005d;
+
+    /* Secondary palette (Rose) */
+    --md-secondary-40: #7d5260;
+    --md-secondary-80: #efb8c8;
+
+    /* Tertiary palette (Olive) */
+    --md-tertiary-40: #5c5c2e;
+    --md-tertiary-80: #c2c89d;
+
+    /* Neutral palette */
+    --md-neutral-10: #f7f2fa;
+    --md-neutral-90: #1c1b1f;
+    --md-neutral-95: #141218;
+    --md-neutral-99: #fef7ff;
+    --md-neutral-100: #000000;
+
+    /* Error */
+    --md-error-40: #b3261e;
+    --md-error-80: #f9dedc;
+
+    /* Semantic mappings */
+    --ff-bg-base: var(--md-neutral-99);
+    --ff-bg-panel: #ffffff;
+    --ff-bg-subpanel: var(--md-neutral-10);
+    --ff-bg-input: #e8e0f0;
+    --ff-bg-input-hover: #d4c8e0;
+    --ff-border: #c4b5c8;
+    --ff-text: var(--md-neutral-90);
+    --ff-text-muted: #5c5b5e;
+    --ff-text-strong: var(--md-neutral-10);
+    --ff-accent: var(--md-primary-40);
+    --ff-accent-hover: #7c66c8;
+    --ff-teal: var(--md-tertiary-40);
+    --ff-teal-hover: #7a7a50;
+    --ff-danger: var(--md-error-40);
+    --ff-danger-hover: #cc3d30;
+    --ff-warning-bg: #fdf6e3;
+    --ff-warning-text: #755c00;
+  }
+
+  body.dark-theme,
+  body.light-theme {
+    /* nothing here — variables set by JS on documentElement */
+  }
+</style>
+<style>
+  /* ─── Reset & base ─── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+    font-size: 13px;
+    line-height: 1.5;
+    background: var(--ff-bg-base);
+    color: var(--ff-text);
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* ─── Layout shell ─── */
+  .shell {
+    display: flex;
+    height: 100vh;
+  }
+
+  /* ─── Activity bar ─── */
+  .activity-bar {
+    width: 48px;
+    background: var(--md-primary-80);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 8px 0;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+  .activity-bar .icon {
+    width: 36px; height: 36px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 50%;
+    cursor: pointer;
+    color: var(--md-on-primary-80);
+    font-size: 16px;
+    transition: background 0.15s;
+  }
+  .activity-bar .icon:hover,
+  .activity-bar .icon.active {
+    background: rgba(33,0,93,0.12);
+  }
+  .activity-bar .spacer { flex: 1; }
+
+  /* ─── Navigation panel ─── */
+  .nav-panel {
+    width: 220px;
+    background: var(--ff-bg-panel);
+    border-right: 1px solid var(--ff-border);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+  }
+  .nav-panel .nav-header {
+    padding: 16px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--ff-text-muted);
+  }
+  .nav-panel .nav-item {
+    padding: 6px 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--ff-text);
+    border-left: 3px solid transparent;
+    transition: background 0.12s;
+  }
+  .nav-panel .nav-item:hover { background: var(--ff-bg-subpanel); }
+  .nav-panel .nav-item.active {
+    background: var(--ff-bg-subpanel);
+    border-left-color: var(--ff-accent);
+    color: var(--ff-accent);
+    font-weight: 600;
+  }
+  .nav-panel .nav-section + .nav-section { margin-top: 4px; }
+
+  /* ─── Main content ─── */
+  .main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  /* ─── Tab bar ─── */
+  .tab-bar {
+    height: 37px;
+    background: var(--ff-bg-panel);
+    border-bottom: 1px solid var(--ff-border);
+    display: flex;
+    align-items: stretch;
+    padding: 0 8px;
+    gap: 2px;
+    flex-shrink: 0;
+  }
+  .tab {
+    padding: 0 14px;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    border-radius: 5px 5px 0 0;
+    cursor: pointer;
+    color: var(--ff-text-muted);
+    border: 1px solid transparent;
+    border-bottom: none;
+    position: relative;
+    top: 6px;
+    height: 31px;
+    transition: background 0.12s, color 0.12s;
+  }
+  .tab:hover { background: var(--ff-bg-subpanel); color: var(--ff-text); }
+  .tab.active {
+    background: var(--ff-bg-panel);
+    color: var(--ff-text);
+    border-color: var(--ff-border);
+    font-weight: 600;
+  }
+  .tab .dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--ff-teal);
+  }
+
+  /* ─── Workspace ─── */
+  .workspace {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px 28px;
+  }
+
+  /* ─── Settings screen ─── */
+  .settings-header {
+    margin-bottom: 24px;
+  }
+  .settings-header h1 {
+    font-size: 21px;
+    font-weight: 600;
+    color: var(--ff-text);
+  }
+  .settings-header .subtitle {
+    color: var(--ff-text-muted);
+    font-size: 14px;
+    margin-top: 2px;
+  }
+
+  .settings-section {
+    background: var(--ff-bg-panel);
+    border: 1px solid var(--ff-border);
+    border-radius: 8px;
+    margin-bottom: 16px;
+    overflow: hidden;
+  }
+  .settings-section-header {
+    padding: 12px 16px;
+    background: var(--ff-bg-subpanel);
+    border-bottom: 1px solid var(--ff-border);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ff-text);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .settings-section-body {
+    padding: 4px 0;
+  }
+  .setting-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 16px;
+    gap: 16px;
+  }
+  .setting-row + .setting-row {
+    border-top: 1px solid var(--ff-border);
+  }
+  .setting-info { flex: 1; min-width: 0; }
+  .setting-key {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--ff-text);
+  }
+  .setting-desc {
+    font-size: 12px;
+    color: var(--ff-text-muted);
+    margin-top: 1px;
+  }
+  .setting-control { flex-shrink: 0; }
+
+  /* ─── Form controls ─── */
+  select, input[type="text"], input[type="number"] {
+    background: var(--ff-bg-input);
+    border: 1px solid var(--ff-border);
+    color: var(--ff-text);
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 12px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  select:focus, input[type="text"]:focus, input[type="number"]:focus {
+    border-color: var(--ff-accent);
+  }
+  .toggle {
+    width: 36px; height: 20px;
+    background: var(--ff-bg-input);
+    border: 1px solid var(--ff-border);
+    border-radius: 10px;
+    position: relative;
+    cursor: pointer;
+    transition: background 0.2s;
+    flex-shrink: 0;
+  }
+  .toggle::after {
+    content: '';
+    position: absolute;
+    top: 2px; left: 2px;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--ff-text-muted);
+    transition: transform 0.2s, background 0.2s;
+  }
+  .toggle.on {
+    background: var(--ff-accent);
+    border-color: var(--ff-accent);
+  }
+  .toggle.on::after {
+    transform: translateX(16px);
+    background: var(--ff-accent-hover);
+  }
+
+  /* ─── Buttons ─── */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 16px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: background 0.15s, box-shadow 0.15s;
+  }
+  .btn-primary {
+    background: var(--ff-accent);
+    color: var(--ff-text-strong);
+  }
+  .btn-primary:hover { background: var(--ff-accent-hover); box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+  .btn-secondary {
+    background: transparent;
+    color: var(--ff-text);
+    border: 1px solid var(--ff-border);
+  }
+  .btn-secondary:hover { background: var(--ff-bg-input); }
+
+  /* ─── Cards ─── */
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+    margin-top: 16px;
+  }
+  .card {
+    background: var(--ff-bg-panel);
+    border: 1px solid var(--ff-border);
+    border-radius: 8px;
+    padding: 16px;
+  }
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 10px;
+  }
+  .card-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--ff-text-muted);
+  }
+  .card-badge {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: var(--ff-teal);
+    color: var(--ff-text-strong);
+    font-weight: 700;
+  }
+  .card-value {
+    font-family: 'SF Mono', Consolas, monospace;
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--ff-text-strong);
+    margin-bottom: 2px;
+  }
+  .card-sub {
+    font-size: 12px;
+    color: var(--ff-text-muted);
+  }
+
+  /* ─── Shortcuts screen ─── */
+  .shortcut-section {
+    background: var(--ff-bg-panel);
+    border: 1px solid var(--ff-border);
+    border-radius: 8px;
+    margin-bottom: 16px;
+    overflow: hidden;
+  }
+  .shortcut-section-header {
+    padding: 10px 16px;
+    background: var(--ff-bg-subpanel);
+    border-bottom: 1px solid var(--ff-border);
+    font-size: 13px;
+    font-weight: 600;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .shortcut-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 16px;
+    gap: 12px;
+  }
+  .shortcut-row:hover { background: var(--ff-bg-subpanel); }
+  .shortcut-label { flex: 1; font-size: 13px; }
+  .shortcut-badge {
+    font-family: 'SF Mono', Consolas, monospace;
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    background: var(--ff-bg-input);
+    border: 1px solid var(--ff-border);
+    color: var(--ff-text);
+    min-width: 80px;
+    text-align: center;
+  }
+  .shortcut-badge.core {
+    background: var(--ff-bg-subpanel);
+    color: var(--ff-text-muted);
+    cursor: default;
+  }
+
+  /* ─── Backup screen ─── */
+  .backup-hero {
+    background: var(--ff-bg-panel);
+    border: 1px solid var(--ff-border);
+    border-radius: 8px;
+    padding: 32px;
+    text-align: center;
+  }
+  .backup-hero h2 {
+    font-size: 17px;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+  .backup-hero p {
+    color: var(--ff-text-muted);
+    font-size: 13px;
+    margin-bottom: 20px;
+  }
+  .backup-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+  }
+
+  /* ─── Accounts list ─── */
+  .account-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 12px 16px;
+    background: var(--ff-bg-panel);
+    border: 1px solid var(--ff-border);
+    border-radius: 8px;
+    margin-bottom: 8px;
+  }
+  .account-info { flex: 1; min-width: 0; }
+  .account-name { font-size: 13px; font-weight: 600; }
+  .account-meta { font-size: 12px; color: var(--ff-text-muted); margin-top: 1px; }
+  .badge {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+  .badge-active { background: rgba(92,92,46,0.15); color: var(--md-tertiary-40); }
+  .badge-inactive { background: var(--ff-bg-input); color: var(--ff-text-muted); }
+  .row-actions { display: flex; gap: 6px; }
+
+  /* ─── Status bar ─── */
+  .status-bar {
+    height: 22px;
+    background: var(--md-primary-80);
+    color: var(--md-on-primary-80);
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    font-size: 11px;
+    gap: 16px;
+    flex-shrink: 0;
+  }
+  .status-bar .spacer { flex: 1; }
+  .status-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    padding: 0 4px;
+    border-radius: 3px;
+  }
+  .status-item:hover { background: rgba(33,0,93,0.1); }
+
+  /* ─── Theme switcher pill ─── */
+  .theme-switcher {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    z-index: 100;
+    display: flex;
+    gap: 6px;
+    background: var(--ff-bg-panel);
+    border: 1px solid var(--ff-border);
+    border-radius: 6px;
+    padding: 4px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+  }
+  .theme-pill {
+    padding: 5px 12px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    color: var(--ff-text-muted);
+    transition: background 0.15s, color 0.15s;
+  }
+  .theme-pill:hover { background: var(--ff-bg-input); color: var(--ff-text); }
+  .theme-pill.active { background: var(--ff-accent); color: var(--ff-text-strong); }
+
+  /* ─── Section labels ─── */
+  .section-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--ff-text-muted);
+    padding: 12px 16px 4px;
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- Activity Bar -->
+  <aside class="activity-bar">
+    <div class="icon active" title="Dashboard">📊</div>
+    <div class="icon" title="Accounts">👤</div>
+    <div class="icon" title="Settings">⚙</div>
+    <div class="spacer"></div>
+    <div class="icon" title="Extensions">🧩</div>
+  </aside>
+
+  <!-- Navigation Panel -->
+  <nav class="nav-panel">
+    <div class="nav-section">
+      <div class="nav-header">General</div>
+      <div class="nav-item active">Dashboard</div>
+      <div class="nav-item">Accounts</div>
+      <div class="nav-item">Settings</div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-header">Extensions</div>
+      <div class="nav-item">Salary History</div>
+      <div class="nav-item">Keyboard Shortcuts</div>
+      <div class="nav-item">Backup & Restore</div>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <div class="main">
+
+    <!-- Tab Bar -->
+    <div class="tab-bar">
+      <div class="tab active"><span class="dot"></span>Dashboard</div>
+      <div class="tab"><span class="dot"></span>Salary History</div>
+      <div class="tab"><span class="dot"></span>Pay Rate History</div>
+    </div>
+
+    <!-- Workspace: Dashboard -->
+    <div class="workspace" id="view-dashboard">
+      <div class="settings-header">
+        <h1>Dashboard</h1>
+        <p class="subtitle">FY 2025-2026 · Account: Primary Cheque · 4 cards</p>
+      </div>
+
+      <div class="card-grid">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Net Worth</span>
+            <span class="card-badge">$45,230.00</span>
+          </div>
+          <div class="card-value">$45,230.00</div>
+          <div class="card-sub">Balance + last payslip net</div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">YTD Salary</span>
+            <span class="card-badge">$68,400.00</span>
+          </div>
+          <div class="card-value">$52,300.00</div>
+          <div class="card-sub">Gross $68,400.00 · Current rate $38.00/hr since 2025-01-01</div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Last Payslip</span>
+            <span class="card-badge">2026-08-01</span>
+          </div>
+          <div class="card-value">$2,847.50</div>
+          <div class="card-sub">Gross $3,750.00 · 2026-08-01 · AUD</div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Accounts</span>
+            <span class="card-badge">3 active</span>
+          </div>
+          <div class="card-value">3 accounts</div>
+          <div class="card-sub">Total $48,540.00</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Workspace: Settings (hidden by default) -->
+    <div class="workspace" id="view-settings" style="display:none">
+      <div class="settings-header">
+        <h1>Settings</h1>
+        <p class="subtitle">Application preferences</p>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-section-header">Core</div>
+        <div class="settings-section-body">
+          <div class="setting-row">
+            <div class="setting-info">
+              <div class="setting-key">core.theme</div>
+              <div class="setting-desc">Application color theme</div>
+            </div>
+            <div class="setting-control">
+              <select id="theme-select">
+                <option value="dark">Dark</option>
+                <option value="light">Light</option>
+                <option value="material">Material</option>
+                <option value="catppuccin">Catppuccin Mocha</option>
+              </select>
+            </div>
+          </div>
+          <div class="setting-row">
+            <div class="setting-info">
+              <div class="setting-key">core.financialYear.start</div>
+              <div class="setting-desc">Financial year boundary (MM-DD)</div>
+            </div>
+            <div class="setting-control">
+              <input type="text" value="07-01" style="width:80px" />
+            </div>
+          </div>
+          <div class="setting-row">
+            <div class="setting-info">
+              <div class="setting-key">core.financialYear.current</div>
+              <div class="setting-desc">Active financial year label</div>
+            </div>
+            <div class="setting-control">
+              <input type="text" value="2025-2026" style="width:120px" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-section-header">Salary History</div>
+        <div class="settings-section-body">
+          <div class="setting-row">
+            <div class="setting-info">
+              <div class="setting-key">salary-history.paygToleranceDollars</div>
+              <div class="setting-desc">PAYG validation tolerance in dollars</div>
+            </div>
+            <div class="setting-control">
+              <input type="number" value="5" style="width:70px" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Workspace: Shortcuts (hidden by default) -->
+    <div class="workspace" id="view-shortcuts" style="display:none">
+      <div class="settings-header">
+        <h1>Keyboard Shortcuts</h1>
+        <p class="subtitle">Click an accelerator to rebind</p>
+      </div>
+
+      <div class="shortcut-section">
+        <div class="shortcut-section-header">Core</div>
+        <div class="shortcut-row">
+          <span class="shortcut-label">Toggle Command Palette</span>
+          <span class="shortcut-badge core">Ctrl+Shift+P</span>
+        </div>
+        <div class="shortcut-row">
+          <span class="shortcut-label">Toggle AI Panel</span>
+          <span class="shortcut-badge core">Ctrl+J</span>
+        </div>
+        <div class="shortcut-row">
+          <span class="shortcut-label">Escape</span>
+          <span class="shortcut-badge core">Close overlay</span>
+        </div>
+      </div>
+
+      <div class="shortcut-section">
+        <div class="shortcut-section-header">
+          Salary History
+          <button class="btn btn-secondary" style="font-size:11px;padding:3px 10px">Reset</button>
+        </div>
+        <div class="shortcut-row">
+          <span class="shortcut-label">salary.show-pay-history</span>
+          <span class="shortcut-badge">Ctrl+Alt+H</span>
+        </div>
+        <div class="shortcut-row">
+          <span class="shortcut-label">salary.show-pay-rate-history</span>
+          <span class="shortcut-badge">Ctrl+Alt+R</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Workspace: Backup (hidden by default) -->
+    <div class="workspace" id="view-backup" style="display:none">
+      <div class="settings-header">
+        <h1>Backup & Restore</h1>
+        <p class="subtitle">Export or import your data</p>
+      </div>
+
+      <div class="backup-hero">
+        <h2>Your data, safely backed up</h2>
+        <p>Export your database to a file, or restore from a previous backup.</p>
+        <div class="backup-actions">
+          <button class="btn btn-primary">⬇ Export</button>
+          <button class="btn btn-secondary">⬆ Import</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Workspace: Accounts (hidden by default) -->
+    <div class="workspace" id="view-accounts" style="display:none">
+      <div class="settings-header">
+        <h1>Accounts</h1>
+      </div>
+
+      <div class="account-row">
+        <div class="account-info">
+          <div class="account-name">Primary Cheque</div>
+          <div class="account-meta">CBA · Created 1 Aug 2026</div>
+        </div>
+        <span class="badge badge-active">Active</span>
+        <div class="row-actions">
+          <button class="btn btn-secondary" style="padding:4px 10px;font-size:11px">Edit</button>
+          <button class="btn btn-secondary" style="padding:4px 10px;font-size:11px">Deactivate</button>
+          <button class="btn btn-secondary" style="padding:4px 10px;font-size:11px;color:var(--ff-danger)">Delete</button>
+        </div>
+      </div>
+
+      <div class="account-row">
+        <div class="account-info">
+          <div class="account-name">Savings</div>
+          <div class="account-meta">No institution · Created 15 Jul 2026</div>
+        </div>
+        <span class="badge badge-inactive">Inactive</span>
+        <div class="row-actions">
+          <button class="btn btn-secondary" style="padding:4px 10px;font-size:11px">Edit</button>
+          <button class="btn btn-secondary" style="padding:4px 10px;font-size:11px">Activate</button>
+          <button class="btn btn-secondary" style="padding:4px 10px;font-size:11px;color:var(--ff-danger)">Delete</button>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /shell -->
+
+<!-- Status Bar -->
+<div class="status-bar">
+  <span>⚡ main</span>
+  <span class="spacer"></span>
+  <span class="status-item" id="theme-status">theme: catppuccin</span>
+  <span class="status-item">🔒 Ready</span>
+</div>
+
+  <!-- Theme switcher overlay -->
+  <div class="theme-switcher">
+    <button class="theme-pill" data-theme="dark">Dark</button>
+    <button class="theme-pill" data-theme="light">Light</button>
+    <button class="theme-pill" data-theme="material">Material</button>
+    <button class="theme-pill" data-theme="catppuccin">Catppuccin</button>
+  </div>
+
+<script>
+  const pills = document.querySelectorAll('.theme-pill');
+  const status = document.getElementById('theme-status');
+
+  const themes = {
+    dark: {
+      '--ff-bg-base': '#1e1e1e',
+      '--ff-bg-panel': '#252526',
+      '--ff-bg-subpanel': '#2a2a2a',
+      '--ff-bg-input': '#3c3c3c',
+      '--ff-bg-input-hover': '#4a4a4a',
+      '--ff-border': '#3e3e3e',
+      '--ff-text': '#d4d4d4',
+      '--ff-text-muted': '#858585',
+      '--ff-text-strong': '#ffffff',
+      '--ff-accent': '#6750a4',
+      '--ff-accent-hover': '#7c66c8',
+      '--ff-teal': '#5c5c2e',
+      '--ff-teal-hover': '#7a7a50',
+      '--ff-danger': '#f48771',
+      '--ff-danger-hover': '#f5a08c',
+      '--ff-warning-bg': '#3a2e0a',
+      '--ff-warning-text': '#ffd866',
+    },
+    light: {
+      '--ff-bg-base': '#f8fafc',
+      '--ff-bg-panel': '#ffffff',
+      '--ff-bg-subpanel': '#f1f5f9',
+      '--ff-bg-input': '#e2e8f0',
+      '--ff-bg-input-hover': '#cbd5e1',
+      '--ff-border': '#e2e8f0',
+      '--ff-text': '#1e293b',
+      '--ff-text-muted': '#64748b',
+      '--ff-text-strong': '#0f172a',
+      '--ff-accent': '#007acc',
+      '--ff-accent-hover': '#1188dd',
+      '--ff-teal': '#4ec9b0',
+      '--ff-teal-hover': '#5aafa0',
+      '--ff-danger': '#dc2626',
+      '--ff-danger-hover': '#ef4444',
+      '--ff-warning-bg': '#fef3c7',
+      '--ff-warning-text': '#92400e',
+    },
+    material: {
+      '--ff-bg-base': '#f7f2fa',
+      '--ff-bg-panel': '#ffffff',
+      '--ff-bg-subpanel': '#f0e8f6',
+      '--ff-bg-input': '#e8e0f0',
+      '--ff-bg-input-hover': '#d4c8e0',
+      '--ff-border': '#c4b5c8',
+      '--ff-text': '#1c1b1f',
+      '--ff-text-muted': '#5c5b5e',
+      '--ff-text-strong': '#f7f2fa',
+      '--ff-accent': '#6750a4',
+      '--ff-accent-hover': '#7c66c8',
+      '--ff-teal': '#5c5c2e',
+      '--ff-teal-hover': '#7a7a50',
+      '--ff-danger': '#b3261e',
+      '--ff-danger-hover': '#cc3d30',
+      '--ff-warning-bg': '#fdf6e3',
+      '--ff-warning-text': '#755c00',
+    },
+    catppuccin: {
+      '--ff-bg-base': '#1e1e2e',
+      '--ff-bg-panel': '#313244',
+      '--ff-bg-subpanel': '#45475a',
+      '--ff-bg-input': '#585b70',
+      '--ff-bg-input-hover': '#6c7086',
+      '--ff-border': '#45475a',
+      '--ff-text': '#cdd6f4',
+      '--ff-text-muted': '#a6adc8',
+      '--ff-text-strong': '#f5c2e7',
+      '--ff-accent': '#89b4fa',
+      '--ff-accent-hover': '#74c7ec',
+      '--ff-teal': '#94e2d5',
+      '--ff-teal-hover': '#a6e3a1',
+      '--ff-danger': '#f38ba8',
+      '--ff-danger-hover': '#eba0ac',
+      '--ff-warning-bg': '#2a2634',
+      '--ff-warning-text': '#f9e2af',
+    },
+  };
+
+  function applyTheme(name) {
+    const vars = themes[name];
+    const root = document.documentElement;
+    for (const [k, v] of Object.entries(vars)) {
+      root.style.setProperty(k, v);
+    }
+    document.body.classList.remove('dark-theme', 'light-theme');
+    document.body.classList.add(name === 'dark' ? 'dark-theme' : name === 'light' ? 'light-theme' : 'dark-theme');
+    status.textContent = 'theme: ' + name;
+    pills.forEach(p => p.classList.toggle('active', p.dataset.theme === name));
+  }
+
+  pills.forEach(pill => {
+    pill.addEventListener('click', () => applyTheme(pill.dataset.theme));
+  });
+
+  // Default
+  applyTheme('catppuccin');
+</script>
+</body>
+</html>

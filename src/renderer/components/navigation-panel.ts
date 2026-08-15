@@ -22,19 +22,19 @@ export class NavigationPanel extends LitElement {
 
     .nav-header {
       padding: 4px 16px 8px;
-      font-size: 12px;
+      font-size: 13px;
       font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
-      color: var(--text-tertiary);
+      letter-spacing: 0.8px;
+      color: var(--text-primary);
     }
 
     .nav-group-label {
       color: var(--text-tertiary);
-      font-size: 12px;
+      font-size: 13px;
       font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.8px;
       padding: 12px 16px 4px;
     }
 
@@ -42,12 +42,12 @@ export class NavigationPanel extends LitElement {
       display: flex;
       align-items: center;
       gap: 8px;
-      padding: 5px 16px;
-      color: var(--text-secondary);
+      padding: 6px 16px;
+      color: var(--text-primary);
       cursor: pointer;
-      font-size: 14px;
-      border-left: 2px solid transparent;
-      margin-bottom: 2px;
+      font-size: 13px;
+      border-left: 3px solid transparent;
+      margin-bottom: 4px;
     }
 
     .nav-item:hover {
@@ -68,7 +68,7 @@ export class NavigationPanel extends LitElement {
       justify-content: center;
       background: var(--btn-secondary-bg);
       border-radius: 3px;
-      font-size: 10px;
+      font-size: 12px;
       font-weight: 700;
       color: var(--tab-icon-inactive-text);
       flex-shrink: 0;
@@ -82,11 +82,15 @@ export class NavigationPanel extends LitElement {
 
   private _currentView = 'Dashboard';
   private _currentExtensionId = '';
+  private _activeCommand = '';
   private _items: NavItem[] = [];
 
   setView(view: string, extensionId?: string) {
     this._currentView = view;
     this._currentExtensionId = extensionId ?? '';
+    if (view === '__settings__' || view === '__accounts__' || view === '__shortcuts__') {
+      this._activeCommand = view;
+    }
     this.requestUpdate();
   }
 
@@ -97,6 +101,7 @@ export class NavigationPanel extends LitElement {
 
   private _onNav(cmd: string) {
     if (!cmd) return;
+    this._activeCommand = cmd;
     if (cmd === '__settings__') {
       this.dispatchEvent(new CustomEvent('view-changed', {
         detail: { view: '__settings__', source: 'core' },
@@ -126,6 +131,12 @@ export class NavigationPanel extends LitElement {
       bubbles: true,
       composed: true,
     }));
+  }
+
+  private _isActive(item: { command: string }): boolean {
+    if (!this._activeCommand) return false;
+    if (!item.command.startsWith('__')) return false;
+    return item.command === this._activeCommand;
   }
 
   private static readonly _coreItems: NavItem[] = [
@@ -164,7 +175,7 @@ export class NavigationPanel extends LitElement {
     const sections = Array.from(grouped.entries()).map(([group, items]) => {
       const title = group ?? 'General';
       const children = items.map(item => html`
-        <div class="nav-item" data-testid="nav-${item.id}" @click="${() => this._onNav(item.command)}">
+        <div class="${'nav-item' + (this._isActive(item) ? ' active' : '')}" data-testid="nav-${item.id}" @click="${() => this._onNav(item.command)}">
           <span class="nav-icon">${item.label.split(' ')[1]?.charAt(0).toUpperCase() ?? item.label.charAt(0).toUpperCase()}</span>
           <span>${item.label}</span>
         </div>

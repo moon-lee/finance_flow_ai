@@ -48,41 +48,43 @@ export class DashboardView extends LitElement {
       display: block;
       box-sizing: border-box;
       font: 16px/1.5 system-ui, sans-serif;
+      background: var(--ff-bg-base, #1e1e1e);
+      color: var(--ff-text, #d4d4d4);
     }
     .subtitle { 
-      color: #858585; 
+      color: var(--ff-text-muted, #858585); 
       font: 15px/1.5 system-ui, sans-serif;
     }
     .topbar {
-      background: #252526;
-      border-bottom: 1px solid #3e3e3e;
+      background: var(--ff-bg-panel, #252526);
+      border-bottom: 1px solid var(--ff-border, #3e3e3e);
       padding: 10px 20px;
       display: flex;
       align-items: center;
       gap: 12px;
     }
     .topbar .crumb-current {
-      color: #d4d4d4;
+      color: var(--ff-text, #d4d4d4);
       font-weight: 500;
     }
     .topbar .spacer {
       flex: 1;
     }
     .topbar .reorder-btn {
-      background: #3c3c3c;
-      color: #d4d4d4;
-      border: 1px solid #3e3e3e;
+      background: var(--ff-bg-input, #3c3c3c);
+      color: var(--ff-text, #d4d4d4);
+      border: 1px solid var(--ff-border, #3e3e3e);
       padding: 5px 12px;
       border-radius: 3px;
       cursor: pointer;
     }
     .topbar .reorder-btn:hover {
-      border-color: #007acc;
+      border-color: var(--ff-accent, #007acc);
     }
     .reorder-btn {
       background: transparent;
-      color: #858585;
-      border: 1px solid #3e3e3e;
+      color: var(--ff-text-muted, #858585);
+      border: 1px solid var(--ff-border, #3e3e3e);
       padding: 4px 10px;
       border-radius: 3px;
       font-size: 12px;
@@ -96,8 +98,8 @@ export class DashboardView extends LitElement {
       gap: 16px;
     }
     .card {
-      background: #252526;
-      border: 1px solid #3e3e3e;
+      background: var(--ff-bg-panel, #252526);
+      border: 1px solid var(--ff-border, #3e3e3e);
       border-radius: 6px;
       padding: 16px;
     }
@@ -110,7 +112,7 @@ export class DashboardView extends LitElement {
     .card-title {
       font-size: 13px;
       font-weight: 600;
-      color: #858585;
+      color: var(--ff-text-muted, #858585);
       text-transform: uppercase;
       letter-spacing: 0.3px;
     }
@@ -118,46 +120,46 @@ export class DashboardView extends LitElement {
       font-size: 12px;
       padding: 2px 8px;
       border-radius: 3px;
-      background: #4ec9b0;
-      color: #1e1e1e;
+      background: var(--ff-teal, #4ec9b0);
+      color: var(--ff-bg-base, #1e1e1e);
       font-weight: 600;
     }
     .card-badge.warn {
       background: #cca700;
-      color: #1e1e1e;
+      color: var(--ff-bg-base, #1e1e1e);
     }
     .card-badge.placeholder {
-      background: #3c3c3c;
-      color: #858585;
+      background: var(--ff-bg-input, #3c3c3c);
+      color: var(--ff-text-muted, #858585);
     }
     .card-value {
       font-family: "SF Mono", Consolas, monospace;
       font-size: 23px;
       font-weight: 600;
-      color: #ffffff;
+      color: var(--ff-text-strong, #ffffff);
       margin-bottom: 4px;
     }
     .card-sub {
       font-size: 12px;
-      color: #858585;
+      color: var(--ff-text-muted, #858585);
     }
     .card-detail {
       font-size: 12px;
-      color: #858585;
+      color: var(--ff-text-muted, #858585);
       margin-top: 8px;
       padding-top: 8px;
-      border-top: 1px solid #3e3e3e;
+      border-top: 1px solid var(--ff-border, #3e3e3e);
     }
     .placeholder {
-      color: #858585;
+      color: var(--ff-text-muted, #858585);
       font-size: 13px;
     }
     .placeholder a {
-      color: #007acc;
+      color: var(--ff-accent, #007acc);
       cursor: pointer;
     }
     .missing {
-      color: #858585;
+      color: var(--ff-text-muted, #858585);
       font-size: 13px;
       font-style: italic;
     }

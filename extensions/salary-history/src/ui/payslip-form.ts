@@ -135,8 +135,8 @@ export class PayslipForm extends LitElement {
         font: 16px/1.5 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       }
       * { box-sizing: border-box; }
-      .container { max-width: 760px; margin: 0 auto; padding: 24px 20px 40px; }
-      .subtitle { color: #858585; font-size: 15px; margin: 0 0 24px; }
+      .container { max-width: 960px; margin: 0 auto; padding: 24px 20px 40px; }
+      .subtitle { color: #858585; font-size: 13px; margin: 0 0 24px; }
       .section.readonly { border-color: #5a4a1a; }
       .section.accrual { border-color: #c2913a; }
       .reorder-btn {
@@ -157,28 +157,28 @@ export class PayslipForm extends LitElement {
       .edit-balance-label { color: #d4d4d4; font-size: 15px; }
       .edit-balance-label .hint { color: #858585; font-weight: normal; font-size: 14px; }
       .edit-balance-input {
-        width: 160px;
-        text-align: right;
-        background: #3c3c3c;
-        color: #d4d4d4;
-        border: 1px solid #3e3e3e;
-        border-radius: 3px;
-        padding: 6px 10px;
-        font-size: 12px;
-        font-family: 'SF Mono', Consolas, monospace;
-        outline: none;
-      }
-      .edit-balance-input:focus { border-color: #007acc; }
+         width: 160px;
+         text-align: right;
+         background: var(--ff-bg-input, #3c3c3c);
+         color: var(--ff-text, #d4d4d4);
+         border: 1px solid var(--ff-border, #3e3e3e);
+         border-radius: 3px;
+         padding: 6px 10px;
+         font-size: 12px;
+         font-family: 'SF Mono', Consolas, monospace;
+         outline: none;
+       }
+       .edit-balance-input:focus { border-color: var(--ff-accent, #007acc); }
       .read-only-row .label { color: #858585; font-family: 'SF Mono', Consolas, monospace; font-size: 14px; }
       .read-only-row .value { color: #d4d4d4; font-family: 'SF Mono', Consolas, monospace; }
       .toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; }
       .toggle-btn {
-        display: inline-flex; align-items: center; gap: 6px;
-        cursor: pointer; color: #6da3d6;
-        background: #1e1e1e; border: 1px solid #3e3e3e; border-radius: 4px;
-        padding: 6px 12px; font-size: 15px; line-height: 1;
-      }
-      .toggle-btn:hover { background: #2a2a2a; border-color: #6da3d6; }
+         display: inline-flex; align-items: center; gap: 6px;
+         cursor: pointer; color: var(--ff-accent, #6da3d6);
+         background: var(--ff-bg-base, #1e1e1e); border: 1px solid var(--ff-border, #3e3e3e); border-radius: 4px;
+         padding: 6px 12px; font-size: 15px; line-height: 1;
+       }
+       .toggle-btn:hover { background: var(--ff-bg-subpanel, #2a2a2a); border-color: var(--ff-accent, #6da3d6); }
       .toggle-icon { font-size: 16px; line-height: 1; transform: translateY(1px); }
       .toggle-text { font-weight: 500; }
       .hours-block { background: #1e1e1e; border: 1px solid #3e3e3e; border-radius: 4px; padding: 12px; margin-top: 12px; }
@@ -189,8 +189,8 @@ export class PayslipForm extends LitElement {
       .red { background: #3a1414; border: 1px solid #f48771; color: #f3b3a6; border-radius: 4px; padding: 8px 10px; margin: 8px 0; font-size: 14px; }
       .errors { color: #f48771; font-size: 14px; margin: 8px 0; }
       .formula { color: #8a8a8a; font-size: 13px; margin-top: 8px; font-family: 'SF Mono', Consolas, monospace; }
-      .btn-validate { background: #2a2a2a; color: #007acc; border: 1px solid #007acc; padding: 5px 12px; border-radius: 3px; font-size: 14px; cursor: pointer; font-family: inherit; }
-      .btn-validate:hover { background: #003a66; }
+      .btn-validate { background: var(--ff-bg-subpanel, #2a2a2a); color: var(--ff-accent, #007acc); border: 1px solid var(--ff-accent, #007acc); padding: 5px 12px; border-radius: 3px; font-size: 14px; cursor: pointer; font-family: inherit; }
+      .btn-validate:hover { background: var(--ff-accent-hover, #003a66); }
       .payg-btn-row { display: flex; align-items: center; gap: 12px; margin-top: 8px; flex-wrap: wrap; }
       .payg-result { margin-top: 12px; padding: 10px 12px; background: #1e3a2e; border-left: 3px solid #4ec9b0; border-radius: 3px; font-size: 14px; color: #d4d4d4; }
       .payg-result-icon { color: #4ec9b0; font-weight: 700; margin-right: 6px; }

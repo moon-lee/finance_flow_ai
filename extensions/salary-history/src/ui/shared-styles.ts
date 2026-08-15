@@ -79,7 +79,7 @@ export const sharedStyles = css`
   .btn-primary { background: var(--ff-accent, #007acc); color: var(--ff-text-strong, #fff); border-color: var(--ff-accent, #007acc); }
   .btn-primary:hover { background: var(--ff-accent-hover, #1188dd); }
   .btn-secondary { background: var(--ff-bg-input, #3c3c3c); color: var(--ff-text, #d4d4d4); border-color: var(--ff-border, #3e3e3e); }
-  .btn-secondary:hover { background: #4a4a4a; }
+  .btn-secondary:hover { background: var(--ff-bg-input-hover, #4a4a4a); }
 `;
 
 /** Shared form primitives: sectioned cards + labelled fields. */
@@ -138,9 +138,9 @@ export const formStyles = css`
   .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--ff-accent, #007acc); }
   .field input[type='number'], .field input[type='date'] { font-family: 'SF Mono', Consolas, monospace; }
   .field textarea { resize: vertical; min-height: 60px; font-family: inherit; }
-  .field-changed input { border-color: #cca700; background: #3a2e0a; }
-  .field-changed .label-sub { color: #ffd866; }
-  .field-error { font-size: 12px; color: #f48771; margin-top: 2px; }
+  .field-changed input { border-color: var(--ff-warning-text, #cca700); background: var(--ff-warning-bg, #3a2e0a); }
+  .field-changed .label-sub { color: var(--ff-warning-text, #ffd866); }
+  .field-error { font-size: 12px; color: var(--ff-danger, #f48771); margin-top: 2px; }
 
   .footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
 `;
@@ -168,7 +168,7 @@ export const listStyles = css`
     font-family: inherit;
   }
   .btn-link:hover { text-decoration: underline; }
-  .btn-link.danger { color: #f48771; }
+  .btn-link.danger { color: var(--ff-danger, #f48771); }
   .empty { color: var(--ff-text-muted, #858585); padding: 16px 0; }
 `;
 

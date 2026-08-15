@@ -601,7 +601,7 @@ function registerIpcHandlers(): void {
     return shortcutRegistry.list();
   });
 
-  ipcMain.handle("theme:broadcast", (_event, theme: string) => {
+  ipcMain.on("theme:broadcast", (_event, theme: string) => {
     webviewPanelManager?.broadcastTheme(theme);
   });
 }

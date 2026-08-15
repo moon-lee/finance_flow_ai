@@ -450,9 +450,13 @@ export class SettingsScreen extends LitElement {
     if (existing) clearTimeout(existing);
     const timer = setTimeout(() => {
       this._debounceTimers.delete(key);
-      try {
-        window.financeShell?.settings?.set(key, value);
-      } catch (err) {
+    try {
+      window.financeShell?.settings?.set(key, value);
+      if (key === 'core.theme') {
+        if (value === 'light') document.body.classList.add('light-theme');
+        else document.body.classList.remove('light-theme');
+      }
+    } catch (err) {
         console.error(`[settings] failed to set ${key}:`, err);
       }
     }, 300);

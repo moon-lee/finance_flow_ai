@@ -85,7 +85,7 @@ describe('AccountsManager', () => {
     const el = createEl();
     await settled(el);
     const sr = el.shadowRoot;
-    const btn = sr?.querySelector('.empty-state .btn') as HTMLButtonElement | null;
+    const btn = sr?.querySelector('.empty-state .accounts-btn') as HTMLButtonElement | null;
     btn?.click();
     await settled(el);
 
@@ -94,7 +94,7 @@ describe('AccountsManager', () => {
     if (nameInput) {
       nameInput.value = 'New';
       nameInput.dispatchEvent(new Event('input'));
-      const saveBtn = currentSr?.querySelector('.form-actions .btn:last-child') as HTMLButtonElement | null;
+      const saveBtn = currentSr?.querySelector('.form-actions .accounts-btn:last-child') as HTMLButtonElement | null;
       saveBtn?.click();
       await settled(el);
     }
@@ -122,7 +122,7 @@ describe('AccountsManager', () => {
     const el = createEl();
     await settled(el);
     const sr = el.shadowRoot;
-    const editBtn = sr?.querySelector('.row-actions .btn-secondary') as HTMLButtonElement | null;
+    const editBtn = sr?.querySelector('.row-actions .accounts-btn-secondary') as HTMLButtonElement | null;
     editBtn?.click();
     await settled(el);
 
@@ -131,7 +131,7 @@ describe('AccountsManager', () => {
     if (nameInput) {
       nameInput.value = 'Updated Name';
       nameInput.dispatchEvent(new Event('input'));
-      const saveBtn = currentSr?.querySelector('.form-actions .btn:last-child') as HTMLButtonElement | null;
+      const saveBtn = currentSr?.querySelector('.form-actions .accounts-btn:last-child') as HTMLButtonElement | null;
       saveBtn?.click();
       await settled(el);
     }
@@ -158,13 +158,13 @@ describe('AccountsManager', () => {
     const el = createEl();
     await settled(el);
     const sr = el.shadowRoot;
-    const toggleBtn = sr?.querySelector('.row-actions .btn:nth-child(2)') as HTMLButtonElement | null;
+    const toggleBtn = sr?.querySelector('.row-actions .accounts-btn:nth-child(2)') as HTMLButtonElement | null;
     toggleBtn?.click();
     await settled(el);
     expect(el.shadowRoot?.querySelector('.badge-inactive')?.textContent?.trim()).toBe('Inactive');
 
     const currentSr = el.shadowRoot;
-    const activateBtn = currentSr?.querySelector('.row-actions .btn:nth-child(2)') as HTMLButtonElement | null;
+    const activateBtn = currentSr?.querySelector('.row-actions .accounts-btn:nth-child(2)') as HTMLButtonElement | null;
     activateBtn?.click();
     await settled(el);
     expect(el.shadowRoot?.querySelector('.badge-active')?.textContent?.trim()).toBe('Active');
@@ -185,7 +185,7 @@ describe('AccountsManager', () => {
     const el = createEl();
     await settled(el);
     const sr = el.shadowRoot;
-    const deleteBtn = sr?.querySelector('.btn-danger') as HTMLButtonElement | null;
+    const deleteBtn = sr?.querySelector('.accounts-btn-danger') as HTMLButtonElement | null;
     deleteBtn?.click();
     await new Promise((r) => setTimeout(r, 100));
     const errorEl = el.shadowRoot?.querySelector('.error');
@@ -217,7 +217,7 @@ describe('AccountsManager', () => {
     const rows = [...sr?.querySelectorAll('.account-row') ?? []];
     expect(rows.length).toBe(2);
 
-    const deleteBtn = rows[1].querySelector('.btn-danger') as HTMLButtonElement | null;
+    const deleteBtn = rows[1].querySelector('.accounts-btn-danger') as HTMLButtonElement | null;
     deleteBtn?.click();
     await settled(el);
 

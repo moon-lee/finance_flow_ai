@@ -1,7 +1,7 @@
 ---
 title: Phase 7 — Production Readiness & Polish (master plan)
 date: 2026-08-02
-last_updated: 2026-08-08T12:45:00+10:00
+last_updated: 2026-08-15T12:38:00+10:00
 status: ready for implementation
 target_version: 0.9.0
 spec_source: docs/superpowers/specs/2026-06-13-implementation-design.md (Phase 7 section, lines 123-127)
@@ -680,50 +680,46 @@ The Phase 7 plan adds two new main-renderer overlays (Keyboard Shortcuts, Backup
 
 **What:** When `core.theme` changes in the main renderer, propagate the theme to all active WebviewPanel iframes so the panel area also reflects the light/dark mode.
 
-**Files to modify:**
+**Status:** Complete.
 
-- `src/renderer/index.ts` (broadcast theme change to panels)
-- `src/preload/preload.ts` (expose `panel.broadcastTheme` to renderer)
-- `src/preload/panel-preload.ts` (expose `theme` API to panel renderers)
-- `src/main/services/webview-panel-manager.ts` (broadcast theme to all active panels)
-- `src/main/resources/panel-bootstrap.ts` (apply theme class on panel load + listen for changes)
-- `src/types/finance.d.ts` (add `theme` API to `FinanceApi` if exposed to extensions)
+**Files modified:**
 
-**Root cause:** The main renderer applies `body.light-theme` to its own `document.body` (lines 119–120 of `src/renderer/index.ts`). Panel iframes run in separate `WebContentsView` instances with their own DOM — they never receive the theme class toggle. The panel preload (`panel-preload.ts`) has no theme-related IPC channel, and the panel bootstrap (`panel-bootstrap.ts`) applies no theme on load.
+- `src/renderer/index.ts` — `toggleTheme()` calls `window.financeShell?.panel?.broadcastTheme?.()` after persisting
+- `src/preload/preload.ts` — exposes `panel.broadcastTheme(theme)` to renderer
+- `src/preload/panel-preload.ts` — exposes `theme.get()`, `theme.onChange(callback)`, `theme.broadcastTheme(theme)` to panel renderers
+- `src/main/main.ts` — `ipcMain.on("theme:broadcast")` delegates to `webviewPanelManager.broadcastTheme(theme)`
+- `src/main/services/webview-panel-manager.ts` — `broadcastTheme(theme)` iterates panels and sends `theme:changed`
+- `src/main/resources/panel-bootstrap.ts` — applies `light-theme` class + CSS custom properties on init; subscribes to live changes via `financeShell.theme.onChange()`
+- `src/main/resources/panel-template.html` — uses `var(--ff-*, fallback)` for base colors
+- `src/types/finance-shell.d.ts` — added `theme` to `PanelFinanceShellApi` and `broadcastTheme` to `PanelApi`
+- `extensions/dashboard/src/ui/dashboard-view.ts` — converted hardcoded colors to `var(--ff-*)` fallbacks
+- `extensions/dashboard/src/ui/reorder-cards-modal.ts` — converted hardcoded colors to `var(--ff-*)` fallbacks
+- `extensions/salary-history/src/ui/shared-styles.ts` — converted hardcoded colors to `var(--ff-*)` fallbacks; added semantic vars (`--ff-warning-bg`, `--ff-warning-text`, `--ff-danger`, etc.)
+- `extensions/salary-history/src/ui/payslip-list.ts` — pagination/info-note converted to CSS variables
+- `extensions/salary-history/src/ui/reorder-sections-modal.ts` — item/up/down converted to CSS variables
+- `extensions/salary-history/src/ui/rate-row-form.ts` — errors/buttons/delete-confirm/info-note converted to CSS variables
+- `extensions/salary-history/src/ui/payslip-form.ts` — btn-validate/edit-balance-input/toggle-btn converted to CSS variables
+- `src/renderer/components/settings-screen.ts` — applies `light-theme` class immediately when `core.theme` is committed
 
-**Implementation approach:**
-
-  1. In `src/renderer/index.ts`, when `core.theme` changes (after `toggleTheme()` succeeds), call `window.financeShell?.panel?.broadcastTheme?.(newTheme)` — a new preload bridge method that delegates to Main
-  2. In `src/main/main.ts`, add an IPC handler for `theme:broadcast` that calls `webviewPanelManager?.broadcastTheme(theme)`
-  3. In `src/main/services/webview-panel-manager.ts`, add a `broadcastTheme(theme: string)` method that iterates all open panels and calls `panel.webContents.send('theme:changed', theme)`
-     - This is the single source of truth for panel broadcast; the renderer does NOT iterate panels directly
-  4. In `src/preload/panel-preload.ts`, add a `theme` namespace to the panel API:
-    - `get(): Promise<string>` — reads current theme via existing `settings.get('core.theme')`
-    - `onChange(callback: (theme: string) => void): () => void` — subscribes to `theme:changed` IPC events from Main
-     - `broadcastTheme(theme: string): void` — tells Main to broadcast a theme change to all panels (renderer calls this after toggling theme)
-  5. In `src/main/resources/panel-bootstrap.ts`, on panel init:
-
-- Read current theme via `financeShell.theme.get()`
-- Apply `document.body.classList.add('light-theme')` or remove it based on the theme value
-- Subscribe to `financeShell.theme.onChange()` to apply future theme changes without reload
-
-   6. In `src/types/finance.d.ts`, add `theme` to the `FinanceApi` interface exposed to extensions (optional — extensions can also read `core.theme` via `finance.settings.get`)
+**Root cause fixed:** `src/preload/preload.ts` sent `theme:broadcast` via `ipcRenderer.send`, but `src/main/main.ts` was listening with `ipcMain.handle` (request/response). Those don't match in Electron — the handler never fired. Fixed by changing main to `ipcMain.on`.
 
 **Verification:**
 
-1. Open Settings → toggle theme from Dark to Light → main renderer UI updates immediately
-2. All active panel iframes also switch to light theme without reload
-3. Switch back to Dark → panels update to dark theme
-4. Open a new panel after theme change → new panel inherits the current theme
-5. Restart app → panels load with the persisted theme applied
+1. Open Settings → toggle theme from Dark to Light → main renderer UI updates immediately ✅
+2. All active panel iframes also switch to light theme without reload ✅
+3. Switch back to Dark → panels update to dark theme ✅
+4. Open a new panel after theme change → new panel inherits the current theme ✅
+5. Restart app → panels load with the persisted theme applied ✅
 
-- [ ] **Step 1: Typecheck + lint**
+- [x] **Step 1: Typecheck + lint**
 
-  Run: `npm run typecheck`
-  Expected: PASS — no errors.
+   Run: `npm run typecheck`
+   Expected: PASS — no errors.
+   Actual: PASS
 
-  Run: `npm run lint`
-  Expected: PASS — no new errors.
+   Run: `npm run lint`
+   Expected: PASS — no new errors.
+   Actual: PASS
 
 ---
 

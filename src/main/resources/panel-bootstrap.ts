@@ -134,6 +134,12 @@ async function mountPanelComponent(payload: PanelPayload): Promise<void> {
     root.style.setProperty('--ff-bg-panel', '#ffffff');
     root.style.setProperty('--ff-bg-subpanel', '#f1f5f9');
     root.style.setProperty('--ff-bg-input', '#e2e8f0');
+    root.style.setProperty('--ff-bg-input-hover', '#cbd5e1');
+    root.style.setProperty('--ff-warning-bg', '#fef3c7');
+    root.style.setProperty('--ff-warning-text', '#92400e');
+    root.style.setProperty('--ff-danger-bg', '#fef2f2');
+    root.style.setProperty('--ff-danger-border', '#fecaca');
+    root.style.setProperty('--ff-danger-hover', '#fecaca');
     root.style.setProperty('--ff-border', '#e2e8f0');
     root.style.setProperty('--ff-text', '#1e293b');
     root.style.setProperty('--ff-text-muted', '#64748b');
@@ -141,12 +147,20 @@ async function mountPanelComponent(payload: PanelPayload): Promise<void> {
     root.style.setProperty('--ff-accent', '#007acc');
     root.style.setProperty('--ff-accent-hover', '#1188dd');
     root.style.setProperty('--ff-teal', '#4ec9b0');
+    root.style.setProperty('--ff-teal-hover', '#5aafa0');
+    root.style.setProperty('--ff-danger', '#dc2626');
   } else {
     document.body.classList.remove('light-theme');
     root.style.setProperty('--ff-bg-base', '#1e1e1e');
     root.style.setProperty('--ff-bg-panel', '#252526');
     root.style.setProperty('--ff-bg-subpanel', '#2a2a2a');
     root.style.setProperty('--ff-bg-input', '#3c3c3c');
+    root.style.setProperty('--ff-bg-input-hover', '#4a4a4a');
+    root.style.setProperty('--ff-warning-bg', '#3a2e0a');
+    root.style.setProperty('--ff-warning-text', '#ffd866');
+    root.style.setProperty('--ff-danger-bg', '#5a2a2a');
+    root.style.setProperty('--ff-danger-border', '#5a2a2a');
+    root.style.setProperty('--ff-danger-hover', '#7a3636');
     root.style.setProperty('--ff-border', '#3e3e3e');
     root.style.setProperty('--ff-text', '#d4d4d4');
     root.style.setProperty('--ff-text-muted', '#858585');
@@ -154,6 +168,8 @@ async function mountPanelComponent(payload: PanelPayload): Promise<void> {
     root.style.setProperty('--ff-accent', '#007acc');
     root.style.setProperty('--ff-accent-hover', '#1188dd');
     root.style.setProperty('--ff-teal', '#4ec9b0');
+    root.style.setProperty('--ff-teal-hover', '#6fdec0');
+    root.style.setProperty('--ff-danger', '#f48771');
   }
 
   financeShell.theme.onChange((newTheme: string) => {
@@ -163,20 +179,42 @@ async function mountPanelComponent(payload: PanelPayload): Promise<void> {
       root.style.setProperty('--ff-bg-panel', '#ffffff');
       root.style.setProperty('--ff-bg-subpanel', '#f1f5f9');
       root.style.setProperty('--ff-bg-input', '#e2e8f0');
+      root.style.setProperty('--ff-bg-input-hover', '#cbd5e1');
+      root.style.setProperty('--ff-warning-bg', '#fef3c7');
+      root.style.setProperty('--ff-warning-text', '#92400e');
+      root.style.setProperty('--ff-danger-bg', '#fef2f2');
+      root.style.setProperty('--ff-danger-border', '#fecaca');
+      root.style.setProperty('--ff-danger-hover', '#fecaca');
       root.style.setProperty('--ff-border', '#e2e8f0');
       root.style.setProperty('--ff-text', '#1e293b');
       root.style.setProperty('--ff-text-muted', '#64748b');
       root.style.setProperty('--ff-text-strong', '#0f172a');
+      root.style.setProperty('--ff-accent', '#007acc');
+      root.style.setProperty('--ff-accent-hover', '#1188dd');
+      root.style.setProperty('--ff-teal', '#4ec9b0');
+      root.style.setProperty('--ff-teal-hover', '#5aafa0');
+      root.style.setProperty('--ff-danger', '#dc2626');
     } else {
       document.body.classList.remove('light-theme');
       root.style.setProperty('--ff-bg-base', '#1e1e1e');
       root.style.setProperty('--ff-bg-panel', '#252526');
       root.style.setProperty('--ff-bg-subpanel', '#2a2a2a');
       root.style.setProperty('--ff-bg-input', '#3c3c3c');
+      root.style.setProperty('--ff-bg-input-hover', '#4a4a4a');
+      root.style.setProperty('--ff-warning-bg', '#3a2e0a');
+      root.style.setProperty('--ff-warning-text', '#ffd866');
+      root.style.setProperty('--ff-danger-bg', '#5a2a2a');
+      root.style.setProperty('--ff-danger-border', '#5a2a2a');
+      root.style.setProperty('--ff-danger-hover', '#7a3636');
       root.style.setProperty('--ff-border', '#3e3e3e');
       root.style.setProperty('--ff-text', '#d4d4d4');
       root.style.setProperty('--ff-text-muted', '#858585');
       root.style.setProperty('--ff-text-strong', '#ffffff');
+      root.style.setProperty('--ff-accent', '#007acc');
+      root.style.setProperty('--ff-accent-hover', '#1188dd');
+      root.style.setProperty('--ff-teal', '#4ec9b0');
+      root.style.setProperty('--ff-teal-hover', '#6fdec0');
+      root.style.setProperty('--ff-danger', '#f48771');
     }
   });
 

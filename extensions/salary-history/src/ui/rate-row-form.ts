@@ -79,37 +79,37 @@ export class RateRowForm extends LitElement {
     sharedStyles,
     formStyles,
     css`
-      .container { max-width: 760px; margin: 0 auto; padding: 24px 20px 40px; }
-      .subtitle { color: #858585;       font-size: 13px; margin: 0 0 24px; }
+      .container { max-width: 960px; margin: 0 auto; padding: 24px 20px 40px; }
+      .subtitle { color: var(--ff-text-muted, #858585);       font-size: 13px; margin: 0 0 24px; }
 
       .errors {
-        background: #2e1b1b;
-        border: 1px solid #5a2a2a;
+        background: var(--ff-danger-bg, #2e1b1b);
+        border: 1px solid var(--ff-danger-border, #5a2a2a);
         border-radius: 4px;
         padding: 8px 12px;
         margin-bottom: 16px;
         font-size: 13px;
-        color: #f48771;
+        color: var(--ff-danger, #f48771);
       }
 
-      .btn-action { background: #4ec9b0; color: #1e1e1e; border: 1px solid #4ec9b0; padding: 6px 14px; border-radius: 3px; font-size: 14px; cursor: pointer; font-family: inherit; font-weight: 600; }
-      .btn-action:hover { background: #6fdec0; }
-      .btn-action.muted { background: transparent; color: #858585; border-color: #3e3e3e; }
-      .btn-action.muted:hover { background: #3c3c3c; color: #d4d4d4; }
+      .btn-action { background: var(--ff-teal, #4ec9b0); color: var(--ff-bg-base, #1e1e1e); border: 1px solid var(--ff-teal, #4ec9b0); padding: 6px 14px; border-radius: 3px; font-size: 14px; cursor: pointer; font-family: inherit; font-weight: 600; }
+      .btn-action:hover { background: var(--ff-teal-hover, #6fdec0); }
+      .btn-action.muted { background: transparent; color: var(--ff-text-muted, #858585); border-color: var(--ff-border, #3e3e3e); }
+      .btn-action.muted:hover { background: var(--ff-bg-input, #3c3c3c); color: var(--ff-text, #d4d4d4); }
 
-      .btn-danger { background: #5a2a2a; color: #f48771; border: 1px solid #5a2a2a; padding: 6px 14px; border-radius: 3px; font-size: 14px; cursor: pointer; font-family: inherit; font-weight: 600; }
-      .btn-danger:hover { background: #7a3636; }
+      .btn-danger { background: var(--ff-danger-bg, #5a2a2a); color: var(--ff-danger, #f48771); border: 1px solid var(--ff-danger-bg, #5a2a2a); padding: 6px 14px; border-radius: 3px; font-size: 14px; cursor: pointer; font-family: inherit; font-weight: 600; }
+      .btn-danger:hover { background: var(--ff-danger-hover, #7a3636); }
 
-      .delete-confirm { background: #2a2a2a; border: 1px solid #5a2a2a; border-radius: 6px; padding: 20px; margin-top: 8px; }
-      .delete-warning { color: #f48771;       font-size: 14px; margin: 0 0 12px; }
+      .delete-confirm { background: var(--ff-bg-subpanel, #2a2a2a); border: 1px solid var(--ff-danger-border, #5a2a2a); border-radius: 6px; padding: 20px; margin-top: 8px; }
+      .delete-warning { color: var(--ff-danger, #f48771);       font-size: 14px; margin: 0 0 12px; }
       .delete-summary { list-style: none; padding: 0; margin: 0 0 16px; }
-      .delete-summary li { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #3e3e3e;       font-size: 13px; color: #d4d4d4; }
-      .delete-summary li span { color: #858585; }
-      .delete-summary code { font-family: "SF Mono", Consolas, monospace; color: #4ec9b0; }
+      .delete-summary li { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--ff-border, #3e3e3e);       font-size: 13px; color: var(--ff-text, #d4d4d4); }
+      .delete-summary li span { color: var(--ff-text-muted, #858585); }
+      .delete-summary code { font-family: "SF Mono", Consolas, monospace; color: var(--ff-teal, #4ec9b0); }
 
-      .info-note { font-size: 14px; color: #858585; font-style: italic; margin-top: 8px; padding: 8px 12px; background: #1e1e1e; border-radius: 3px; }
-      .info-note::before { content: 'ℹ '; color: #4ec9b0; }
-      .info-note code { color: #4ec9b0; }
+      .info-note { font-size: 14px; color: var(--ff-text-muted, #858585); font-style: italic; margin-top: 8px; padding: 8px 12px; background: var(--ff-bg-base, #1e1e1e); border-radius: 3px; }
+      .info-note::before { content: 'ℹ '; color: var(--ff-teal, #4ec9b0); }
+      .info-note code { color: var(--ff-teal, #4ec9b0); }
     `,
   ];
 
