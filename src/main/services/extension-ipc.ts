@@ -12,6 +12,7 @@ import type { FinanceExtensionManifest } from '../../types/finance';
 import type { DAOService, QueryObject } from './dao-service';
 import { getSetting, setSetting } from './settings-service';
 import { DomainServiceRegistry } from './domain-service-registry';
+import { EventBus } from './event-bus';
 
 interface PendingRequest {
   resolve: (value: unknown) => void;
@@ -127,6 +128,7 @@ export class ExtensionIPC {
    */
   private dao: DAOService | null = null;
   private domainServiceRegistry: DomainServiceRegistry | null = null;
+  private eventBus: EventBus | null = null;
 
   constructor(options: ExtensionIPCOptions = {}) {
     this.requestTimeoutMs = options.requestTimeoutMs ?? 10_000;
@@ -368,6 +370,10 @@ export class ExtensionIPC {
     onNavigate(extensionId: string, view: string, mountData?: object): void;
   } | null): void {
     this.panelNavigateHandler = handler;
+  }
+
+  setEventBus(bus: EventBus | null): void {
+    this.eventBus = bus;
   }
 
   /**
@@ -762,6 +768,20 @@ export class ExtensionIPC {
       const params = (msg as { params: HostLogEntry }).params;
       if (params && (params.level === 'log' || params.level === 'error' || params.level === 'warn') && Array.isArray(params.args)) {
         this.emitLog({ level: params.level, args: params.args });
+      }
+      return;
+    }
+    // Phase 7 Task 8 — handle `event.subscribe` notifications from the Host.
+    if (typeof msg === 'object' && msg !== null && (msg as { method?: string }).method === RPC_METHOD.EventSubscribe) {
+      const params = (msg as { params: { topic: string } }).params;
+      if (params?.topic && this.eventBus) {
+        this.eventBus.subscribe(params.topic, (payload) => {
+          this.process?.postMessage({
+            jsonrpc: '2.0',
+            method: 'event.notify',
+            params: { topic: params.topic, payload }
+          });
+        }, 'host');
       }
       return;
     }

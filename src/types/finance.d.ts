@@ -29,6 +29,7 @@ export type ActivationEvent =
 // extension authors all share one schema.
 export type { TableManifest, ColumnManifest, ColumnType } from '../main/services/shared-data-tables';
 export type { DomainServiceImpl } from '../main/services/domain-service-registry';
+export type { EventsApi } from '../extension-host/api/events';
 
 // Re-export the public per-extension API contract so extension authors can
 // write `import type { FinanceApi } from 'finance'` (Phase 4 Decision 9 — the

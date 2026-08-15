@@ -22,6 +22,7 @@ import * as aiApi from './ai';
 import { createDb, type DbAccessor, type DbRpcClient } from './db';
 import { createServices, type ServicesApi } from './services';
 import { createUi, type UiApi, type RpcClient } from './ui';
+import { createEvents, type EventsApi } from './events';
 import { RPC_METHOD } from '../../shared/json-rpc-methods';
 
 // ---------------------------------------------------------------------------
@@ -44,6 +45,7 @@ import { RPC_METHOD } from '../../shared/json-rpc-methods';
 export function createFinance(extensionId: string, rpc: DbRpcClient & RpcClient): FinanceApi {
   const services = createServices(extensionId, rpc);
   const ui = createUi(extensionId, rpc);
+  const events = createEvents(extensionId, rpc);
   return {
     db: createDb(extensionId, rpc),
     commands: {
@@ -55,6 +57,7 @@ export function createFinance(extensionId: string, rpc: DbRpcClient & RpcClient)
     },
     services,
     ui,
+    events,
     settings: {
       get: async (key: string) => {
         const res = (await rpc.request(RPC_METHOD.ExtensionGetSetting, { extensionId, key })) as {
@@ -121,6 +124,12 @@ export interface FinanceApi {
     * autoSaveDraft, onBeforeUnmount. Optional for legacy/test mocks.
     */
   ui?: UiApi;
+  /**
+    * Phase 7 Task 8 — global event bus. Extensions can subscribe to
+    * cross-component topics and publish their own. Optional for legacy
+    * test mocks that do not exercise eventing.
+    */
+  events?: EventsApi;
   /**
     * Phase 4 Task 16 — extension-scoped settings read/write. Keys are
     * namespace-prefixed by Main (`<extensionId>.`), so an extension can

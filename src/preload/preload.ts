@@ -86,6 +86,16 @@ const shellApi = {
       return () => { ipcRenderer.off('shell:shortcut', listener); };
     },
   },
+  events: {
+    on: (topic: string, callback: (payload: unknown) => void): (() => void) => {
+      const listener = (_event: IpcRendererEvent, payload: { topic: string; payload: unknown }): void => callback(payload.payload);
+      ipcRenderer.on('shell:event', listener);
+      void ipcRenderer.invoke('event:subscribe', topic);
+      return () => { ipcRenderer.off('shell:event', listener); };
+    },
+    emit: (topic: string, payload: unknown): Promise<void> =>
+      ipcRenderer.invoke('event:publish', { topic, payload })
+  },
   panel: {
     focus: (panelId: string): void => { console.log('[preload] panel.focus', panelId); ipcRenderer.send('panel:focus', panelId); },
     show: (panelId: string): void => { console.log('[preload] panel.show', panelId); ipcRenderer.send('panel:show', panelId); },

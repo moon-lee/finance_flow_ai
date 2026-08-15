@@ -19,6 +19,7 @@ export interface UiApi {
 
 export interface RpcClient {
   request<T = unknown>(method: string, params?: unknown): Promise<T>;
+  notify(method: string, params?: unknown): void;
 }
 
 /** Per-extension unmount callback lists keyed by extensionId. */

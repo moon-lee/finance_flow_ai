@@ -29,6 +29,7 @@ import { registerPanelProtocol } from "./services/panel-protocol";
 import { WebviewPanelManager } from "./services/webview-panel-manager";
 import { activateAndOpenView } from "./services/view-activation";
 import { ShortcutRegistry, toAccelerator } from "./services/shortcut-registry";
+import { EventBus } from "./services/event-bus";
 import { resolveRuntimeProfile } from "./runtime-profile";
 import {
   exportDatabase,
@@ -69,6 +70,7 @@ let domainServiceRegistry: DomainServiceRegistry | null = null;
 let webviewPanelManager: WebviewPanelManager | null = null;
 let accountService: AccountManagementService | null = null;
 let shortcutRegistry: ShortcutRegistry | null = null;
+let eventBus: EventBus | null = null;
 
 function resolvePreloadPath(): string {
   return join(mainDir, "../preload/preload.cjs");
@@ -610,6 +612,24 @@ function registerIpcHandlers(): void {
     return shortcutRegistry.list();
   });
 
+  // Phase 7 Task 8 — global event bus IPC.
+  ipcMain.handle("event:subscribe", (_event, topic: string) => {
+    if (!eventBus) return;
+    eventBus.subscribe(topic, (payload) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send("shell:event", { topic, payload });
+      }
+    }, 'renderer');
+  });
+
+  ipcMain.handle("event:publish", async (_event, { topic, payload }: { topic: string; payload: unknown }) => {
+    if (!eventBus) return;
+    eventBus.publish(topic, payload, 'renderer');
+    if (extensionIPC) {
+      extensionIPC.notify(RPC_METHOD.EventPublish, { topic, payload });
+    }
+  });
+
   ipcMain.on("theme:broadcast", (_event, theme: string) => {
     webviewPanelManager?.broadcastTheme(theme);
   });
@@ -851,10 +871,18 @@ app.whenReady().then(async () => {
     shortcutRegistry = new ShortcutRegistry();
     shortcutRegistry.build(discovery.extensions.map((e) => e.manifest));
 
+    // Phase 7 Task 8 — global event bus.
+    eventBus = new EventBus();
+
     // Phase 5 Task 7 — cross-extension domain service registry.
     domainServiceRegistry = new DomainServiceRegistry();
 
     extensionIPC = new ExtensionIPC();
+
+    // Phase 7 Task 8 — wire the event bus into ExtensionIPC so Host
+    // `event.subscribe` / `event.publish` requests are routed through the
+    // Main-side EventBus.
+    extensionIPC.setEventBus(eventBus);
 
     // Phase 4 Task 9.3 — wire the DAO service into ExtensionIPC so the
     // Host's `extension.readTable` / `extension.writeTable` RPCs are
@@ -1065,6 +1093,9 @@ app.whenReady().then(async () => {
     });
 
     extensionIPC.onHostLog((entry) => {
+      if (eventBus) {
+        eventBus.publish('host:log', entry, 'host');
+      }
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send("extensions:host-log", entry);
       }

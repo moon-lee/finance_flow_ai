@@ -857,13 +857,35 @@ No code changes were needed in `src/renderer/index.ts`, `src/preload/preload.ts`
 
 **Verification:** Extension A publishes `test.event` → Extension B receives it via `finance.events.on('test.event', handler)` → renderer also receives it.
 
-- [ ] **Step N: Typecheck + lint**
+- [x] **Step N: Typecheck + lint**
 
   Run: `npm run typecheck`
   Expected: PASS — no errors.
 
   Run: `npm run lint`
   Expected: PASS — no new errors.
+
+- [x] **Step N+1: Unit tests**
+
+  Run: `npx vitest run tests/unit/main/services/event-bus.test.ts tests/unit/extension-host/api/events.test.ts`
+  Expected: PASS — 9/9 tests pass.
+
+- [x] **Step N+2: Manual verification**
+
+  Verified in DevTools:
+  ```js
+  window.financeShell.events.on('host:log', (payload) => {
+    console.log('[event-bus] host:log', payload);
+  });
+  ```
+  Expected: `[event-bus] host:log` appears in console when Host logs occur.
+  Result: Confirmed working.
+
+- [x] **Step N+3: Documentation**
+
+  Created `docs/decisions/0008-global-event-bus.md` with full architectural overview, user guide, and future roadmap. Updated `docs/decisions/README.md` index.
+
+**Task 8 status: COMPLETE**
 
 ---
 

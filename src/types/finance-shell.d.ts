@@ -6,6 +6,11 @@ import type { ManifestViewContribution, ManifestCommandContribution, ManifestNav
 
 export type { ManifestNavigationContribution } from './finance';
 
+export interface EventsApi {
+  on: (topic: string, callback: (payload: unknown) => void) => () => void;
+  emit: (topic: string, payload: unknown) => Promise<void>;
+}
+
 export interface BackupApi {
   export: () => Promise<{ success: boolean; path?: string; error?: string }>;
   import: () => Promise<{ success: boolean; error?: string }>;
@@ -122,6 +127,7 @@ export interface FinanceShellApi {
   getVersion: () => Promise<string>;
   settings: SettingsApi;
   extensions: ExtensionsApi;
+  events: EventsApi;
   accounts: AccountsApi;
   shortcuts: ShortcutsApi;
   backup: BackupApi;

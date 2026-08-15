@@ -15,6 +15,7 @@
  */
 
 import { finance, createFinance } from './api/index';
+import { getHostEventHandlers } from './api/events';
 import {
   isRequest,
   isNotification,
@@ -88,6 +89,19 @@ interface ActiveExtension {
 }
 
 const activeExtensions = new Map<string, ActiveExtension>();
+
+function handleHostEventNotify(notification: JsonRpcNotification): void {
+  const { topic, payload } = notification.params as { topic: string; payload: unknown };
+  const subscribers = getHostEventHandlers().get(topic);
+  if (!subscribers) return;
+  for (const handler of subscribers.values()) {
+    try {
+      handler(payload);
+    } catch (err) {
+      console.error(`[host] event handler threw for topic "${topic}":`, err);
+    }
+  }
+}
 
 /**
  * Phase 4 Task 6.4 — pending Host→Main RPC requests awaiting a response.
@@ -312,7 +326,9 @@ async function activateExtension(extensionId: string, reason: string): Promise<b
     if (typeof extModule?.activate === 'function') {
       const perExtensionFinance = createFinance(extensionId, {
         request: <T>(method: string, params?: unknown): Promise<T> =>
-          requestMain<T>(method, params)
+          requestMain<T>(method, params),
+        notify: (method: string, params?: unknown): void =>
+          notify(method, params)
       });
       console.log('[host] activate: calling extModule.activate for', extensionId);
       await extModule.activate(perExtensionFinance);
@@ -331,6 +347,10 @@ async function activateExtension(extensionId: string, reason: string): Promise<b
 
 // [Follow-up §3.10] Extension Host deactivation hook cleanup
 async function handleNotification(notification: JsonRpcNotification): Promise<void> {
+  if (notification.method === 'event.notify') {
+    handleHostEventNotify(notification);
+    return;
+  }
   if (notification.method === 'extension.ui-event') {
     // Phase 4 Task 14 (Decision 12) — a mounted extension element (running
     // in the Renderer) pushed a component-emitted event back to us. The

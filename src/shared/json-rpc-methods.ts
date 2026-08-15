@@ -66,6 +66,10 @@ export const RPC_METHOD = {
   // mounted panel to a different internal view. Payload:
   //   { extensionId: string, view: string, mountData?: object }
   ExtensionNavigatePanel: 'extension.navigatePanel',
+
+  // Phase 7 Task 8 — global event bus.
+  EventSubscribe: 'event.subscribe',
+  EventPublish: 'event.publish',
 } as const;
 
 export type RpcMethodName = (typeof RPC_METHOD)[keyof typeof RPC_METHOD];
