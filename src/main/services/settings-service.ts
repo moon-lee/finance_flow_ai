@@ -76,6 +76,27 @@ export function setSetting(key: string, value: unknown): void {
     .run(key, serialized);
 }
 
+/**
+ * Register a default value for a settings key. If the key already exists
+ * in the database, the existing value is preserved. If it does not exist,
+ * the default is inserted. Call this during app initialization after
+ * `initializeSettings()` for any key whose callers use `??` fallback.
+ */
+export function registerSettingDefault(key: string, defaultValue: unknown): void {
+  if (!db) throw new Error('Settings not initialized. Call initializeSettings() first.');
+  validateKey(key);
+  const existing = db.prepare('SELECT key FROM settings WHERE key = ?').get(key) as
+    | { key: string }
+    | undefined;
+  if (existing) return;
+  const serialized = JSON.stringify(defaultValue);
+  if (serialized === undefined) {
+    throw new Error(`Cannot serialize default for settings key "${key}".`);
+  }
+  db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)')
+    .run(key, serialized);
+}
+
 export function deleteSetting(key: string): void {
   if (!db) throw new Error('Settings not initialized. Call initializeSettings() first.');
   validateKey(key);

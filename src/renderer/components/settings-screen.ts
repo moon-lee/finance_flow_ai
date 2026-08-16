@@ -83,7 +83,9 @@ const CORE_SETTINGS: ExtensionSettings = {
     { key: 'core.financialYear.start', type: 'string', label: 'Month and day the financial year starts. Used to compute FY labels from dates.', default: '07-01', format: formatFinanceYearStart, pattern: /^\d{2}-\d{2}$/, formatHint: 'MM-DD' },
     { key: 'core.defaultCurrency', type: 'string', label: 'Default currency code for new payslips and monetary display.', default: 'AUD', pattern: /^[A-Z]{3}$/, formatHint: 'AAA', placeholder: 'AUD' },
     { key: 'core.theme', type: 'enum', label: 'Application color theme.', default: 'dark', enumOptions: ['dark', 'light'] },
-    { key: 'core.workspace.defaultView', type: 'string', label: 'Extension view to activate on startup. Requires the extension to declare onStartup.', default: 'dashboard' }
+    { key: 'core.workspace.defaultView', type: 'string', label: 'Extension view to activate on startup. Requires the extension to declare onStartup.', default: 'dashboard' },
+    { key: 'core.workspace.autoSaveTimeout', type: 'number', label: 'Auto-save draft timeout (milliseconds). Maximum time to wait for an extension to persist draft state before timing out. (1 second = 1000 ms)', default: 500, placeholder: '500' },
+    { key: 'core.workspace.lazyUnmountTimeout', type: 'number', label: 'Lazy unmount timeout (milliseconds). Inactive panels are destroyed after this duration. Lower values free memory faster but cause more remounts when switching tabs. (1 second = 1000 ms). Set to 0 to disable.', default: 300000, placeholder: '300000' }
   ]
 };
 
@@ -493,6 +495,13 @@ export class SettingsScreen extends LitElement {
 
   private _renderControl(item: { key: string; type: string; label: string; default?: unknown; enumOptions?: string[]; format?: (raw: string) => string; pattern?: RegExp | string; formatHint?: string; placeholder?: string }) {
     const value = this._currentValue(item.key);
+    const isFormatted = Boolean(item.format || item.pattern || item.formatHint);
+    const placeholder = isFormatted && item.formatHint ? this._defaultPlaceholder(item) : '';
+    const error = this._errors.get(item.key) ?? null;
+    const fieldId = `input-${item.key}`;
+    const helperId = `helper-${item.key}`;
+    const errorId = `error-${item.key}`;
+    const helperText = isFormatted && item.formatHint ? `Format: ${item.formatHint}` : '';
 
     if (item.type === 'boolean') {
       return html`
@@ -522,14 +531,24 @@ export class SettingsScreen extends LitElement {
     if (item.type === 'number') {
       return html`
         <input
+          id="${fieldId}"
+          data-testid="${fieldId}"
           type="number"
+          placeholder="${placeholder}"
           .value=${value !== undefined ? String(value) : String(item.default ?? '')}
+          aria-invalid=${error !== null ? 'true' : undefined}
+          aria-describedby=${isFormatted ? (error ? `${helperId} ${errorId}` : helperId) : null}
+          class=${error !== null ? 'invalid' : ''}
+          @input=${() => {
+            this._clearError(item.key);
+          }}
           @change=${(e: Event) => {
             const raw = (e.target as HTMLInputElement).value;
             const num = raw === '' ? NaN : Number(raw);
             this._commit(item.key, Number.isNaN(num) ? raw : num);
           }}
         />
+        ${isFormatted && helperText ? html`<div class="setting-helper" data-testid="${helperId}" id="${helperId}">${helperText}</div>` : ''}
       `;
     }
 
@@ -550,13 +569,6 @@ export class SettingsScreen extends LitElement {
       `;
     }
 
-    const isFormatted = Boolean(item.format || item.pattern || item.formatHint);
-    const placeholder = isFormatted && item.formatHint ? this._defaultPlaceholder(item) : '';
-    const error = this._errors.get(item.key) ?? null;
-    const helperText = isFormatted && item.formatHint ? `Format: ${item.formatHint}` : '';
-    const fieldId = `input-${item.key}`;
-    const helperId = `helper-${item.key}`;
-    const errorId = `error-${item.key}`;
     return html`
       <input
         id="${fieldId}"

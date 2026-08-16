@@ -23,6 +23,7 @@ import { BrowserWindow, WebContents, WebContentsView } from 'electron';
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { toAccelerator } from './shortcut-registry';
+import { getSetting } from './settings-service';
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 
@@ -31,6 +32,7 @@ export interface PanelHandle {
   extensionId: string;
   viewId: string;
   view: WebContentsView;
+  keepAlive: boolean;
 }
 
 export interface WebviewPanelUIHandler {
@@ -62,6 +64,9 @@ export class WebviewPanelManager {
   private activePanelId: string | null = null;
   private overlayActive = false;
   private readonly dirtyPanelIds = new Set<string>();
+  private readonly keepAliveExtensionIds = new Set<string>();
+  private readonly lastActiveTimes = new Map<string, number>();
+  private lazyUnmountTimer: ReturnType<typeof setInterval> | null = null;
   private shortcutHandler: ((webContents: WebContents, accelerator: string) => void) | null = null;
 
   setShortcutHandler(handler: (webContents: WebContents, accelerator: string) => void): void {
@@ -72,6 +77,7 @@ export class WebviewPanelManager {
     console.log('[setMainWindow] window:', window);
     this.mainWindow = window;
     this.flushMountBuffer();
+    this.startLazyUnmountTimer();
     //window.webContents.openDevTools({ mode: "detach" });
   }
 
@@ -90,6 +96,112 @@ export class WebviewPanelManager {
 
   isDirty(panelId: string): boolean {
     return this.dirtyPanelIds.has(panelId);
+  }
+
+  setExtensionKeepAlive(extensionId: string, keepAlive: boolean): void {
+    if (keepAlive) {
+      this.keepAliveExtensionIds.add(extensionId);
+    } else {
+      this.keepAliveExtensionIds.delete(extensionId);
+    }
+  }
+
+  private getLazyUnmountTimeout(): number {
+    return getSetting<number>('core.workspace.lazyUnmountTimeout') ?? 300_000;
+  }
+
+  private markActive(panelId: string): void {
+    this.lastActiveTimes.set(panelId, Date.now());
+  }
+
+  private startLazyUnmountTimer(): void {
+    this.stopLazyUnmountTimer();
+    if (this.panels.size === 0) return;
+    this.lazyUnmountTimer = setInterval(() => this.checkLazyUnmount(), 30_000);
+  }
+
+  private stopLazyUnmountTimer(): void {
+    if (this.lazyUnmountTimer) {
+      clearInterval(this.lazyUnmountTimer);
+      this.lazyUnmountTimer = null;
+    }
+  }
+
+  private async checkLazyUnmount(): Promise<void> {
+    const now = Date.now();
+    const timeout = this.getLazyUnmountTimeout();
+    if (timeout === 0) return;
+
+    const toUnmount: string[] = [];
+
+    for (const [, handle] of this.panels) {
+      if (this.dirtyPanelIds.has(handle.panelId)) continue;
+      if (handle.keepAlive) continue;
+      if (handle.view.webContents.isDestroyed()) continue;
+      if (handle.panelId === this.activePanelId) continue;
+
+      const lastActive = this.lastActiveTimes.get(handle.panelId) ?? 0;
+      if (now - lastActive > timeout) {
+        toUnmount.push(handle.panelId);
+      }
+    }
+
+    for (const panelId of toUnmount) {
+      await this.lazyUnmountPanel(panelId);
+    }
+  }
+
+  private async lazyUnmountPanel(panelId: string): Promise<void> {
+    const handle = this.findByPanelId(panelId);
+    if (!handle) return;
+    if (this.dirtyPanelIds.has(panelId)) return;
+    if (handle.keepAlive) return;
+
+    console.log(`[webview-panel] lazy unmounting ${panelId}`);
+
+    try {
+      if (this.uiHandler) {
+        await Promise.race([
+          this.uiHandler.onBeforeUnmount(handle.extensionId),
+          new Promise<void>((_, reject) =>
+            setTimeout(() => reject(new Error('onBeforeUnmount timed out')), 500)
+          ),
+        ]);
+      }
+    } catch (err) {
+      console.warn(`[webview-panel] onBeforeUnmount failed for ${panelId}:`, err);
+    }
+
+    try {
+      await this.autoSaveDraft(panelId);
+    } catch {
+      // autoSaveDraft already logs its own errors
+    }
+
+    const webContentsId = handle.view.webContents.id;
+    this.panels.delete(webContentsId);
+    this.pendingResizes.delete(panelId);
+    this.lastActiveTimes.delete(panelId);
+    const timer = this.mountShowTimers.get(panelId);
+    if (timer) { clearTimeout(timer); this.mountShowTimers.delete(panelId); }
+
+    const view = handle.view;
+    try {
+      this.mainWindow?.contentView.removeChildView(view);
+      if (!view.webContents.isDestroyed()) {
+        view.webContents.close();
+      }
+    } catch (err) {
+      console.warn(`[webview-panel] lazy unmount failed for ${panelId}:`, err);
+    }
+
+    if (this.activePanelId === panelId) {
+      this.activePanelId = null;
+    }
+
+    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+      this.mainWindow.webContents.send('panel:unmounted', panelId, handle.viewId);
+    }
   }
 
   isOverlayActive(): boolean {
@@ -115,7 +227,10 @@ export class WebviewPanelManager {
       await Promise.race([
         this.uiHandler.onAutoSaveDraft(handle.extensionId),
         new Promise<void>((_, reject) =>
-          setTimeout(() => reject(new Error('autoSaveDraft timed out')), 500)
+          setTimeout(
+            () => reject(new Error('autoSaveDraft timed out')),
+            getSetting<number>('core.workspace.autoSaveTimeout') ?? 500,
+          ),
         ),
       ]);
     } catch (err) {
@@ -130,14 +245,6 @@ export class WebviewPanelManager {
     mountData?: object,
   ): PanelHandle | null {
 
-    console.log('[webview-panel] mount() called', {
-      extensionId,
-      viewId,
-      hasMainWindow: !!this.mainWindow,
-      activePanelId: this.activePanelId,
-      panelsCount: this.panels.size,
-    });
-
     if (!this.mainWindow) {
       this.mountBuffer.push({ extensionId, viewId, mountData });
       return null;
@@ -145,9 +252,15 @@ export class WebviewPanelManager {
 
     const panelId = `panel-${extensionId}-${viewId}`;
 
-    // Dedup: if this panel already exists, forward new mountData and show it
     const existing = this.findByPanelId(panelId);
     if (existing) {
+      console.log('[webview-panel] mount() called (existing)', {
+        extensionId,
+        viewId,
+        hasMainWindow: !!this.mainWindow,
+        activePanelId: this.activePanelId,
+        panelsCount: this.panels.size,
+      });
       if (!existing.view.webContents.isDestroyed()) {
         existing.view.webContents.send("panel:mount-update", { mountData });
       }
@@ -177,8 +290,6 @@ export class WebviewPanelManager {
         viewId,
         mountData,
       });
-      // Uncomment for manual Test Unit 10 debugging only.
-      // view.webContents.openDevTools({ mode: "detach" });
     });
 
     view.webContents.on(
@@ -204,14 +315,19 @@ export class WebviewPanelManager {
       });
     }
 
-    // Start hidden — the renderer sends panel:resize with correct workspace-area bounds.
-    // If that never arrives (rAF / preload timing), the fallback timer makes the
-    // panel visible after 500 ms at reasonable default bounds.
     view.setVisible(false);
     this.mainWindow.contentView.addChildView(view);
 
-    const handle: PanelHandle = { panelId, extensionId, viewId, view };
+    const handle: PanelHandle = { panelId, extensionId, viewId, view, keepAlive: this.keepAliveExtensionIds.has(extensionId) };
     this.panels.set(webContentsId, handle);
+
+    console.log('[webview-panel] mount() called (new)', {
+      extensionId,
+      viewId,
+      hasMainWindow: !!this.mainWindow,
+      activePanelId: this.activePanelId,
+      panelsCount: this.panels.size,
+    });
 
     // Apply any pending resize that arrived before the view was created
     const pending = this.pendingResizes.get(panelId);
@@ -263,6 +379,9 @@ export class WebviewPanelManager {
       console.warn('[webview-panel] mainWindow is null, cannot send panel:mounted');
     }
 
+    this.markActive(panelId);
+    this.startLazyUnmountTimer();
+
     return handle;
   }
 
@@ -278,6 +397,7 @@ export class WebviewPanelManager {
     const [webContentsId, handle] = entry;
     this.panels.delete(webContentsId);
     this.pendingResizes.delete(panelId);
+    this.lastActiveTimes.delete(panelId);
     const timer = this.mountShowTimers.get(panelId);
     if (timer) { clearTimeout(timer); this.mountShowTimers.delete(panelId); }
     
@@ -294,12 +414,17 @@ export class WebviewPanelManager {
       );
     }
 
+    if (this.panels.size === 0) {
+      this.stopLazyUnmountTimer();
+    }
   }
 
   focus(panelId: string): void {
     const handle = this.findByPanelId(panelId);
     if (handle) {
       handle.view.webContents.focus();
+      this.markActive(panelId);
+      this.startLazyUnmountTimer();
     } else {
       console.warn('[webview-panel] focus: panel not found', panelId);
     }
@@ -368,9 +493,7 @@ export class WebviewPanelManager {
       clearTimeout(timer);
       this.mountShowTimers.delete(panelId);
       console.log('[webview-panel] cancelled fallback timer for', panelId);
-      // First resize for a newly mounted panel — show it and hide others,
-      // unless a DOM overlay is active (see hidePanelsForOverlay()).
-      if (!this.overlayActive) {
+      if (!this.overlayActive && (!this.activePanelId || this.activePanelId === panelId)) {
         this.showPanel(panelId);
       }
     }
@@ -397,12 +520,13 @@ export class WebviewPanelManager {
       );
     }
 
+    this.markActive(panelId);
+    this.startLazyUnmountTimer();
   }
 
   showPanel(panelId: string): void {
     const handle = this.findByPanelId(panelId);
     if (!handle) {
-      console.warn('[webview-panel] showPanel: panel', panelId, 'not found');
       return;
     }
 
@@ -426,6 +550,8 @@ export class WebviewPanelManager {
 
     handle.view.setVisible(true);
     this.activePanelId = panelId;
+    this.markActive(panelId);
+    this.startLazyUnmountTimer();
   }
 
   hidePanelsForOverlay(): void {
@@ -439,7 +565,7 @@ export class WebviewPanelManager {
 
   restorePanels(): void {
     this.overlayActive = false;
-    if (this.activePanelId) {
+    if (this.activePanelId && this.findByPanelId(this.activePanelId)) {
       this.showPanel(this.activePanelId);
     }
   }
@@ -515,6 +641,8 @@ export class WebviewPanelManager {
     for (const timer of this.mountShowTimers.values()) clearTimeout(timer);
     this.mountShowTimers.clear();
     this.pendingResizes.clear();
+    this.lastActiveTimes.clear();
+    this.stopLazyUnmountTimer();
     const handles = Array.from(this.panels.values());
     this.panels.clear();
     this.activePanelId = null;
@@ -541,6 +669,8 @@ export class WebviewPanelManager {
   async destroyAll(): Promise<void> {
     const handles = Array.from(this.panels.values());
     this.pendingResizes.clear();
+    this.lastActiveTimes.clear();
+    this.stopLazyUnmountTimer();
     for (const timer of this.mountShowTimers.values()) clearTimeout(timer);
     this.mountShowTimers.clear();
     await Promise.allSettled(
@@ -552,7 +682,7 @@ export class WebviewPanelManager {
               new Promise<void>((_, reject) =>
                 setTimeout(
                   () => reject(new Error("autoSaveDraft timed out")),
-                  500,
+                  getSetting<number>('core.workspace.autoSaveTimeout') ?? 500,
                 ),
               ),
             ]);

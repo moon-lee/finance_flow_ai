@@ -187,7 +187,8 @@ export const financeExtensionManifestSchema = z.object({
   activationEvents: z.array(activationEventSchema).min(1, 'at least one activation event is required'),
   contributions: manifestContributionsSchema,
   tables: z.array(tableManifestSchema).optional(),
-  main: z.string().min(1)
+  main: z.string().min(1),
+  keepAlive: z.boolean().optional()
 }).strict(); // reject unknown manifest keys
 
 // Re-export the column/table manifest types alongside their schemas so

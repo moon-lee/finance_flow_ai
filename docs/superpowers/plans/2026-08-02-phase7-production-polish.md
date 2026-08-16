@@ -1027,6 +1027,8 @@ When an overlay opens (Settings, Shortcuts, Backup, Command Palette), `OverlayCo
 
 ### Task 11: Lazy Unmount Timer Config + Memory Pooling
 
+**Status:** Completed.
+
 **What:** Auto-unmount inactive panels after a configurable timeout, with dirty-state protection.
 
 **Files to modify:**
@@ -1063,19 +1065,35 @@ A panel is dirty when its extension calls `finance.ui.setDirty(true)`. Dirty pan
 
 **Note:** The `keepAlive` check in step 1 depends on Task 13's manifest schema change. Implement the timer without `keepAlive` first, then add the manifest check when Task 13 is complete.
 
-- [ ] **Step 1: Typecheck + lint**
+- [x] **Step 1: Typecheck + lint**
 
   Run: `npm run typecheck`
-  Expected: PASS — no errors.
+  Result: PASS.
 
   Run: `npm run lint`
-  Expected: PASS — no new errors.
+  Result: PASS.
+
+- [x] **Step 2: Unit tests**
+
+  Added `tests/unit/main/services/webview-panel-lazy-unmount.test.ts` covering:
+  - uses `core.workspace.autoSaveTimeout` setting
+  - `setExtensionKeepAlive(true)` marks panels as keepAlive
+  - dirty panels are not lazy-unmounted
+  - keepAlive panels are not lazy-unmounted
+  - inactive panels are lazy-unmounted after timeout
+  - timer restarts on focus
+  - timer stops when all panels are unmounted
+
+  Run: `npm run test -- tests/unit/main/services/webview-panel-lazy-unmount.test.ts`
+  Result: 8/8 PASS.
 
 ---
 
 ## Stage 4 — Extension Experience
 
 ### Task 12: `autoSaveDraft` Timeout Configurable
+
+**Status:** Completed.
 
 **What:** Make the 500ms `autoSaveDraft` timeout a user/extension setting.
 
@@ -1088,17 +1106,19 @@ A panel is dirty when its extension calls `finance.ui.setDirty(true)`. Dirty pan
 
 **Implementation:** Replace `500` with `getSetting<number>('core.workspace.autoSaveTimeout') ?? 500`. No UI needed — extensions can set it via `finance.settings.set`.
 
-- [ ] **Step N: Typecheck + lint**
+- [x] **Step 1: Typecheck + lint**
 
   Run: `npm run typecheck`
-  Expected: PASS — no errors.
+  Result: PASS.
 
   Run: `npm run lint`
-  Expected: PASS — no new errors.
+  Result: PASS.
 
 ---
 
 ### Task 13: Per-Extension `keepAlive` Hint
+
+**Status:** Completed.
 
 **What:** Let extensions opt out of lazy unmount.
 
@@ -1110,13 +1130,13 @@ A panel is dirty when its extension calls `finance.ui.setDirty(true)`. Dirty pan
 
 **Implementation:** Extension adds `"keepAlive": true` to its `financeExtension` block → panel never auto-unmounts.
 
-- [ ] **Step N: Typecheck + lint**
+- [x] **Step 1: Typecheck + lint**
 
   Run: `npm run typecheck`
-  Expected: PASS — no errors.
+  Result: PASS.
 
   Run: `npm run lint`
-  Expected: PASS — no new errors.
+  Result: PASS.
 
 ---
 
@@ -1366,6 +1386,112 @@ A panel is dirty when its extension calls `finance.ui.setDirty(true)`. Dirty pan
 | **Mandatory** | 9, 10, 11, 12, 13 | Required for production readiness: grid layout, graceful shutdown, memory management, configurable timeouts, and extension lifecycle control |
 | **Important but deferrable** | 14, 15, 16 | Improve extension authoring experience but the app functions without them. Can move to Phase 8 if schedule pressure requires |
 | **Optional / nice-to-have** | 17, 18, 19, 20, 21 | Developer productivity or evaluation tasks. No end-user impact |
+
+### Task 22: Toast/Notification UI Component
+
+**What:** Add a lightweight toast/notification UI component that surfaces important app events in the bottom-right corner of the main renderer. The component should consume events from the existing global event bus (`finance.events.*`) so any part of the app — Main, Host, or renderer — can publish user-visible notifications without tight coupling.
+
+**Status:** Planned.
+
+**Why this matters today:** Important lifecycle events currently only appear in DevTools/logs. Lazy unmount, auto-save failures, and extension errors are invisible to users unless they are watching the console. A toast system gives users non-blocking feedback without modal interruption.
+
+**Design constraints:**
+- Toasts auto-dismiss after a configurable timeout (default 4 seconds)
+- Multiple toasts stack from the bottom-right corner
+- Error toasts are styled distinctly and do not auto-dismiss until the user clicks them
+- The component is a pure renderer LitElement; no new Main-side UI code is required
+- Event bus is the single source of truth for toast triggers; no direct IPC channels are added for toast-specific events
+
+**Event topics this component should subscribe to out of the box:**
+- `panel.lazy-unmount` — published by `WebviewPanelManager.lazyUnmountPanel()` before destroying a panel
+- `panel.auto-save-failed` — published when `autoSaveDraft()` times out
+- `extension.host-status` — already exists; toast on auto-disable/crash status changes
+
+**Files to modify:**
+- `src/renderer/components/toast-container.ts` (new)
+- `src/renderer/index.ts` (mount `<toast-container>` into the app shell)
+- `src/main/services/webview-panel-manager.ts` (publish `panel.lazy-unmount` and `panel.auto-save-failed` via event bus)
+- `src/main/services/event-bus.ts` (no change needed; reuse existing publish/subscribe)
+- `src/preload/preload.ts` (expose `financeShell.events` to renderer if not already exposed)
+- `src/types/finance.d.ts` (document toast-related event topics)
+
+**Implementation approach:**
+
+1. **Create `src/renderer/components/toast-container.ts`:**
+   - LitElement positioned fixed at bottom-right, above the status bar
+   - Accepts events via `financeShell.events.on(topic, handler)` for a configurable list of topics
+   - Renders toast cards with title, message, timestamp, and dismiss button
+   - Stacks toasts vertically with max-height + scroll
+   - Auto-dismiss timer per toast; error toasts override to manual dismiss
+   - Exposes `showToast({ type, title, message, duration? })` helper so other renderer code can trigger toasts directly without the event bus
+
+2. **Wire into `src/renderer/index.ts`:**
+   - Append `<toast-container>` to the app shell on startup
+   - Subscribe to initial topics (`panel.lazy-unmount`, `panel.auto-save-failed`, `extension.host-status`)
+   - Topics can be extended later without changing the component
+
+3. **Publish lifecycle events from `webview-panel-manager.ts`:**
+   - Before `lazyUnmountPanel()` destroys a panel: `this.eventBus.publish('panel.lazy-unmount', { panelId, viewId })`
+   - When `autoSaveDraft()` catches a timeout: `this.eventBus.publish('panel.auto-save-failed', { panelId })`
+   - Use the existing `EventBus` instance; do not add new IPC channels
+
+4. **Expose renderer-side event subscription:**
+   - `preload.ts` already exposes `financeShell.events.on/off/emit` from Task 8; verify the toast component can use it directly
+   - If the bridge is renderer-only, add a Main→renderer forwarder for the selected topics
+
+**Event envelope contract:**
+```ts
+interface ToastPayload {
+  type: 'info' | 'warning' | 'error';
+  title: string;
+  message: string;
+  duration?: number; // ms, undefined = manual dismiss for errors
+}
+```
+
+**Verification:**
+1. Set `core.workspace.lazyUnmountTimeout` to 5 seconds
+2. Open 3 tabs, switch away from tab 2, wait 5 seconds
+3. Toast appears: “Panel asleep — Pay History was unmounted to save memory. Click the tab to restore it.”
+4. Click the toast dismiss button or wait for auto-dismiss
+5. Trigger an auto-save timeout (e.g., extension that never resolves `onAutoSaveDraft`)
+6. Error toast appears and does NOT auto-dismiss; clicking dismiss removes it
+7. Restart app → toast component re-initializes cleanly with no persisted state
+
+**Extension authoring note:** Extensions can publish their own toast notifications via `finance.events.emit('shell:toast', { type, title, message })` if the toast component subscribes to a wildcard or a configurable topic list.
+
+- [ ] **Step 1: Write unit tests for toast-container**
+
+  New tests in `tests/unit/renderer/toast-container.test.ts`:
+  - `renders no toasts initially`
+  - `subscribes to event bus topics on connectedCallback`
+  - `renders a toast when event is published`
+  - `auto-dismisses info toast after default duration`
+  - `does not auto-dismiss error toast`
+  - `stacks multiple toasts vertically`
+  - `dismiss button removes toast immediately`
+  - `max toasts limit prevents unbounded growth`
+
+  Run: `npm run test -- tests/unit/renderer/toast-container.test.ts`
+  Expected: All new tests pass.
+
+- [ ] **Step 2: Typecheck + lint**
+
+  Run: `npm run typecheck`
+  Expected: PASS — no errors.
+
+  Run: `npm run lint`
+  Expected: PASS — no new errors.
+
+- [ ] **Step 3: Manual verification**
+
+  1. Open DevTools → `window.financeShell.events.emit('panel.lazy-unmount', { type: 'info', title: 'Test', message: 'lazy unmount toast' })`
+  2. Toast appears in bottom-right corner
+  3. Wait for auto-dismiss or click dismiss button
+  4. Trigger real lazy unmount → toast shows correct panel label
+  5. Trigger auto-save failure → error toast appears and stays until dismissed
+
+---
 
 ## Out of Scope for Phase 7
 

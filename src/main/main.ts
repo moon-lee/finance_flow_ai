@@ -14,6 +14,7 @@ import {
   getSetting,
   setSetting,
   registerExtensionNamespace,
+  registerSettingDefault,
 } from "./services/settings-service";
 import { discoverExtensions } from "./services/extension-loader";
 import { ExtensionRegistry } from "./services/extension-registry";
@@ -518,6 +519,12 @@ function registerIpcHandlers(): void {
     }
   });
 
+  ipcMain.on("panel:unmounted", (_event, panelId: string, viewId: string) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("panel:unmounted", panelId, viewId);
+    }
+  });
+
   ipcMain.on(
     "panel:resize",
     (
@@ -818,6 +825,8 @@ app.whenReady().then(async () => {
     console.log(`[main] database path: ${dbPath}`);
     initializeDatabase(dbPath);
     initializeSettings();
+    registerSettingDefault('core.workspace.autoSaveTimeout', 500);
+    registerSettingDefault('core.workspace.lazyUnmountTimeout', 300_000);
     accountService = new AccountManagementService();
 
     // Boot extensions BEFORE the window so the renderer can fetch contributions on first paint.
@@ -992,6 +1001,12 @@ app.whenReady().then(async () => {
     // flush automatically when setMainWindow() is called after createWindow().
     webviewPanelManager = new WebviewPanelManager();
     console.log("[main] WebviewPanelManager created:", webviewPanelManager);
+
+    // Phase 7 Task 13 — register each extension's keepAlive hint so the
+    // lazy-unmount timer can honor it.
+    for (const manifest of extensionRegistry.getAllManifests()) {
+      webviewPanelManager.setExtensionKeepAlive(manifest.id, manifest.keepAlive ?? false);
+    }
 
     webviewPanelManager.setShortcutHandler((_webContents, accelerator) => {
       const entry = shortcutRegistry?.getCommandForAccelerator(accelerator);

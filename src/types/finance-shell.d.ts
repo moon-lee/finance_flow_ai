@@ -92,6 +92,7 @@ export interface PanelApi {
   unmount: (panelId: string) => void;
   unmountAll: () => void;
   onMounted: (callback: (panelId: string) => void) => () => void;
+  onUnmounted: (callback: (panelId: string, viewId: string) => void) => () => void;
   onRequestBounds: (callback: (panelId: string) => void) => () => void;
   broadcastTheme: (theme: string) => void;
 }

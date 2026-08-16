@@ -1,7 +1,7 @@
 ---
 version: 0.8.0
 created: 2026-06-14
-last_updated: 2026-08-15T21:05:14+10:00
+last_updated: 2026-08-16T20:52:43+10:00
 ---
 
 # Changelog
@@ -27,6 +27,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Core theme propagation to WebContentsView panels** (`src/renderer/index.ts`, `src/preload/preload.ts`, `src/preload/panel-preload.ts`, `src/main/main.ts`, `src/main/services/webview-panel-manager.ts`, `src/main/resources/panel-bootstrap.ts`, `src/main/resources/panel-template.html`, `src/types/finance-shell.d.ts`, `src/renderer/components/settings-screen.ts`, `extensions/dashboard/src/ui/dashboard-view.ts`, `extensions/dashboard/src/ui/reorder-cards-modal.ts`, `extensions/salary-history/src/ui/shared-styles.ts`, `extensions/salary-history/src/ui/payslip-list.ts`, `extensions/salary-history/src/ui/reorder-sections-modal.ts`, `extensions/salary-history/src/ui/rate-row-form.ts`, `extensions/salary-history/src/ui/payslip-form.ts`). When `core.theme` changes, the main renderer now broadcasts `theme:broadcast` to all active panels via `WebviewPanelManager.broadcastTheme()`. Each panel receives `theme:changed` and applies `light-theme` plus CSS custom properties (`--ff-bg-base`, `--ff-bg-panel`, `--ff-text`, etc.) on `document.documentElement`. New panels inherit the persisted theme on init. Fixed an IPC mismatch where `preload.ts` sent `theme:broadcast` with `ipcRenderer.send` but `main.ts` listened with `ipcMain.handle` (never matched in Electron). Fixed Settings screen not applying theme toggles to the main renderer DOM. Converted all hardcoded colors in extension panel CSS to `var(--ff-*, fallback)` so panels visually switch themes. Per Phase 7 plan Task 5.
 - **Main renderer CSP hardened — `'unsafe-eval'` removed** (`src/renderer/index.html`). Added a strict Content-Security-Policy meta tag to the main renderer matching the Phase 5 panel template policy: `script-src 'self' finance-shell:` (no `'unsafe-eval'`), `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com`, `font-src 'self' https://fonts.gstatic.com`, `img-src 'self' data:`, `connect-src 'self'`. No source code changes were required — the renderer already contained no `eval()`, `new Function()`, `URL.createObjectURL()`, or blob-based imports. Per Phase 7 plan Task 6.
 - **Database backup/restore with optional AES-256-GCM encryption** (`src/main/services/backup-service.ts`, `src/main/main.ts`, `src/renderer/components/backup-screen.ts`, `src/types/finance-shell.d.ts`, `src/preload/preload.ts`, `src/renderer/index.ts`, `src/renderer/components/navigation-panel.ts`). Added export/import IPC handlers (`backup:export`, `backup:import`, `backup:export-encrypted`, `backup:import-encrypted`, `backup:get-last-time`). Unencrypted backup copies the SQLite file plus WAL/SHM sidecars; encrypted backup wraps the DB in a custom `FFBACKUP` container using AES-256-GCM with PBKDF2-derived key. The renderer exposes a new `Backup & Restore` core navigation item and a `backup-screen` workspace view with export/import cards, encryption toggle, password field, last-backup timestamp, and overlay-aware panel hiding. Per Phase 7 plan Task 7.
+
+### Fixed
+
+- **Lazy unmount now preserves the active tab** (`src/main/services/webview-panel-manager.ts`). `checkLazyUnmount()` now skips `activePanelId`, so the currently visible panel is never candidate for lazy unmount. Previously all inactive tabs could be destroyed, including the one the user was actively viewing.
+- **Lazy-unmount remount fixed for internal extension views** (`src/renderer/components/workspace.ts`). `_restorePanel()` now prefers the tab’s stored `commandId` via `extensions.executeCommand()` before falling back to `activateView(viewId)`. Internal views like `pay-rate-history-view` are not declared in `contributions.views`, so `activateView()` could not find them; restoring by `commandId` matches the existing startup restore path.
+- **`panel:unmounted` IPC argument mismatch fixed** (`src/main/main.ts`, `src/main/services/webview-panel-manager.ts`). Main was still expecting a single payload object, but the panel manager now sends `panelId` and `viewId` as separate args. The mismatch caused `undefined` values to reach the renderer, so unmounted-panel tracking never populated and click-to-remount silently failed.
+- **Newly mounted panel no longer steals active tab on first resize** (`src/main/services/webview-panel-manager.ts`). `resize()` now only calls `showPanel()` when the resized panel is already the active panel or there is no active panel. This prevented restoring one sleeping tab from exposing it to the next lazy-unmount sweep and unmounting the previously active tab.
+- **Settings number inputs now show `formatHint` helper text** (`src/renderer/components/settings-screen.ts`). The `number` branch did not render helper text before; shared renderer-local declarations are now computed once up front so formatted inputs consistently show placeholders and `Format: <hint>` helpers. `core.workspace.lazyUnmountTimeout` now displays `Format: 1 second = 1000 ms. Set to 0 to disable.`
+
+### Changed
+
+- **`core.workspace.lazyUnmountTimeout` set to `0` now disables lazy unmount** (`src/main/services/webview-panel-manager.ts`, `src/renderer/components/settings-screen.ts`). `checkLazyUnmount()` returns early when the timeout is `0`, instead of treating it as “unmount immediately.” The settings label documents the new behavior.
+
+### Administrative
+
+- **Phase 7 plan extended with Task 22 — Toast/Notification UI Component** (`docs/superpowers/plans/2026-08-02-phase7-production-polish.md`). Added a final task to build a Lit-based toast container that subscribes to the existing global event bus and surfaces important lifecycle events (lazy unmount, auto-save failures, host status changes) as non-blocking notifications in the bottom-right corner.
 
 ### Fixed
 

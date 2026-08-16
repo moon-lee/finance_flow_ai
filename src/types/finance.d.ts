@@ -140,6 +140,12 @@ export interface FinanceExtensionManifest {
   tables?: readonly TableManifest[];
   /** Path to the extension's CommonJS or ESM entry relative to its package root. */
   main: string;
+  /**
+   * Phase 7 Task 13 — if true, this extension's panels are never
+   * auto-unmounted by the lazy-unmount timer. Use for panels that must
+   * stay alive for correctness (e.g. an active AI assistant panel).
+   */
+  keepAlive?: boolean;
 }
 
 /**
@@ -150,3 +156,18 @@ export interface FinanceExtensionManifest {
 export interface PackageJsonFinanceExtension extends Omit<FinanceExtensionManifest, 'version'> {
   version?: string; // falls back to package.json#version if omitted
 }
+
+/**
+ * Phase 7 Task 12 / Task 11 — documented workspace settings keys.
+ *
+ * Extensions can read/write these via `finance.settings.get` /
+ * `finance.settings.set`. Core reads them with `getSetting<T>()`.
+ *
+ * `core.workspace.autoSaveTimeout`
+ *   Milliseconds before `autoSaveDraft` times out. Default: 500.
+ *
+ * `core.workspace.lazyUnmountTimeout`
+ *   Milliseconds a panel must be inactive before the lazy-unmount timer
+ *   destroys its `WebContentsView`. Default: 300000 (5 minutes).
+ *   Set to a lower value during testing (e.g. 10000).
+ */

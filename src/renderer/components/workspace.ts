@@ -60,11 +60,14 @@ export class WorkspacePanel extends LitElement {
   hideTabStrip = false;
 
   private _viewIdToLabel = new Map<string, string>();
+  private _unmountedPanelViewIds = new Map<string, string>();
 
   private _saveTimer: ReturnType<typeof setTimeout> | null = null;
   private _panelUnmountListener: (() => void) | null = null;
   private _requestBoundsListener: (() => void) | null = null;
   private _restoreFallbackTimer: ReturnType<typeof setTimeout> | null = null;
+  private _unmountedPanelIds = new Set<string>();
+  private _panelUnmountedListener: (() => void) | null = null;
 
   connectedCallback() {
     super.connectedCallback();
@@ -103,6 +106,12 @@ export class WorkspacePanel extends LitElement {
     this._requestBoundsListener = window.financeShell?.panel?.onRequestBounds?.((panelId: string) => {
       this._sendBoundsToPanel(panelId);
     }) ?? null;
+    this._panelUnmountedListener = window.financeShell?.panel?.onUnmounted?.((panelId: string, viewId: string) => {
+      this._unmountedPanelIds.add(panelId);
+      this._unmountedPanelViewIds.set(panelId, viewId);
+      this._viewIdToLabel.set(viewId, this._viewIdToLabel.get(viewId) ?? viewId);
+      this.requestUpdate();
+    }) ?? null;
   }
 
   private _pendingCommandId: string | null = null;
@@ -113,18 +122,11 @@ export class WorkspacePanel extends LitElement {
   private async _onPanelMounted(panelId: string): Promise<void> {
     const isRestoredTab = this._tabs.some(t => t.panelId === panelId);
     if (this._restoringTabs || (this._restorePending && isRestoredTab)) {
-      // Panels mounted while restoring saved tabs (including onStartup panels
-      // like the Dashboard that auto-mount before the host reports 'ready')
-      // must not steal focus from the restored activePanelId; the
-      // orchestrator re-asserts it once every saved tab is mounted.
       this._sendBoundsToPanel(panelId);
       return;
     }
     await this._refreshPanels();
-    // Focus the tab if the panel is already open; otherwise add it.
     if (!this._tabs.some(t => t.panelId === panelId)) {
-      // Panel may not be in registered views (internal extension panel).
-      // Fetch its label from the live panel list.
       const panels = await window.financeShell?.panel?.list?.() as Array<{ panelId: string; extensionId: string; viewId: string }> | undefined;
       const live = panels?.find(p => p.panelId === panelId);
       if (live) {
@@ -134,9 +136,10 @@ export class WorkspacePanel extends LitElement {
       }
       this._pendingCommandId = null;
     } else {
+      this._unmountedPanelIds.delete(panelId);
+      this._unmountedPanelViewIds.delete(panelId);
       this._focusPanel(panelId);
     }
-    // Show the panel with correct bounds
     this._sendBoundsToPanel(panelId);
   }
 
@@ -162,6 +165,10 @@ export class WorkspacePanel extends LitElement {
     if (this._requestBoundsListener) {
       this._requestBoundsListener();
       this._requestBoundsListener = null;
+    }
+    if (this._panelUnmountedListener) {
+      this._panelUnmountedListener();
+      this._panelUnmountedListener = null;
     }
   }
 
@@ -307,6 +314,11 @@ export class WorkspacePanel extends LitElement {
     if (!this._tabs.some(t => t.panelId === panelId)) return;
     this._activePanelId = panelId;
     this._scheduleSave();
+    if (this._unmountedPanelIds.has(panelId)) {
+      void this._restorePanel(panelId);
+      this.requestUpdate();
+      return;
+    }
     this._sendBoundsToPanel(panelId);
     window.financeShell?.panel?.show(panelId);
     this.requestUpdate();
@@ -366,7 +378,9 @@ export class WorkspacePanel extends LitElement {
     }
     if (this._activePanelId) {
       this._sendBoundsToPanel(this._activePanelId);
-      window.financeShell?.panel?.show(this._activePanelId);
+      if (!this._unmountedPanelIds.has(this._activePanelId)) {
+        window.financeShell?.panel?.show(this._activePanelId);
+      }
     } else {
       window.financeShell?.panel?.unmountAll?.();
     }
@@ -377,6 +391,25 @@ export class WorkspacePanel extends LitElement {
 
   private _onTabFocus(panelId: string) {
     this._focusPanel(panelId);
+  }
+
+  private async _restorePanel(panelId: string) {
+    const tab = this._tabs.find(t => t.panelId === panelId);
+    if (tab?.commandId) {
+      try {
+        await window.financeShell?.extensions?.executeCommand?.(tab.commandId);
+        return;
+      } catch {
+        // fall back to activateView if command execution fails
+      }
+    }
+    const viewId = this._unmountedPanelViewIds.get(panelId);
+    if (!viewId) return;
+    try {
+      await window.financeShell?.extensions?.activateView?.(viewId);
+    } catch {
+      // ignore remount failures
+    }
   }
 
   private _onTabClose(panelId: string) {
@@ -415,6 +448,14 @@ export class WorkspacePanel extends LitElement {
         <tab-bar .tabs="${tabs}" .activePanelId="${this._activePanelId}" @tab-focus="${(e: CustomEvent) => this._onTabFocus(e.detail.panelId)}" @tab-close="${(e: CustomEvent) => this._onTabClose(e.detail.panelId)}"></tab-bar>
       </div>
       <div class="content">
+        ${this._activePanelId && this._unmountedPanelIds.has(this._activePanelId) ? html`
+          <div class="empty-state" @click="${() => this._restorePanel(this._activePanelId)}">
+            <div>
+              <div style="font-size: 16px; margin-bottom: 8px;">Panel asleep</div>
+              <div style="color: var(--text-tertiary); font-size: 12px;">Click to restore</div>
+            </div>
+          </div>
+        ` : ''}
         <slot>
           <div class="empty-state">Select a view from the Activity Bar</div>
         </slot>

@@ -127,6 +127,13 @@ const shellApi = {
       ipcRenderer.on('panel:mounted', listener);
       return () => { ipcRenderer.off('panel:mounted', listener); };
     },
+    onUnmounted: (callback: (panelId: string, viewId: string) => void): (() => void) => {
+      const listener = (_event: IpcRendererEvent, panelId: string, viewId: string): void => {
+        callback(panelId, viewId);
+      };
+      ipcRenderer.on('panel:unmounted', listener);
+      return () => { ipcRenderer.off('panel:unmounted', listener); };
+    },
     onRequestBounds: (callback: (panelId: string) => void): (() => void) => {
       console.log('[preload] panel.onRequestBounds subscriber registered');
       const listener = (_event: IpcRendererEvent, panelId: string): void => {
