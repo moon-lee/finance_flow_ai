@@ -904,11 +904,14 @@ No code changes were needed in `src/renderer/index.ts`, `src/preload/preload.ts`
 - `src/types/finance.d.ts` (add `WorkspaceLayout` types if needed)
 - `src/main/services/webview-panel-manager.ts` (support multiple visible panels at once)
 
-**Where the flat model lives today:**
+**Current state:**
 
-- `workspace.ts` — `_tabs: Tab[]` + `_activePanelId`, persisted as `{ version: 1, tabs, activePanelId }`
-- `split-pane.ts` — exists but unimported dead code with a 2-pane drag splitter
-- Layout stored in `localStorage['core.workspace.layout']`
+- `workspace.ts` — flat model with `_tabs: Tab[]`, `_activePanelId: string | null`, and `PersistedLayout { version: 1, tabs, activePanelId }`. The active tab is restored from `localStorage['core.workspace.layout']`.
+- `split-pane.ts` — exists but unimported dead code with a 2-pane drag splitter. This task should reuse that component rather than rewrite it.
+- Layout is stored in `localStorage['core.workspace.layout']` as `{ version: 1, tabs, activePanelId }`.
+
+**Overlay interaction:**
+When an overlay opens (Settings, Shortcuts, Backup, Command Palette), `OverlayCoordinator` hides all panels via `WebviewPanelManager.hidePanelsForOverlay()`. The grid layout must preserve its group structure during overlay hide/restore cycles. When panels are restored, each panel must remount into its original group content area. The grid rewrite must not flatten groups during overlay transitions.
 
 **Implementation approach:**
 
@@ -932,12 +935,17 @@ No code changes were needed in `src/renderer/index.ts`, `src/preload/preload.ts`
    - Each group has its own tab strip + content area
    - Dragging a tab to the edge of another group splits it (inserts a new group)
    - Closing the last tab in a group removes the group and merges its space back
-3. Migration: on startup, if `version: 1` → wrap in a single `EditorGroup` and bump to `version: 2`
+3. Migration: on startup, before any panel is activated, if `localStorage['core.workspace.layout']` has `version: 1`, wrap it in a single `EditorGroup` and bump to `version: 2`. If migration fails or is skipped, fall back to a single-group default layout.
 4. `webview-panel-manager.ts`: `show(panelId)` now shows the panel in its group's content area; `hide()` hides panels in non-active groups (optional: lazy-unmount off-screen groups)
 
 **Easy analogy:** Like VS Code's editor groups — drag a tab to the right edge → split into two side-by-side panes, each with its own tab strip.
 
-**Verification:** Drag Pay History tab to right edge → 2-pane split. Drag again → 3-pane. Close middle pane → remaining panes expand. Restart → layout persists.
+**Verification:**
+1. Drag any mounted tab to the right edge of another tab → 2-pane split.
+2. Drag again → 3-pane.
+3. Close middle pane → remaining panes expand.
+4. Open Settings overlay → all panels hide; close Settings → panels restore into their original groups.
+5. Restart app → layout persists with correct group structure.
 
 - [ ] **Step N: Write unit tests for grid layout**
 
@@ -963,6 +971,8 @@ No code changes were needed in `src/renderer/index.ts`, `src/preload/preload.ts`
 
 ### Task 10: `host.shutdown` Graceful Draining
 
+**Status:** Completed.
+
 **What:** Instead of a 1-second hard-kill, drain pending JSON-RPC requests before shutting down the Host.
 
 **Files to modify:**
@@ -972,30 +982,46 @@ No code changes were needed in `src/renderer/index.ts`, `src/preload/preload.ts`
 
 **Current behavior:**
 
-- `main.ts` line 939: `app.on("will-quit", shutdownPersistence)`
+- `main.ts:1128` — `app.on("will-quit", shutdownPersistence)`
 - `shutdownPersistence()` calls `extensionIPC?.stop()` which sends `host.shutdown` then 1-second timeout then `host.kill`
 - Host exits immediately on `host.shutdown` — any in-flight RPC requests are abandoned
 
-**Implementation approach:**
+**Protocol:**
+- Main sends JSON-RPC notification `host.shutdown` to the Host.
+- Host finishes its current request, rejects any new requests with a shutting-down error, then sends JSON-RPC notification `host.shutdown.complete` back to Main.
+- Main waits for `host.shutdown.complete` with a 3-second timeout. If no ack arrives, it falls back to the current 1-second hard-kill.
 
+**Implementation approach:**
 1. In `extension-ipc.ts` `stop()`:
    - Set `shuttingDown = true`
    - Send `host.shutdown`
-   - Wait for Host to acknowledge (new `host.shutdown.complete` message)
-   - If no ack within 3 seconds → hard-kill (current behavior as fallback)
+   - Wait for Host to acknowledge via `host.shutdown.complete`
+   - If no ack within 3 seconds → hard-kill
 2. In `host.ts`:
    - On `host.shutdown`: finish processing current request, then send `host.shutdown.complete`
    - Reject new requests with "shutting down" error
 
 **Verification:** Run a long-running extension command → quit app → Host finishes the request → exits cleanly within 3s.
 
-- [ ] **Step N: Typecheck + lint**
+- [x] **Step 1: Typecheck + lint**
 
   Run: `npm run typecheck`
-  Expected: PASS — no errors.
+  Result: PASS.
 
   Run: `npm run lint`
-  Expected: PASS — no new errors.
+  Result: PASS.
+
+- [x] **Step 2: Unit tests**
+
+  Added `tests/unit/main/services/extension-ipc-shutdown.test.ts` covering:
+  - sends `host.shutdown` on `stop()`
+  - resolves on `host.shutdown.complete`
+  - hard-kill fallback after 3s
+  - ack not forwarded to status listeners
+  - no-op when process is null
+
+  Run: `npm run test -- tests/unit/main/services/extension-ipc-shutdown.test.ts`
+  Result: 5/5 PASS.
 
 ---
 
@@ -1024,11 +1050,20 @@ No code changes were needed in `src/renderer/index.ts`, `src/preload/preload.ts`
    - Unmount panels inactive > `core.workspace.lazyUnmountTimeout` (default 5 min)
    - On unmount: call `autoSaveDraft` + `onBeforeUnmount` callbacks, then `view.destroy()`
 2. Restart the timer on any panel activity (focus, mount, `panel:resize`)
-3. In `workspace.ts`, if a tab's panel was lazy-unmounted, show a "click to restore" placeholder
+3. In `workspace.ts`, if a tab's panel was lazy-unmounted, show a "click to restore" placeholder that remounts the panel on click
 
-**Verification:** Open 3 tabs → switch away from tab 2 → wait 5 min → tab 2's panel is destroyed → click tab 2 → panel remounts.
+**Verification:**
+1. Set `core.workspace.lazyUnmountTimeout` to 10 seconds for testing.
+2. Open 3 tabs → switch away from tab 2 → wait 10 seconds → tab 2's panel is destroyed.
+3. Click tab 2 → panel remounts.
+4. Edit a field in tab 2's panel (making it dirty) → switch away → wait 10 seconds → tab 2 is NOT unmounted because it is dirty.
 
-- [ ] **Step N: Typecheck + lint**
+**Dirty-panel behavior:**
+A panel is dirty when its extension calls `finance.ui.setDirty(true)`. Dirty panels are never lazy-unmounted. When a dirty panel is focused while still mounted, it behaves normally. If a dirty panel becomes clean (`setDirty(false)`), it becomes eligible for lazy unmount on the next timer tick.
+
+**Note:** The `keepAlive` check in step 1 depends on Task 13's manifest schema change. Implement the timer without `keepAlive` first, then add the manifest check when Task 13 is complete.
+
+- [ ] **Step 1: Typecheck + lint**
 
   Run: `npm run typecheck`
   Expected: PASS — no errors.
@@ -1318,11 +1353,19 @@ No code changes were needed in `src/renderer/index.ts`, `src/preload/preload.ts`
 |---|---|---|---|
 | **1** | 1, 1.5, 2, 2.5, 3, 4, 5 | 5–6 days | Settings UI, accounts, FY context, dashboard FY config, array modals, shortcuts, and theme propagation to panels |
 | **2** | 6, 7, 8 | 4–5 days | Security (CSP), data safety (backup), and architecture (event bus) |
-| **3** | 9, 10, 11 | 3.5–4.5 days | Workspace improvements + memory management |
-| **4** | 12, 13, 14, 15, 16 | 3–4 days | Extension authoring experience improvements |
+| **3** | 9, 10, 11, 12, 13 | 5–6 days | Workspace grid layout, shutdown drain, and memory management. Task 12 must precede Task 11; Task 13 must precede or accompany Task 11's `keepAlive` check. |
+| **4** | 14, 15, 16 | 3–4 days | Extension authoring experience improvements |
 | **5** | 17, 18, 19, 20, 21 | 4.5–6 days | Developer tooling + polish |
 
 **Total:** ~18–24 days
+
+### Task priority within Phase 7
+
+| Priority | Tasks | Rationale |
+|---|---|---|
+| **Mandatory** | 9, 10, 11, 12, 13 | Required for production readiness: grid layout, graceful shutdown, memory management, configurable timeouts, and extension lifecycle control |
+| **Important but deferrable** | 14, 15, 16 | Improve extension authoring experience but the app functions without them. Can move to Phase 8 if schedule pressure requires |
+| **Optional / nice-to-have** | 17, 18, 19, 20, 21 | Developer productivity or evaluation tasks. No end-user impact |
 
 ## Out of Scope for Phase 7
 

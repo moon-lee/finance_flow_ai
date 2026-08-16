@@ -90,6 +90,28 @@ interface ActiveExtension {
 
 const activeExtensions = new Map<string, ActiveExtension>();
 
+/**
+ * Phase 7 Task 10 — graceful shutdown state.
+ *
+ * `shuttingDown` is set when Main sends `host.shutdown`. While true:
+ * - New JSON-RPC requests are rejected immediately with a shutting-down error.
+ * - `handleNotification` waits for `activeRequestCount` to reach 0 before
+ *   deactivating extensions and sending `host.shutdown.complete` back to Main.
+ */
+let shuttingDown = false;
+let activeRequestCount = 0;
+
+function waitForActiveRequests(): Promise<void> {
+  return new Promise<void>((resolve) => {
+    const interval = setInterval(() => {
+      if (activeRequestCount === 0) {
+        clearInterval(interval);
+        resolve();
+      }
+    }, 10);
+  });
+}
+
 function handleHostEventNotify(notification: JsonRpcNotification): void {
   const { topic, payload } = notification.params as { topic: string; payload: unknown };
   const subscribers = getHostEventHandlers().get(topic);
@@ -157,6 +179,11 @@ function notify(method: string, params: unknown): void {
 }
 
 async function handleRequest(req: JsonRpcRequest): Promise<void> {
+  if (shuttingDown) {
+    respondError(req.id, RpcErrorCode.InternalError, 'Extension Host is shutting down');
+    return;
+  }
+  activeRequestCount++;
   try {
     switch (req.method) {
       case 'host.initialize': {
@@ -257,6 +284,8 @@ async function handleRequest(req: JsonRpcRequest): Promise<void> {
       RpcErrorCode.InternalError,
       err instanceof Error ? err.message : String(err)
     );
+  } finally {
+    activeRequestCount--;
   }
 }
 
@@ -361,12 +390,17 @@ async function handleNotification(notification: JsonRpcNotification): Promise<vo
     console.log('[host] ui-event received:', JSON.stringify(notification.params));
     return;
   }
-  if (notification.method === 'host.shutdown') {
-    console.log('[host] shutdown request received, deactivating extensions...');
+  if (notification.method === RPC_METHOD.HostShutdown) {
+    console.log('[host] shutdown request received, draining requests...');
+    shuttingDown = true;
+
+    // Wait for any in-flight JSON-RPC requests to complete before tearing
+    // down extensions. New requests arriving after this point are rejected
+    // immediately by `handleRequest`.
+    await waitForActiveRequests();
+
+    console.log('[host] requests drained, deactivating extensions...');
     for (const [id, ext] of activeExtensions) {
-      // Reuse the module reference cached at activation; do NOT re-load via
-      // require() — the bundle is ESM and require() will throw ERR_REQUIRE_ESM.
-      // See [Review fix §HOST-1].
       if (ext.module && typeof ext.module.deactivate === 'function') {
         try {
           await ext.module.deactivate();
@@ -375,6 +409,10 @@ async function handleNotification(notification: JsonRpcNotification): Promise<vo
         }
       }
     }
+
+    // Acknowledge to Main so it can stop waiting and let the process exit
+    // naturally instead of hard-killing it.
+    notify(RPC_METHOD.HostShutdownComplete, {});
     process.exit(0);
   }
 }
@@ -409,9 +447,7 @@ parentPort.on('message', (event: { data: unknown; ports?: unknown[] }) => {
     }
     return;
   }
-  if (isRequest(msg) || isNotification(msg)) {
-    console.log(`[host] msg received: ${msg.method} (id=${'id' in msg ? msg.id : 'n/a'})`);
-  }
+
   if (isRequest(msg)) {
     void handleRequest(msg);
   } else if (isNotification(msg)) {

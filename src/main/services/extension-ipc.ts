@@ -719,14 +719,38 @@ export class ExtensionIPC {
   async stop(): Promise<void> {
     if (!this.process) return;
     this.shuttingDown = true;
-    this.notify('host.shutdown');
-    // Give the Host 1s to gracefully exit, then kill.
+    this.notify(RPC_METHOD.HostShutdown);
+
     await new Promise<void>((resolve) => {
-      const timer = setTimeout(() => {
+      let resolved = false;
+      const done = (): void => { if (!resolved) { resolved = true; resolve(); } };
+
+      const ackTimer = setTimeout(() => {
         try { this.process?.kill(); } catch { /* already dead */ }
-        resolve();
-      }, 1_000);
-      this.process!.once('exit', () => { clearTimeout(timer); resolve(); });
+        done();
+      }, 3_000);
+
+      const onAck = (msg: unknown): void => {
+        if (
+          typeof msg === 'object' &&
+          msg !== null &&
+          (msg as { method?: string }).method === RPC_METHOD.HostShutdownComplete
+        ) {
+          clearTimeout(ackTimer);
+          this.process?.off('message', onAck);
+          this.process?.once('exit', () => {
+            clearTimeout(ackTimer);
+            done();
+          });
+        }
+      };
+
+      this.process?.on('message', onAck);
+      this.process?.once('exit', () => {
+        clearTimeout(ackTimer);
+        this.process?.off('message', onAck);
+        done();
+      });
     });
   }
 
@@ -783,6 +807,12 @@ export class ExtensionIPC {
           });
         }, 'host');
       }
+      return;
+    }
+    // Phase 7 Task 10 — consume the graceful-shutdown acknowledgment.
+    // This is an internal protocol message and must not be forwarded to
+    // generic listeners.
+    if (typeof msg === 'object' && msg !== null && (msg as { method?: string }).method === RPC_METHOD.HostShutdownComplete) {
       return;
     }
     // Notification — forward to listeners (used for `extension.activated` etc.).

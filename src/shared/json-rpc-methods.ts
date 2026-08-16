@@ -70,6 +70,10 @@ export const RPC_METHOD = {
   // Phase 7 Task 8 — global event bus.
   EventSubscribe: 'event.subscribe',
   EventPublish: 'event.publish',
+
+  // Phase 7 Task 10 — graceful shutdown protocol.
+  HostShutdown: 'host.shutdown',
+  HostShutdownComplete: 'host.shutdown.complete',
 } as const;
 
 export type RpcMethodName = (typeof RPC_METHOD)[keyof typeof RPC_METHOD];
