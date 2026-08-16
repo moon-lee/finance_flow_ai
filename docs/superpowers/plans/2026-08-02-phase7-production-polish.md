@@ -1140,252 +1140,25 @@ A panel is dirty when its extension calls `finance.ui.setDirty(true)`. Dirty pan
 
 ---
 
-### Task 14: Wildcard `ui-event` Flag
-
-**What:** Let extensions declare `"wildcard: true"` in `allowedUiEvents` to accept any event name without enumerating them all.
-
-**Files to modify:**
-
-- `src/extension-host/manifest-schema.ts` (allow `wildcard` in `allowedUiEvents` schema)
-- `src/main/services/ui-event-allowlist.ts` (check wildcard flag before set lookup)
-
-**Implementation:**
-
-```ts
-// In manifest:
-"allowedUiEvents": ["*"]  // or keep explicit list
-// In allowlist check:
-  if (manifest.allowedUiEvents.wildcard) return true;
-  ```
-
-- [ ] **Step N: Typecheck + lint**
-
-  Run: `npm run typecheck`
-  Expected: PASS — no errors.
-
-  Run: `npm run lint`
-  Expected: PASS — no new errors.
-
 ---
-
-### Task 15: `onStartupAfterReady` Activation Event
-
-**What:** New activation event for extensions that need to delay their UI mount until after data loads.
-
-**Files to modify:**
-
-- `src/extension-host/manifest-schema.ts` (add `onStartupAfterReady` to `ActivationEvent` enum)
-- `src/extension-host/host.ts` (emit new event after `host.ready` + extensions activated)
-- `src/main/main.ts` (handle new event, activate after default view mounts)
-
-**Current `onStartup`:** activates extensions immediately after Host is ready, before the window is fully painted.
-
-**New `onStartupAfterReady`:** activates after the default view's panel is mounted and first paint is done. Use case: an extension that needs to load remote data before showing its UI.
-
-- [ ] **Step N: Typecheck + lint**
-
-  Run: `npm run typecheck`
-  Expected: PASS — no errors.
-
-  Run: `npm run lint`
-  Expected: PASS — no new errors.
-
----
-
-### Task 16: VS Code-Style Tree Views / NavigationProvider Callback API
-
-**What:** Let extensions provide dynamic, context-sensitive navigation trees instead of static `navigation` arrays.
-
-**Files to modify:**
-
-- `src/renderer/components/navigation-panel.ts` (add tree view renderer)
-- `src/types/finance.d.ts` (add `TreeViewProvider` API)
-- `src/extension-host/api/navigation.ts` (new)
-- `src/extension-host/api/index.ts` (add `navigation` to `FinanceApi`)
-- `src/preload/preload.ts` (expose tree view events)
-
-**Implementation approach:**
-
-1. Add `finance.navigation.registerTreeView(id, provider)` to the Host API:
-
-   ```ts
-   interface TreeViewProvider {
-     getChildren(elementId?: string): Promise<TreeNode[]>;
-     onDidChangeTreeData?: (callback: (elementId: string) => void) => void;
-   }
-   ```
-
-2. In `navigation-panel.ts`:
-   - If active extension has registered a tree view → render collapsible tree
-   - If static `navigation` array → render current flat list (fallback)
-3. Tree nodes support: expand/collapse, click → command, badge counts, icon
-
-**Easy analogy:** Like VS Code's Explorer panel — collapsible folders with files inside, not just a flat list of links.
-
-- [ ] **Step N: Typecheck + lint**
-
-  Run: `npm run typecheck`
-  Expected: PASS — no errors.
-
-  Run: `npm run lint`
-  Expected: PASS — no new errors.
-
----
-
-## Stage 5 — Developer Experience
-
-### Task 17: Typed DAO Generation from Manifest Schemas
-
-**What:** Generate TypeScript types from manifest table declarations so extensions get compile-time type safety.
-
-**Files to modify:**
-
-- `src/types/finance.d.ts` (add generated types)
-- `src/extension-host/api/db.ts` (add `typedTable<T>()` method)
-- `src/main/services/table-schema-registry.ts` (emit TypeScript declaration files)
-
-**Current:** `finance.db.table('salary_history_pay_slips').find({})` returns `Row[]` — you have to know the column names by heart.
-
-**After:** `finance.db.typedTable<SalaryHistoryPaySlip>('salary_history_pay_slips').find({})` returns `SalaryHistoryPaySlip[]` with full type inference.
-
-**Implementation approach:**
-
-1. After manifest validation, write a `.d.ts` file per extension to `dist/extensions/<id>.d.ts`
-2. The file exports interfaces matching the declared table columns
-3. Extensions import their own types: `import type { SalaryHistoryPaySlip } from './extensions/salary-history.d.ts'`
-4. Add `finance.db.typedTable<T>(name)` alongside the existing `finance.db.table(name)`
-
-- [ ] **Step N: Typecheck + lint**
-
-  Run: `npm run typecheck`
-  Expected: PASS — no errors.
-
-  Run: `npm run lint`
-  Expected: PASS — no new errors.
-
----
-
-### Task 18: Drag-and-Drop Reorder + Versioned Settings
-
-**What:** Add drag-and-drop to the navigation panel and settings UI; version settings to support migrations.
-
-**Files to modify:**
-
-- `src/renderer/components/navigation-panel.ts` (add drag handles + reorder logic)
-- `src/renderer/components/settings-screen.ts` (drag reorder for `dashboard.cardOrder`)
-- `src/main/services/settings-service.ts` (add version tracking + migration hooks)
-
-**Implementation approach:**
-
-1. Navigation panel: add `draggable` attribute + drag handlers to nav items; reorder the underlying `navigation` contribution array on drop
-2. Settings screen: for `type: 'object'` settings like `dashboard.cardOrder` (array), render as a draggable list
-3. Settings versioning: store `_version` per key; on read, if version < current, run migration function (future-proofs schema changes)
-
-- [ ] **Step N: Typecheck + lint**
-
-  Run: `npm run typecheck`
-  Expected: PASS — no errors.
-
-  Run: `npm run lint`
-  Expected: PASS — no new errors.
-
----
-
-### Task 19: Real Component Library Integration
-
-**What:** Add Storybook or Histoire for visual component development.
-
-**Files to modify:**
-
-- `package.json` (add dev dependency)
-- `src/renderer/components/` (add `.stories.ts` files alongside each component)
-
-**Implementation:** Add Storybook for Lit. This is a developer productivity tool — it doesn't change the app's behavior. Each component gets a `.stories.ts` file showing its different states (default, hover, active, disabled).
-
-- [ ] **Step N: Typecheck + lint**
-
-  Run: `npm run typecheck`
-  Expected: PASS — no errors.
-
-  Run: `npm run lint`
-  Expected: PASS — no new errors.
-
----
-
-### Task 20: ESM-Friendly Production Source-Map Stripping
-
-**What:** Strip source maps from production bundles to reduce file size and hide source code.
-
-**Files to modify:**
-
-- `vite.config.ts` + all 5 variant configs (set `build.sourcemap: false` for production)
-
-**Current:** Vite emits sourcemaps by default in all modes.
-
-**Implementation:** One-line change per Vite config: `sourcemap: mode === 'development'`.
-
-- [ ] **Step N: Typecheck + lint**
-
-  Run: `npm run typecheck`
-  Expected: PASS — no errors.
-
-  Run: `npm run lint`
-  Expected: PASS — no new errors.
-
----
-
-### Task 21: Migration Runner Evaluation (Umzug)
-
-**What:** Evaluate replacing the inline migration runner with Umzug.
-
-**Files to modify:**
-
-- `src/main/services/database-service.ts` (replace `registerMigration` + `migration_log` with Umzug)
-- `src/main/services/infrastructure-migration.ts` (adapt to Umzug's `Migration` interface)
-- All extension migration files (004–008) (adapt to Umzug format)
-
-**Current:** Inline `registerMigration(name, up, down)` with `migration_log` table for idempotency.
-
-**Why Umzug:** Provides up/down migrations, transaction wrapping, and a cleaner API. The current inline runner works but doesn't support down migrations.
-
-**Implementation approach:**
-
-1. Add `umzug` to dependencies
-2. Replace `registerAllMigrations()` with Umzug's `createUmzug({ migrations: [...] })`
-3. Run `umzug.up()` on startup instead of `initializeDatabase()`
-4. Verify all 8 existing migrations still apply correctly
-
-**Verification:** Fresh DB → all 8 migrations apply. Existing DB with migrations 001–004 applied → only 005–008 apply.
-
-- [ ] **Step N: Typecheck + lint**
-
-  Run: `npm run typecheck`
-  Expected: PASS — no errors.
-
-  Run: `npm run lint`
-  Expected: PASS — no new errors.
 
 ---
 
 ## Execution Order
 
 | Stage | Tasks | Duration | Rationale |
-|---|---|---|---|
+|---|---|---|
 | **1** | 1, 1.5, 2, 2.5, 3, 4, 5 | 5–6 days | Settings UI, accounts, FY context, dashboard FY config, array modals, shortcuts, and theme propagation to panels |
 | **2** | 6, 7, 8 | 4–5 days | Security (CSP), data safety (backup), and architecture (event bus) |
-| **3** | 9, 10, 11, 12, 13 | 5–6 days | Workspace grid layout, shutdown drain, and memory management. Task 12 must precede Task 11; Task 13 must precede or accompany Task 11's `keepAlive` check. |
-| **4** | 14, 15, 16 | 3–4 days | Extension authoring experience improvements |
-| **5** | 17, 18, 19, 20, 21 | 4.5–6 days | Developer tooling + polish |
+| **3** | 9, 10, 11, 12, 13, 22 | 6–8 days | Workspace grid layout, shutdown drain, memory management, configurable timeouts, extension lifecycle control, and toast notifications |
 
-**Total:** ~18–24 days
+**Total:** ~15–19 days
 
 ### Task priority within Phase 7
 
 | Priority | Tasks | Rationale |
 |---|---|---|
-| **Mandatory** | 9, 10, 11, 12, 13 | Required for production readiness: grid layout, graceful shutdown, memory management, configurable timeouts, and extension lifecycle control |
-| **Important but deferrable** | 14, 15, 16 | Improve extension authoring experience but the app functions without them. Can move to Phase 8 if schedule pressure requires |
-| **Optional / nice-to-have** | 17, 18, 19, 20, 21 | Developer productivity or evaluation tasks. No end-user impact |
+| **Mandatory** | 9, 10, 11, 12, 13, 22 | Required for production readiness: grid layout, graceful shutdown, memory management, configurable timeouts, extension lifecycle control, and user-facing event notifications |
 
 ### Task 22: Toast/Notification UI Component
 
@@ -1503,3 +1276,7 @@ The following are deferred to Phase 8 or future:
 - AI Assistant (Ollama wiring) → Phase 6
 - Row-level access control → future ADR
 - Nested WebviewPanels → future
+- Tasks 14, 15, 16 (wildcard `ui-event`, `onStartupAfterReady`, tree-view navigation) were reviewed and removed from Phase 7. They are not scheduled for Phase 8.
+- Tasks 17, 18, 19 (typed DAO generation, drag-and-drop reorder + versioned settings, Storybook component library) were reviewed and removed from Phase 7. They are not scheduled for Phase 8.
+- Task 20 (ESM-friendly production source-map stripping) was reviewed and removed from Phase 7. It is not scheduled for Phase 8.
+- Task 21 (Migration Runner Evaluation — Umzug) was reviewed and removed from Phase 7. It is not scheduled for Phase 8.
