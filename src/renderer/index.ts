@@ -7,6 +7,7 @@ import './components/settings-screen';
 import './components/accounts-manager';
 import './components/shortcuts-screen';
 import './components/backup-screen';
+import './components/toast-container';
 import { overlayCoordinator } from './overlay-coordinator';
 import type { ActivityView } from './components/activity-bar';
 import type { PaletteCommand } from './components/command-palette';
@@ -327,10 +328,57 @@ async function initApp(): Promise<void> {
     });
     statusBar.appendChild(themeBtn);
 
+    const errorStatus = document.createElement('span');
+    errorStatus.className = 'status-item status-error';
+    errorStatus.style.display = 'none';
+    errorStatus.title = 'Dismissed errors';
+    errorStatus.addEventListener('click', () => {
+      const toastContainer = document.querySelector('toast-container');
+      if (toastContainer) {
+        (toastContainer as unknown as { _clearErrorStatus: () => void })._clearErrorStatus();
+      }
+      errorStatus.style.display = 'none';
+    });
+    statusBar.appendChild(errorStatus);
+
+    const activatedStatus = document.createElement('span');
+    activatedStatus.className = 'status-item status-activated';
+    activatedStatus.style.display = 'none';
+    activatedStatus.title = 'Extension activated';
+    statusBar.appendChild(activatedStatus);
+
     const versionTag = document.createElement('span');
     versionTag.className = 'status-item version-tag';
     versionTag.textContent = `v${version}`;
     statusBar.appendChild(versionTag);
+
+    window.addEventListener('error-status-changed', (event: Event) => {
+      const customEvent = event as CustomEvent<{ count: number; type: 'info' | 'warning' | 'error' | null; message: string | null }>;
+      const count = customEvent.detail.count;
+      const type = customEvent.detail.type;
+      const message = customEvent.detail.message;
+      if (count === 0) {
+        errorStatus.style.display = 'none';
+      } else {
+        errorStatus.style.display = '';
+        errorStatus.className = `status-item status-${type ?? 'error'}`;
+        errorStatus.textContent = count === 1 ? message ?? 'Notification' : `${count} notifications`;
+      }
+    });
+
+    window.financeShell?.events?.on('extension.activated', (payload) => {
+      const data = payload as { extensionId: string; reason: string };
+      activatedStatus.textContent = data.extensionId;
+      activatedStatus.style.display = '';
+      setTimeout(() => {
+        activatedStatus.style.display = 'none';
+      }, 3000);
+    });
+  }
+
+  const existingToast = document.querySelector('toast-container');
+  if (!existingToast) {
+    document.body.appendChild(document.createElement('toast-container'));
   }
 }
 

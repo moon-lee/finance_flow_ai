@@ -52,7 +52,7 @@ const noopUIHandler = {
 };
 
 function makeManager() {
-  const manager = new WebviewPanelManager();
+  const manager = new WebviewPanelManager({ startupGraceMs: 0 });
   manager.setUIHandler(noopUIHandler);
   manager.setMainWindow({
     contentView: {

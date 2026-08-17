@@ -1019,6 +1019,11 @@ app.whenReady().then(async () => {
       }
     });
 
+    // Phase 7 Task 22 — wire the event bus into WebviewPanelManager so
+    // lifecycle events (lazy-unmount, auto-save-failure) can be published
+    // to the global event bus for the toast component to consume.
+    webviewPanelManager.setEventBus(eventBus);
+
     webviewPanelManager.setUIHandler({
       onMountRequested: (extensionId, viewId, mountData) => {
         webviewPanelManager?.mount(extensionId, viewId, mountData);
@@ -1104,6 +1109,18 @@ app.whenReady().then(async () => {
     extensionIPC.onHostStatus((status) => {
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send("extensions:host-status", status);
+      }
+      if (eventBus && (status.status === 'crashed' || status.status === 'restart-failed')) {
+        eventBus.publish('extension.host-status', status);
+      }
+    });
+
+    extensionIPC.onExtensionActivated((params) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send("extensions:activated", params);
+      }
+      if (eventBus) {
+        eventBus.publish('extension.activated', params);
       }
     });
 

@@ -46,14 +46,14 @@ const noopUIHandler = {
 
 describe('WebviewPanelManager sender-identity (Task 4.1)', () => {
   it('buffers mount requests when mainWindow is not set (onStartup race)', () => {
-    const manager = new WebviewPanelManager();
+    const manager = new WebviewPanelManager({ startupGraceMs: 0 });
     manager.setUIHandler({ ...noopUIHandler, onMountRequested: () => {} });
     expect(manager.mount('dashboard', 'dashboard-view')).toBeNull();
     expect(manager.mount('salary-history', 'pay-rate-history-view')).toBeNull();
   });
 
   it('maps a mounted panel to its webContents id so Main can resolve the real extensionId', () => {
-    const manager = new WebviewPanelManager();
+    const manager = new WebviewPanelManager({ startupGraceMs: 0 });
     manager.setUIHandler(noopUIHandler);
     manager.setMainWindow({
       contentView: {
@@ -79,7 +79,7 @@ describe('WebviewPanelManager sender-identity (Task 4.1)', () => {
   });
 
   it('returns undefined when the sender is not a known panel (spoofing prevention)', () => {
-    const manager = new WebviewPanelManager();
+    const manager = new WebviewPanelManager({ startupGraceMs: 0 });
     manager.setUIHandler({ ...noopUIHandler, onMountRequested: () => {} });
     manager.setMainWindow({
       contentView: { 
@@ -99,7 +99,7 @@ describe('WebviewPanelManager sender-identity (Task 4.1)', () => {
 
 describe('WebviewPanelManager lifecycle (Phase 5 additional tests)', () => {
   function makeManager() {
-    const manager = new WebviewPanelManager();
+    const manager = new WebviewPanelManager({ startupGraceMs: 0 });
     manager.setUIHandler(noopUIHandler);
     manager.setMainWindow({
       contentView: {
@@ -139,7 +139,7 @@ describe('WebviewPanelManager lifecycle (Phase 5 additional tests)', () => {
   it('focus() calls webContents.focus()', () => {
     const focusSpy = vi.fn();
     // Override the mock to track focus calls
-    const manager = new WebviewPanelManager();
+    const manager = new WebviewPanelManager({ startupGraceMs: 0 });
     manager.setUIHandler(noopUIHandler);
     manager.setMainWindow({
       contentView: { 
@@ -176,7 +176,7 @@ describe('WebviewPanelManager lifecycle (Phase 5 additional tests)', () => {
 
   it('destroyAll() destroys all panels', async () => {
     const destroySpy = vi.fn();
-    const manager = new WebviewPanelManager();
+    const manager = new WebviewPanelManager({ startupGraceMs: 0 });
     manager.setUIHandler(noopUIHandler);
     manager.setMainWindow({
       contentView: { 
@@ -208,7 +208,7 @@ describe('WebviewPanelManager lifecycle (Phase 5 additional tests)', () => {
 
 describe('WebviewPanelManager overlay coordination', () => {
   function makeManager() {
-    const manager = new WebviewPanelManager();
+    const manager = new WebviewPanelManager({ startupGraceMs: 0 });
     manager.setUIHandler(noopUIHandler);
     manager.setMainWindow({
       contentView: {

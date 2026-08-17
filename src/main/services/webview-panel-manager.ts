@@ -24,6 +24,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { toAccelerator } from './shortcut-registry';
 import { getSetting } from './settings-service';
+import { EventBus } from './event-bus';
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 
@@ -67,10 +68,22 @@ export class WebviewPanelManager {
   private readonly keepAliveExtensionIds = new Set<string>();
   private readonly lastActiveTimes = new Map<string, number>();
   private lazyUnmountTimer: ReturnType<typeof setInterval> | null = null;
+  private readonly startupTime = Date.now();
+  private readonly startupGraceMs: number;
   private shortcutHandler: ((webContents: WebContents, accelerator: string) => void) | null = null;
+  private eventBus: EventBus | null = null;
+
 
   setShortcutHandler(handler: (webContents: WebContents, accelerator: string) => void): void {
     this.shortcutHandler = handler;
+  }
+
+  setEventBus(bus: EventBus | null): void {
+    this.eventBus = bus;
+  }
+
+  constructor(options?: { startupGraceMs?: number }) {
+    this.startupGraceMs = options?.startupGraceMs ?? 300_000;
   }
 
   setMainWindow(window: BrowserWindow): void {
@@ -116,6 +129,7 @@ export class WebviewPanelManager {
 
   private startLazyUnmountTimer(): void {
     this.stopLazyUnmountTimer();
+    //if (this.lazyUnmountTimer) return;
     if (this.panels.size === 0) return;
     this.lazyUnmountTimer = setInterval(() => this.checkLazyUnmount(), 30_000);
   }
@@ -128,6 +142,7 @@ export class WebviewPanelManager {
   }
 
   private async checkLazyUnmount(): Promise<void> {
+
     const now = Date.now();
     const timeout = this.getLazyUnmountTimeout();
     if (timeout === 0) return;
@@ -158,6 +173,10 @@ export class WebviewPanelManager {
     if (handle.keepAlive) return;
 
     console.log(`[webview-panel] lazy unmounting ${panelId}`);
+
+    if (this.eventBus) {
+      this.eventBus.publish('panel.lazy-unmount', { panelId, viewId: handle.viewId });
+    }
 
     try {
       if (this.uiHandler) {
@@ -235,7 +254,10 @@ export class WebviewPanelManager {
       ]);
     } catch (err) {
       console.error(`[webview-panel] autoSaveDraft failed for ${panelId}:`, err);
-      this.mainWindow?.webContents.send('panel:auto-save-failed', { panelId });
+      this.mainWindow?.webContents.send('panel:auto-save-failed', { panelId, viewId: handle.viewId, dirty: this.dirtyPanelIds.has(panelId) });
+      if (this.eventBus) {
+        this.eventBus.publish('panel.auto-save-failed', { panelId, viewId: handle.viewId, dirty: this.dirtyPanelIds.has(panelId) });
+      }
     }
   }
 

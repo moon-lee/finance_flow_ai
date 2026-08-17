@@ -170,4 +170,18 @@ export interface PackageJsonFinanceExtension extends Omit<FinanceExtensionManife
  *   Milliseconds a panel must be inactive before the lazy-unmount timer
  *   destroys its `WebContentsView`. Default: 300000 (5 minutes).
  *   Set to a lower value during testing (e.g. 10000).
+ *
+ * Phase 7 Task 22 — toast/notification event topics published by Core.
+ * Extensions (and the renderer toast component) can listen for these via
+ * `finance.events.on(topic, handler)`.
+ *
+ * `panel.lazy-unmount`
+ *   Published before a panel is lazy-unmounted. Payload: `{ panelId, viewId }`.
+ *
+ * `panel.auto-save-failed`
+ *   Published when `autoSaveDraft()` times out. Payload: `{ panelId }`.
+ *
+ * `extension.host-status`
+ *   Published on Host lifecycle changes. Payload: `{ status }` where status
+ *   is one of `starting`, `ready`, `crashed`, `restarting`, `restart-failed`.
  */

@@ -95,6 +95,7 @@ export class ExtensionIPC {
    * `src/extension-host/host.ts` for the producer side.
    */
   private readonly logListeners = new Set<(entry: HostLogEntry) => void>();
+  private readonly activatedListeners = new Set<(params: { extensionId: string; reason: string }) => void>();
   /**
    * Phase 4 Task 14 — callback invoked when an extension requests a UI
    * mount (`extension.ui-mount`). Main registers this so it can forward the
@@ -318,6 +319,17 @@ export class ExtensionIPC {
     this.logListeners.add(listener);
     return () => {
       this.logListeners.delete(listener);
+    };
+  }
+
+  /**
+   * Subscribe to `extension.activated` notifications from the Host.
+   * Returns an unsubscribe function.
+   */
+  onExtensionActivated(listener: (params: { extensionId: string; reason: string }) => void): () => void {
+    this.activatedListeners.add(listener);
+    return () => {
+      this.activatedListeners.delete(listener);
     };
   }
 
@@ -815,7 +827,21 @@ export class ExtensionIPC {
     if (typeof msg === 'object' && msg !== null && (msg as { method?: string }).method === RPC_METHOD.HostShutdownComplete) {
       return;
     }
-    // Notification — forward to listeners (used for `extension.activated` etc.).
+    // Notification — forward `extension.activated` to activated listeners.
+    // if (typeof msg === 'object' && msg !== null && (msg as { method?: string }).method === 'extension.activated') {
+    //   const params = (msg as { params: { extensionId: string; reason: string } }).params;
+    //   if (params) {
+    //     for (const listener of this.activatedListeners) {
+    //       try {
+    //         listener(params);
+    //       } catch (err) {
+    //         console.error('[extension-ipc] activated listener threw:', err);
+    //       }
+    //     }
+    //   }
+    //   return;
+    // }
+    // Notification — forward to listeners (used for generic app-level notifications).
     for (const listener of this.listeners) listener(msg);
   }
 }

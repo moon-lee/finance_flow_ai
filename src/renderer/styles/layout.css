@@ -2,7 +2,7 @@
   --activity-bar-width: 56px;
   --navigation-width: 260px;
   --ai-panel-width: 320px;
-  --status-bar-height: 26px;
+  --status-bar-height: 38px;
 
   --workspace-bg: #1e1e1e;
   --panel-border: rgba(255, 255, 255, 0.08);
@@ -196,7 +196,7 @@ body {
   align-items: center;
   min-width: 0;
   padding: 0 12px;
-  background: var(--accent);
+  background: var(--activity-bar-bg);
   color: var(--status-bar-text);
     font-size: 13px;
 }
@@ -248,4 +248,58 @@ body {
 
 .version-tag {
   margin-left: auto;
+}
+
+.status-error {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  max-width: 260px;
+  overflow: hidden;
+}
+
+.status-error:hover {
+  background: var(--status-bar-hover-bg);
+}
+
+.status-error::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--danger-color);
+  flex-shrink: 0;
+}
+
+.status-info::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--input-focus-border);
+  flex-shrink: 0;
+}
+
+.status-activated {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  border-radius: 3px;
+  transition: background 0.15s ease;
+  max-width: 220px;
+  overflow: hidden;
+}
+
+.status-activated::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #22c55e;
+  flex-shrink: 0;
 }
