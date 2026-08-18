@@ -1,7 +1,7 @@
 ---
 title: Finance Flow AI - Implementation Design
 date: 2026-06-13
-last_updated: 2026-08-02T11:21:02+10:00
+last_updated: 2026-08-19T05:16:38+10:00
 status: active
 ---
 
@@ -120,11 +120,19 @@ status: active
 - Tool registry for extension-registered functions
 - **Deliverable**: Chat panel with read-only data queries to local LLM
 
-### Phase 7: Production Polish (Est: 3 – 4 Days)
-- Database migrations, backup/restore, encryption
-- Keyboard shortcuts, customizable settings
-- Theme system, accessibility
-- **Deliverable**: Stable release with backup/export capability
+### ✅ Phase 7: Production Polish (Complete — 2026-08-19, shipped as 0.9.0)
+- Database backup/restore with AES-256-GCM encryption
+- Settings screen + Core-owned configuration (financial year, theme, shortcuts, workspace timeouts)
+- Account management workspace view with CRUD + first-run gate
+- Keyboard shortcut customization + cross-process focus fix (`before-input-event` on all WebContents)
+- Theme propagation to sandboxed WebContentsView panels
+- Main renderer CSP hardened (`'unsafe-eval'` removed)
+- Global event bus (`finance.events.*`) across Host, Main, and renderer
+- Lazy unmount timer with dirty-state protection and configurable timeout
+- Configurable `autoSaveDraft` timeout and per-extension `keepAlive` hint
+- Toast/notification UI component with status bar integration
+- Graceful host shutdown drain (finish in-flight RPC before exit)
+- **Deliverable**: Stable 0.9.0 release with encrypted backup/restore, production-ready settings, and polished multi-extension UX
 
 ### Phase 8: Extension Ecosystem (Est: 3 – 5 Days)
 - Extension packaging tooling (`finance.d.ts` type definitions)
@@ -143,10 +151,10 @@ Based on a single full-time developer or agent working sequentially, the project
 | **Phase 4** | Salary History Extension (Slice) | 6 – 8 Days | ~13 Days (2026-07-04 → 2026-07-17, incl. 2 review rounds + doc/self-review) | Medium |
 | **Phase 5** | WebviewPanels & Multi-Extension UI | 4 – 6 Days | ~4 Days (2026-07-18 → 2026-08-02, incl. planning + review + bug fixes) | High |
 | **Phase 6** | AI Assistant (Local-first) | 3 – 5 Days | — | Medium |
-| **Phase 7** | Production Polish & Encryption | 3 – 4 Days | — | Medium |
+| **Phase 7** | Production Polish & Encryption | 3 – 4 Days | ~17 Days (2026-08-02 → 2026-08-19, incl. planning, implementation, review, and testing across 14 tasks) | Medium |
 | **Phase 8** | Extension Ecosystem & SDK | 3 – 5 Days | — | High |
 | **Buffer** | Integration, build debugging, platform adjustments | 4 – 5 Days | — | - |
-| **Total** | **Sleek Desktop Finance Workspace** | **30 – 43 Days** | **~14 Days so far** | **High** |
+| **Total** | **Sleek Desktop Finance Workspace** | **30 – 43 Days** | **~43 Days so far** | **High** |
 
 **Phase 3 actual breakdown** (estimate-vs-actual):
 - Initial implementation (17-task plan executed): ~3 Days
