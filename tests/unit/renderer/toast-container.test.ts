@@ -173,7 +173,7 @@ describe('ToastContainer', () => {
     const eventHandler = vi.fn();
     el.addEventListener('error-status-changed', eventHandler as EventListener);
 
-    (el as unknown as { _clearErrorStatus: () => void })._clearErrorStatus();
+    (el as unknown as { clearErrorStatus: () => void }).clearErrorStatus();
     await settledFakeTimers(el);
 
     expect(eventHandler).toHaveBeenCalledTimes(1);

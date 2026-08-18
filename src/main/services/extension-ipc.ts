@@ -828,19 +828,19 @@ export class ExtensionIPC {
       return;
     }
     // Notification — forward `extension.activated` to activated listeners.
-    // if (typeof msg === 'object' && msg !== null && (msg as { method?: string }).method === 'extension.activated') {
-    //   const params = (msg as { params: { extensionId: string; reason: string } }).params;
-    //   if (params) {
-    //     for (const listener of this.activatedListeners) {
-    //       try {
-    //         listener(params);
-    //       } catch (err) {
-    //         console.error('[extension-ipc] activated listener threw:', err);
-    //       }
-    //     }
-    //   }
-    //   return;
-    // }
+    if (typeof msg === 'object' && msg !== null && (msg as { method?: string }).method === RPC_METHOD.ExtensionActivated) {
+      const params = (msg as { params: { extensionId: string; reason: string } }).params;
+      if (params) {
+        for (const listener of this.activatedListeners) {
+          try {
+            listener(params);
+          } catch (err) {
+            console.error('[extension-ipc] activated listener threw:', err);
+          }
+        }
+      }
+      return;
+    }
     // Notification — forward to listeners (used for generic app-level notifications).
     for (const listener of this.listeners) listener(msg);
   }

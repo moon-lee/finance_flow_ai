@@ -125,7 +125,6 @@ export class ToastContainer extends LitElement {
 
   private _timers = new Map<number, ReturnType<typeof setTimeout>>();
   private _unsubscribers: (() => void)[] = [];
-  private _errorStatusTimer: ReturnType<typeof setTimeout> | null = null;
 
   connectedCallback(): void {
     super.connectedCallback();
@@ -142,10 +141,6 @@ export class ToastContainer extends LitElement {
       unsub();
     }
     this._unsubscribers = [];
-    if (this._errorStatusTimer) {
-      clearTimeout(this._errorStatusTimer);
-      this._errorStatusTimer = null;
-    }
   }
 
   private _subscribeToTopics(): void {
@@ -231,12 +226,6 @@ export class ToastContainer extends LitElement {
         ...this._dismissedToasts,
       ];
       this._notifyErrorStatus();
-      if (this._errorStatusTimer) clearTimeout(this._errorStatusTimer);
-      this._errorStatusTimer = setTimeout(() => {
-        this._dismissedToasts = [];
-        this._errorStatusTimer = null;
-        this._notifyErrorStatus();
-      }, 30000);
     }
   }
 
@@ -262,14 +251,10 @@ export class ToastContainer extends LitElement {
     `;
   }
 
-  private _clearErrorStatus = (): void => {
+  clearErrorStatus(): void {
     this._dismissedToasts = [];
     this._notifyErrorStatus();
-    if (this._errorStatusTimer) {
-      clearTimeout(this._errorStatusTimer);
-      this._errorStatusTimer = null;
-    }
-  };
+  }
 }
 
 declare global {

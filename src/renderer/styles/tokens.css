@@ -1,43 +1,56 @@
+/* ============================================================
+   Design Tokens — single source of truth for colors, spacing,
+   typography, and component-level theming.
+   ============================================================ */
+
+/* Layout dimensions */
 :root {
   --activity-bar-width: 56px;
   --navigation-width: 260px;
   --ai-panel-width: 320px;
   --status-bar-height: 38px;
 
+  /* Surfaces */
   --workspace-bg: #1e1e1e;
   --panel-border: rgba(255, 255, 255, 0.08);
   --accent: #6366f1;
   --accent-gradient: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
-
   --activity-bar-bg: #333333;
-  --sidebar-bg: #0f172a;
+  --sidebar-bg: #252526;
 
+  /* Typography */
   --text-primary: #f8fafc;
   --text-secondary: #94a3b8;
   --text-tertiary: #858585;
 
+  /* Buttons — primary */
   --btn-primary-bg: #0e639c;
   --btn-primary-hover-bg: #1177bb;
   --btn-primary-text: #ffffff;
 
+  /* Buttons — secondary */
   --btn-secondary-bg: #3c3c3c;
   --btn-secondary-text: #d4d4d4;
   --btn-secondary-border: #3e3e3e;
   --btn-secondary-hover-border: #007acc;
 
+  /* Danger */
   --danger-color: #f48771;
   --danger-border: #f48771;
   --danger-hover-bg: #f48771;
   --danger-hover-text: #1e1e1e;
 
+  /* Inputs */
   --input-bg: #3c3c3c;
   --input-text: #d4d4d4;
   --input-border: #3e3e3e;
   --input-focus-border: #007acc;
 
+  /* Scrollbar */
   --scrollbar-thumb: #334155;
   --scrollbar-thumb-hover: #475569;
 
+  /* Tabs */
   --tab-bg: #2d2d30;
   --tab-text: #858585;
   --tab-border: #3e3e3e;
@@ -48,47 +61,66 @@
   --tab-icon-inactive-text: #cccccc;
   --tab-close-hover-bg: #3e3e3e;
 
+  /* Splitters */
   --splitter-bg: #3c3c3c;
 
+  /* Overlays */
   --overlay-bg: rgba(15, 23, 42, 0.75);
   --overlay-border: rgba(255, 255, 255, 0.12);
 
+  /* Status bar */
   --status-bar-text: #ffffff;
-  --status-bar-hover-bg: rgba(255, 255, 255, 0.15);
+  --status-bar-hover-bg: #ffffff26;
+  --status-info-bg: #4a62fc;
+  --status-error-bg: #fe9696;
+  --status-warn-bg: #fede25;
 
+  /* Badges */
   --badge-inactive-bg: rgba(132, 132, 132, 0.15);
   --badge-inactive-text: #858585;
 
-  --section-header-bg: #3c3c3c;
+  /* Sections */
+  --section-header-bg: #2d2d30;
   --section-header-text: #858585;
+  --section-header-hover-bg: #6e6e6e;
+  --section-row-border: #2a2a2a;
 
+  /* Code */
   --code-bg: #1e1e1e;
 
+  /* Workspace header */
   --workspace-header-border: #3c3c3c;
 }
 
 body.light-theme {
+  /* Surfaces */
   --activity-bar-bg: #f1f5f9;
   --sidebar-bg: #ffffff;
   --workspace-bg: #f8fafc;
   --panel-border: rgba(0, 0, 0, 0.08);
+
+  /* Typography */
   --text-primary: #0f172a;
   --text-secondary: #475569;
   --text-tertiary: #475569;
 
+  /* Buttons — secondary */
   --btn-secondary-bg: #e2e8f0;
   --btn-secondary-text: #0f172a;
   --btn-secondary-border: #cbd5e1;
   --btn-secondary-hover-border: #6366f1;
 
+  /* Inputs */
   --input-bg: #ffffff;
   --input-text: #0f172a;
   --input-border: #cbd5e1;
   --input-focus-border: #6366f1;
 
+  /* Scrollbar */
   --scrollbar-thumb: #cbd5e1;
   --scrollbar-thumb-hover: #94a3b8;
 
+  /* Tabs */
   --tab-bg: #e2e8f0;
   --tab-text: #64748b;
   --tab-border: #cbd5e1;
@@ -99,21 +131,33 @@ body.light-theme {
   --tab-icon-inactive-text: #64748b;
   --tab-close-hover-bg: #cbd5e1;
 
+  /* Splitters */
   --splitter-bg: #cbd5e1;
 
+  /* Overlays */
   --overlay-bg: rgba(255, 255, 255, 0.85);
   --overlay-border: rgba(0, 0, 0, 0.08);
 
+  /* Status bar */
   --status-bar-text: #0f172a;
   --status-bar-hover-bg: rgba(0, 0, 0, 0.08);
+  --status-info-bg: rgba(2, 132, 199, 0.12);
+  --status-error-bg: rgba(239, 68, 68, 0.12);
+  --status-warn-bg: rgba(234, 88, 12, 0.12);
 
+  /* Badges */
   --badge-inactive-bg: rgba(100, 116, 139, 0.15);
   --badge-inactive-text: #64748b;
 
+  /* Sections */
   --section-header-bg: #e2e8f0;
   --section-header-text: #64748b;
+  --section-header-hover-bg: #e2e8f0;
+  --section-row-border: #e2e8f0;
 
+  /* Code */
   --code-bg: #f1f5f9;
 
+  /* Workspace header */
   --workspace-header-border: #e2e8f0;
 }

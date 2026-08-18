@@ -29,6 +29,7 @@ export const RPC_METHOD = {
   // dispatch on these literal strings).
   HostInitialize: 'host.initialize',
   ExtensionActivate: 'extension.activate',
+  ExtensionActivated: 'extension.activated',
   ExtensionList: 'extension.list',
   CommandsRegistered: 'commands.registered',
   ExtensionExecuteCommand: 'extension.executeCommand',
