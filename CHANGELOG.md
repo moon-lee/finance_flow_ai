@@ -1,7 +1,7 @@
 ---
-version: 0.8.0
+version: 0.9.0
 created: 2026-06-14
-last_updated: 2026-08-16T20:52:43+10:00
+last_updated: 2026-08-19T05:00:04+10:00
 ---
 
 # Changelog
@@ -11,7 +11,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.9.0] - 2026-08-19
 
 ### Added
 
@@ -68,6 +68,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Dashboard topbar merged directly into `dashboard-view`** (`extensions/dashboard/src/ui/dashboard-view.ts`, `extensions/dashboard/src/ui/index.ts`). Removed the standalone `dashboard-topbar` custom element and inlined its styles, breadcrumb title, and reorder action into `dashboard-view`. The reorder-cards button now lives in the dashboard view’s own topbar row rather than in a separate child component, while still emitting `reorder-cards` for the orchestrator.
 
 ### Administrative
+
+- **Phase 7 plan: Task 9 removed — Full Grid Layout deferred** (`docs/superpowers/plans/2026-08-02-phase7-production-polish.md`). Removed Task 9 (3+ pane grid layout, `version: 2` layout model) from Phase 7. The current flat tab layout is sufficient for production; multi-pane grid requires a dedicated effort to account for the `WebContentsView` two-renderer architecture. Updated stage priority table, mandatory task list, goal statement, and Out of Scope section.
+
+- **Phase 7 completed** (`docs/superpowers/plans/2026-08-02-phase7-production-polish.md`). All remaining Phase 7 tasks are complete: Task 0 OverlayCoordinator extraction, Task 1 Settings screen + navigation wiring, Task 1.5 Account management workspace view, Task 2 Core financial year context, Task 2.5 Dashboard FY configuration, Task 3 Dashboard card reorder modal, Task 4 Keyboard shortcut customization + focus fix, Task 5 Theme propagation to panels, Task 6 CSP `'unsafe-eval'` removal, Task 7 Backup/restore with encryption, Task 8 Global event bus, Task 10 Graceful host shutdown drain, Task 11 Lazy unmount timer config, Task 12 Configurable `autoSaveDraft` timeout, Task 13 Per-extension `keepAlive` hint, and Task 22 Toast/notification UI component. Target version 0.9.0.
 
 - **ADR-0007 local product deployment profile** (`docs/decisions/0007-local-product-deployment-profile.md`, `docs/decisions/README.md`, `docs/file-reference.md`). Documents the product-versus-development data boundary, local directory packaging choice, safeguards for copying existing records, and future revisit triggers.
 

@@ -1,8 +1,8 @@
 ---
 title: Phase 7 — Production Readiness & Polish (master plan)
 date: 2026-08-02
-last_updated: 2026-08-15T12:38:00+10:00
-status: ready for implementation
+last_updated: 2026-08-19T05:00:04+10:00
+status: complete
 target_version: 0.9.0
 spec_source: docs/superpowers/specs/2026-06-13-implementation-design.md (Phase 7 section, lines 123-127)
 ---
@@ -11,7 +11,7 @@ spec_source: docs/superpowers/specs/2026-06-13-implementation-design.md (Phase 7
 
 # Phase 7 — Production Readiness & Polish
 
-> **Goal:** Turn the working Phase 5 platform into a production-ready application with a generic settings UI, keyboard shortcuts, backup/restore, encryption, grid layouts, event bus, and developer polish. No new extensions are built in Phase 7 — the platform becomes stable enough that building extensions (Budget, Tax, Cash Flow, etc.) is straightforward after this phase.
+> **Goal:** Turn the working Phase 5 platform into a production-ready application with a generic settings UI, keyboard shortcuts, backup/restore, encryption, event bus, and developer polish. No new extensions are built in Phase 7 — the platform becomes stable enough that building extensions (Budget, Tax, Cash Flow, etc.) is straightforward after this phase.
 
 ---
 
@@ -889,86 +889,6 @@ No code changes were needed in `src/renderer/index.ts`, `src/preload/preload.ts`
 
 ---
 
-## Stage 3 — Workspace & Memory
-
-### Task 9: Full Grid Layout (3+ Panes, `version: 2`)
-
-**What:** Replace the flat tab list with a VS Code-style `EditorGroup` model supporting 2x2 and 3-pane grids.
-
-**Files to modify:**
-
-- `src/renderer/components/workspace.ts` (rewrite)
-- `src/renderer/components/split-pane.ts` (unimport → wire in)
-- `src/renderer/components/tab-bar.ts` (update to work per-group)
-- `src/renderer/styles/layout.css` (grid/splitter styles)
-- `src/types/finance.d.ts` (add `WorkspaceLayout` types if needed)
-- `src/main/services/webview-panel-manager.ts` (support multiple visible panels at once)
-
-**Current state:**
-
-- `workspace.ts` — flat model with `_tabs: Tab[]`, `_activePanelId: string | null`, and `PersistedLayout { version: 1, tabs, activePanelId }`. The active tab is restored from `localStorage['core.workspace.layout']`.
-- `split-pane.ts` — exists but unimported dead code with a 2-pane drag splitter. This task should reuse that component rather than rewrite it.
-- Layout is stored in `localStorage['core.workspace.layout']` as `{ version: 1, tabs, activePanelId }`.
-
-**Overlay interaction:**
-When an overlay opens (Settings, Shortcuts, Backup, Command Palette), `OverlayCoordinator` hides all panels via `WebviewPanelManager.hidePanelsForOverlay()`. The grid layout must preserve its group structure during overlay hide/restore cycles. When panels are restored, each panel must remount into its original group content area. The grid rewrite must not flatten groups during overlay transitions.
-
-**Implementation approach:**
-
-1. Define `version: 2` layout shape:
-
-   ```ts
-   interface EditorGroup {
-     id: string;
-     tabs: Tab[];
-     activePanelId: string;
-   }
-   interface PersistedLayoutV2 {
-     version: 2;
-     groups: EditorGroup[];
-     activeGroupId: string;
-   }
-   ```
-
-2. Rewrite `workspace.ts`:
-   - Root renders a flex row of `EditorGroup` components (each is a column or row, depending on split direction)
-   - Each group has its own tab strip + content area
-   - Dragging a tab to the edge of another group splits it (inserts a new group)
-   - Closing the last tab in a group removes the group and merges its space back
-3. Migration: on startup, before any panel is activated, if `localStorage['core.workspace.layout']` has `version: 1`, wrap it in a single `EditorGroup` and bump to `version: 2`. If migration fails or is skipped, fall back to a single-group default layout.
-4. `webview-panel-manager.ts`: `show(panelId)` now shows the panel in its group's content area; `hide()` hides panels in non-active groups (optional: lazy-unmount off-screen groups)
-
-**Easy analogy:** Like VS Code's editor groups — drag a tab to the right edge → split into two side-by-side panes, each with its own tab strip.
-
-**Verification:**
-1. Drag any mounted tab to the right edge of another tab → 2-pane split.
-2. Drag again → 3-pane.
-3. Close middle pane → remaining panes expand.
-4. Open Settings overlay → all panels hide; close Settings → panels restore into their original groups.
-5. Restart app → layout persists with correct group structure.
-
-- [ ] **Step N: Write unit tests for grid layout**
-
-  New tests in `tests/unit/renderer/workspace.test.ts`:
-  - `migrates version 1 layout to version 2` — verifies a `{ version: 1, tabs, activePanelId }` layout is wrapped in a single `EditorGroup` and bumped to `version: 2` on startup
-  - `renders multiple editor groups` — verifies `render()` produces one group per entry in `groups[]`, each with its own tab strip
-  - `drag-to-edge creates a new group` — verifies dragging a tab to the right edge of another group inserts a split and creates a new `EditorGroup`
-  - `closing last tab in a group removes the group` — verifies the group is removed and remaining groups expand to fill the space
-  - `persists and restores multi-group layout` — verifies the layout round-trips through `localStorage['core.workspace.layout']` without losing group structure
-
-  Run: `npm run test -- tests/unit/renderer/workspace.test.ts`
-  Expected: All new tests pass; existing workspace tests still pass.
-
-- [ ] **Step N+1: Typecheck + lint**
-
-  Run: `npm run typecheck`
-  Expected: PASS — no errors.
-
-  Run: `npm run lint`
-  Expected: PASS — no new errors.
-
----
-
 ### Task 10: `host.shutdown` Graceful Draining
 
 **Status:** Completed.
@@ -1150,7 +1070,7 @@ A panel is dirty when its extension calls `finance.ui.setDirty(true)`. Dirty pan
 |---|---|---|
 | **1** | 1, 1.5, 2, 2.5, 3, 4, 5 | 5–6 days | Settings UI, accounts, FY context, dashboard FY config, array modals, shortcuts, and theme propagation to panels |
 | **2** | 6, 7, 8 | 4–5 days | Security (CSP), data safety (backup), and architecture (event bus) |
-| **3** | 9, 10, 11, 12, 13, 22 | 6–8 days | Workspace grid layout, shutdown drain, memory management, configurable timeouts, extension lifecycle control, and toast notifications |
+| **3** | 10, 11, 12, 13, 22 | 5–7 days | Shutdown drain, memory management, configurable timeouts, extension lifecycle control, and toast notifications |
 
 **Total:** ~15–19 days
 
@@ -1158,7 +1078,7 @@ A panel is dirty when its extension calls `finance.ui.setDirty(true)`. Dirty pan
 
 | Priority | Tasks | Rationale |
 |---|---|---|
-| **Mandatory** | 9, 10, 11, 12, 13, 22 | Required for production readiness: grid layout, graceful shutdown, memory management, configurable timeouts, extension lifecycle control, and user-facing event notifications |
+| **Mandatory** | 10, 11, 12, 13, 22 | Required for production readiness: graceful shutdown, memory management, configurable timeouts, extension lifecycle control, and user-facing event notifications |
 
 ### Task 22: Toast/Notification UI Component
 
@@ -1283,6 +1203,7 @@ interface ToastPayload {
 
 The following are deferred to Phase 8 or future:
 
+- Task 9 (Full Grid Layout / 3+ pane grid, `version: 2` layout) was reviewed and removed from Phase 7. The current flat tab layout is sufficient for production; multi-pane grid requires a dedicated effort to account for the `WebContentsView` architecture.
 - Extension Manager UI (runtime install/uninstall) → Phase 8
 - Marketplace discovery + digital signing → Phase 8
 - Typed SDK npm package → Phase 8
