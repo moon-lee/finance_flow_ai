@@ -184,4 +184,8 @@ export interface PackageJsonFinanceExtension extends Omit<FinanceExtensionManife
  * `extension.host-status`
  *   Published on Host lifecycle changes. Payload: `{ status }` where status
  *   is one of `starting`, `ready`, `crashed`, `restarting`, `restart-failed`.
+ *
+ * `settings.changed`
+ *   Published after a setting is persisted via `financeShell.settings.set`.
+ *   Payload: `{ key }` where `key` is the settings key that was saved.
  */

@@ -144,7 +144,7 @@ export class ToastContainer extends LitElement {
   }
 
   private _subscribeToTopics(): void {
-    const topics = ['panel.lazy-unmount', 'panel.auto-save-failed', 'extension.host-status'];
+    const topics = ['panel.lazy-unmount', 'panel.auto-save-failed', 'extension.host-status', 'settings.changed'];
     for (const topic of topics) {
       const unsub = window.financeShell?.events?.on(topic, (payload) => {
         this._handleEvent(topic, payload);
@@ -195,6 +195,14 @@ export class ToastContainer extends LitElement {
           duration: 5000,
         });
       }
+    } else if (topic === 'settings.changed') {
+      const data = payload as { key?: string };
+      this.showToast({
+        type: 'info',
+        title: 'Settings saved',
+        message: data.key ? `Setting "${data.key}" updated.` : 'Settings updated.',
+        duration: 3000,
+      });
     }
   }
 

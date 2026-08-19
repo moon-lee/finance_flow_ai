@@ -237,6 +237,9 @@ function registerIpcHandlers(): void {
 
     try {
       setSetting(key, value);
+      if (eventBus) {
+        eventBus.publish('settings.changed', { key });
+      }
     } catch (err) {
       console.error(`settings:set failed for key "${key}":`, err);
       throw err;
