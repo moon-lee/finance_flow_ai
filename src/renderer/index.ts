@@ -108,6 +108,44 @@ function toggleAiPanel(): void {
   void window.financeShell?.settings.set('core.ui.aiCollapsed', app?.classList.contains('ai-collapsed'));
 }
 
+const resizer = document.querySelector<HTMLElement>('.ai-resizer');
+let _aiDragging = false;
+let _aiStartX = 0;
+let _aiStartWidth = 0;
+
+function _onResizerMouseDown(event: MouseEvent): void {
+  _aiDragging = true;
+  _aiStartX = event.clientX;
+  const aiPanel = document.querySelector<HTMLElement>('#ai-panel');
+  _aiStartWidth = aiPanel?.offsetWidth ?? 250;
+  resizer?.classList.add('dragging');
+  document.addEventListener('mousemove', _onResizerMouseMove);
+  document.addEventListener('mouseup', _onResizerMouseUp);
+  event.preventDefault();
+}
+
+function _onResizerMouseMove(event: MouseEvent): void {
+  if (!_aiDragging) return;
+  const delta = _aiStartX - event.clientX;
+  const newWidth = Math.max(200, Math.min(_aiStartWidth + delta, 600));
+  document.documentElement.style.setProperty('--ai-panel-width', `${newWidth}px`);
+}
+
+function _onResizerMouseUp(): void {
+  if (!_aiDragging) return;
+  _aiDragging = false;
+  resizer?.classList.remove('dragging');
+  document.removeEventListener('mousemove', _onResizerMouseMove);
+  document.removeEventListener('mouseup', _onResizerMouseUp);
+  const aiPanel = document.querySelector<HTMLElement>('#ai-panel');
+  const currentWidth = aiPanel?.offsetWidth ?? 250;
+  void window.financeShell?.settings.set('core.ui.aiPanelWidth', currentWidth);
+}
+
+if (resizer) {
+  resizer.addEventListener('mousedown', _onResizerMouseDown);
+}
+
 async function applyTheme(theme: unknown): Promise<void> {
   if (theme === 'light') document.body.classList.add('light-theme');
   else document.body.classList.remove('light-theme');
@@ -289,6 +327,11 @@ async function initApp(): Promise<void> {
 
   const aiCollapsed = await window.financeShell?.settings.get('core.ui.aiCollapsed');
   if (aiCollapsed === true) app?.classList.add('ai-collapsed');
+
+  const aiPanelWidth = await window.financeShell?.settings.get('core.ui.aiPanelWidth') as number | undefined;
+  if (typeof aiPanelWidth === 'number' && aiPanelWidth > 0) {
+    document.documentElement.style.setProperty('--ai-panel-width', `${aiPanelWidth}px`);
+  }
 
   await loadExtensionContributions();
 

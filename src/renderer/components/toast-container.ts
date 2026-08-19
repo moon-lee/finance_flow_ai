@@ -169,7 +169,8 @@ export class ToastContainer extends LitElement {
 
   private _handleEvent(topic: string, payload: unknown): void {
     if (topic === 'panel.lazy-unmount') {
-      const data = payload as { panelId: string; viewId: string };
+      const data = payload as { panelId: string; viewId?: string };
+      if (!data.viewId) return;
       this.showToast({
         type: 'info',
         title: 'Panel asleep',
