@@ -1,7 +1,7 @@
 ---
 version: 0.9.0
 created: 2026-06-14
-last_updated: 2026-08-19T05:00:04+10:00
+last_updated: 2026-08-20T10:00:00+10:00
 ---
 
 # Changelog
@@ -10,6 +10,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+### Administrative
+
+- **Phase 8 extension ecosystem plan + ADR-0009** (`docs/superpowers/plans/2026-08-20-phase8-extension-ecosystem-sdk.md`, `docs/decisions/0009-user-extension-installation.md`, `docs/decisions/README.md`, `docs/file-reference.md`, `docs/superpowers/specs/2026-06-13-implementation-design.md`). Wrote the Phase 8 implementation plan (draft, target 0.10.0): a user-writable extensions directory (`<userData>/extensions`) discovered alongside the built-in root, an in-app Extension Manager (`__extensions__` view) with install/uninstall/delete-data, install-time table DDL generation, dependency + version checks, and an SDK CLI (`node scripts/sdk/cli.mjs init|build`) that scaffolds standalone extension projects with vendored `finance.d.ts`. Documented the architecture in ADR-0009 (no digital signing, bundle-resolution order, registry `upsert` fix). Indexed ADR-0009 in `docs/decisions/README.md`, added the Phase 8 inventory to `docs/file-reference.md`, and updated the spec's Phase 8 section to the agreed scope. Implementation not started; no version bump until Phase 8 ships.
 
 ## [0.9.0] - 2026-08-19
 
@@ -189,7 +195,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Duplicate tabs when mounting multiple panels** (`src/renderer/components/workspace.ts`). `_addTab` was recursively adding the new tab to every leaf in the split tree, causing each new panel to spawn duplicates of all existing tabs. Now only adds to the first (left) branch. Also, `_refreshPanels` now preserves previously-added unregistered panels when merging with registered views.
 
-## [Unreleased]
+
 
 ### Fixed
 
@@ -303,6 +309,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Phase 5 plan post-review fixes** — (1) Added `panelId` mapping and `webContents → panelId` lookup in Task 2.2 so `panel:resize` and `findPanelByExtension` have a stable source of truth. (2) Added sender-identity verification in Task 4.1 / Decision 7: `extensions:ui-event` handler now resolves `extensionId` from `event.sender.id` via `findPanelByWebContentsId` instead of trusting the client-supplied parameter, closing a spoofing vector. (3) Added `requestAnimationFrame` throttle to Task 12.8 `panel:resize` IPC to prevent flood during drag-splitter resize.
 - **Phase 5 Stage 1 — Foundation (Main-side only, no UI dependencies) implemented.** (a) **Manifest schema** (`src/extension-host/manifest-schema.ts`, `src/types/finance.d.ts`): added `onStartup` activation event; added `contributes.navigation`, `contributes.allowedCommands`, `contributes.allowedUiEvents` manifest fields. `extension-loader.ts` auto-fills missing `allowedCommands` from `commands[]` with a `console.warn` if absent. (b) **Command allowlist** (`src/main/services/command-allowlist.ts` new): per-extension `Map<extensionId, Set<commandId>>` built from discovered manifests; `extensions:execute-command` handler in `main.ts` now gates on the owning extension's allowlist, returning `{ executed: false, reason: 'command not allowed for this extension' }` when denied. (c) **UI-event allowlist** (`src/main/services/ui-event-allowlist.ts` new): mirrors the command allowlist; `extensions:ui-event` handler drops disallowed events with `console.warn` and sends `panel:allowlist-denied` back to the sender. (d) **Domain Service Registry** (`src/main/services/domain-service-registry.ts` new, `src/extension-host/api/services.ts` new): Core-owned singleton `register/unregister/invoke`; `invoke` returns `null` on missing service with `console.warn('[services] service not found:', serviceName)` and on thrown error with `console.warn('[services] service errored:', serviceName, error.message)`. Extension Host gains `finance.services.register/invoke/unregister` via the new `services` property on `FinanceApi`. Main `extension-ipc.ts` gains `setDomainServiceRegistry` + `handleDomainServiceInvoke` + `DomainServiceInvoke` RPC method. `json-rpc-methods.ts` adds `DomainServiceInvoke = 'domain.service.invoke'`; `json-rpc.ts` adds `ServiceNotFound = -32014`. Typecheck + lint + 312 unit tests pass.
 - **Phase 5 Stage 2 — Salary-history + Dashboard extensions implemented.** (a) **Dashboard extension** (`extensions/dashboard/` new): 4-card aggregator Lit extension with `onStartup` activation and `dependencies: ['salary-history']`; cards: Net Worth (accounts balance + last payslip net), YTD Salary (`finance.services.invoke('pay', 'getYearToDateSummary')`), Last Payslip, Accounts Summary. Gracefully degrades to "install Salary History" placeholders when the pay service is unavailable. (b) **Public pay adapter** (`extensions/salary-history/src/services/public-pay-adapter.ts` new + `extensions/salary-history/src/main.ts` updated): exposes `getYearToDateSummary`, `getLastPayslip`, `getCurrentRate` via `finance.services.register('pay', adapter)` in `activate()`; `deactivate()` unregisters to allow clean reload. (c) **`onStartup` activation in Host** (`src/extension-host/host.ts` updated): `host.initialize` now activates extensions whose `activationEvents` include `onStartup`; extensions are topologically sorted by manifest `dependencies` (`sortByDependencies`) so service providers (e.g. `salary-history`) activate before default-view extensions (e.g. `dashboard`). Typecheck + lint + 312 unit tests pass; `npm run build:extensions` produces `dist/extensions/dashboard.js`.
+
+
 
 ## [0.7.0] - 2026-07-17
 

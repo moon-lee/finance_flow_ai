@@ -134,10 +134,13 @@ status: active
 - Graceful host shutdown drain (finish in-flight RPC before exit)
 - **Deliverable**: Stable 0.9.0 release with encrypted backup/restore, production-ready settings, and polished multi-extension UX
 
-### Phase 8: Extension Ecosystem (Est: 3 – 5 Days)
-- Extension packaging tooling (`finance.d.ts` type definitions)
-- Dependency resolution, version management, digital signing
-- **Deliverable**: Published extension SDK and installer
+### Phase 8: Extension Ecosystem (Est: 3 – 5 Days) (Active — plan `docs/superpowers/plans/2026-08-20-phase8-extension-ecosystem-sdk.md`, ADR-0009)
+- User-writable extensions directory (`<userData>/extensions`) discovered alongside the built-in `extensions/` root
+- In-app Extension Manager (`__extensions__` view): install/uninstall/delete-data of self-contained extension folders or `.zip`; restart required to activate
+- Install-time table DDL generation (extensions cannot ship migrations); dependency + version checks (no downgrades)
+- SDK CLI (`node scripts/sdk/cli.mjs init|build`) scaffolding standalone extension projects with vendored `finance.d.ts` type definitions
+- No digital signing (single local user per ADR-0009)
+- **Deliverable**: Published extension SDK and in-app installer
 
 ## Development Time Estimation
 

@@ -261,3 +261,44 @@
 | `extensions/dashboard/src/ui/dashboard-view.ts` | modified | Adds `financeYear` property and uses it as a manual override for the topbar FY label; accepts it via `mount-update` (Task 2.5). |
 | `extensions/dashboard/src/orchestrator.ts` | modified | Reads `dashboard.financeYear` and forwards `financialYearStart` + `financeYear` to the view (Task 2.5). |
 | `extensions/dashboard/src/main.ts` | modified | Reads `dashboard.financeYear` in `readSettings` (Task 2.5). |
+
+## Phase 8 — Extension Ecosystem: SDK + Installer (Planned; v0.10.0)
+
+> Plan: `docs/superpowers/plans/2026-08-20-phase8-extension-ecosystem-sdk.md`. Status: draft — awaiting review. Target: v0.10.0. Architecture per ADR-0009 (no digital signing). All files marked `(planned)` are not yet written.
+
+| File | Status | Purpose |
+|------|--------|---------|
+| `docs/decisions/0009-user-extension-installation.md` | new | ADR-0009: user-writable extensions dir (`<userData>/extensions` dev / `<product>/data/extensions` packaged), install artifact = folder with `package.json` + `<id>.js`, bundle resolution order (user root first), no digital signing, data-preserving uninstall, registry upsert fix, SDK CLI, dependency/version checks, install-time table DDL, `__extensions__` manager view. |
+| `src/shared/semver.ts` | new | `parseVersion`, `compareVersions`, `satisfiesRequirement` (pure, tested). |
+| `src/main/services/table-ddl.ts` | new | `buildCreateTableSql(table)`, `createExtensionTables(db, tables)` — DDL generation from a `TableManifest`. |
+| `src/main/services/extension-installer.ts` | new | `ExtensionInstaller` — install/uninstall/delete-data/list, dependency + version checks, runtime table creation. |
+| `src/main/services/extension-catalog.ts` | new | `discoverExtensionsInRoots(roots, options)` — multi-root discovery + built-in-id conflict rejection. |
+| `src/renderer/components/extension-manager.ts` | new | The Extensions workspace view (Lit) — install/uninstall/delete-data/enable-disable (`__extensions__`). |
+| `scripts/sdk/cli.mjs` | new | SDK CLI: `node scripts/sdk/cli.mjs init|build`. |
+| `scripts/sdk/templates/*` | new | Scaffold templates (manifest, tsconfig, entry, view, README). |
+| `scripts/sdk/types/finance.d.ts` | new | Vendored, self-contained SDK type surface for standalone projects. |
+| `src/main/runtime-profile.ts` | modified | Add `userExtensionsPath` to the dev profile (`<userData>/extensions`; packaged `<product>/data/extensions`). |
+| `src/main/main.ts` | modified | Compute `userExtensionsRoot`; dual-root discovery; wire `ExtensionInstaller`; add 5 IPC handlers (`extensions:manager-list` / `install` / `uninstall` / `delete-data` / `set-enabled`). |
+| `src/main/services/extension-registry.ts` | modified | Fix `upsert` conflict behavior (D6 — stop forcing `enabled = 1`); add `remove(id)`. |
+| `src/main/services/table-schema-registry.ts` | modified | Add `getTablesByOwner(owner)` + `unregisterExtensionTables(owner)`. |
+| `src/main/services/settings-service.ts` | modified | Add `deleteNamespace(namespace)`. |
+| `src/shared/extension-paths.ts` | modified | Add `resolveExtensionBundlePath(extensionId, roots)` and `resolveBuiltinExtensionsRoot()`. |
+| `src/extension-host/host.ts` | modified | Store `userExtensionsRoot` from the `host.initialize` payload; use `resolveExtensionBundlePath` in `activateExtension`. |
+| `src/main/services/extension-ipc.ts` | modified | Accept/store `userExtensionsRoot`; include it in the `host.initialize` payload. |
+| `src/main/services/panel-protocol.ts` | modified | Serve `/extensions/<id>.js` via `resolveExtensionBundlePath`. |
+| `src/preload/preload.ts` | modified | Expose `financeShell.extensions.{managerList,install,uninstall,deleteData,setEnabled}`. |
+| `src/types/finance-shell.d.ts` | modified | Add the manager methods + `ManagedExtension` type. |
+| `src/renderer/components/navigation-panel.ts` | modified | Add `__extensions__` nav item. |
+| `src/renderer/index.ts` | modified | Mount `extension-manager` for `view === '__extensions__'`. |
+| `package.json` | modified | Add SDK CLI scripts. |
+| `docs/extension-api.md` | modified | Add an "Installing extensions" section (SDK init/build, Extensions screen, restart requirement, uninstall vs delete-data semantics, dependency/version checks, no-signing note). |
+| `tests/unit/shared/semver.test.ts` | new | Semver helpers. |
+| `tests/unit/shared/extension-paths.test.ts` | new | Bundle path resolution. |
+| `tests/unit/main/services/extension-catalog.test.ts` | new | Multi-root discovery. |
+| `tests/unit/main/services/extension-registry.test.ts` | modified | upsert fix + `remove`. |
+| `tests/unit/main/services/table-ddl.test.ts` | new | DDL generation. |
+| `tests/unit/main/services/extension-installer.test.ts` | new | Installer contract + zip case. |
+| `tests/unit/renderer/extension-manager.test.ts` | new | Extensions view. |
+| `tests/unit/sdk/sdk-init.test.ts` | new | SDK `init`. |
+| `tests/unit/sdk/sdk-build.test.ts` | new | SDK `build` end-to-end against a temp scaffold. |
+| `tests/unit/sdk/sdk-type-parity.test.ts` + `tests/unit/sdk/fixtures/parity-check.ts` | new | SDK types compile + assignable to canonical types. |

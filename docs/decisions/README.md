@@ -13,6 +13,7 @@ This directory captures important architectural decisions: what was decided, why
 | [0006](0006-flat-workspace-layout.md) | Flat Workspace Layout Instead of Split-Tree (2-Pane Split Deferred) | Accepted | 2026-07-31 |
 | [0007](0007-local-product-deployment-profile.md) | Local Product Deployment Profile | Accepted | 2026-08-15 |
 | [0008](0008-global-event-bus.md) | Global Event Bus (`finance.events.*`) | Accepted | 2026-08-16 |
+| [0009](0009-user-extension-installation.md) | User Extension Installation (No Digital Signing) | Accepted | 2026-08-20 |
 
 ## Conventions
 
