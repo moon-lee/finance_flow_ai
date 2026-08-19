@@ -25,9 +25,9 @@ export class ToastContainer extends LitElement {
     :host {
       position: fixed;
       bottom: 44px;
-      right: 16px;
-      width: 280px;
-      max-width: calc(100vw - 32px);
+      left: 4px;
+      width: calc(var(--activity-bar-width) + var(--navigation-width) - 8px);
+      max-width: calc(var(--activity-bar-width) + var(--navigation-width) - 8px);
       z-index: 9999;
       pointer-events: none;
       padding: 0;
@@ -58,15 +58,15 @@ export class ToastContainer extends LitElement {
     }
 
     .toast-card.error {
-      border-left: 3px solid var(--danger-color);
+      border-left: 3px solid var(--status-error-bg);
     }
 
     .toast-card.warning {
-      border-left: 3px solid #d29922;
+      border-left: 3px solid var(--status-warn-bg);
     }
 
     .toast-card.info {
-      border-left: 3px solid var(--input-focus-border);
+      border-left: 3px solid var(--status-info-bg);
     }
 
     @keyframes toast-in {
