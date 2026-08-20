@@ -46,6 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **`core.workspace.lazyUnmountTimeout` set to `0` now disables lazy unmount** (`src/main/services/webview-panel-manager.ts`, `src/renderer/components/settings-screen.ts`). `checkLazyUnmount()` returns early when the timeout is `0`, instead of treating it as “unmount immediately.” The settings label documents the new behavior.
+- **Superannuation guarantee calculation and UI updated** (`extensions/salary-history/src/services/pay-service.ts`, `extensions/salary-history/src/ui/payslip-form.ts`). The formula changed from `gross × sg_rate` to `(gross − overtime_1_5x − overtime_2_0x − holiday_leave_loading) × sg_rate`. The Super section in the payslip form is now editable: it shows the auto-calculated value but allows the user to type an override, which is saved verbatim. On create the override starts empty so the auto-calc is shown; on edit the stored value is pre-filled as the override.
 
 ### Administrative
 

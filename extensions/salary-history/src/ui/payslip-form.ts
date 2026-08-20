@@ -90,6 +90,7 @@ interface FormValues {
   public_holiday_hours: string;
   personal_leave_hours: string;
   previous_balance: string;
+  superannuation_override: string;
 }
 
 const EMPTY_VALUES: FormValues = {
@@ -107,6 +108,7 @@ const EMPTY_VALUES: FormValues = {
   public_holiday_hours: '0',
   personal_leave_hours: '0',
   previous_balance: '0',
+  superannuation_override: '',
 };
 
 function num(v: string | undefined | null): number {
@@ -365,6 +367,7 @@ export class PayslipForm extends LitElement {
       // is applied in edit mode), so it must be reversible: the user can
       // correct the balance directly here.
       previous_balance: money2(p.holiday_leave_accrual_hours),
+      superannuation_override: money2(p.superannuation_guarantee),
     };
   }
 
@@ -573,7 +576,7 @@ export class PayslipForm extends LitElement {
       holiday_pay: bd.holiday_pay,
       public_holiday: bd.public_holiday,
       payg_withholding: bd.payg_withholding,
-      superannuation_guarantee: bd.superannuation_guarantee,
+      superannuation_guarantee: this._values.superannuation_override && this._values.superannuation_override !== '' ? num(this._values.superannuation_override) : bd.superannuation_guarantee,
       personal_leave: bd.personal_leave,
       regular_hours: num(v.regular_hours),
       shift_hours: num(v.shift_hours),
@@ -724,11 +727,21 @@ export class PayslipForm extends LitElement {
   }
 
   private _renderSuper(): unknown {
-    const sg = this._breakdown?.superannuation_guarantee ?? 0;
+    const bd = this._breakdown;
+    const autoSg = bd?.superannuation_guarantee ?? 0;
+    const override = this._values.superannuation_override;
+    const display = override !== '' ? num(override) : autoSg;
     return html`
-      <div class="read-only-row">
-        <span class="label">superannuation guarantee <span style="color:#858585;font-style:normal;">(gross × sg_rate, default 12%)</span></span>
-        <span class="value">$${sg.toFixed(2)}</span>
+      <div class="edit-balance-row balance-divider" data-testid="field-superannuation_guarantee">
+        <label>superannuation guarantee <span style="color:#858585;font-style:normal;">(auto: (gross − overtime − holiday loading) × sg_rate)</span></label>
+        <input
+          class="edit-balance-input"
+          data-testid="input-superannuation_guarantee"
+          type="number"
+          step="0.01"
+          .value="${override !== '' ? override : (bd ? money2(autoSg) : '0.00')}"
+          @input="${(e: Event) => this._onInput('superannuation_override', e)}"
+        />
       </div>
     `;
   }

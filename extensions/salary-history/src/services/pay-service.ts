@@ -391,18 +391,21 @@ export function calculatePaySlipBreakdown(
   // `holiday_leave_loading` (which would otherwise double-count).
   const isPublicHoliday = h.public_holiday_hours > 0;
   const effectiveHolidayHours = isPublicHoliday ? 0 : h.holiday_hours;
+  const overtime1_5x = h.overtime_1_5_hours * base * rateRow.overtime_1_5_multiplier;
+  const overtime2_0x = h.overtime_2_0_hours * base * rateRow.overtime_2_0_multiplier;
+  const holidayLeaveLoading = effectiveHolidayHours * base * rateRow.holiday_leave_loading_rate;
 
   return {
     base_hourly: h.regular_hours * base,
     shift_allowance: h.shift_hours * base * rateRow.shift_allowance_multiplier,
-    overtime_1_5x: h.overtime_1_5_hours * base * rateRow.overtime_1_5_multiplier,
-    overtime_2_0x: h.overtime_2_0_hours * base * rateRow.overtime_2_0_multiplier,
+    overtime_1_5x: overtime1_5x,
+    overtime_2_0x: overtime2_0x,
     holiday_pay: effectiveHolidayHours * base,
-    holiday_leave_loading: effectiveHolidayHours * base * rateRow.holiday_leave_loading_rate,
+    holiday_leave_loading: holidayLeaveLoading,
     public_holiday: h.public_holiday_hours * base,
     personal_leave: h.personal_leave_hours * base,
     payg_withholding: Math.max(0, gross - net),
-    superannuation_guarantee: gross * rateRow.superannuation_rate,
+    superannuation_guarantee: (gross - (overtime1_5x + overtime2_0x + holidayLeaveLoading)) * rateRow.superannuation_rate,
   };
 }
 
