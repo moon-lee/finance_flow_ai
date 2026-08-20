@@ -179,7 +179,7 @@ export class Orchestrator {
   private _onEditPayslip = async (e: Event): Promise<void> => {
     const { id, input } = (e as CustomEvent).detail as { id: number; input: PayslipInput };
     try {
-      await this._finance.db.table('salary_history_pay_slips').update(input, { id });
+      await this._finance.db.table('salary_history_pay_slips').update({ id }, input);
     } catch (err) {
       console.error('[salary-history] payslip update failed:', err);
       return;
@@ -288,7 +288,7 @@ export class Orchestrator {
   private _onRateEdit = async (e: Event): Promise<void> => {
     const { id, input } = (e as CustomEvent).detail as { id: number; input: Record<string, unknown> };
     try {
-      await this._finance.db.table('salary_history_rate_history').update(input, { id });
+      await this._finance.db.table('salary_history_rate_history').update({ id }, input);
     } catch (err) {
       await this._failRateWrite(err, id);
       return;
@@ -372,7 +372,7 @@ export class Orchestrator {
     try {
       await this._finance.db
         .table('salary_history_rate_history')
-        .update({ effective_to: effectiveFrom }, { id });
+        .update({ id }, { effective_to: effectiveFrom });
       await this._finance.db.table('salary_history_rate_history').insert(input);
     } catch (err) {
       await this._failRateWrite(err, id);

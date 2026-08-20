@@ -1,7 +1,7 @@
 ---
 title: Phase 8 — Extension Ecosystem (SDK + Installer) Implementation Plan
 date: 2026-08-20
-last_updated: 2026-08-20T10:00:00+10:00
+last_updated: 2026-08-20T15:00:00+10:00
 status: draft
 target_version: 0.10.0
 ---
@@ -31,7 +31,91 @@ This plan is written for two audiences at once. Each task starts with a **"What 
 5. **Restart.** You restart the app once. Your extension now appears in the Activity Bar / Command Palette and works exactly like the built-in ones.
 6. **Manage.** The Extensions screen lets you **Enable / Disable**, **Uninstall** (removes the extension but keeps its data), and **Delete Data** (removes the data too — with a confirmation).
 
+**When the app updates:** the finance dictionary inside an extension you already created is a snapshot, so run `refresh` to pull the latest copy, fix any editor errors, rebuild, and reinstall.
+
 **Deliberately not included:** digital signing, installers for other people, hot-install without restart, marketplace.
+
+---
+
+## SDK CLI — command reference (with examples)
+
+Everything below is typed in the VS Code terminal, standing in the app's main folder (`D:\finance_flow_ai`). Where you see `todo-list`, use your extension's id — lowercase letters, digits, and hyphens only (no spaces, no capitals).
+
+**`init` — create a new extension project**
+
+```bash
+node scripts/sdk/cli.mjs init todo-list
+```
+
+Creates a new folder named `todo-list` **inside the current folder** (the app's folder), containing a ready-to-edit starter project (`package.json`, `tsconfig.json`, `src/main.ts`, `src/finance.d.ts`, a sample screen, README).
+
+To create it **somewhere else** instead, add a folder path as the last argument:
+
+```bash
+node scripts/sdk/cli.mjs init todo-list D:\my-extensions
+```
+
+→ creates `D:\my-extensions\todo-list\`.
+
+**`build` — package an extension project for install**
+
+```bash
+node scripts/sdk/cli.mjs build todo-list
+node scripts/sdk/cli.mjs build D:\my-extensions\todo-list
+```
+
+→ creates `todo-list\build\extension\` containing `package.json` + `todo-list.js` (plus a `.js.map` source map for debugging). This folder is what you install.
+
+**`refresh` — update an existing extension after the app changes**
+
+The finance dictionary inside a scaffolded project is a snapshot from the day it was created. When the app's interface changes, re-sync it:
+
+```bash
+node scripts/sdk/cli.mjs refresh todo-list
+node scripts/sdk/cli.mjs refresh D:\my-extensions\todo-list
+```
+
+→ overwrites only `src\finance.d.ts` (never your own code). Then fix any new errors the editor shows, rebuild, and reinstall over the old version.
+
+**If the app changed the API:**
+
+1. Run `refresh` on your extension project.
+2. Fix whatever your editor flags (the refreshed types reflect the new API).
+3. Rebuild and reinstall (upgrades allowed; downgrades rejected).
+4. Restart the app.
+
+> Types are erased at build time (`import type`), so an out-of-date dictionary alone never breaks a running extension. It matters only when you want to *use* new APIs or when the app *removed/renamed* a runtime API you already call — in the latter case the types can't save you; you must adapt that code.
+
+**Install + activate (app-side, no commands)**
+
+1. Open Finance Flow AI → **Extensions** screen → **Install**.
+2. Pick the `build\extension` folder (or zip it first and pick the `.zip`).
+3. Restart the app once. The extension appears in the sidebar / command palette.
+
+**Full walkthrough — a "Todo List" extension**
+
+```bash
+node scripts/sdk/cli.mjs init todo-list D:\my-extensions
+```
+
+1. Open `D:\my-extensions\todo-list` in VS Code and edit `src/main.ts` and `src\ui\`.
+2. Build it:
+
+   ```bash
+   node scripts/sdk/cli.mjs build D:\my-extensions\todo-list
+   ```
+
+3. App → Extensions → Install → pick `D:\my-extensions\todo-list\build\extension`.
+4. Restart the app. Done.
+
+**Alternative — npm scripts.** The project also exposes `npm run sdk:init` and `npm run sdk:build`; append the arguments after `--`:
+
+```bash
+npm run sdk:init -- todo-list D:\my-extensions
+npm run sdk:build -- D:\my-extensions\todo-list
+```
+
+The direct `node scripts/sdk/cli.mjs …` form above is the most predictable and is what the automated tests exercise.
 
 ---
 
@@ -45,7 +129,7 @@ This plan is written for two audiences at once. Each task starts with a **"What 
 | D4 | No digital signing (single local user). |
 | D5 | Uninstall keeps data; Delete Data is a separate confirmed action (per vision). |
 | D6 | Fix `ExtensionRegistry.upsert()` so disable state survives restarts (stop forcing `enabled = 1`). |
-| D7 | SDK CLI = `node scripts/sdk/cli.mjs init|build`. Scaffold is a standalone project with a vendored, self-contained `src/finance.d.ts`; a parity test guards drift. |
+| D7 | SDK CLI = `node scripts/sdk/cli.mjs init|build|refresh`. Scaffold is a standalone project with a vendored, self-contained `src/finance.d.ts`; a parity test guards drift and `refresh` re-syncs existing projects. |
 | D8 | Install validates dependencies + versions (no downgrades). Activation already topo-sorts by `dependencies` in the Host. |
 | D9 | Table DDL for user extensions is generated at install time by Core (`src/main/services/table-ddl.ts`) — extensions cannot ship migrations (ADR-0002 trigger stays unmet). |
 | D10 | Extension Manager is a main-renderer workspace view (`__extensions__`), same pattern as `__settings__` / `__accounts__`. |
@@ -65,7 +149,7 @@ This plan is written for two audiences at once. Each task starts with a **"What 
 | `src/main/services/extension-installer.ts` | `ExtensionInstaller` — install/uninstall/delete-data/list, dependency + version checks, runtime table creation. |
 | `src/main/services/extension-catalog.ts` | `discoverExtensionsInRoots(roots, options)` — multi-root discovery + built-in-id conflict rejection (thin wrapper over the existing loader). |
 | `src/renderer/components/extension-manager.ts` | The Extensions workspace view (Lit). |
-| `scripts/sdk/cli.mjs` | SDK CLI: `init` + `build`. |
+| `scripts/sdk/cli.mjs` | SDK CLI: `init` + `build` + `refresh`. |
 | `scripts/sdk/templates/*` | Scaffold templates (manifest, tsconfig, entry, view, README). |
 | `scripts/sdk/types/finance.d.ts` | Vendored, self-contained SDK type surface for standalone projects. |
 | `tests/unit/shared/semver.test.ts` | Semver helpers. |
@@ -73,6 +157,7 @@ This plan is written for two audiences at once. Each task starts with a **"What 
 | `tests/unit/main/services/extension-installer.test.ts` | Installer contract. |
 | `tests/unit/main/services/extension-catalog.test.ts` | Multi-root discovery. |
 | `tests/unit/sdk/sdk-build.test.ts` | SDK `build` end-to-end against a temp scaffold. |
+| `tests/unit/sdk/sdk-refresh.test.ts` | SDK `refresh` re-syncs only `src/finance.d.ts`. |
 | `tests/unit/sdk/sdk-type-parity.test.ts` | SDK types compile and are assignable to canonical types. |
 
 ### Modified files
@@ -1406,8 +1491,9 @@ function cmdBuild(projectDir) {
 const [cmd, ...rest] = process.argv.slice(2);
 if (cmd === 'init') cmdInit(rest[0], rest[1]);
 else if (cmd === 'build') cmdBuild(rest[0]);
+else if (cmd === 'refresh') cmdRefresh(rest[0]); // (Task 10)
 else {
-  console.log('usage: node scripts/sdk/cli.mjs init <extension-id> [dir] | build <project-dir>');
+  console.log('usage: node scripts/sdk/cli.mjs init <extension-id> [dir] | build <project-dir> | refresh <project-dir>');
   process.exit(1);
 }
 ```
@@ -1682,7 +1768,87 @@ git commit -m "feat(phase8): full vendored SDK types with canonical parity guard
 
 ---
 
-## Task 10: End-to-end verification + documentation sync
+## Task 10: SDK CLI — `refresh` (re-sync types after app updates)
+
+**What this does (plain English):** When the app releases an update, its "finance dictionary" (the types your editor uses) may grow or change — but the copy inside an extension you created earlier stays on the old version. `refresh` copies the app's latest dictionary into your extension, overwriting **only** that dictionary file and never touching your code. You then fix any new errors the editor shows, rebuild, and reinstall.
+
+**Files:**
+- Modify: `scripts/sdk/cli.mjs` (add `cmdRefresh`)
+- Test: `tests/unit/sdk/sdk-refresh.test.ts`
+
+- [ ] **Step 1: Write the failing refresh test**
+
+`tests/unit/sdk/sdk-refresh.test.ts`:
+
+```ts
+import { describe, expect, it } from 'vitest';
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+const CLI = join(__dirname, '..', '..', '..', 'scripts', 'sdk', 'cli.mjs');
+const APP_ROOT = join(__dirname, '..', '..', '..');
+
+describe('sdk refresh', () => {
+  it('updates only src/finance.d.ts in an existing project', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ffx-refresh-'));
+    execFileSync(process.execPath, [CLI, 'init', 'todo-list', dir], { stdio: 'pipe', cwd: APP_ROOT });
+    const project = join(dir, 'todo-list');
+    const typesPath = join(project, 'src', 'finance.d.ts');
+    writeFileSync(typesPath, 'export type ColumnType = "old";');
+    writeFileSync(join(project, 'src', 'main.ts'), '// my code\n');
+
+    execFileSync(process.execPath, [CLI, 'refresh', project], { stdio: 'pipe', cwd: APP_ROOT });
+
+    expect(readFileSync(typesPath, 'utf8')).not.toContain('"old"');
+    expect(readFileSync(join(project, 'src', 'main.ts'), 'utf8')).toContain('// my code');
+  });
+});
+```
+
+- [ ] **Step 2: Run to verify failure**
+
+Run: `npx vitest run tests/unit/sdk/sdk-refresh.test.ts`
+Expected: FAIL — unknown command `refresh`.
+
+- [ ] **Step 3: Implement `cmdRefresh` in `scripts/sdk/cli.mjs`**
+
+```js
+function cmdRefresh(projectDirRaw) {
+  const projectDir = resolve(projectDirRaw ?? '.');
+  const typesPath = join(projectDir, 'src', 'finance.d.ts');
+  if (!existsSync(typesPath)) {
+    console.error(`no src/finance.d.ts found in ${projectDir} — is this a scaffolded project?`);
+    process.exit(1);
+  }
+  writeFileSync(typesPath, readFileSync(join(__dirname, 'types', 'finance.d.ts'), 'utf8'));
+  console.log(`Refreshed ${typesPath}`);
+  console.log('Fix any new type errors the editor shows, rebuild, and reinstall.');
+}
+```
+
+> `refresh` touches only `src/finance.d.ts`. It deliberately never rewrites `main.ts`, `src/ui/*`, or `package.json`, so the author's code is untouched. If the app *removed or renamed* a runtime API the extension already calls, types alone cannot fix that — the author must adapt that code before rebuilding.
+
+- [ ] **Step 4: Run the refresh test**
+
+Run: `npx vitest run tests/unit/sdk/sdk-refresh.test.ts`
+Expected: PASS.
+
+- [ ] **Step 5: Wire into the dispatcher + usage line**
+
+Add `else if (cmd === 'refresh') cmdRefresh(rest[0]);` and extend the usage string to `usage: node scripts/sdk/cli.mjs init <extension-id> [dir] | build <project-dir> | refresh <project-dir>`.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add scripts/sdk/cli.mjs tests/unit/sdk/sdk-refresh.test.ts
+git commit -m "feat(phase8): SDK CLI refresh subcommand re-syncs extension types"
+```
+
+---
+
+## Task 11: End-to-end verification + documentation sync
 
 **What this does (plain English):** Proves the whole story works by hand: create → build → install → restart → use → manage. Also updates the project's documentation so the new workflow and architecture are recorded for the future.
 
@@ -1702,6 +1868,7 @@ git commit -m "feat(phase8): full vendored SDK types with canonical parity guard
 | TU-7 | Install again → Extensions → Delete Data (confirm) | Tables dropped; settings namespace cleared |
 | TU-8 | Built-in `salary-history`/`dashboard` still work; install with id `salary-history` is rejected | No regression; collision guard fires |
 | TU-9 | Install a `.zip` of `build/extension` | Succeeds via zip path |
+| TU-10 | `node scripts/sdk/cli.mjs refresh <project>` | `src/finance.d.ts` replaced with the current dictionary; `src/main.ts` + `src/ui/*` untouched |
 
 - [ ] **Step 2: Full gate**
 
@@ -1741,7 +1908,7 @@ Expected: all PASS; packaged build includes the new user-extensions path and SDK
 
 | Risk | Mitigation |
 |---|---|
-| Vendored SDK types drift from canonical types | Parity test (Task 9) fails the build on drift. |
+| Vendored SDK types drift from canonical types | Parity test (Task 9) fails the build on drift; `refresh` (Task 10) re-syncs types into existing extension projects. |
 | Install writes inside the Main process | Trusted single-user path; manifest Zod-validated before copy; table names validated before DDL; `builtinIds` guard prevents overriding built-ins. |
 | `extract-zip` adds a dependency | Folder install is the primary path; zip is a convenience; extract-zip is tiny and maintained. |
 | Host/panel bundle resolution breaks built-ins | `resolveExtensionBundlePath` is pure and tested; built-in style (`<root>/<id>.js`) is tried first per root and existing bundles are unchanged. |
@@ -1749,7 +1916,7 @@ Expected: all PASS; packaged build includes the new user-extensions path and SDK
 
 ## Self-review
 
-**1. Spec coverage:** SDK CLI (packaging tooling) → Tasks 7–9; dependency + version management → Task 3 (D8); installer → Tasks 3–4; Extension Manager UI → Task 6; signing → explicitly out of scope per user (ADR-0009). All spec items mapped.
+**1. Spec coverage:** SDK CLI (packaging tooling) → Tasks 7–10; dependency + version management → Task 3 (D8); installer → Tasks 3–4; Extension Manager UI → Task 6; signing → explicitly out of scope per user (ADR-0009). All spec items mapped.
 
 **2. Placeholder scan:** No TBD/TODO placeholders; every step carries concrete code or exact commands. The one intentional forward reference (SDK types "Task 9 creates this file in full") is resolved within the plan itself.
 

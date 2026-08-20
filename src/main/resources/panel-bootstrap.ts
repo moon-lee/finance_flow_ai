@@ -84,12 +84,12 @@ function createPanelFinanceApi(extensionId: string): FinanceApi {
           const res = await financeShell.extensions.writeTable({ op: 'insert', extensionId, table: name, payload }) as { row: unknown };
           return (res.row ?? {}) as Record<string, unknown>;
         },
-        update: async (payload: Record<string, unknown>, query: Record<string, unknown>) => {
-          const res = await financeShell.extensions.writeTable({ op: 'update', extensionId, table: name, payload, query }) as { affected: number };
+        update: async (where: Record<string, unknown>, payload: Record<string, unknown>) => {
+          const res = await financeShell.extensions.writeTable({ op: 'update', extensionId, table: name, payload, where }) as { affected: number };
           return res.affected ?? 0;
         },
         delete: async (query: Record<string, unknown>) => {
-          const res = await financeShell.extensions.writeTable({ op: 'delete', extensionId, table: name, payload: query }) as { affected: number };
+          const res = await financeShell.extensions.writeTable({ op: 'delete', extensionId, table: name, where: query }) as { affected: number };
           return res.affected ?? 0;
         },
       }),

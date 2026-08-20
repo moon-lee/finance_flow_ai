@@ -41,7 +41,7 @@ export function createFinance(extensionId: string): FinanceApi {
           read(name, 'count', query).then((r) => (r as { count: number }).count),
         insert: (payload: Record<string, unknown>): Promise<unknown> =>
           write(name, 'insert', payload).then((r) => (r as { row: unknown }).row),
-        update: (payload: Record<string, unknown>, where?: Record<string, unknown>): Promise<number> =>
+        update: (where: Record<string, unknown>, payload: Record<string, unknown>): Promise<number> =>
           write(name, 'update', payload, where).then((r) => (r as { affected: number }).affected),
         delete: (where?: Record<string, unknown>): Promise<number> =>
           write(name, 'delete', where).then((r) => (r as { affected: number }).affected)
