@@ -7,7 +7,7 @@ export const baseViewStyles = css`
     height: 100%;
     width: 100%;
     overflow: hidden;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-family: "SF Mono", Consolas, monospace;
     background: var(--workspace-bg);
     color: var(--text-secondary);
     font-size: 15px;

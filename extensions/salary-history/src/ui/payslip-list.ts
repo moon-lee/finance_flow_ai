@@ -17,7 +17,7 @@ import { customElement, property, state } from 'lit/decorators.js';
 import type { FinanceApi } from 'finance';
 import type { PaySlip } from '../dao/pay-slips.js';
 import { aggregateYearToDate, normalizeFinanceYear, type YtdAggregate } from '../services/pay-service.js';
-import { sharedStyles, listStyles } from './shared-styles.js';
+import { sharedStyles } from '../styles/shared-styles.js';
 
 export interface AccountOption {
   readonly id: number;
@@ -32,7 +32,6 @@ const PAGE_SIZE = 15;
 export class PayslipList extends LitElement {
   static styles = [
     sharedStyles,
-    listStyles,
     css`
       .container { max-width: 1080px; margin: 0 auto; padding: 24px 20px 40px; }
       .subtitle { color: #858585; font-size: 13px; margin: 0 0 16px; }
@@ -57,7 +56,6 @@ export class PayslipList extends LitElement {
         margin-bottom: 2px;
       }
       .summary-item .summary-value, .kpi .value {
-        font-family: "SF Mono", Consolas, monospace;
         font-size: 17px;
         color: var(--ff-text-strong);
         font-weight: 600;
@@ -85,8 +83,7 @@ export class PayslipList extends LitElement {
         text-align: left;
       }
       th.num, td.num { text-align: right; }
-      td.num { font-family: "SF Mono", Consolas, monospace; }
-      td.fy { font-family: "SF Mono", Consolas, monospace; color: #686868;         font-size: 13px; }
+      td.fy { color: #686868; font-size: 13px; }
       td.actions { text-align: right; white-space: nowrap; }
       td.actions .btn-link { margin-left: 8px; }
       td.actions .btn-link:first-child { margin-left: 0; }
@@ -132,7 +129,6 @@ export class PayslipList extends LitElement {
         border: 1px solid var(--ff-border);
         border-radius: 4px;
         padding: 4px 8px;
-        font-family: "SF Mono", Consolas, monospace;
         font-size: 13px;
         white-space: nowrap;
       }
@@ -163,7 +159,6 @@ export class PayslipList extends LitElement {
          padding: 4px 10px;
          border-radius: 3px;
          cursor: pointer;
-         font-family: inherit;
          font-size: 13px;
        }
        .pagination .page-btn:hover { border-color: var(--ff-accent, #007acc); }

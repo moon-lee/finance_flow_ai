@@ -20,7 +20,7 @@ import { LitElement, css, html } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import type { FinanceApi } from 'finance';
 import type { RateRow } from '../dao/pay-rate-history.js';
-import { sharedStyles, listStyles } from './shared-styles.js';
+import { sharedStyles } from '../styles/shared-styles.js';
 
 const RATE_COLUMNS: { key: keyof RateRow; label: string; kind: 'money' | 'int' | 'rate' }[] = [
   { key: 'base_hourly_rate', label: 'Base Hourly', kind: 'money' },
@@ -32,7 +32,6 @@ const RATE_COLUMNS: { key: keyof RateRow; label: string; kind: 'money' | 'int' |
 export class PayRateHistoryView extends LitElement {
   static styles = [
     sharedStyles,
-    listStyles,
     css`
       .container { max-width: 1080px; margin: 0 auto; padding: 24px 20px 40px; }
       .subtitle { color: var(--ff-text-muted); font-size: 13px; margin: 0 0 16px; }
@@ -50,7 +49,7 @@ export class PayRateHistoryView extends LitElement {
       th {
         text-align: left;
         padding: 8px 10px;
-        font-size: 10px;
+        font-size: 13px;
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.4px;
@@ -59,20 +58,18 @@ export class PayRateHistoryView extends LitElement {
         white-space: nowrap;
       }
       td {
-        padding: 10px;
+        padding: 13px;
         border-bottom: 1px solid var(--ff-bg-subpanel);
         color: var(--ff-text);
-        font-family: system-ui, sans-serif;
       }
       th.num, td.num { text-align: right; }
-      td.num { font-family: "SF Mono", Consolas, monospace; }
       tr.current { background:var(--ff-border); box-shadow: inset 3px 0 0 var(--ff-teal); }
       tr.current:hover { background: #233023; }
       .badge {
         display: inline-block;
         background: var(--ff-teal);
         color: var(--ff-bg-base);
-        font-size: 10px;
+        font-size: 12px;
         font-weight: 700;
         padding: 2px 8px;
         border-radius: 3px;

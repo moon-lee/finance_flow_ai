@@ -32,7 +32,7 @@
 import { LitElement, css, html, type PropertyValues, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import type { FinanceApi } from 'finance';
-import { sharedStyles, formStyles } from './shared-styles.js';
+import { sharedStyles } from '../styles/shared-styles.js';
 import type { PaySlip, PaySlipInput } from '../dao/pay-slips.js';
 import { getRateForDate, type RateRow } from '../dao/pay-rate-history.js';
 import {
@@ -131,11 +131,8 @@ function todayISO(): string {
 export class PayslipForm extends LitElement {
   static styles = [
     sharedStyles,
-    formStyles,
     css`
-      :host {
-        font: 16px/1.5 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      }
+
       * { box-sizing: border-box; }
       .container { max-width: 960px; margin: 0 auto; padding: 24px 20px 40px; }
       .subtitle { color: #858585; font-size: 13px; margin: 0 0 24px; }
@@ -149,36 +146,18 @@ export class PayslipForm extends LitElement {
         border-radius: 3px;
         font-size: 12px;
         cursor: pointer;
-        font-family: inherit;
       }
       .reorder-btn:hover { border-color: #007acc; color: #d4d4d4; }
       input[readonly], input:disabled { background: #2a2a2a; color: #858585; font-style: italic; }
       .read-only-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; font-size: 15px; }
-      .edit-balance-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 0; }
-      .edit-balance-row.balance-divider { border-top: 1px solid #3e3e3e; margin-top: 4px; padding-top: 8px; }
-      .edit-balance-label { color: #d4d4d4; font-size: 15px; }
-      .edit-balance-label .hint { color: #858585; font-weight: normal; font-size: 14px; }
-      .edit-balance-input {
-         width: 160px;
-         text-align: right;
-         background: var(--ff-bg-input, #3c3c3c);
-         color: var(--ff-text, #d4d4d4);
-         border: 1px solid var(--ff-border, #3e3e3e);
-         border-radius: 3px;
-         padding: 6px 10px;
-         font-size: 12px;
-         font-family: 'SF Mono', Consolas, monospace;
-         outline: none;
-       }
-       .edit-balance-input:focus { border-color: var(--ff-accent, #007acc); }
-      .read-only-row .label { color: #858585; font-family: 'SF Mono', Consolas, monospace; font-size: 14px; }
-      .read-only-row .value { color: #d4d4d4; font-family: 'SF Mono', Consolas, monospace; }
-      .toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; }
+      .read-only-row .label { color: #858585; font-size: 14px; }
+      .read-only-row .value { color: #d4d4d4; }
+      .toggle-row { display: flex; align-items: center; justify-content: space-between; font-size: 14px; padding: 8px 0; }
       .toggle-btn {
          display: inline-flex; align-items: center; gap: 6px;
          cursor: pointer; color: var(--ff-accent, #6da3d6);
          background: var(--ff-bg-base, #1e1e1e); border: 1px solid var(--ff-border, #3e3e3e); border-radius: 4px;
-         padding: 6px 12px; font-size: 15px; line-height: 1;
+         padding: 6px 12px; line-height: 1;
        }
        .toggle-btn:hover { background: var(--ff-bg-subpanel, #2a2a2a); border-color: var(--ff-accent, #6da3d6); }
       .toggle-icon { font-size: 16px; line-height: 1; transform: translateY(1px); }
@@ -190,13 +169,13 @@ export class PayslipForm extends LitElement {
       .green { background: #0d2e26; border: 1px solid #4ec9b0; color: #9fe6d6; border-radius: 4px; padding: 8px 10px; margin: 8px 0; font-size: 14px; }
       .red { background: #3a1414; border: 1px solid #f48771; color: #f3b3a6; border-radius: 4px; padding: 8px 10px; margin: 8px 0; font-size: 14px; }
       .errors { color: #f48771; font-size: 14px; margin: 8px 0; }
-      .formula { color: #8a8a8a; font-size: 13px; margin-top: 8px; font-family: 'SF Mono', Consolas, monospace; }
-      .btn-validate { background: var(--ff-bg-subpanel, #2a2a2a); color: var(--ff-accent, #007acc); border: 1px solid var(--ff-accent, #007acc); padding: 5px 12px; border-radius: 3px; font-size: 14px; cursor: pointer; font-family: inherit; }
-      .btn-validate:hover { background: var(--ff-accent-hover, #003a66); }
-      .payg-btn-row { display: flex; align-items: center; gap: 12px; margin-top: 8px; flex-wrap: wrap; }
+      .formula { color: #8a8a8a; font-size: 13px; margin-top: 8px; }
+      .btn-validate { background: var(--ff-bg-base, #1e1e1e); color: var(--ff-accent, #6da3d6); border: 1px solid var(--ff-border, #3e3e3e); padding: 6px 12px; border-radius: 3px; font-size: 14px; cursor: pointer; line-height: 1; display: inline-flex; align-items: center; gap: 6px; }
+      .btn-validate:hover { background: var(--ff-bg-subpanel, #2a2a2a); border-color: var(--ff-accent, #6da3d6); }
+      .payg-btn-row { display: flex; align-items: center; gap: 12px;  flex-wrap: wrap; padding: 8px 0; font-size: 14px;}
       .payg-result { margin-top: 12px; padding: 10px 12px; background: #1e3a2e; border-left: 3px solid #4ec9b0; border-radius: 3px; font-size: 14px; color: #d4d4d4; }
       .payg-result-icon { color: #4ec9b0; font-weight: 700; margin-right: 6px; }
-      .payg-detail { color: #858585; margin-top: 4px; font-family: 'SF Mono', Consolas, monospace; font-size: 13px; }
+      .payg-detail { color: #858585; margin-top: 4px; font-size: 13px; }
       .info-note { font-size: 13px; color: #858585; font-style: italic; margin: 0 0 8px; }
     `,
   ];
@@ -732,10 +711,10 @@ export class PayslipForm extends LitElement {
     const override = this._values.superannuation_override;
     const display = override !== '' ? num(override) : autoSg;
     return html`
-      <div class="edit-balance-row balance-divider" data-testid="field-superannuation_guarantee">
-        <label>superannuation guarantee <span style="color:#858585;font-style:normal;">(auto: (gross − overtime − holiday loading) × sg_rate)</span></label>
+      <div class="edit-super-row super-divider" data-testid="field-superannuation_guarantee">
+        <label class="edit-super-label" for="input-superannuation_guarantee">superannuation guarantee <span class="hint">(auto: (gross − overtime − holiday loading) × sg_rate)</span></label>
         <input
-          class="edit-balance-input"
+          class="edit-super-input"
           data-testid="input-superannuation_guarantee"
           type="number"
           step="0.01"
@@ -862,10 +841,16 @@ export class PayslipForm extends LitElement {
           'Totals',
           'always visible · user input',
           html`
-            <div class="grid-2">
-              ${this._renderInput('totals', 'gross', 'Gross', 'number', '($)', false, '0.01')}
-              ${this._renderInput('totals', 'net', 'Net', 'number', '($)', false, '0.01')}
-            </div>
+             <div class="grid-2">
+               <div class="inline-field" data-testid="field-gross">
+                 <label>Gross <span class="label-sub">($)</span></label>
+                 <input data-testid="input-gross" type="number" step="0.01" class="inline-field-input" .value="${this._values.gross}" @input="${(e: Event) => this._onInput('gross', e)}" />
+               </div>
+               <div class="inline-field" data-testid="field-net">
+                 <label>Net <span class="label-sub">($)</span></label>
+                 <input data-testid="input-net" type="number" step="0.01" class="inline-field-input" .value="${this._values.net}" @input="${(e: Event) => this._onInput('net', e)}" />
+               </div>
+             </div>
             <p class="info-note" style="margin-top:8px;">Pay date, gross, and net are the only required inputs. Everything else is derived from the rate row effective at pay_date × hours, plus PAYG = gross − net and SG = gross × sg_rate.</p>
           `,
         );

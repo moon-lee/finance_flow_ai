@@ -14,7 +14,7 @@
 import { LitElement, css, html } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { CANONICAL_SECTION_ORDER } from './payslip-form.js';
-import { sharedStyles, modalStyles } from './shared-styles.js';
+import { sharedStyles } from '../styles/shared-styles.js';
 
 const SECTION_LABELS: Record<string, string> = {
   period: 'Period',
@@ -31,7 +31,6 @@ const SECTION_LABELS: Record<string, string> = {
 export class ReorderSectionsModal extends LitElement {
   static styles = [
     sharedStyles,
-    modalStyles,
     css`
       .modal {
         width: 320px;
@@ -137,7 +136,7 @@ export class ReorderSectionsModal extends LitElement {
         <div class="modal" role="dialog" aria-label="Reorder sections" data-testid="reorder-modal">
           <h2 data-testid="reorder-title">Reorder Sections</h2>
           ${this._order.map((id, i) => this._renderItem(id, i))}
-          <div class="actions">
+          <div class="modal-actions">
             <button class="ghost" data-testid="cancel" @click="${this._onCancel}">Cancel</button>
             <button class="ghost" data-testid="reset" @click="${this._onReset}">Reset to default</button>
             <button class="primary" data-testid="save" @click="${this._onSave}">Save</button>
