@@ -27,7 +27,7 @@ export class ShortcutsScreen extends LitElement {
     }
 
     .shortcuts-header h1 {
-      font-size: 21px;
+      font-size: var(--ff-font-2xl);
       font-weight: 600;
       color: var(--text-primary);
       margin: 0 0 4px;
@@ -35,7 +35,7 @@ export class ShortcutsScreen extends LitElement {
 
     .shortcuts-header .subtitle {
       color: var(--text-tertiary);
-      font-size: 14px;
+      font-size: var(--ff-font-md);
       margin: 0;
     }
 
@@ -51,7 +51,7 @@ export class ShortcutsScreen extends LitElement {
       padding: 12px 16px;
       background: var(--tab-bg);
       border-bottom: 1px solid var(--input-border);
-      font-size: 14px;
+      font-size: var(--ff-font-md);
       font-weight: 600;
       color: var(--section-header-text);
       display: flex;
@@ -78,7 +78,7 @@ export class ShortcutsScreen extends LitElement {
     .shortcut-label {
       flex: 1;
       min-width: 0;
-      font-size: 14px;
+      font-size: var(--ff-font-md);
       color: var(--input-text);
     }
 
@@ -90,7 +90,7 @@ export class ShortcutsScreen extends LitElement {
 
     .shortcut-badge {
       font-family: 'SF Mono', Consolas, monospace;
-      font-size: 12px;
+      font-size: var(--ff-font-md);
       padding: 3px 8px;
       border-radius: 4px;
       background: var(--btn-secondary-bg);
@@ -121,7 +121,7 @@ export class ShortcutsScreen extends LitElement {
       background: transparent;
       border: 1px solid var(--input-border);
       color: var(--text-tertiary);
-      font-size: 12px;
+      font-size: var(--ff-font-md);
       padding: 3px 8px;
       border-radius: 4px;
       cursor: pointer;

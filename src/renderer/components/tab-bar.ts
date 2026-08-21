@@ -29,7 +29,7 @@ export class TabBar extends LitElement {
       border-right: 1px solid var(--tab-border);
       background: var(--tab-bg);
       color: var(--tab-text);
-      font-size: 14px;
+      font-size: var(--ff-font-base);
       cursor: pointer;
       user-select: none;
       gap: 8px;
@@ -54,7 +54,7 @@ export class TabBar extends LitElement {
       align-items: center;
       justify-content: center;
       border-radius: 3px;
-      font-size: 12px;
+      font-size: var(--ff-font-md);
       font-weight: 700;
       flex-shrink: 0;
     }
@@ -83,7 +83,7 @@ export class TabBar extends LitElement {
       align-items: center;
       justify-content: center;
       border-radius: 3px;
-      font-size: 15px;
+      font-size: var(--ff-font-lg);
       color: var(--tab-text);
       line-height: 1;
     }

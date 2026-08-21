@@ -26,7 +26,7 @@ export class AccountsManager extends LitElement {
     }
 
     .page-header h1 {
-      font-size: 21px;
+      font-size: var(--ff-font-2xl);
       font-weight: 600;
       color: var(--text-primary);
       margin: 0 0 2px;
@@ -34,7 +34,7 @@ export class AccountsManager extends LitElement {
 
     .page-header .subtitle {
       color: var(--text-tertiary);
-      font-size: 12px;
+      font-size: var(--ff-font-md);
       margin: 0;
     }
 
@@ -48,7 +48,7 @@ export class AccountsManager extends LitElement {
 
     .accounts-count {
       color: var(--text-tertiary);
-      font-size: 12px;
+      font-size: var(--ff-font-md);
     }
 
     .accounts-btn {
@@ -57,7 +57,7 @@ export class AccountsManager extends LitElement {
       border: none;
       padding: 7px 14px;
       border-radius: 3px;
-      font-size: 12px;
+      font-size: var(--ff-font-md);
       cursor: pointer;
       font-family: inherit;
       white-space: nowrap;
@@ -102,7 +102,7 @@ export class AccountsManager extends LitElement {
     }
 
     .create-panel-header {
-      font-size: 12px;
+      font-size: var(--ff-font-md);
       font-weight: 600;
       color: var(--text-primary);
       margin-bottom: 12px;
@@ -122,7 +122,7 @@ export class AccountsManager extends LitElement {
     }
 
     .form-field label {
-      font-size: 12px;
+      font-size: var(--ff-font-md);
       color: var(--text-tertiary);
     }
 
@@ -133,7 +133,7 @@ export class AccountsManager extends LitElement {
       padding: 6px 10px;
       border-radius: 3px;
       font-family: inherit;
-      font-size: 12px;
+      font-size: var(--ff-font-md);
       min-width: 180px;
     }
 
@@ -172,19 +172,19 @@ export class AccountsManager extends LitElement {
     }
 
     .account-name {
-      font-size: 12px;
+      font-size: var(--ff-font-md);
       font-weight: 600;
       color: var(--text-primary);
     }
 
     .account-meta {
-      font-size: 12px;
+      font-size: var(--ff-font-md);
       color: var(--text-tertiary);
       margin-top: 1px;
     }
 
     .badge {
-      font-size: 11px;
+      font-size: var(--ff-font-xs);
       padding: 2px 8px;
       border-radius: 3px;
       font-weight: 600;
@@ -209,7 +209,7 @@ export class AccountsManager extends LitElement {
 
     .row-actions .accounts-btn {
       padding: 5px 10px;
-      font-size: 11px;
+      font-size: var(--ff-font-xs);
     }
 
     .edit-row {
@@ -227,7 +227,7 @@ export class AccountsManager extends LitElement {
     }
 
     .edit-row label {
-      font-size: 12px;
+      font-size: var(--ff-font-md);
       color: var(--text-tertiary);
     }
 
@@ -238,7 +238,7 @@ export class AccountsManager extends LitElement {
       padding: 6px 10px;
       border-radius: 3px;
       font-family: inherit;
-      font-size: 12px;
+      font-size: var(--ff-font-md);
       min-width: 160px;
     }
 
@@ -260,7 +260,7 @@ export class AccountsManager extends LitElement {
     }
 
     .toggle-row label {
-      font-size: 12px;
+      font-size: var(--ff-font-md);
       color: var(--input-text);
       cursor: pointer;
     }
@@ -279,27 +279,27 @@ export class AccountsManager extends LitElement {
     }
 
     .empty-state h3 {
-      font-size: 15px;
+      font-size: var(--ff-font-lg);
       font-weight: 600;
       color: var(--text-secondary);
       margin: 0;
     }
 
     .empty-state p {
-      font-size: 13px;
+      font-size: var(--ff-font-md);
       margin: 0;
       max-width: 320px;
     }
 
     .status {
-      font-size: 12px;
+      font-size: var(--ff-font-md);
       color: #4ec9b0;
       margin-bottom: 10px;
     }
 
     .error {
       color: var(--danger-color);
-      font-size: 12px;
+      font-size: var(--ff-font-md);
       margin-bottom: 10px;
     }
   `;

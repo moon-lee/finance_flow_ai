@@ -82,7 +82,7 @@ export class ToastContainer extends LitElement {
     }
 
     .toast-title {
-      font-size: 13px;
+      font-size: var(--ff-font-md);
       font-weight: 600;
       color: var(--text-primary);
     }
@@ -92,7 +92,7 @@ export class ToastContainer extends LitElement {
       border: none;
       color: var(--text-tertiary);
       cursor: pointer;
-      font-size: 16px;
+      font-size: var(--ff-font-lg);
       line-height: 1;
       padding: 0 2px;
     }
@@ -102,13 +102,13 @@ export class ToastContainer extends LitElement {
     }
 
     .toast-message {
-      font-size: 12px;
+      font-size: var(--ff-font-sm);
       color: var(--text-secondary);
       line-height: 1.4;
     }
 
     .toast-time {
-      font-size: 11px;
+      font-size: var(--ff-font-xs);
       color: var(--text-tertiary);
       margin-top: 2px;
     }

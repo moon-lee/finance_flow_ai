@@ -47,11 +47,12 @@
   /* Typography scale */
   --ff-font-xs: 11px;
   --ff-font-sm: 12px;
+  --ff-font-md: 13px;
   --ff-font-base: 14px;
-  --ff-font-md: 15px;
-  --ff-font-lg: 17px;
-  --ff-font-xl: 19px;
-  --ff-font-2xl: 21px;
+  --ff-font-lg: 15px;
+  --ff-font-xl: 17px;
+  --ff-font-2xl: 19px;
+  --ff-font-3xl: 21px;
 
   /* Radius */
   --ff-radius-sm: 3px;

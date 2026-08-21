@@ -61,7 +61,7 @@ export class ActivityBar extends LitElement {
 
     .empty-hint {
       color: var(--text-secondary);
-      font-size: 11px;
+      font-size: var(--ff-font-xs);
       margin-top: 8px;
       writing-mode: vertical-rl;
       text-orientation: mixed;

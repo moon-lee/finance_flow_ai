@@ -14,7 +14,7 @@ export class BackupScreen extends LitElement {
     }
 
     .backup-header h1 {
-      font-size: 21px;
+      font-size: var(--ff-font-2xl);
       font-weight: 600;
       color: var(--text-primary);
       margin: 0;
@@ -22,7 +22,7 @@ export class BackupScreen extends LitElement {
 
     .backup-header .subtitle {
       color: var(--text-tertiary);
-      font-size: 13px;
+      font-size: var(--ff-font-md);
       margin-top: 2px;
     }
 
@@ -35,14 +35,14 @@ export class BackupScreen extends LitElement {
     }
 
     .backup-card h2 {
-      font-size: 14px;
+      font-size: var(--ff-font-base);
       font-weight: 600;
       color: var(--text-primary);
       margin: 0 0 8px;
     }
 
     .backup-card p {
-      font-size: 12px;
+      font-size: var(--ff-font-md);
       color: var(--text-tertiary);
       margin: 0 0 16px;
     }
@@ -60,7 +60,7 @@ export class BackupScreen extends LitElement {
       padding: 8px 16px;
       border-radius: 3px;
       font-family: inherit;
-      font-size: 12px;
+      font-size: var(--ff-font-md);
       font-weight: 600;
       cursor: pointer;
       border: none;
@@ -105,7 +105,7 @@ export class BackupScreen extends LitElement {
     }
 
     .encryption-toggle label {
-      font-size: 12px;
+      font-size: var(--ff-font-md);
       color: var(--input-text);
       cursor: pointer;
     }
@@ -118,7 +118,7 @@ export class BackupScreen extends LitElement {
     }
 
     .password-field label {
-      font-size: 12px;
+      font-size: var(--ff-font-md);
       color: var(--text-tertiary);
     }
 
@@ -129,7 +129,7 @@ export class BackupScreen extends LitElement {
       padding: 6px 10px;
       border-radius: 3px;
       font-family: inherit;
-      font-size: 12px;
+      font-size: var(--ff-font-md);
       width: 100%;
       max-width: 280px;
       box-sizing: border-box;
@@ -141,20 +141,20 @@ export class BackupScreen extends LitElement {
     }
 
     .last-backup {
-      font-size: 12px;
+      font-size: var(--ff-font-md);
       color: var(--text-tertiary);
       margin-top: 12px;
     }
 
     .error {
       color: var(--danger-color);
-      font-size: 12px;
+      font-size: var(--ff-font-md);
       margin-top: 8px;
     }
 
     .success {
       color: #4ec9b0;
-      font-size: 12px;
+      font-size: var(--ff-font-md);
       margin-top: 8px;
     }
   `;

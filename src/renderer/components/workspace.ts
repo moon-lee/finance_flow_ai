@@ -46,7 +46,7 @@ export class WorkspacePanel extends LitElement {
       align-items: center;
       justify-content: center;
       color: var(--text-tertiary);
-      font-size: 13px;
+      font-size: var(--ff-font-md);
     }
   `;
 
@@ -451,8 +451,8 @@ export class WorkspacePanel extends LitElement {
         ${this._activePanelId && this._unmountedPanelIds.has(this._activePanelId) ? html`
           <div class="empty-state" @click="${() => this._restorePanel(this._activePanelId)}">
             <div>
-              <div style="font-size: 16px; margin-bottom: 8px;">Panel asleep</div>
-              <div style="color: var(--text-tertiary); font-size: 12px;">Click to restore</div>
+              <div style="font-size: var(--ff-font-lg); margin-bottom: 8px;">Panel asleep</div>
+              <div style="color: var(--text-tertiary); font-size: var(--ff-font-sm);">Click to restore</div>
             </div>
           </div>
         ` : ''}

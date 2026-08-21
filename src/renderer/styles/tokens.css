@@ -19,7 +19,7 @@
   --sidebar-bg: #252526;
 
   /* Typography */
-  --text-primary: #f8fafc;
+  --text-primary: #f8fafc;                                                    
   --text-secondary: #94a3b8;
   --text-tertiary: #858585;
 
@@ -90,6 +90,16 @@
 
   /* Workspace header */
   --workspace-header-border: #3c3c3c;
+
+  /* Typography scale */
+  --ff-font-xs: 11px;
+  --ff-font-sm: 12px;
+  --ff-font-md: 13px;
+  --ff-font-base: 14px;
+  --ff-font-lg: 15px;
+  --ff-font-xl: 17px;
+  --ff-font-2xl: 19px;
+  --ff-font-3xl: 21px;
 }
 
 body.light-theme {
@@ -160,4 +170,14 @@ body.light-theme {
 
   /* Workspace header */
   --workspace-header-border: #e2e8f0;
+
+  /* Typography scale */
+  --ff-font-xs: 11px;
+  --ff-font-sm: 12px;
+  --ff-font-md: 13px;
+  --ff-font-base: 14px;
+  --ff-font-lg: 15px;
+  --ff-font-xl: 17px;
+  --ff-font-2xl: 19px;
+  --ff-font-3xl: 21px;
 }

@@ -22,7 +22,7 @@ export class NavigationPanel extends LitElement {
 
     .nav-header {
       padding: 4px 16px 8px;
-      font-size: 13px;
+      font-size: var(--ff-font-md);
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.8px;
@@ -31,7 +31,7 @@ export class NavigationPanel extends LitElement {
 
     .nav-group-label {
       color: var(--text-tertiary);
-      font-size: 13px;
+      font-size: var(--ff-font-md);
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.8px;
@@ -45,7 +45,7 @@ export class NavigationPanel extends LitElement {
       padding: 6px 16px;
       color: var(--text-primary);
       cursor: pointer;
-      font-size: 13px;
+      font-size: var(--ff-font-md );
       border-left: 3px solid transparent;
       margin-bottom: 4px;
     }
@@ -68,7 +68,7 @@ export class NavigationPanel extends LitElement {
       justify-content: center;
       background: var(--btn-secondary-bg);
       border-radius: 3px;
-      font-size: 12px;
+      font-size: var(--ff-font-md);
       font-weight: 700;
       color: var(--tab-icon-inactive-text);
       flex-shrink: 0;

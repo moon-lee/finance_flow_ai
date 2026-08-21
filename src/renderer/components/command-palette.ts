@@ -32,7 +32,7 @@ export class CommandPalette extends LitElement {
       border-bottom: 1px solid var(--panel-border);
       background: transparent;
       color: var(--text-primary);
-      font-size: 13px;
+      font-size: var(--ff-font-md);
     }
 
     input:focus {
@@ -47,7 +47,7 @@ export class CommandPalette extends LitElement {
 
     .palette-item {
       padding: 8px 12px;
-      font-size: 13px;
+      font-size: var(--ff-font-md);
       border-radius: 6px;
       cursor: pointer;
       transition: background 0.15s ease;
@@ -80,7 +80,7 @@ export class CommandPalette extends LitElement {
 
     .keybinding kbd {
       font-family: 'SF Mono', Consolas, monospace;
-      font-size: 11px;
+      font-size: var(--ff-font-xs);
       line-height: 1;
       padding: 2px 5px;
       border-radius: 4px;
@@ -98,7 +98,7 @@ export class CommandPalette extends LitElement {
     .group-label {
       padding: 6px 12px 2px;
       color: var(--text-secondary);
-      font-size: 11px;
+      font-size: var(--ff-font-xs);
       text-transform: uppercase;
       letter-spacing: 0.05em;
     }
@@ -106,7 +106,7 @@ export class CommandPalette extends LitElement {
     .empty-hint {
       padding: 12px;
       color: var(--text-secondary);
-      font-size: 13px;
+      font-size: var(--ff-font-md);
       text-align: center;
     }
   `;

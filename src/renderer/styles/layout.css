@@ -18,7 +18,7 @@ body {
 
 body {
   font-family: "SF Mono", Consolas, monospace;
-  font-size: 15px;
+  font-size: var(--ff-font-lg);
   background: var(--workspace-bg);
   color: var(--text-secondary);
   overflow: hidden;
@@ -104,7 +104,7 @@ body {
   gap: 8px;
   background: var(--activity-bar-bg);
   color: var(--status-bar-text);
-  font-size: 13px;
+  font-size: var(--ff-font-md);
 }
 
 #command-palette {

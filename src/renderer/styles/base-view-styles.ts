@@ -10,7 +10,7 @@ export const baseViewStyles = css`
     font-family: "SF Mono", Consolas, monospace;
     background: var(--workspace-bg);
     color: var(--text-secondary);
-    font-size: 15px;
+    font-size: var(--ff-font-base);
     line-height: 1.5;
     padding: 24px;
     box-sizing: border-box;
@@ -25,7 +25,7 @@ export const baseViewStyles = css`
   }
 
   .header h1 {
-      font-size: 21px;
+      font-size: var(--ff-font-2xl);
     font-weight: 600;
     color: var(--text-primary);
     margin: 0;
@@ -37,7 +37,7 @@ export const baseViewStyles = css`
     border: none;
     padding: 8px 16px;
     border-radius: 3px;
-      font-size: 12px;
+      font-size: var(--ff-font-sm);
     cursor: pointer;
     font-family: inherit;
   }
@@ -80,21 +80,21 @@ export const baseViewStyles = css`
   }
 
   .empty-state h3 {
-      font-size: 17px;
+      font-size: var(--ff-font-lg);
     font-weight: 600;
     color: var(--text-secondary);
     margin: 0;
   }
 
   .empty-state p {
-    font-size: 14px;
+      font-size: var(--ff-font-base);
     margin: 0;
     max-width: 360px;
   }
 
   .error {
     color: var(--danger-color);
-    font-size: 14px;
+      font-size: var(--ff-font-base);
     margin-top: 8px;
   }
 `;

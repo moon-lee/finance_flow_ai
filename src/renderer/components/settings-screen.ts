@@ -107,7 +107,7 @@ export class SettingsScreen extends LitElement {
     }
 
     .settings-header h1 {
-      font-size: 21px;
+      font-size: var(--ff-font-2xl);
       font-weight: 600;
       color: var(--text-primary);
       margin: 0 0 4px;
@@ -115,7 +115,7 @@ export class SettingsScreen extends LitElement {
 
     .settings-header .subtitle {
       color: var(--text-tertiary);
-      font-size: 12px;
+      font-size: var(--ff-font-md);
       margin: 0;
     }
 
@@ -132,7 +132,7 @@ export class SettingsScreen extends LitElement {
       border-radius: 3px;
       background: var(--input-bg);
       color: var(--input-text);
-      font-size: 12px;
+      font-size: var(--ff-font-md);
       font-family: inherit;
       outline: none;
       box-sizing: border-box;
@@ -154,7 +154,7 @@ export class SettingsScreen extends LitElement {
       transform: translateY(-50%);
       color: var(--text-tertiary);
       pointer-events: none;
-      font-size: 12px;
+      font-size: var(--ff-font-md);
     }
 
     .settings-section {
@@ -169,7 +169,7 @@ export class SettingsScreen extends LitElement {
       padding: 12px 16px;
       background: var(--tab-bg);
       border-bottom: 1px solid var(--input-border);
-      font-size: 12px;
+      font-size: var(--ff-font-md);
       font-weight: 600;
       color: var(--section-header-text);
       cursor: pointer;
@@ -184,7 +184,7 @@ export class SettingsScreen extends LitElement {
     }
 
     .badge {
-      font-size: 12px;
+      font-size: var(--ff-font-md);
       padding: 2px 8px;
       border-radius: 3px;
       background: var(--btn-secondary-bg);
@@ -228,18 +228,18 @@ export class SettingsScreen extends LitElement {
 
     .setting-key {
       font-family: "SF Mono", Consolas, monospace;
-      font-size: 12px;
+      font-size: var(--ff-font-md);
       color: #4ec9b0;
       margin-bottom: 2px;
     }
 
     .setting-desc {
-      font-size: 12px;
+      font-size: var(--ff-font-md);
       color: var(--text-tertiary);
     }
 
     .setting-default {
-      font-size: 12px;
+      font-size: var(--ff-font-md);
       color: var(--text-tertiary);
       margin-top: 4px;
     }
@@ -248,7 +248,7 @@ export class SettingsScreen extends LitElement {
       background: var(--code-bg);
       padding: 1px 4px;
       border-radius: 2px;
-      font-size: 12px;
+      font-size: var(--ff-font-md);
     }
 
     .setting-control {
@@ -267,7 +267,7 @@ export class SettingsScreen extends LitElement {
       padding: 6px 10px;
       border-radius: 3px;
       font-family: inherit;
-      font-size: 12px;
+      font-size: var(--ff-font-md);
       box-sizing: border-box;
     }
 
@@ -281,7 +281,7 @@ export class SettingsScreen extends LitElement {
     .setting-control textarea {
       min-height: 80px;
       font-family: "SF Mono", Consolas, monospace;
-      font-size: 12px;
+      font-size: var(--ff-font-md);
       resize: vertical;
     }
 
@@ -298,7 +298,7 @@ export class SettingsScreen extends LitElement {
     }
 
     .toggle-label {
-      font-size: 12px;
+      font-size: var(--ff-font-md);
       color: var(--text-tertiary);
     }
 
@@ -308,7 +308,7 @@ export class SettingsScreen extends LitElement {
       border: 1px solid var(--btn-secondary-border);
       padding: 6px 12px;
       border-radius: 3px;
-      font-size: 12px;
+      font-size: var(--ff-font-md);
       cursor: pointer;
       font-family: inherit;
     }
@@ -318,7 +318,7 @@ export class SettingsScreen extends LitElement {
     }
 
     .setting-helper {
-      font-size: 12px;
+      font-size: var(--ff-font-md);
       color: var(--text-tertiary);
       margin-top: 4px;
       font-family: "SF Mono", Consolas, monospace;
