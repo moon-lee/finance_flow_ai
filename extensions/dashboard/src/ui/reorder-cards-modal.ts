@@ -13,6 +13,7 @@
 import { LitElement, css, html } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { CANONICAL_CARD_ORDER, type CardId } from '../orchestrator.js';
+import { sharedStyles } from '../styles/shared-styles.js';
 
 const CARD_LABELS: Record<string, string> = {
   'net-worth': 'Net Worth',
@@ -23,85 +24,46 @@ const CARD_LABELS: Record<string, string> = {
 
 @customElement('reorder-cards-modal')
 export class ReorderCardsModal extends LitElement {
-  static styles = css`
-    .backdrop {
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.6);
-      display: grid;
-      place-items: center;
-      z-index: 50;
-    }
-    .modal {
-      background: var(--ff-bg-panel, #252526);
-      border: 1px solid var(--ff-border, #3e3e3e);
-      border-radius: 8px;
-      padding: 20px;
-      width: 320px;
-      color: var(--ff-text, #d4d4d4);
-      font: 15px/1.5 system-ui, sans-serif;
-    }
-    h2 {
-      margin: 0 0 12px;
-      font-size: 16px;
-    }
-    .item {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      padding: 6px 10px;
-      border: 1px solid var(--ff-bg-input, #3c3c3c);
-      border-left: 4px solid var(--ff-bg-input, #3c3c3c);
-      border-radius: 4px;
-      margin-bottom: 6px;
-      background: var(--ff-bg-base, #1e1e1e);
-    }
-    .item.first {
-      border-left-color: var(--ff-teal, #4ec9b0);
-    }
-    .item.last {
-      border-left-color: #c586c0;
-    }
-    .item .label {
-      flex: 1;
-    }
-    button {
-      padding: 3px 9px;
-      border: 0;
-      border-radius: 4px;
-      cursor: pointer;
-      font: inherit;
-    }
-    button:disabled {
-      opacity: 0.35;
-      cursor: default;
-    }
-    .up {
-      background: var(--ff-accent, #007acc);
-      color: var(--ff-text-strong, #fff);
-    }
-    .down {
-      background: #6da3d6;
-      color: var(--ff-text-strong, #fff);
-    }
-    .actions {
-      display: flex;
-      gap: 8px;
-      justify-content: flex-end;
-      margin-top: 12px;
-    }
-    .ghost {
-      background: transparent;
-      color: var(--ff-text, #d4d4d4);
-      border: 1px solid var(--ff-border, #3e3e3e);
-    }
-    .primary {
-      background: var(--ff-accent, #0e639c);
-      color: var(--ff-text-strong, #ffffff);
-      border: none;
-    }
-  `;
+  static styles = [
+    sharedStyles,
+    css`
+      .modal {
+        width: 320px;
+      }
+      h2 {
+        margin: 0 0 12px;
+        font-size: var(--ff-font-lg);
+      }
+      .item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 6px 10px;
+        border: 1px solid var(--ff-bg-input, #3c3c3c);
+        border-left: 4px solid var(--ff-bg-input, #3c3c3c);
+        border-radius: 4px;
+        margin-bottom: 6px;
+      }
+      .item.first {
+        border-left-color: var(--ff-teal, #4ec9b0);
+      }
+      .item.last {
+        border-left-color: #c586c0;
+      }
+      .item .label {
+        flex: 1;
+      }
+      .up {
+        background: var(--ff-accent, #007acc);
+        color: var(--ff-text-strong, #fff);
+      }
+      .down {
+        background: var(--ff-accent-hover, #6da3d6);
+        color: var(--ff-text-strong, #fff);
+      }
+    `,
+  ];
 
   @property({ type: Array })
   cardOrder: CardId[] = [...CANONICAL_CARD_ORDER];

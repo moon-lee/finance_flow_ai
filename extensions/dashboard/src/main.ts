@@ -16,6 +16,7 @@
  */
 
 import type { FinanceApi } from 'finance';
+import './styles/ext-tokens.css';
 import { buildAggregator, type DashboardData, type DashboardSettings } from './services/aggregator-service.js';
 import { DashboardOrchestrator, CANONICAL_CARD_ORDER } from './orchestrator.js';
 

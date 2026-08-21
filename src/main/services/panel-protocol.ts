@@ -33,6 +33,7 @@
 import { protocol } from 'electron';
 import { join } from 'node:path';
 import { readFile } from 'node:fs/promises';
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
@@ -177,6 +178,10 @@ async function serveExtensionBundle(path: string): Promise<Response> {
  * `scripts/rename-extension-bundles.mjs` to match the manifest id. It contains
  * the `:root` custom property definitions (design tokens) so the panel can
  * inject it before the JS bundle loads.
+ *
+ * Because multiple extensions may share the same token definitions, the
+ * request falls back to the root-package-named CSS file when a per-extension
+ * stylesheet does not exist.
  */
 async function serveExtensionCss(path: string): Promise<Response> {
   if (path.endsWith('/') || path.includes('/')) {
@@ -195,6 +200,21 @@ async function serveExtensionCss(path: string): Promise<Response> {
       }
     });
   } catch {
-    return new Response('Extension stylesheet not found', { status: 404 });
+    // Fallback: serve the shared root-package CSS file when the per-extension
+    // stylesheet has not been renamed (multi-extension token sharing).
+    const rootPkgName = JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf8')).name;
+    const fallbackPath = join(DIST_EXTENSIONS_DIR, `${rootPkgName}.css`);
+    try {
+      const data = await readFile(fallbackPath);
+      return new Response(data, {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/css; charset=utf-8',
+          'Cache-Control': 'no-cache'
+        }
+      });
+    } catch {
+      return new Response('Extension stylesheet not found', { status: 404 });
+    }
   }
 }

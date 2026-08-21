@@ -13,6 +13,7 @@
 
 import { LitElement, html, css } from 'lit';
 import { property } from 'lit/decorators.js';
+import { sharedStyles } from '../styles/shared-styles.js';
 import type { DashboardData } from '../services/aggregator-service.js';
 
 export class DashboardView extends LitElement {
@@ -43,130 +44,90 @@ export class DashboardView extends LitElement {
     this.parentElement?.removeEventListener('mount-update', this._boundMountUpdate);
   }
 
-  static styles = css`
-    :host {
-      display: block;
-      box-sizing: border-box;
-      font: 16px/1.5 system-ui, sans-serif;
-      background: var(--ff-bg-base, #1e1e1e);
-      color: var(--ff-text, #d4d4d4);
-    }
-    .subtitle { 
-      color: var(--ff-text-muted, #858585); 
-      font: 15px/1.5 system-ui, sans-serif;
-    }
-    .topbar {
-      background: var(--ff-bg-panel, #252526);
-      border-bottom: 1px solid var(--ff-border, #3e3e3e);
-      padding: 10px 20px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-    .topbar .crumb-current {
-      color: var(--ff-text, #d4d4d4);
-      font-weight: 500;
-    }
-    .topbar .spacer {
-      flex: 1;
-    }
-    .topbar .reorder-btn {
-      background: var(--ff-bg-input, #3c3c3c);
-      color: var(--ff-text, #d4d4d4);
-      border: 1px solid var(--ff-border, #3e3e3e);
-      padding: 5px 12px;
-      border-radius: 3px;
-      cursor: pointer;
-    }
-    .topbar .reorder-btn:hover {
-      border-color: var(--ff-accent, #007acc);
-    }
-    .reorder-btn {
-      background: transparent;
-      color: var(--ff-text-muted, #858585);
-      border: 1px solid var(--ff-border, #3e3e3e);
-      padding: 4px 10px;
-      border-radius: 3px;
-      font-size: 12px;
-      cursor: pointer;
-      font-family: inherit;
-    }
-    .grid {
-      display: grid;
-      padding: 24px 20px 20px 20px;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 16px;
-    }
-    .card {
-      background: var(--ff-bg-panel, #252526);
-      border: 1px solid var(--ff-border, #3e3e3e);
-      border-radius: 6px;
-      padding: 16px;
-    }
-    .card-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: baseline;
-      margin-bottom: 12px;
-    }
-    .card-title {
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--ff-text-muted, #858585);
-      text-transform: uppercase;
-      letter-spacing: 0.3px;
-    }
-    .card-badge {
-      font-size: 12px;
-      padding: 2px 8px;
-      border-radius: 3px;
-      background: var(--ff-teal, #4ec9b0);
-      color: var(--ff-bg-base, #1e1e1e);
-      font-weight: 600;
-    }
-    .card-badge.warn {
-      background: #cca700;
-      color: var(--ff-bg-base, #1e1e1e);
-    }
-    .card-badge.placeholder {
-      background: var(--ff-bg-input, #3c3c3c);
-      color: var(--ff-text-muted, #858585);
-    }
-    .card-value {
-      font-family: "SF Mono", Consolas, monospace;
-      font-size: 23px;
-      font-weight: 600;
-      color: var(--ff-text-strong, #ffffff);
-      margin-bottom: 4px;
-    }
-    .card-sub {
-      font-size: 12px;
-      color: var(--ff-text-muted, #858585);
-    }
-    .card-detail {
-      font-size: 12px;
-      color: var(--ff-text-muted, #858585);
-      margin-top: 8px;
-      padding-top: 8px;
-      border-top: 1px solid var(--ff-border, #3e3e3e);
-    }
-    .placeholder {
-      color: var(--ff-text-muted, #858585);
-      font-size: 13px;
-    }
-    .placeholder a {
-      color: var(--ff-accent, #007acc);
-      cursor: pointer;
-    }
-    .missing {
-      color: var(--ff-text-muted, #858585);
-      font-size: 13px;
-      font-style: italic;
-    }
-    @media (max-width: 640px) {
-      .grid { grid-template-columns: 1fr; }
-    }
-  `;
+  static styles = [
+    sharedStyles,
+    css`
+      .subtitle {
+        color: var(--ff-text-muted, #858585);
+        font-size: var(--ff-font-base);
+      }
+      .grid {
+        display: grid;
+        padding: 24px 20px 20px 20px;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 16px;
+      }
+      .card {
+        background: var(--ff-bg-panel, #252526);
+        border: 1px solid var(--ff-border, #3e3e3e);
+        border-radius: 6px;
+        padding: 16px;
+      }
+      .card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        margin-bottom: 12px;
+      }
+      .card-title {
+        font-size: var(--ff-font-sm);
+        font-weight: 700;
+        color: var(--ff-text-muted, #858585);
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+      }
+      .card-badge {
+        font-size: var(--ff-font-sm);
+        padding: 2px 8px;
+        border-radius: 3px;
+        background: var(--ff-teal, #4ec9b0);
+        color: var(--ff-bg-base, #1e1e1e);
+        font-weight: 600;
+      }
+      .card-badge.warn {
+        background: #cca700;
+        color: var(--ff-bg-base, #1e1e1e);
+      }
+      .card-badge.placeholder {
+        background: var(--ff-bg-input, #3c3c3c);
+        color: var(--ff-text-muted, #858585);
+      }
+      .card-value {
+        font-family: "SF Mono", Consolas, monospace;
+        font-size: 23px;
+        font-weight: 600;
+        color: var(--ff-text-strong, #ffffff);
+        margin-bottom: 4px;
+      }
+      .card-sub {
+        font-size: var(--ff-font-sm);
+        color: var(--ff-text-muted, #858585);
+      }
+      .card-detail {
+        font-size: var(--ff-font-sm);
+        color: var(--ff-text-muted, #858585);
+        margin-top: 8px;
+        padding-top: 8px;
+        border-top: 1px solid var(--ff-border, #3e3e3e);
+      }
+      .placeholder {
+        color: var(--ff-text-muted, #858585);
+        font-size: var(--ff-font-base);
+      }
+      .placeholder a {
+        color: var(--ff-accent, #007acc);
+        cursor: pointer;
+      }
+      .missing {
+        color: var(--ff-text-muted, #858585);
+        font-size: var(--ff-font-base);
+        font-style: italic;
+      }
+      @media (max-width: 640px) {
+        .grid { grid-template-columns: 1fr; }
+      }
+    `,
+  ];
 
   @property({ type: String })
   referenceDate = '';
