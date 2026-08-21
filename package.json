@@ -26,7 +26,8 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test:e2e": "playwright test --config playwright.electron.config.ts",
-    "package:local": "npm run build && electron-builder --win dir",
+    "package:local": "npm run build && electron-builder --win dir && npm run deploy:local",
+    "deploy:local": "node scripts/deploy-local.mjs",
     "rebuild": "electron-rebuild --force",
     "test:unit:watch": "vitest",
     "postinstall": "electron-rebuild --force"
@@ -72,6 +73,10 @@
       "!**/*.map"
     ],
     "extraResources": [
+      {
+        "from": "dist/extensions",
+        "to": "dist/extensions"
+      },
       {
         "from": "extensions",
         "to": "extensions",

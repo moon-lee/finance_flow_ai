@@ -11,7 +11,7 @@
  * file named `main.js` to rename).
  */
 
-import { readdirSync, readFileSync, renameSync, existsSync, mkdirSync, statSync } from 'node:fs';
+import { readdirSync, readFileSync, renameSync, copyFileSync, existsSync, mkdirSync, statSync } from 'node:fs';
 import { join, basename, extname } from 'node:path';
 import process from 'node:process';
 
@@ -169,36 +169,18 @@ function renameInDir() {
     }
   }
 
-  // Rename CSS files emitted by Vite using the package `name` rather than
-  // the entry stem. Vite concatenates all CSS imported by the entry and
-  // names the output after the root package name, so we map that back to
-  // the extension id here.
-  for (const file of allFiles) {
-    if (claimed.has(file)) continue;
-    if (!file.endsWith('.css')) continue;
-    const stem = basename(file, extname(file));
-    // Direct match: package name → extension id.
-    const targetId = pkgNameToId.get(stem);
-    if (targetId) {
-      const targetName = `${targetId}.css`;
-      if (file !== targetName) {
-        renameSync(join(OUT_DIR, file), join(OUT_DIR, targetName));
-        console.log(`[rename] ${file} -> ${targetName}`);
+  // Copy the shared root-package CSS file to each extension that imports
+  // CSS. Vite emits one CSS file named after the root package; because
+  // multiple extensions may share the same token definitions, we copy it
+  // rather than rename it.
+  const cssSource = join(OUT_DIR, `${rootPkgName}.css`);
+  if (existsSync(cssSource)) {
+    for (const id of cssImportingIds) {
+      const target = join(OUT_DIR, `${id}.css`);
+      if (!existsSync(target)) {
+        copyFileSync(cssSource, target);
+        console.log(`[css-copy] ${rootPkgName}.css -> ${id}.css`);
         renamed++;
-        claimed.add(targetName);
-      }
-      continue;
-    }
-    // Fallback: if only one extension imports CSS, assign the root-package-
-    // named CSS file to that extension.
-    if (stem === rootPkgName && cssImportingIds.size === 1) {
-      const targetId = [...cssImportingIds][0];
-      const targetName = `${targetId}.css`;
-      if (file !== targetName) {
-        renameSync(join(OUT_DIR, file), join(OUT_DIR, targetName));
-        console.log(`[rename] ${file} -> ${targetName}`);
-        renamed++;
-        claimed.add(targetName);
       }
     }
   }

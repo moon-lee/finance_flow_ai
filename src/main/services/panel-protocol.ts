@@ -33,11 +33,13 @@
 import { protocol } from 'electron';
 import { join } from 'node:path';
 import { readFile } from 'node:fs/promises';
-import { readFileSync } from 'node:fs';
+import {  existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
-const DIST_EXTENSIONS_DIR = join(__dirname, '..', 'extensions');
+const DEV_EXTENSIONS_DIR = join(__dirname, '..', 'extensions');
+const PROD_EXTENSIONS_DIR = join(process.resourcesPath, 'dist', 'extensions');
+const DIST_EXTENSIONS_DIR = existsSync(PROD_EXTENSIONS_DIR) ? PROD_EXTENSIONS_DIR : DEV_EXTENSIONS_DIR;
 const PANEL_TEMPLATE_PATH = join(__dirname, '..', 'resources', 'panel-template.html');
 const PANEL_BOOTSTRAP_PATH = join(__dirname, '..', 'resources', 'panel-bootstrap.js');
 
@@ -200,21 +202,6 @@ async function serveExtensionCss(path: string): Promise<Response> {
       }
     });
   } catch {
-    // Fallback: serve the shared root-package CSS file when the per-extension
-    // stylesheet has not been renamed (multi-extension token sharing).
-    const rootPkgName = JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf8')).name;
-    const fallbackPath = join(DIST_EXTENSIONS_DIR, `${rootPkgName}.css`);
-    try {
-      const data = await readFile(fallbackPath);
-      return new Response(data, {
-        status: 200,
-        headers: {
-          'Content-Type': 'text/css; charset=utf-8',
-          'Cache-Control': 'no-cache'
-        }
-      });
-    } catch {
-      return new Response('Extension stylesheet not found', { status: 404 });
-    }
+    return new Response('Extension stylesheet not found', { status: 404 });
   }
 }
