@@ -14,6 +14,7 @@
  */
 
 import type { FinanceApi, DomainServiceImpl } from 'finance';
+import './styles/ext-tokens.css';
 import { createPublicPayAdapter } from './services/public-pay-adapter.js';
 import { Orchestrator } from './orchestrator.js';
 

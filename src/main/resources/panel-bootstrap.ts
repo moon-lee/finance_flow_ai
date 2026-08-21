@@ -219,8 +219,15 @@ async function mountPanelComponent(payload: PanelPayload): Promise<void> {
   });
 
   const bundleUrl = `finance-shell://extensions/${extensionId}.js`;
+  const cssUrl = `finance-shell://extensions/${extensionId}.css`;
 
   try {
+    const cssLink = document.createElement('link');
+    cssLink.rel = 'stylesheet';
+    cssLink.href = cssUrl;
+    document.head.appendChild(cssLink);
+    console.log('[panel bootstrap] injected CSS:', cssUrl);
+
     console.log('[panel bootstrap] importing bundle:', bundleUrl);
     const bundle = await import(bundleUrl);
     console.log('[panel bootstrap] bundle imported:', extensionId);

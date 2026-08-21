@@ -37,7 +37,7 @@ export class ReorderSectionsModal extends LitElement {
       }
       h2 {
         margin: 0 0 12px;
-        font-size: 16px;
+        font-size: var(--ff-font-lg);
       }
       .item {
         display: flex;
@@ -49,7 +49,6 @@ export class ReorderSectionsModal extends LitElement {
         border-left: 4px solid var(--ff-bg-input, #3c3c3c);
         border-radius: 4px;
         margin-bottom: 6px;
-        background: var(--ff-bg-base, #1e1e1e);
       }
       .item.first {
         border-left-color: var(--ff-teal, #4ec9b0);
@@ -122,10 +121,24 @@ export class ReorderSectionsModal extends LitElement {
     const isFirst = index === 0;
     const isLast = index === this._order.length - 1;
     return html`
-      <div class="item ${isFirst ? 'first' : ''} ${isLast ? 'last' : ''}" data-testid="section-item" data-id="${id}">
+      <div
+        class="item ${isFirst ? 'first' : ''} ${isLast ? 'last' : ''}"
+        data-testid="section-item"
+        data-id="${id}"
+      >
         <span class="label" data-testid="section-label">${SECTION_LABELS[id] ?? id}</span>
-        <button class="up" data-testid="up-${id}" ?disabled="${isFirst}" @click="${() => this._move(index, -1)}">▲</button>
-        <button class="down" data-testid="down-${id}" ?disabled="${isLast}" @click="${() => this._move(index, 1)}">▼</button>
+        <button
+          class="up"
+          data-testid="up-${id}"
+          ?disabled="${isFirst}"
+          @click="${() => this._move(index, -1)}"
+        >▲</button>
+        <button
+          class="down"
+          data-testid="down-${id}"
+          ?disabled="${isLast}"
+          @click="${() => this._move(index, 1)}"
+        >▼</button>
       </div>
     `;
   }
@@ -137,9 +150,21 @@ export class ReorderSectionsModal extends LitElement {
           <h2 data-testid="reorder-title">Reorder Sections</h2>
           ${this._order.map((id, i) => this._renderItem(id, i))}
           <div class="modal-actions">
-            <button class="ghost" data-testid="cancel" @click="${this._onCancel}">Cancel</button>
-            <button class="ghost" data-testid="reset" @click="${this._onReset}">Reset to default</button>
-            <button class="primary" data-testid="save" @click="${this._onSave}">Save</button>
+            <button
+              class="ghost"
+              data-testid="cancel"
+              @click="${this._onCancel}"
+            >Cancel</button>
+            <button
+              class="ghost"
+              data-testid="reset"
+              @click="${this._onReset}"
+            >Reset to default</button>
+            <button
+              class="primary"
+              data-testid="save"
+              @click="${this._onSave}"
+            >Save</button>
           </div>
         </div>
       </div>

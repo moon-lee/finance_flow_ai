@@ -78,8 +78,16 @@ export class RateRowForm extends LitElement {
   static styles = [
     sharedStyles,
     css`
-      .container { max-width: 960px; margin: 0 auto; padding: 24px 20px 40px; }
-      .subtitle { color: var(--ff-text-muted, #858585);       font-size: 13px; margin: 0 0 24px; }
+      .container {
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 24px 20px 40px;
+      }
+      .subtitle {
+        color: var(--ff-text-muted, #858585);
+        font-size: var(--ff-font-sm);
+        margin: 0 0 24px;
+      }
 
       .errors {
         background: var(--ff-danger-bg, #2e1b1b);
@@ -87,28 +95,95 @@ export class RateRowForm extends LitElement {
         border-radius: 4px;
         padding: 8px 12px;
         margin-bottom: 16px;
-        font-size: 13px;
+        font-size: var(--ff-font-sm);
         color: var(--ff-danger, #f48771);
       }
 
-      .btn-action { background: var(--ff-teal, #4ec9b0); color: var(--ff-bg-base, #1e1e1e); border: 1px solid var(--ff-teal, #4ec9b0); padding: 6px 14px; border-radius: 3px; font-size: 14px; cursor: pointer; font-weight: 600; }
-      .btn-action:hover { background: var(--ff-teal-hover, #6fdec0); }
-      .btn-action.muted { background: transparent; color: var(--ff-text-muted, #858585); border-color: var(--ff-border, #3e3e3e); }
-      .btn-action.muted:hover { background: var(--ff-bg-input, #3c3c3c); color: var(--ff-text, #d4d4d4); }
+      .btn-action {
+        background: var(--ff-teal, #4ec9b0);
+        color: var(--ff-bg-base, #1e1e1e);
+        border: 1px solid var(--ff-teal, #4ec9b0);
+        padding: 6px 14px;
+        border-radius: 3px;
+        font-size: var(--ff-font-base);
+        cursor: pointer;
+        font-weight: 600;
+      }
+      .btn-action:hover {
+        background: var(--ff-teal-hover, #6fdec0);
+      }
+      .btn-action.muted {
+        background: transparent;
+        color: var(--ff-text-muted, #858585);
+        border-color: var(--ff-border, #3e3e3e);
+      }
+      .btn-action.muted:hover {
+        background: var(--ff-bg-input, #3c3c3c);
+        color: var(--ff-text, #d4d4d4);
+      }
 
-      .btn-danger { background: var(--ff-danger-bg, #5a2a2a); color: var(--ff-danger, #f48771); border: 1px solid var(--ff-danger-bg, #5a2a2a); padding: 6px 14px; border-radius: 3px; font-size: 14px; cursor: pointer; font-weight: 600; }
-      .btn-danger:hover { background: var(--ff-danger-hover, #7a3636); }
+      .btn-danger {
+        background: var(--ff-danger-bg, #5a2a2a);
+        color: var(--ff-danger, #f48771);
+        border: 1px solid var(--ff-danger-bg, #5a2a2a);
+        padding: 6px 14px;
+        border-radius: 3px;
+        font-size: var(--ff-font-base);
+        cursor: pointer;
+        font-weight: 600;
+      }
+      .btn-danger:hover {
+        background: var(--ff-danger-hover, #7a3636);
+      }
 
-      .delete-confirm { background: var(--ff-bg-subpanel, #2a2a2a); border: 1px solid var(--ff-danger-border, #5a2a2a); border-radius: 6px; padding: 20px; margin-top: 8px; }
-      .delete-warning { color: var(--ff-danger, #f48771);       font-size: 14px; margin: 0 0 12px; }
-      .delete-summary { list-style: none; padding: 0; margin: 0 0 16px; }
-      .delete-summary li { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--ff-border, #3e3e3e);       font-size: 13px; color: var(--ff-text, #d4d4d4); }
-      .delete-summary li span { color: var(--ff-text-muted, #858585); }
-      .delete-summary code { color: var(--ff-teal, #4ec9b0); }
+      .delete-confirm {
+        background: var(--ff-bg-subpanel, #2a2a2a);
+        border: 1px solid var(--ff-danger-border, #5a2a2a);
+        border-radius: 6px;
+        padding: 20px;
+        margin-top: 8px;
+      }
+      .delete-warning {
+        color: var(--ff-danger, #f48771);
+        font-size: var(--ff-font-base);
+        margin: 0 0 12px;
+      }
+      .delete-summary {
+        list-style: none;
+        padding: 0;
+        margin: 0 0 16px;
+      }
+      .delete-summary li {
+        display: flex;
+        justify-content: space-between;
+        padding: 6px 0;
+        border-bottom: 1px solid var(--ff-border, #3e3e3e);
+        font-size: var(--ff-font-sm);
+        color: var(--ff-text, #d4d4d4);
+      }
+      .delete-summary li span {
+        color: var(--ff-text-muted, #858585);
+      }
+      .delete-summary code {
+        color: var(--ff-teal, #4ec9b0);
+      }
 
-      .info-note { font-size: 14px; color: var(--ff-text-muted, #858585); font-style: italic; margin-top: 8px; padding: 8px 12px; background: var(--ff-bg-base, #1e1e1e); border-radius: 3px; }
-      .info-note::before { content: 'ℹ '; color: var(--ff-teal, #4ec9b0); }
-      .info-note code { color: var(--ff-teal, #4ec9b0); }
+      .info-note {
+        font-size: var(--ff-font-base);
+        color: var(--ff-text-muted, #858585);
+        font-style: italic;
+        margin-top: 8px;
+        padding: 8px 12px;
+        background: var(--ff-bg-base, #1e1e1e);
+        border-radius: 3px;
+      }
+      .info-note::before {
+        content: 'ℹ ';
+        color: var(--ff-teal, #4ec9b0);
+      }
+      .info-note code {
+        color: var(--ff-teal, #4ec9b0);
+      }
     `,
   ];
 
@@ -228,8 +303,16 @@ export class RateRowForm extends LitElement {
           <span class="label-main">${key.replace(/_/g, ' ')}</span>
           ${sublabel ? html`<span class="label-sub">${sublabel}</span>` : ''}
         </label>
-        <input id="input-${key}" data-testid="input-${key}" type="number" step="any" min="0"
-          ?disabled="${disabled}" .value="${this._values.fields[key] ?? ''}" @input="${() => this._onField(f.key)}" />
+        <input
+          id="input-${key}"
+          data-testid="input-${key}"
+          type="number"
+          step="any"
+          min="0"
+          ?disabled="${disabled}"
+          .value="${this._values.fields[key] ?? ''}"
+          @input="${() => this._onField(f.key)}"
+        />
         ${err ? html`<div class="field-error">${err}</div>` : ''}
       </div>
     `;
@@ -305,7 +388,11 @@ export class RateRowForm extends LitElement {
     const r = this.rate;
     return html`
       <div class="topbar">
-        <span class="crumb-link" data-testid="back-link" @click="${this._onCancelDelete}">← Pay Rate History</span>
+        <span
+          class="crumb-link"
+          data-testid="back-link"
+          @click="${this._onCancelDelete}"
+        >← Pay Rate History</span>
         <span class="crumb-sep">/</span>
         <span class="crumb-current">Delete Rate</span>
       </div>
@@ -319,8 +406,18 @@ export class RateRowForm extends LitElement {
             <li><span>Base hourly</span><code>${r?.base_hourly_rate ?? ''}</code></li>
           </ul>
           <div class="footer">
-            <button class="btn btn-secondary" type="button" data-testid="rate-delete-cancel" @click="${this._onCancelDelete}">Cancel</button>
-            <button class="btn btn-danger" type="button" data-testid="rate-delete-confirm" @click="${this._onDelete}">Delete rate</button>
+            <button
+              class="btn btn-secondary"
+              type="button"
+              data-testid="rate-delete-cancel"
+              @click="${this._onCancelDelete}"
+            >Cancel</button>
+            <button
+              class="btn btn-danger"
+              type="button"
+              data-testid="rate-delete-confirm"
+              @click="${this._onDelete}"
+            >Delete rate</button>
           </div>
         </div>
       </div>
@@ -336,7 +433,11 @@ export class RateRowForm extends LitElement {
   private _renderForm(readOnly: boolean): unknown {
     return html`
       <div class="topbar">
-        <span class="crumb-link" data-testid="back-link" @click="${() => this._onCancel()}">← Pay Rate History</span>
+        <span
+          class="crumb-link"
+          data-testid="back-link"
+          @click="${() => this._onCancel()}"
+        >← Pay Rate History</span>
         <span class="crumb-sep">/</span>
         <span class="crumb-current">${readOnly ? 'View Rate' : this.rate ? 'Update Rate' : 'Add New Rate'}</span>
       </div>
@@ -367,13 +468,25 @@ export class RateRowForm extends LitElement {
             <div class="section-body grid-2">
               <div class="field ${this._isChanged('effective_from') ? 'field-changed' : ''}" data-testid="field-effective_from">
                 <label for="input-effective_from"><span class="label-main">Effective from</span><span class="label-sub">(date this rate becomes active)</span></label>
-                <input id="input-effective_from" data-testid="input-effective_from" type="date"
-                  ?disabled="${readOnly}" .value="${this._values.fields.effective_from ?? ''}" @input="${() => this._onField('effective_from')}" />
+                <input
+                  id="input-effective_from"
+                  data-testid="input-effective_from"
+                  type="date"
+                  ?disabled="${readOnly}"
+                  .value="${this._values.fields.effective_from ?? ''}"
+                  @input="${() => this._onField('effective_from')}"
+                />
               </div>
               <div class="field ${this._isChanged('effective_to') ? 'field-changed' : ''}" data-testid="field-effective_to">
                 <label for="input-effective_to"><span class="label-main">Effective to</span><span class="label-sub">(leave blank for current/open-ended)</span></label>
-                <input id="input-effective_to" data-testid="input-effective_to" type="date"
-                  ?disabled="${readOnly}" .value="${this._values.fields.effective_to ?? ''}" @input="${() => this._onField('effective_to')}" />
+                <input
+                  id="input-effective_to"
+                  data-testid="input-effective_to"
+                  type="date"
+                  ?disabled="${readOnly}"
+                  .value="${this._values.fields.effective_to ?? ''}"
+                  @input="${() => this._onField('effective_to')}"
+                />
               </div>
             </div>
           </section>
@@ -395,8 +508,14 @@ export class RateRowForm extends LitElement {
             <div class="section-body">
               <div class="field textarea" data-testid="field-notes">
                 <label for="input-notes"><span class="label-main">Notes</span><span class="label-sub">notes</span></label>
-                <textarea id="input-notes" data-testid="input-notes" rows="3"
-                  ?disabled="${readOnly}" .value="${this._values.fields.notes ?? ''}" @input="${this._onNotes}"></textarea>
+                <textarea
+                  id="input-notes"
+                  data-testid="input-notes"
+                  rows="3"
+                  ?disabled="${readOnly}"
+                  .value="${this._values.fields.notes ?? ''}"
+                  @input="${this._onNotes}"
+                ></textarea>
               </div>
             </div>
           </section>
@@ -404,10 +523,24 @@ export class RateRowForm extends LitElement {
           <div class="footer">
             ${readOnly
               ? html`
-                <button class="btn btn-secondary" type="button" data-testid="rate-cancel" @click="${this._onCancel}">Back</button>`
+                <button
+                  class="btn btn-secondary"
+                  type="button"
+                  data-testid="rate-cancel"
+                  @click="${this._onCancel}"
+                >Back</button>`
               : html`
-                <button class="btn btn-secondary" type="button" data-testid="rate-cancel" @click="${this._onCancel}">Cancel</button>
-                <button class="btn btn-primary" type="submit" data-testid="rate-submit">${this.rate ? 'Update Rate' : 'Save rate'}</button>`}
+                <button
+                  class="btn btn-secondary"
+                  type="button"
+                  data-testid="rate-cancel"
+                  @click="${this._onCancel}"
+                >Cancel</button>
+                <button
+                  class="btn btn-primary"
+                  type="submit"
+                  data-testid="rate-submit"
+                >${this.rate ? 'Update Rate' : 'Save rate'}</button>`}
           </div>
         </form>
         <p class="info-note">Validated by <code>PayRateService.validateRateRow</code>: <code>effective_from &lt; effective_to</code> if both set; all rates ≥ 0; <code>SG ≤ 1</code>. Saving a new rate calls <code>PayRateService.addNewRate</code> in a single SQLite transaction (atomic close + insert).</p>

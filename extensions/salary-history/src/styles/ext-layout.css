@@ -1,6 +1,6 @@
 /* ============================================================
    Layout — structural styles for the salary-history extension.
-   Depends on design tokens from token.css.
+   Depends on design tokens from ext-salary-tokens.css.
    ============================================================ */
 
 * {
@@ -11,7 +11,7 @@
   display: block;
   background: var(--ff-bg-base, #1e1e1e);
   color: var(--ff-text, #d4d4d4);
-  font-size: 16px;
+  font-size: var(--ff-font-lg);
   line-height: 1.5;
   font-family: "SF Mono", Consolas, monospace;
 }
@@ -63,7 +63,7 @@
 }
 .topbar .crumb-link {
   color: var(--ff-accent, #007acc);
-  font-size: 14px;
+  font-size: var(--ff-font-base);
   text-decoration: none;
   cursor: pointer;
 }
@@ -77,23 +77,23 @@
   border: 1px solid var(--ff-border, #3e3e3e);
   padding: 5px 12px;
   border-radius: 3px;
-  font-size: 14px;
+  font-size: var(--ff-font-base);
   cursor: pointer;
 }
 .topbar .filter-btn:hover { border-color: var(--ff-accent, #007acc); }
 .topbar a.filter-btn { color: var(--ff-text, #d4d4d4); text-decoration: none; }
 
 h1 {
-  font-size: 19px;
+  font-size: var(--ff-font-xl);
   font-weight: 600;
   color: var(--ff-text-strong, #fff);
   margin: 0 0 4px;
 }
 
 .btn {
-  padding: 8px 20px;
+  padding: 4px 20px;
   border-radius: 3px;
-  font-size: 14px;
+  font-size: var(--ff-font-base);
   cursor: pointer;
   border: 1px solid transparent;
 }
@@ -128,7 +128,7 @@ h1 {
 }
 .section-title, h3 {
   margin: 0;
-  font-size: 12px;
+  font-size: var(--ff-font-sm);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -137,7 +137,7 @@ h1 {
 .section-badge {
   background: var(--ff-border, #3e3e3e);
   color: var(--ff-text-muted, #858585);
-  font-size: 11px;
+  font-size: var(--ff-font-sm);
   font-weight: 600;
   padding: 2px 6px;
   border-radius: 2px;
@@ -151,14 +151,14 @@ h1 {
 .field { display: flex; flex-direction: column; gap: 4px; }
 .field-full, .field.textarea { grid-column: 1 / -1; }
 .field label {
-  font-size: 12px;
+  font-size: var(--ff-font-sm);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.3px;
   color: var(--ff-text-muted, #858585);
 }
 .field .label-sub {
-  font-size: 11px;
+  font-size: var(--ff-font-sm);
   color: var(--ff-text-muted, #858585);
   text-transform: none;
   letter-spacing: 0;
@@ -170,7 +170,7 @@ h1 {
   border: 1px solid var(--ff-border, #3e3e3e);
   border-radius: 3px;
   padding: 6px 10px;
-  font-size: 14px;
+  font-size: var(--ff-font-base);
   outline: none;
 }
 .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--ff-accent, #007acc); }
@@ -178,9 +178,9 @@ h1 {
 .field textarea { resize: vertical; min-height: 60px; }
 .field-changed input { border-color: var(--ff-warning-text, #cca700); background: var(--ff-warning-bg, #3a2e0a); }
 .field-changed .label-sub { color: var(--ff-warning-text, #ffd866); }
-.field-error { font-size: 12px; color: var(--ff-danger, #f48771); margin-top: 2px; }
+.field-error { font-size: var(--ff-font-sm); color: var(--ff-danger, #f48771); margin-top: 2px; }
 .inline-field { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 6px 0; }
-.inline-field label {color: var(--ff-text, #d4d4d4); font-size: 14px; white-space: nowrap; }
+.inline-field label {color: var(--ff-text, #d4d4d4); font-size: var(--ff-font-base); white-space: nowrap; }
 .inline-field-input {
   flex: 1; 
   text-align: right;
@@ -189,7 +189,7 @@ h1 {
   border: 1px solid var(--ff-border, #3e3e3e);
   border-radius: 3px;
   padding: 6px 10px;
-  font-size: 14px;
+  font-size: var(--ff-font-base);
   font-family: inherit;
   outline: none;
 }
@@ -200,8 +200,10 @@ h1 {
 /* Editable row primitives (balance + super) */
 .edit-balance-row, .edit-super-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 0; }
 .edit-balance-row.balance-divider, .edit-super-row.super-divider { border-top: 1px solid #3e3e3e; margin-top: 4px; padding-top: 8px; }
-.edit-balance-label, .edit-super-label { color: var(--ff-text, #d4d4d4); font-size: 14px; }
-.edit-balance-label .hint, .edit-super-label .hint { color: var(--ff-text-muted, #858585); font-weight: normal; font-size: 14px; }
+.edit-balance-label, .edit-super-label { color: var(--ff-text, #d4d4d4);   font-size: var(--ff-font-base);
+}
+.edit-balance-label .hint, .edit-super-label .hint { color: var(--ff-text-muted, #858585); font-weight: normal;   font-size: var(--ff-font-base);
+}
 .edit-balance-input, .edit-super-input {
   width: 160px;
   text-align: right;
@@ -210,7 +212,7 @@ h1 {
   border: 1px solid var(--ff-border, #3e3e3e);
   border-radius: 3px;
   padding: 6px 10px;
-  font-size: 14px;
+  font-size: var(--ff-font-base);
   font-family: inherit;
   outline: none;
 }
@@ -233,7 +235,7 @@ td.actions { text-align: right; white-space: nowrap; }
   color: var(--ff-accent, #007acc);
   border: none;
   padding: 0 6px;
-  font-size: 14px;
+  font-size: var(--ff-font-base);
   cursor: pointer;
 }
 .btn-link:hover { text-decoration: underline; }
@@ -256,7 +258,7 @@ td.actions { text-align: right; white-space: nowrap; }
   border-radius: 8px;
   padding: 20px;
   color: var(--ff-text, #d4d4d4);
-  font-size: 12px;
+  font-size: var(--ff-font-sm);
   line-height: 1.5;
 }
 button {

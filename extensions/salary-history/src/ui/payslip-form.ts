@@ -133,50 +133,194 @@ export class PayslipForm extends LitElement {
     sharedStyles,
     css`
 
-      * { box-sizing: border-box; }
-      .container { max-width: 960px; margin: 0 auto; padding: 24px 20px 40px; }
-      .subtitle { color: #858585; font-size: 13px; margin: 0 0 24px; }
-      .section.readonly { border-color: #5a4a1a; }
-      .section.accrual { border-color: #c2913a; }
+      * {
+        box-sizing: border-box;
+      }
+      .container {
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 24px 20px 40px;
+      }
+      .subtitle {
+        color: #858585;
+        font-size: var(--ff-font-sm);
+        margin: 0 0 24px;
+      }
+      .section.readonly {
+        border-color: #5a4a1a;
+      }
+      .section.accrual {
+        border-color: #c2913a;
+      }
       .reorder-btn {
         background: transparent;
         color: #858585;
         border: 1px solid #3e3e3e;
         padding: 4px 10px;
         border-radius: 3px;
-        font-size: 12px;
+        font-size: var(--ff-font-base, 14px);
         cursor: pointer;
       }
-      .reorder-btn:hover { border-color: #007acc; color: #d4d4d4; }
-      input[readonly], input:disabled { background: #2a2a2a; color: #858585; font-style: italic; }
-      .read-only-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; font-size: 15px; }
-      .read-only-row .label { color: #858585; font-size: 14px; }
-      .read-only-row .value { color: #d4d4d4; }
-      .toggle-row { display: flex; align-items: center; justify-content: space-between; font-size: 14px; padding: 8px 0; }
+      .reorder-btn:hover {
+        border-color: #007acc;
+        color: #d4d4d4;
+      }
+      input[readonly],
+      input:disabled {
+        background: #2a2a2a;
+        color: #858585;
+        font-style: italic;
+      }
+      .read-only-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 4px 0;
+        font-size: var(--ff-font-md);
+      }
+      .read-only-row .label {
+        color: #858585;
+        font-size: var(--ff-font-base);
+      }
+      .read-only-row .value {
+        color: #d4d4d4;
+      }
+      .toggle-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-size: var(--ff-font-base);
+        padding: 8px 0;
+      }
       .toggle-btn {
-         display: inline-flex; align-items: center; gap: 6px;
-         cursor: pointer; color: var(--ff-accent, #6da3d6);
-         background: var(--ff-bg-base, #1e1e1e); border: 1px solid var(--ff-border, #3e3e3e); border-radius: 4px;
-         padding: 6px 12px; line-height: 1;
-       }
-       .toggle-btn:hover { background: var(--ff-bg-subpanel, #2a2a2a); border-color: var(--ff-accent, #6da3d6); }
-      .toggle-icon { font-size: 16px; line-height: 1; transform: translateY(1px); }
-      .toggle-text { font-weight: 500; }
-      .hours-block { background: #1e1e1e; border: 1px solid #3e3e3e; border-radius: 4px; padding: 12px; margin-top: 12px; }
-      .hours-block-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; color: #858585; margin-bottom: 8px; }
-      .amber { background: #4a3c00; border: 1px solid #cca700; color: #e8d28a; border-radius: 4px; padding: 8px 10px; margin: 8px 0; font-size: 14px; }
-      .amber button { margin-left: 6px; }
-      .green { background: #0d2e26; border: 1px solid #4ec9b0; color: #9fe6d6; border-radius: 4px; padding: 8px 10px; margin: 8px 0; font-size: 14px; }
-      .red { background: #3a1414; border: 1px solid #f48771; color: #f3b3a6; border-radius: 4px; padding: 8px 10px; margin: 8px 0; font-size: 14px; }
-      .errors { color: #f48771; font-size: 14px; margin: 8px 0; }
-      .formula { color: #8a8a8a; font-size: 13px; margin-top: 8px; }
-      .btn-validate { background: var(--ff-bg-base, #1e1e1e); color: var(--ff-accent, #6da3d6); border: 1px solid var(--ff-border, #3e3e3e); padding: 6px 12px; border-radius: 3px; font-size: 14px; cursor: pointer; line-height: 1; display: inline-flex; align-items: center; gap: 6px; }
-      .btn-validate:hover { background: var(--ff-bg-subpanel, #2a2a2a); border-color: var(--ff-accent, #6da3d6); }
-      .payg-btn-row { display: flex; align-items: center; gap: 12px;  flex-wrap: wrap; padding: 8px 0; font-size: 14px;}
-      .payg-result { margin-top: 12px; padding: 10px 12px; background: #1e3a2e; border-left: 3px solid #4ec9b0; border-radius: 3px; font-size: 14px; color: #d4d4d4; }
-      .payg-result-icon { color: #4ec9b0; font-weight: 700; margin-right: 6px; }
-      .payg-detail { color: #858585; margin-top: 4px; font-size: 13px; }
-      .info-note { font-size: 13px; color: #858585; font-style: italic; margin: 0 0 8px; }
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        cursor: pointer;
+        color: var(--ff-accent, #6da3d6);
+        background: var(--ff-bg-base, #1e1e1e);
+        border: 1px solid var(--ff-border, #3e3e3e);
+        border-radius: 4px;
+        padding: 6px 12px;
+        line-height: 1;
+      }
+      .toggle-btn:hover {
+        background: var(--ff-bg-subpanel, #2a2a2a);
+        border-color: var(--ff-accent, #6da3d6);
+      }
+      .toggle-icon {
+        font-size: var(--ff-font-lg);
+        line-height: 1;
+        transform: translateY(1px);
+      }
+      .toggle-text {
+        font-weight: 500;
+      }
+      .hours-block {
+        background: #1e1e1e;
+        border: 1px solid #3e3e3e;
+        border-radius: 4px;
+        padding: 12px;
+        margin-top: 12px;
+      }
+      .hours-block-title {
+        font-size: var(--ff-font-sm);
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        color: #858585;
+        margin-bottom: 8px;
+      }
+      .amber {
+        background: #4a3c00;
+        border: 1px solid #cca700;
+        color: #e8d28a;
+        border-radius: 4px;
+        padding: 8px 10px;
+        margin: 8px 0;
+        font-size: var(--ff-font-base);
+      }
+      .amber button {
+        margin-left: 6px;
+      }
+      .green {
+        background: #0d2e26;
+        border: 1px solid #4ec9b0;
+        color: #9fe6d6;
+        border-radius: 4px;
+        padding: 8px 10px;
+        margin: 8px 0;
+        font-size: var(--ff-font-base);
+      }
+      .red {
+        background: #3a1414;
+        border: 1px solid #f48771;
+        color: #f3b3a6;
+        border-radius: 4px;
+        padding: 8px 10px;
+        margin: 8px 0;
+        font-size: var(--ff-font-base);
+      }
+      .errors {
+        color: #f48771;
+        font-size: var(--ff-font-base);
+        margin: 8px 0;
+      }
+      .formula {
+        color: #8a8a8a;
+        font-size: var(--ff-font-sm);
+        margin-top: 8px;
+      }
+      .btn-validate {
+        background: var(--ff-bg-base, #1e1e1e);
+        color: var(--ff-accent, #6da3d6);
+        border: 1px solid var(--ff-border, #3e3e3e);
+        padding: 6px 12px;
+        border-radius: 3px;
+        font-size: var(--ff-font-base);
+        cursor: pointer;
+        line-height: 1;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .btn-validate:hover {
+        background: var(--ff-bg-subpanel, #2a2a2a);
+        border-color: var(--ff-accent, #6da3d6);
+      }
+      .payg-btn-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+        padding: 8px 0;
+        font-size: var(--ff-font-base);
+      }
+      .payg-result {
+        margin-top: 12px;
+        padding: 10px 12px;
+        background: #1e3a2e;
+        border-left: 3px solid #4ec9b0;
+        border-radius: 3px;
+        font-size: var(--ff-font-base);
+        color: #d4d4d4;
+      }
+      .payg-result-icon {
+        color: #4ec9b0;
+        font-weight: 700;
+        margin-right: 6px;
+      }
+      .payg-detail {
+        color: #858585;
+        margin-top: 4px;
+        font-size: var(--ff-font-sm);
+      }
+      .info-note {
+        font-size: var(--ff-font-sm);
+        color: #858585;
+        font-style: italic;
+        margin: 0 0 8px;
+      }
     `,
   ];
 
@@ -673,7 +817,9 @@ export class PayslipForm extends LitElement {
       ['personal leave', bd.personal_leave],
     ];
     return html`
-      <p class="info-note">Derived from rate row effective at pay_date × hours entered below. Toggle "This week was different" to override the hours used in the calculation.</p>
+      <p class="info-note">Derived from rate row effective at pay_date × hours
+        entered below. Toggle "This week was different" to override the hours
+        used in the calculation.</p>
       ${rows.map(
         ([label, amt]) => html`<div class="read-only-row"><span class="label">${label}</span><span class="value">$${amt.toFixed(2)}</span></div>`,
       )}
@@ -692,8 +838,13 @@ export class PayslipForm extends LitElement {
         <span class="value">${derived !== null ? `$${derived.toFixed(2)}` : '—'}</span>
       </div>
       <div class="payg-btn-row">
-        <button type="button" class="btn-validate" data-testid="validate-payg" @click="${() => this._onValidatePayg()}">✓ Validate PAYG</button>
-        <span style="font-size:11px;color:#858585;">Compares derived PAYG to ATO weekly tax estimate</span>
+        <button
+          type="button"
+          class="btn-validate"
+          data-testid="validate-payg"
+          @click="${() => this._onValidatePayg()}"
+        ><span class="toggle-icon">✓</span> Validate PAYG</button>
+        <span style="font-size:var(--ff-font-xs);color:#858585;">Compares derived PAYG to ATO weekly tax estimate</span>
       </div>
       ${payg
         ? payg.bracketError
@@ -727,10 +878,30 @@ export class PayslipForm extends LitElement {
 
   private _renderHours(): unknown {
     if (!this._showHours) {
-      return html`<div class="toggle-row"><span class="label">This week was different (hours)</span><button type="button" class="toggle-btn" data-testid="toggle-hours" aria-expanded="false" @click="${() => this._toggleHours()}"><span class="toggle-icon">▸</span><span class="toggle-text">Show hours</span></button></div>`;
+      return html`
+        <div class="toggle-row">
+          <span class="label">This week was different (hours)</span>
+          <button
+            type="button"
+            class="toggle-btn"
+            data-testid="toggle-hours"
+            aria-expanded="false"
+            @click="${() => this._toggleHours()}"
+          ><span class="toggle-icon">▸</span><span class="toggle-text">Show hours</span></button>
+        </div>
+      `;
     }
     return html`
-      <div class="toggle-row"><span class="label">This week was different (hours)</span><button type="button" class="toggle-btn" data-testid="toggle-hours" aria-expanded="true" @click="${() => this._toggleHours()}"><span class="toggle-icon">▾</span><span class="toggle-text">Hide hours</span></button></div>
+      <div class="toggle-row">
+        <span class="label">This week was different (hours)</span>
+        <button
+          type="button"
+          class="toggle-btn"
+          data-testid="toggle-hours"
+          aria-expanded="true"
+          @click="${() => this._toggleHours()}"
+        ><span class="toggle-icon">▾</span><span class="toggle-text">Hide hours</span></button>
+      </div>
       <div class="hours-block" data-testid="hours-fields">
         <div class="hours-block-title">Hours breakdown — drives earnings above via rate row</div>
         <div class="grid-3">
@@ -787,7 +958,12 @@ export class PayslipForm extends LitElement {
       </div>
       <div class="read-only-row"><span class="label">− Holiday leave taken</span><span class="value">${holidayHours.toFixed(2)} h</span></div>
       <div class="read-only-row"><span class="label">+ Weekly accrual</span><span class="value">${rate} h</span></div>
-      <div class="read-only-row balance-divider"><span class="label"><strong>New balance</strong></span><span class="value"><strong data-testid="accrual-new">${newBalance.toFixed(2)} h</strong></span></div>
+      <div class="read-only-row balance-divider">
+        <span class="label"><strong>New balance</strong></span>
+        <span class="value">
+          <strong data-testid="accrual-new">${newBalance.toFixed(2)} h</strong>
+        </span>
+      </div>
     `;
   }
 
@@ -829,8 +1005,16 @@ export class PayslipForm extends LitElement {
             ${this._fyWarning
               ? html`<div class="amber" data-testid="fy-warning">
                   ${this._fyWarning}
-                  <button type="button" data-testid="fy-autocorrect" @click="${() => this._autoCorrectFy()}">Auto-correct</button>
-                  <button type="button" data-testid="fy-keep" @click="${() => this._keepFyOverride()}">Keep override</button>
+                  <button
+                    type="button"
+                    data-testid="fy-autocorrect"
+                    @click="${() => this._autoCorrectFy()}"
+                  >Auto-correct</button>
+                  <button
+                    type="button"
+                    data-testid="fy-keep"
+                    @click="${() => this._keepFyOverride()}"
+                  >Keep override</button>
                 </div>`
               : nothing}
           `,
@@ -844,11 +1028,25 @@ export class PayslipForm extends LitElement {
              <div class="grid-2">
                <div class="inline-field" data-testid="field-gross">
                  <label>Gross <span class="label-sub">($)</span></label>
-                 <input data-testid="input-gross" type="number" step="0.01" class="inline-field-input" .value="${this._values.gross}" @input="${(e: Event) => this._onInput('gross', e)}" />
+                 <input
+                   data-testid="input-gross"
+                   type="number"
+                   step="0.01"
+                   class="inline-field-input"
+                   .value="${this._values.gross}"
+                   @input="${(e: Event) => this._onInput('gross', e)}"
+                 />
                </div>
                <div class="inline-field" data-testid="field-net">
                  <label>Net <span class="label-sub">($)</span></label>
-                 <input data-testid="input-net" type="number" step="0.01" class="inline-field-input" .value="${this._values.net}" @input="${(e: Event) => this._onInput('net', e)}" />
+                 <input
+                   data-testid="input-net"
+                   type="number"
+                   step="0.01"
+                   class="inline-field-input"
+                   .value="${this._values.net}"
+                   @input="${(e: Event) => this._onInput('net', e)}"
+                 />
                </div>
              </div>
             <p class="info-note" style="margin-top:8px;">Pay date, gross, and net are the only required inputs. Everything else is derived from the rate row effective at pay_date × hours, plus PAYG = gross − net and SG = gross × sg_rate.</p>
@@ -901,25 +1099,44 @@ export class PayslipForm extends LitElement {
   render(): unknown {
     return html`
       <div class="topbar">
-        <span class="crumb-link" data-testid="back-link" @click="${() => this._onCancel()}">← Pay History</span>
+        <span
+          class="crumb-link"
+          data-testid="back-link"
+          @click="${() => this._onCancel()}"
+        >← Pay History</span>
         <span class="crumb-sep">/</span>
         <span class="crumb-current">${this.editPaySlip ? 'Edit Payslip' : 'New Payslip'}</span>
         <div class="spacer"></div>
-        <button class="reorder-btn" data-testid="reorder-sections" @click="${() => this._onReorder()}">⇅ Reorder Sections</button>
+        <button
+          class="reorder-btn"
+          data-testid="reorder-sections"
+          @click="${() => this._onReorder()}"
+        >⇅ Reorder Sections</button>
       </div>
       <div class="container">
         <h1 data-testid="form-title">${this.editPaySlip ? 'Edit Payslip' : 'New Payslip'}</h1>
         <p class="subtitle" data-testid="form-subtitle">${this._subtitle()}</p>
-         <form data-testid="payslip-form" @submit="${(e: Event) => this._onSubmit(e)}" @keydown="${(e: KeyboardEvent) => this._onFormKeyDown(e)}">
+        <form
+          data-testid="payslip-form"
+          @submit="${(e: Event) => this._onSubmit(e)}"
+          @keydown="${(e: KeyboardEvent) => this._onFormKeyDown(e)}"
+        >
           ${this.sectionOrder.map((id) => this._renderSection(id))}
           ${this._errors.length > 0
             ? html`<div class="errors" data-testid="form-errors">${this._errors.map((e) => html`<div>${e}</div>`)}</div>`
             : nothing}
           <div class="footer">
-            <button type="button" class="btn btn-secondary" data-testid="cancel" @click="${() => this._onCancel()}">Cancel</button>
-            <button type="submit" class="btn btn-primary" data-testid="submit">
-              ${this.editPaySlip ? 'Save changes' : 'Add Payslip'}
-            </button>
+            <button
+              type="button"
+              class="btn btn-secondary"
+              data-testid="cancel"
+              @click="${() => this._onCancel()}"
+            >Cancel</button>
+            <button
+              type="submit"
+              class="btn btn-primary"
+              data-testid="submit"
+            >${this.editPaySlip ? 'Save changes' : 'Add Payslip'}</button>
           </div>
         </form>
       </div>

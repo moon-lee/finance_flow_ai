@@ -33,23 +33,37 @@ export class PayRateHistoryView extends LitElement {
   static styles = [
     sharedStyles,
     css`
-      .container { max-width: 1080px; margin: 0 auto; padding: 24px 20px 40px; }
-      .subtitle { color: var(--ff-text-muted); font-size: 13px; margin: 0 0 16px; }
+      .container {
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 24px 20px 40px;
+      }
+      .subtitle {
+        color: var(--ff-text-muted);
+        font-size: var(--ff-font-sm);
+        margin: 0 0 16px;
+      }
       .info-banner {
         background: var(--ff-bg-subpanel);
         border: 1px solid var(--ff-border);
         border-radius: 6px;
         padding: 12px 16px;
         margin-bottom: 16px;
-        font-size: 13px;
+        font-size: var(--ff-font-sm);
         color: var(--ff-text);
       }
-      .info-banner strong { color: var(--ff-teal); }
-      table { width: 100%; border-collapse: collapse; font-size: 13px; }
+      .info-banner strong {
+        color: var(--ff-teal);
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: var(--ff-font-sm);
+      }
       th {
         text-align: left;
         padding: 8px 10px;
-        font-size: 13px;
+        font-size: var(--ff-font-sm);
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.4px;
@@ -58,18 +72,26 @@ export class PayRateHistoryView extends LitElement {
         white-space: nowrap;
       }
       td {
-        padding: 13px;
+        padding: var(--ff-font-sm);
         border-bottom: 1px solid var(--ff-bg-subpanel);
         color: var(--ff-text);
       }
-      th.num, td.num { text-align: right; }
-      tr.current { background:var(--ff-border); box-shadow: inset 3px 0 0 var(--ff-teal); }
-      tr.current:hover { background: #233023; }
+      th.num,
+      td.num {
+        text-align: right;
+      }
+      tr.current {
+        background: var(--ff-border);
+        box-shadow: inset 3px 0 0 var(--ff-teal);
+      }
+      tr.current:hover {
+        background: #233023;
+      }
       .badge {
         display: inline-block;
         background: var(--ff-teal);
         color: var(--ff-bg-base);
-        font-size: 12px;
+        font-size: var(--ff-font-sm);
         font-weight: 700;
         padding: 2px 8px;
         border-radius: 3px;
@@ -77,13 +99,28 @@ export class PayRateHistoryView extends LitElement {
         letter-spacing: 0.4px;
         vertical-align: middle;
       }
-      .badge-history { background: var(--ff-border); color: var(--ff-text-muted); }
-      .actions { white-space: nowrap; text-align: right; }
-      .btn-danger-link { color: #f48771; margin-left: 8px; }
-      .btn-danger-link:hover { color: #ff9a86; text-decoration: underline; }
-      .empty-effective_to { color: var(--ff-teal); font-weight: 700; }
+      .badge-history {
+        background: var(--ff-border);
+        color: var(--ff-text-muted);
+      }
+      .actions {
+        white-space: nowrap;
+        text-align: right;
+      }
+      .btn-danger-link {
+        color: #f48771;
+        margin-left: 8px;
+      }
+      .btn-danger-link:hover {
+        color: #ff9a86;
+        text-decoration: underline;
+      }
+      .empty-effective_to {
+        color: var(--ff-teal);
+        font-weight: 700;
+      }
       .info-note {
-        font-size: 13px;
+        font-size: var(--ff-font-sm);
         color: var(--ff-text-muted);
         font-style: italic;
         margin-top: 8px;
@@ -91,7 +128,10 @@ export class PayRateHistoryView extends LitElement {
         background: var(--ff-bg-base);
         border-radius: 3px;
       }
-      .info-note code { color: var(--ff-teal); font-style: normal; }
+      .info-note code {
+        color: var(--ff-teal);
+        font-style: normal;
+      }
     `,
   ];
 
@@ -182,7 +222,11 @@ export class PayRateHistoryView extends LitElement {
   private _renderRow(r: RateRow): unknown {
     const current = this._isCurrent(r);
     return html`
-      <tr class="${current ? 'current' : ''}" data-testid="rate-row" data-id="${r.id}">
+      <tr
+        class="${current ? 'current' : ''}"
+        data-testid="rate-row"
+        data-id="${r.id}"
+      >
         <td>
           <span class="badge ${current ? '' : 'badge-history'}" data-testid="rate-badge">${current ? 'Current' : 'History'}</span>
         </td>
@@ -195,10 +239,26 @@ export class PayRateHistoryView extends LitElement {
         <td class="actions">
           ${current
             ? html`
-              <button class="btn-link" data-testid="rate-edit" @click="${() => this._onEdit(r.id ?? 0)}">Edit</button>
-              <button class="btn-link" data-testid="rate-replace" @click="${() => this._onReplace(r.id ?? 0)}">Replace</button>`
-            : html`<button class="btn-link" data-testid="rate-view" @click="${() => this._onView(r.id ?? 0)}">View</button>`}
-          <button class="btn-link btn-danger-link" data-testid="rate-delete" @click="${() => this._onDelete(r.id ?? 0)}">Delete</button>
+              <button
+                class="btn-link"
+                data-testid="rate-edit"
+                @click="${() => this._onEdit(r.id ?? 0)}"
+              >Edit</button>
+              <button
+                class="btn-link"
+                data-testid="rate-replace"
+                @click="${() => this._onReplace(r.id ?? 0)}"
+              >Replace</button>`
+            : html`<button
+                class="btn-link"
+                data-testid="rate-view"
+                @click="${() => this._onView(r.id ?? 0)}"
+              >View</button>`}
+          <button
+            class="btn-link btn-danger-link"
+            data-testid="rate-delete"
+            @click="${() => this._onDelete(r.id ?? 0)}"
+          >Delete</button>
         </td>
       </tr>
     `;

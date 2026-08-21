@@ -33,8 +33,16 @@ export class PayslipList extends LitElement {
   static styles = [
     sharedStyles,
     css`
-      .container { max-width: 1080px; margin: 0 auto; padding: 24px 20px 40px; }
-      .subtitle { color: #858585; font-size: 13px; margin: 0 0 16px; }
+      .container {
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 24px 20px 40px;
+      }
+      .subtitle {
+        color: #858585;
+        font-size: var(--ff-font-sm);
+        margin: 0 0 16px;
+      }
       .summary-bar {
         display: flex;
         justify-content: space-between;
@@ -45,48 +53,87 @@ export class PayslipList extends LitElement {
         border-radius: 6px;
         padding: 12px 16px;
         margin-bottom: 12px;
-        font-size: 13px;
+        font-size: var(--ff-font-sm);
       }
-      .summary-item, .kpi { display: block; flex: 1 1 0; text-align: center; }
-      .summary-item .summary-label, .kpi .label {
+      .summary-item,
+      .kpi {
+        display: block;
+        flex: 1 1 0;
+        text-align: center;
+      }
+      .summary-item .summary-label,
+      .kpi .label {
         color: var(--ff-text-muted);
-        font-size: 11px;
+        font-size: var(--ff-font-sm);
         text-transform: uppercase;
         letter-spacing: 0.3px;
         margin-bottom: 2px;
       }
-      .summary-item .summary-value, .kpi .value {
-        font-size: 17px;
+      .summary-item .summary-value,
+      .kpi .value {
+        font-size: var(--ff-font-xl);
         color: var(--ff-text-strong);
         font-weight: 600;
       }
-      table { width: 100%; border-collapse: collapse; font-size: 15px; }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: var(--ff-font-md);
+      }
       th {
         text-align: left;
         padding: 10px 12px;
-        font-size: 11px;
+        font-size: var(--ff-font-sm);
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.5px;
         color: #858585;
         border-bottom: 1px solid #3e3e3e;
       }
-      th.sortable { cursor: pointer; user-select: none; }
-      th.sortable:hover { color: #d4d4d4; }
-      th.sortable::after { content: ' ⇅'; color: #555;         font-size: 11px; }
-      th.sorted-desc::after { content: ' ↓'; color: #007acc; }
-      th.sorted-asc::after { content: ' ↑'; color: #007acc; }
+      th.sortable {
+        cursor: pointer;
+        user-select: none;
+      }
+      th.sortable:hover {
+        color: #d4d4d4;
+      }
+      th.sortable::after {
+        content: ' ⇅';
+        color: #555;
+        font-size: var(--ff-font-sm);
+      }
+      th.sorted-desc::after {
+        content: ' ↓';
+        color: #007acc;
+      }
+      th.sorted-asc::after {
+        content: ' ↑';
+        color: #007acc;
+      }
       td {
         padding: 8px 12px;
         border-bottom: 1px solid #2a2a2a;
         color: #B7B7B7;
         text-align: left;
       }
-      th.num, td.num { text-align: right; }
-      td.fy { color: #686868; font-size: 13px; }
-      td.actions { text-align: right; white-space: nowrap; }
-      td.actions .btn-link { margin-left: 8px; }
-      td.actions .btn-link:first-child { margin-left: 0; }
+      th.num,
+      td.num {
+        text-align: right;
+      }
+      td.fy {
+        color: #686868;
+        font-size: var(--ff-font-sm);
+      }
+      td.actions {
+        text-align: right;
+        white-space: nowrap;
+      }
+      td.actions .btn-link {
+        margin-left: 8px;
+      }
+      td.actions .btn-link:first-child {
+        margin-left: 0;
+      }
       .ytd-footer {
         background: var(--ff-bg-panel);
         border: 1px solid var(--ff-border);
@@ -104,7 +151,7 @@ export class PayslipList extends LitElement {
         flex-wrap: wrap;
       }
       .ytd-footer-label {
-        font-size: 11px;
+        font-size: var(--ff-font-sm);
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.5px;
@@ -129,51 +176,70 @@ export class PayslipList extends LitElement {
         border: 1px solid var(--ff-border);
         border-radius: 4px;
         padding: 4px 8px;
-        font-size: 13px;
+        font-size: var(--ff-font-sm);
         white-space: nowrap;
       }
       .ytd-chip .chip-label {
         color: var(--ff-text-muted);
-        font-size: 11px;
+        font-size: var(--ff-font-sm);
         text-transform: uppercase;
         letter-spacing: 0.3px;
         overflow: hidden;
         text-overflow: ellipsis;
       }
-      .ytd-chip .chip-value { color: var(--ff-text); font-weight: 600; flex-shrink: 0; }
-       .pagination {
-         display: flex;
-         justify-content: space-between;
-         align-items: center;
-         padding: 10px 16px;
-         background: var(--ff-bg-subpanel, #2a2a2a);
-         border-top: 1px solid var(--ff-border, #3e3e3e);
-         font-size: 13px;
-         color: var(--ff-text-muted, #858585);
-       }
-       .pagination .pages { display: flex; gap: 4px; }
-       .pagination .page-btn {
-         background: transparent;
-         border: 1px solid var(--ff-border, #3e3e3e);
-         color: var(--ff-text, #d4d4d4);
-         padding: 4px 10px;
-         border-radius: 3px;
-         cursor: pointer;
-         font-size: 13px;
-       }
-       .pagination .page-btn:hover { border-color: var(--ff-accent, #007acc); }
-       .pagination .page-btn.current { background: var(--ff-accent, #007acc); border-color: var(--ff-accent, #007acc); color: var(--ff-text-strong, #ffffff); }
-       .pagination .page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-       .info-note {
-         font-size: 13px;
-         color: var(--ff-text-muted, #858585);
-         font-style: italic;
-         margin-top: 8px;
-         padding: 8px 12px;
-         background: var(--ff-bg-base, #1e1e1e);
-         border-radius: 3px;
-       }
-       .info-note code { color: var(--ff-teal, #4ec9b0); font-style: normal; }
+      .ytd-chip .chip-value {
+        color: var(--ff-text);
+        font-weight: 600;
+        flex-shrink: 0;
+      }
+      .pagination {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 16px;
+        background: var(--ff-bg-subpanel, #2a2a2a);
+        border-top: 1px solid var(--ff-border, #3e3e3e);
+        font-size: var(--ff-font-sm);
+        color: var(--ff-text-muted, #858585);
+      }
+      .pagination .pages {
+        display: flex;
+        gap: 4px;
+      }
+      .pagination .page-btn {
+        background: transparent;
+        border: 1px solid var(--ff-border, #3e3e3e);
+        color: var(--ff-text, #d4d4d4);
+        padding: 4px 10px;
+        border-radius: 3px;
+        cursor: pointer;
+        font-size: var(--ff-font-sm);
+      }
+      .pagination .page-btn:hover {
+        border-color: var(--ff-accent, #007acc);
+      }
+      .pagination .page-btn.current {
+        background: var(--ff-accent, #007acc);
+        border-color: var(--ff-accent, #007acc);
+        color: var(--ff-text-strong, #ffffff);
+      }
+      .pagination .page-btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+      .info-note {
+        font-size: var(--ff-font-sm);
+        color: var(--ff-text-muted, #858585);
+        font-style: italic;
+        margin-top: 8px;
+        padding: 8px 12px;
+        background: var(--ff-bg-base, #1e1e1e);
+        border-radius: 3px;
+      }
+      .info-note code {
+        color: var(--ff-teal, #4ec9b0);
+        font-style: normal;
+      }
     `,
   ];
 
@@ -446,8 +512,16 @@ export class PayslipList extends LitElement {
                         <td class="num">${this._money(p.superannuation_guarantee)}</td>
                         <td class="num">${p.holiday_leave_accrual_hours.toFixed(2)}</td>
                         <td class="actions">
-                          <button class="btn-link" data-testid="edit-${p.id}" @click="${() => this._onEdit(p.id ?? 0)}">Edit</button>
-                          <button class="btn-link danger" data-testid="delete-${p.id}" @click="${() => this._onDelete(p.id ?? 0)}">Delete</button>
+                          <button
+                            class="btn-link"
+                            data-testid="edit-${p.id}"
+                            @click="${() => this._onEdit(p.id ?? 0)}"
+                          >Edit</button>
+                          <button
+                            class="btn-link danger"
+                            data-testid="delete-${p.id}"
+                            @click="${() => this._onDelete(p.id ?? 0)}"
+                          >Delete</button>
                         </td>
                       </tr>
                     `,
@@ -465,11 +539,27 @@ export class PayslipList extends LitElement {
               <div class="pagination">
                 <span>Showing ${total === 0 ? 0 : start + 1}–${end} of ${total}</span>
                 <div class="pages">
-                  <button class="page-btn" data-testid="prev" ?disabled="${page <= 0}" @click="${() => (this._page = page - 1)}">← Prev</button>
+                  <button
+                    class="page-btn"
+                    data-testid="prev"
+                    ?disabled="${page <= 0}"
+                    @click="${() => (this._page = page - 1)}"
+                  >← Prev</button>
                   ${Array.from({ length: pages }, (_, i) => i).map(
-                    (i) => html`<button class="page-btn ${i === page ? 'current' : ''}" ?disabled="${i === page}" @click="${() => (this._page = i)}">${i + 1}</button>`,
+                    (i) => html`
+                      <button
+                        class="page-btn ${i === page ? 'current' : ''}"
+                        ?disabled="${i === page}"
+                        @click="${() => (this._page = i)}"
+                      >${i + 1}</button>
+                    `,
                   )}
-                  <button class="page-btn" data-testid="next" ?disabled="${page >= pages - 1}" @click="${() => (this._page = page + 1)}">Next →</button>
+                  <button
+                    class="page-btn"
+                    data-testid="next"
+                    ?disabled="${page >= pages - 1}"
+                    @click="${() => (this._page = page + 1)}"
+                  >Next →</button>
                 </div>
               </div>
             </div>

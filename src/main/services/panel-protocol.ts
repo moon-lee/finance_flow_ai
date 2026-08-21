@@ -21,6 +21,12 @@
  *      The extension's Vite-built ESM bundle. Main resolves the absolute
  *      `file://` path under `dist/extensions/` and streams the bytes.
  *
+ *   4. `finance-shell://extensions/<extensionId>.css`
+ *      The extension's emitted stylesheet (tokens + layout). Served with
+ *      `text/css` so the panel bootstrap can inject it as a `<link>` before
+ *      loading the JS bundle, ensuring `:root` custom properties are defined
+ *      before any component renders.
+ *
  * All other paths return 404.
  */
 
@@ -56,7 +62,11 @@ export function registerPanelProtocol(): void {
       return servePanelShell(pathname.slice('/panel/'.length));
     }
     if (pathname.startsWith('/extensions/')) {
-      return serveExtensionBundle(pathname.slice('/extensions/'.length));
+      const extPath = pathname.slice('/extensions/'.length);
+      if (extPath.endsWith('.css')) {
+        return serveExtensionCss(extPath);
+      }
+      return serveExtensionBundle(extPath);
     }
     console.warn('[panel-protocol] 404 for', pathname);
     return new Response('Not Found', { status: 404 });
@@ -157,5 +167,34 @@ async function serveExtensionBundle(path: string): Promise<Response> {
     });
   } catch {
     return new Response('Extension bundle not found', { status: 404 });
+  }
+}
+
+/**
+ * Serve the extension stylesheet for `/extensions/<extensionId>.css`.
+ *
+ * The CSS file is emitted by Vite alongside the JS bundle and renamed by
+ * `scripts/rename-extension-bundles.mjs` to match the manifest id. It contains
+ * the `:root` custom property definitions (design tokens) so the panel can
+ * inject it before the JS bundle loads.
+ */
+async function serveExtensionCss(path: string): Promise<Response> {
+  if (path.endsWith('/') || path.includes('/')) {
+    return new Response('Not Found', { status: 404 });
+  }
+  const filename = decodeURIComponent(path);
+  const absolutePath = join(DIST_EXTENSIONS_DIR, filename);
+
+  try {
+    const data = await readFile(absolutePath);
+    return new Response(data, {
+      status: 200,
+      headers: {
+        'Content-Type': 'text/css; charset=utf-8',
+        'Cache-Control': 'no-cache'
+      }
+    });
+  } catch {
+    return new Response('Extension stylesheet not found', { status: 404 });
   }
 }
