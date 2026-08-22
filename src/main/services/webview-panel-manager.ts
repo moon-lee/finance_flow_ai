@@ -473,6 +473,9 @@ export class WebviewPanelManager {
     if (this.uiHandler) {
       this.uiHandler.onUiEvent(webContentsId, eventName, detail);
     }
+    getLogger().info(
+      `[webview-panel] forwarded ui-event "${eventName}" from ${extensionId}`,
+    );
     this.mainWindow?.webContents.send("extensions:ui-event-from-panel", {
       extensionId,
       eventName,

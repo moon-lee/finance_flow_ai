@@ -449,16 +449,22 @@ function registerIpcHandlers(): void {
         });
         return;
       }
+      logger.info(
+        `[extensions] ui-event "${eventName}" from "${resolvedExtensionId}"`,
+        detail,
+      );
       const forwarded = webviewPanelManager?.forwardUiEvent(
         senderId,
         eventName,
         detail,
       );
-      extensionIPC.notify(RPC_METHOD.ExtensionUiEvent, {
-        extensionId: forwarded?.extensionId ?? resolvedExtensionId,
-        eventName,
-        detail,
-      });
+      if (!forwarded) {
+        extensionIPC.notify(RPC_METHOD.ExtensionUiEvent, {
+          extensionId: resolvedExtensionId,
+          eventName,
+          detail,
+        });
+      }
     },
   );
 
@@ -1156,7 +1162,13 @@ app.whenReady().then(async () => {
 
     extensionIPC.onHostLog((entry) => {
       if (eventBus) {
-        eventBus.publish('host:log', entry, 'host');
+        const level = entry.level === 'log' ? 'info' : entry.level;
+        const message = entry.args.join(' ');
+        eventBus.publish(
+          `log.${level}`,
+          { level, message, context: 'host', timestamp: Date.now() },
+          'host',
+        );
       }
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send("extensions:host-log", entry);
