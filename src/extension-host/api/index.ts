@@ -23,6 +23,7 @@ import { createDb, type DbAccessor, type DbRpcClient } from './db';
 import { createServices, type ServicesApi } from './services';
 import { createUi, type UiApi, type RpcClient } from './ui';
 import { createEvents, type EventsApi } from './events';
+import { ExtensionLogger } from './logger';
 import { RPC_METHOD } from '../../shared/json-rpc-methods';
 
 // ---------------------------------------------------------------------------
@@ -42,6 +43,8 @@ import { RPC_METHOD } from '../../shared/json-rpc-methods';
  *                    wrapper around `requestMain` from host.ts; tests
  *                    pass a stub.
  */
+export { ExtensionLogger };
+
 export function createFinance(extensionId: string, rpc: DbRpcClient & RpcClient): FinanceApi {
   const services = createServices(extensionId, rpc);
   const ui = createUi(extensionId, rpc);

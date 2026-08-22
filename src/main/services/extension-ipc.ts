@@ -13,6 +13,7 @@ import type { DAOService, QueryObject } from './dao-service';
 import { getSetting, setSetting } from './settings-service';
 import { DomainServiceRegistry } from './domain-service-registry';
 import { EventBus } from './event-bus';
+import { getLogger } from './logger';
 
 interface PendingRequest {
   resolve: (value: unknown) => void;
@@ -141,7 +142,7 @@ export class ExtensionIPC {
    * Safe to call on first start and to drive automatic re-spawn after a crash.
    */
   async start(initialManifests: FinanceExtensionManifest[]): Promise<void> {
-    console.log('[extension-ipc] start() called', { manifestCount: initialManifests.length, isRunning: this.isRunning() });
+    getLogger().log('[extension-ipc] start() called', { manifestCount: initialManifests.length, isRunning: this.isRunning() });
     if (this.process && !this.crashed) return;
     if (this.restartPromise) return this.restartPromise;
 
@@ -150,7 +151,7 @@ export class ExtensionIPC {
     this.emitStatus({ status: 'starting' });
 
     const doStart = async (): Promise<void> => {
-      console.log('[extension-ipc] forking host process');
+      getLogger().log('[extension-ipc] forking host process');
       this.process = utilityProcess.fork(this.hostPath, [], {
         serviceName: 'finance-extension-host',
         stdio: 'inherit'
@@ -166,7 +167,7 @@ export class ExtensionIPC {
       // synchronously by `fork()` but `pid` is undefined until the child
       // actually starts. Logging here would otherwise print `pid=undefined`.
       this.process.once('spawn', () => {
-        console.log(`[extension-ipc] host spawned, pid=${this.process!.pid}`);
+        getLogger().log(`[extension-ipc] host spawned, pid=${this.process!.pid}`);
       });
 
       this.process.on('message', (msg: unknown) => this.handleMessage(msg));
@@ -245,7 +246,7 @@ export class ExtensionIPC {
     // testers can see Test Unit 5 step 6's expected log line without
     // having DevTools open. The renderer-side `[host status]` line
     // covers the in-app case; this covers the headless/SSH case.
-    console.error(`[extension-ipc] Extension Host exited unexpectedly (code ${code})`);
+    getLogger().error(`[extension-ipc] Extension Host exited unexpectedly (code ${code})`);
     this.emitStatus({ status: 'crashed', exitCode: code });
   }
 
@@ -338,7 +339,7 @@ export class ExtensionIPC {
       try {
         listener(entry);
       } catch (err) {
-        console.error('[extension-ipc] log listener threw:', err);
+        getLogger().error('[extension-ipc] log listener threw:', err);
       }
     }
   }
@@ -348,7 +349,7 @@ export class ExtensionIPC {
       try {
         listener(status);
       } catch (err) {
-        console.error('[extension-ipc] status listener threw:', err);
+        getLogger().error('[extension-ipc] status listener threw:', err);
       }
     }
   }
@@ -394,7 +395,7 @@ export class ExtensionIPC {
    */
   handleNavigatePanel(params: unknown): { navigated: boolean } {
     if (!this.panelNavigateHandler) {
-      console.warn('[extension-ipc] handleNavigatePanel: panelNavigateHandler is null — dropped');
+      getLogger().warn('[extension-ipc] handleNavigatePanel: panelNavigateHandler is null — dropped');
       return { navigated: false };
     }
     const { extensionId, view, mountData } = params as {
@@ -402,7 +403,7 @@ export class ExtensionIPC {
       view: string;
       mountData?: object;
     };
-    console.log('[extension-ipc] handleNavigatePanel:', { extensionId, view });
+    getLogger().log('[extension-ipc] handleNavigatePanel:', { extensionId, view });
     this.panelNavigateHandler.onNavigate(extensionId, view, mountData);
     return { navigated: true };
   }
@@ -433,20 +434,20 @@ export class ExtensionIPC {
    */
   handleUiMount(params: unknown): void {
     if (!this.uiHandler) {
-      console.warn('[extension-ipc] handleUiMount: uiHandler is null — mount request dropped');
+      getLogger().warn('[extension-ipc] handleUiMount: uiHandler is null — mount request dropped');
       return;
     }
     const { extensionId, viewId, componentTag, mountData } = params as UiMountRequest;
     const resolvedViewId = viewId ?? componentTag ?? 'unknown';
-    console.log('[extension-ipc] handleUiMount: resolvedViewId:', resolvedViewId, 'extensionId:', extensionId);
+    getLogger().log('[extension-ipc] handleUiMount: resolvedViewId:', resolvedViewId, 'extensionId:', extensionId);
     this.uiHandler.onMountRequested(extensionId, resolvedViewId, mountData as object | undefined);
   }
 
   handleUiSetDirty(params: unknown): { ok: true } {
     const { extensionId, dirty } = params as { extensionId: string; dirty: boolean };
-    console.log(`[extension-ipc] handleUiSetDirty: ${extensionId} dirty=${dirty}`);
+    getLogger().log(`[extension-ipc] handleUiSetDirty: ${extensionId} dirty=${dirty}`);
     if (!this.uiHandler) {
-      console.warn('[extension-ipc] handleUiSetDirty: uiHandler is null — dropped');
+      getLogger().warn('[extension-ipc] handleUiSetDirty: uiHandler is null — dropped');
       return { ok: true };
     }
     this.uiHandler.onSetDirty(extensionId, dirty);
@@ -455,9 +456,9 @@ export class ExtensionIPC {
 
   async handleUiAutoSaveDraft(params: unknown): Promise<{ ok: true }> {
     const { extensionId } = params as { extensionId: string };
-    console.log(`[extension-ipc] handleUiAutoSaveDraft: ${extensionId}`);
+    getLogger().log(`[extension-ipc] handleUiAutoSaveDraft: ${extensionId}`);
     if (!this.uiHandler) {
-      console.warn('[extension-ipc] handleUiAutoSaveDraft: uiHandler is null — dropped');
+      getLogger().warn('[extension-ipc] handleUiAutoSaveDraft: uiHandler is null — dropped');
       return { ok: true };
     }
     await this.uiHandler.onAutoSaveDraft(extensionId);
@@ -835,7 +836,7 @@ export class ExtensionIPC {
           try {
             listener(params);
           } catch (err) {
-            console.error('[extension-ipc] activated listener threw:', err);
+              getLogger().error('[extension-ipc] activated listener threw:', err);
           }
         }
       }

@@ -31,6 +31,8 @@ import { WebviewPanelManager } from "./services/webview-panel-manager";
 import { activateAndOpenView } from "./services/view-activation";
 import { ShortcutRegistry, toAccelerator } from "./services/shortcut-registry";
 import { EventBus } from "./services/event-bus";
+import { createLogger } from "./services/logger";
+import { LogFileService } from "./services/log-file-service";
 import { resolveRuntimeProfile } from "./runtime-profile";
 import {
   exportDatabase,
@@ -72,6 +74,10 @@ let webviewPanelManager: WebviewPanelManager | null = null;
 let accountService: AccountManagementService | null = null;
 let shortcutRegistry: ShortcutRegistry | null = null;
 let eventBus: EventBus | null = null;
+let logFileService: LogFileService | null = null;
+
+eventBus = new EventBus();
+const logger = createLogger(eventBus, 'info');
 
 function resolvePreloadPath(): string {
   return join(mainDir, "../preload/preload.cjs");
@@ -228,7 +234,7 @@ function registerIpcHandlers(): void {
     try {
       return getSetting(key);
     } catch (err) {
-      console.error(`settings:get failed for key "${key}":`, err);
+      logger.error(`settings:get failed for key "${key}":`, err);
       return undefined;
     }
   });
@@ -241,7 +247,7 @@ function registerIpcHandlers(): void {
         eventBus.publish('settings.changed', { key });
       }
     } catch (err) {
-      console.error(`settings:set failed for key "${key}":`, err);
+      logger.error(`settings:set failed for key "${key}":`, err);
       throw err;
     }
   });
@@ -324,7 +330,7 @@ function registerIpcHandlers(): void {
       return { activated };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      console.error(
+      logger.error(
         `extensions:activate-view failed for "${viewId}":`,
         message,
       );
@@ -423,7 +429,7 @@ function registerIpcHandlers(): void {
       const senderId = _event.sender.id;
       const panel = webviewPanelManager?.findPanelByWebContentsId(senderId);
       if (!panel && mainWindow && senderId !== mainWindow.webContents.id) {
-        console.warn(
+        logger.warn(
           `[extensions] dropped ui-event from unknown sender ${senderId}`,
         );
         return;
@@ -434,7 +440,7 @@ function registerIpcHandlers(): void {
         !uiEventAllowlist.isAllowed(resolvedExtensionId, eventName)
       ) {
         const msg = `[extensions] dropped ui-event "${eventName}" from "${resolvedExtensionId}" — not in allowlist`;
-        console.warn(msg);
+        logger.warn(msg);
         _event.sender.send("panel:allowlist-denied", {
           kind: "ui-event",
           extensionId: resolvedExtensionId,
@@ -516,7 +522,7 @@ function registerIpcHandlers(): void {
   });
 
   ipcMain.on("panel:mounted", (_event, panelId: string) => {
-    console.log('[main] panel:mounted:', panelId);
+    logger.log('[main] panel:mounted:', panelId);
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send("panel:mounted", panelId);
     }
@@ -553,20 +559,20 @@ function registerIpcHandlers(): void {
     if (panelId) {
       webviewPanelManager?.setDirty(panelId, dirty);
     } else {
-      console.warn(`[panels] panel:set-dirty: no panel found for extension ${extensionId}`);
+      logger.warn(`[panels] panel:set-dirty: no panel found for extension ${extensionId}`);
     }
   });
 
   ipcMain.handle("panel:auto-save-draft", async (_event, extensionId: string) => {
     const panel = webviewPanelManager?.findByExtensionId(extensionId);
     if (!panel) {
-      console.warn(`[panels] panel:auto-save-draft: no panel found for extension ${extensionId}`);
+      logger.warn(`[panels] panel:auto-save-draft: no panel found for extension ${extensionId}`);
       return;
     }
     try {
       await webviewPanelManager!.autoSaveDraft(panel.panelId);
     } catch (err) {
-      console.error(`[panels] panel:auto-save-draft failed for ${panel.panelId}:`, err);
+      logger.error(`[panels] panel:auto-save-draft failed for ${panel.panelId}:`, err);
     }
   });
 
@@ -659,7 +665,7 @@ function registerIpcHandlers(): void {
       setLastBackupTime(new Date().toISOString());
       return { success: true, path: result.filePath };
     } catch (err) {
-      console.error('[backup] export failed:', err);
+      logger.error('[backup] export failed:', err);
       return { success: false, error: err instanceof Error ? err.message : 'Export failed' };
     }
   });
@@ -686,7 +692,7 @@ function registerIpcHandlers(): void {
 
       return { success: true };
     } catch (err) {
-      console.error('[backup] import failed:', err);
+      logger.error('[backup] import failed:', err);
       return { success: false, error: err instanceof Error ? err.message : 'Import failed' };
     }
   });
@@ -707,7 +713,7 @@ function registerIpcHandlers(): void {
       setLastBackupTime(new Date().toISOString());
       return { success: true, path: result.filePath };
     } catch (err) {
-      console.error('[backup] encrypted export failed:', err);
+      logger.error('[backup] encrypted export failed:', err);
       return { success: false, error: err instanceof Error ? err.message : 'Encrypted export failed' };
     }
   });
@@ -735,7 +741,7 @@ function registerIpcHandlers(): void {
 
       return { success: true };
     } catch (err) {
-      console.error('[backup] encrypted import failed:', err);
+      logger.error('[backup] encrypted import failed:', err);
       return { success: false, error: err instanceof Error ? err.message : 'Encrypted import failed' };
     }
   });
@@ -768,9 +774,7 @@ function notifyOpenDashboardAfterAccountChange(): void {
       commandId: "dashboard.refresh",
       args: [],
     })
-    .catch((err) =>
-      console.error("[accounts] dashboard refresh failed:", err),
-    );
+    .catch((err) => logger.error("[accounts] dashboard refresh failed:", err));
 }
 
 async function shutdownPersistence(): Promise<void> {
@@ -778,10 +782,10 @@ async function shutdownPersistence(): Promise<void> {
   clearWindowStateSaveTimer();
   await webviewPanelManager
     ?.destroyAll()
-    .catch((err) => console.error("Panel destroy failed:", err));
+    .catch((err) => logger.error("Panel destroy failed:", err));
   void extensionIPC
     ?.stop()
-    .catch((err) => console.error("Extension IPC shutdown failed:", err));
+    .catch((err) => logger.error("Extension IPC shutdown failed:", err));
   extensionIPC = null;
   daoService = null;
   tableSchemaRegistry = null;
@@ -825,7 +829,7 @@ app.whenReady().then(async () => {
     // [Review fix §3.5] Log the resolved database path so Test Unit 6 (and
     // any future manual debugging) knows where the SQLite file lives without
     // guessing platform-specific %APPDATA%/XDG_CONFIG_HOME paths.
-    console.log(`[main] database path: ${dbPath}`);
+    logger.info(`[main] database path: ${dbPath}`);
     initializeDatabase(dbPath);
     initializeSettings();
     registerSettingDefault('core.workspace.autoSaveTimeout', 500);
@@ -864,7 +868,7 @@ app.whenReady().then(async () => {
       // including Windows PowerShell where stderr may not be shown by
       // default. Manual testing of Test Unit 7 surfaced the warning
       // being emitted but not visible.
-      console.log(
+      logger.log(
         `[extensions] skipped "${skipped.directory}": ${skipped.reason}`,
       );
     }
@@ -884,7 +888,30 @@ app.whenReady().then(async () => {
     shortcutRegistry.build(discovery.extensions.map((e) => e.manifest));
 
     // Phase 7 Task 8 — global event bus.
-    eventBus = new EventBus();
+    // eventBus and logger are initialized at module load time so IPC handlers
+    // registered below can use them safely.
+
+    // Log file service — writes structured logs to disk for the log viewer.
+    const userDataPath = app.getPath('userData');
+    logFileService = new LogFileService(userDataPath);
+
+    // Wire log file service to receive all log entries from the event bus.
+    if (eventBus && logFileService) {
+      const enqueue = (payload: unknown) => {
+        const p = payload as Record<string, unknown>;
+        logFileService!.enqueue({
+          level: p.level as string,
+          message: p.message as string,
+          context: p.context as string | undefined,
+          error: p.error as string | undefined,
+          timestamp: p.timestamp as number,
+        });
+      };
+      eventBus.subscribe('log.error', enqueue, 'renderer');
+      eventBus.subscribe('log.warn', enqueue, 'renderer');
+      eventBus.subscribe('log.info', enqueue, 'renderer');
+      eventBus.subscribe('log.debug', enqueue, 'renderer');
+    }
 
     // Phase 5 Task 7 — cross-extension domain service registry.
     domainServiceRegistry = new DomainServiceRegistry();
@@ -938,7 +965,7 @@ app.whenReady().then(async () => {
         const panel =
           webviewPanelManager?.findPanelByWebContentsId(webContentsId);
         if (!panel) {
-          console.warn(
+          logger.warn(
             `[panels] ui-event from unknown webContents ${webContentsId} — dropped`,
           );
           return;
@@ -949,7 +976,7 @@ app.whenReady().then(async () => {
           !uiEventAllowlist.isAllowed(extensionId, eventName)
         ) {
           const msg = `[extensions] dropped ui-event "${eventName}" from "${extensionId}" — not in allowlist`;
-          console.warn(msg);
+          logger.warn(msg);
           panel.view.webContents.send("panel:allowlist-denied", {
             kind: "ui-event",
             extensionId,
@@ -975,23 +1002,23 @@ app.whenReady().then(async () => {
         if (panelId) {
           webviewPanelManager?.setDirty(panelId, dirty);
         } else {
-          console.warn(`[panels] setDirty: no panel found for extension ${extensionId}`);
+          logger.warn(`[panels] setDirty: no panel found for extension ${extensionId}`);
         }
       },
       onAutoSaveDraft: async (extensionId) => {
         const panel = webviewPanelManager?.findByExtensionId(extensionId);
         if (!panel) {
-          console.warn(`[panels] autoSaveDraft: no panel found for extension ${extensionId}`);
+          logger.warn(`[panels] autoSaveDraft: no panel found for extension ${extensionId}`);
           return;
         }
-        console.log(`[panels] onAutoSaveDraft for ${panel.panelId} (no-op in Phase 5)`);
+        logger.log(`[panels] onAutoSaveDraft for ${panel.panelId} (no-op in Phase 5)`);
       },
       onBeforeUnmount: async (extensionId) => {
         const panel = webviewPanelManager?.findByExtensionId(extensionId);
         if (!panel) return;
         // Phase 5: no timer, so onBeforeUnmount is only called explicitly
         // from destroyAll() / unmount() when we add that wiring later.
-        console.log(`[panels] onBeforeUnmount for ${panel.panelId} (no-op in Phase 5)`);
+        logger.log(`[panels] onBeforeUnmount for ${panel.panelId} (no-op in Phase 5)`);
       },
     });
 
@@ -1003,7 +1030,7 @@ app.whenReady().then(async () => {
     // the handler first, mount requests buffer (no mainWindow yet) and
     // flush automatically when setMainWindow() is called after createWindow().
     webviewPanelManager = new WebviewPanelManager();
-    console.log("[main] WebviewPanelManager created:", webviewPanelManager);
+    logger.info("[main] WebviewPanelManager created:", webviewPanelManager);
 
     // Phase 7 Task 13 — register each extension's keepAlive hint so the
     // lazy-unmount timer can honor it.
@@ -1038,7 +1065,7 @@ app.whenReady().then(async () => {
         const panel =
           webviewPanelManager?.findPanelByWebContentsId(webContentsId);
         if (!panel) {
-          console.warn(
+          logger.warn(
             `[panels] ui-event from unknown webContents ${webContentsId} — dropped`,
           );
           return;
@@ -1049,7 +1076,7 @@ app.whenReady().then(async () => {
           !uiEventAllowlist.isAllowed(extensionId, eventName)
         ) {
           const msg = `[extensions] dropped ui-event "${eventName}" from "${extensionId}" — not in allowlist`;
-          console.warn(msg);
+          logger.warn(msg);
           panel.view.webContents.send("panel:allowlist-denied", {
             kind: "ui-event",
             extensionId,
@@ -1075,23 +1102,23 @@ app.whenReady().then(async () => {
         if (panelId) {
           webviewPanelManager?.setDirty(panelId, dirty);
         } else {
-          console.warn(`[panels] setDirty: no panel found for extension ${extensionId}`);
+          logger.warn(`[panels] setDirty: no panel found for extension ${extensionId}`);
         }
       },
       onAutoSaveDraft: async (extensionId) => {
         const panel = webviewPanelManager?.findByExtensionId(extensionId);
         if (!panel) {
-          console.warn(`[panels] autoSaveDraft: no panel found for extension ${extensionId}`);
+          logger.warn(`[panels] autoSaveDraft: no panel found for extension ${extensionId}`);
           return;
         }
-        console.log(`[panels] onAutoSaveDraft for ${panel.panelId} (no-op in Phase 5)`);
+        logger.log(`[panels] onAutoSaveDraft for ${panel.panelId} (no-op in Phase 5)`);
       },
       onBeforeUnmount: async (extensionId) => {
         const panel = webviewPanelManager?.findByExtensionId(extensionId);
         if (!panel) return;
         // Phase 5: no timer, so onBeforeUnmount is only called explicitly
         // from destroyAll() / unmount() when we add that wiring later.
-        console.log(`[panels] onBeforeUnmount for ${panel.panelId} (no-op in Phase 5)`);
+        logger.log(`[panels] onBeforeUnmount for ${panel.panelId} (no-op in Phase 5)`);
       },
     });
 
@@ -1106,7 +1133,7 @@ app.whenReady().then(async () => {
     // requestMount(). The UI handler is already set, so mount requests
     // will either buffer (if mainWindow wasn't ready) or execute directly.
     extensionIPC.start(extensionRegistry.list()).catch((err) => {
-      console.error("[extensions] Extension Host failed to start:", err);
+      logger.error("[extensions] Extension Host failed to start:", err);
     });
 
     extensionIPC.onHostStatus((status) => {
@@ -1137,7 +1164,7 @@ app.whenReady().then(async () => {
     });
 
   } catch (err) {
-    console.error("Fatal error during app initialization:", err);
+    logger.error("Fatal error during app initialization:", err);
     dialog.showErrorBox(
       "Startup Error",
       `Finance Flow AI encountered a fatal error during startup:\n\n${err instanceof Error ? err.message : String(err)}\n\nPlease check the logs and try again.`,

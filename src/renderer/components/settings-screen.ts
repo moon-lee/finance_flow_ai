@@ -2,6 +2,7 @@ import { LitElement, css, html } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { baseViewStyles, headerHighlightStyles } from '../styles/base-view-styles';
 import { overlayCoordinator } from '../overlay-coordinator';
+import { rendererLogger } from '../logger';
 
 interface ExtensionSettings {
   extensionId: string;
@@ -459,7 +460,7 @@ export class SettingsScreen extends LitElement {
         else document.body.classList.remove('light-theme');
       }
     } catch (err) {
-        console.error(`[settings] failed to set ${key}:`, err);
+        rendererLogger.error(`[settings] failed to set ${key}:`, err);
       }
     }, 300);
     this._debounceTimers.set(key, timer);
@@ -562,7 +563,7 @@ export class SettingsScreen extends LitElement {
             try {
               this._commit(item.key, JSON.parse(raw));
             } catch {
-              console.warn(`[settings] invalid JSON for ${item.key}`);
+              rendererLogger.warn(`[settings] invalid JSON for ${item.key}`);
             }
           }}
         ></textarea>

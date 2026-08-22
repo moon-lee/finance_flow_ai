@@ -38,26 +38,9 @@ export interface ExtensionsApi {
     configuration: Array<{ extensionId: string; configuration: ManifestConfigurationContribution }>;
   }>;
   activateView: (viewId: string) => Promise<{ activated: boolean; reason?: string }>;
-  // [Review fix §4.6] Wires the renderer to call extension commands through the
-  // Main IPC channel. Returns `{ executed: boolean; reason?: string; result?: unknown }`
-  // mirroring the Main-side handler's response shape.
   executeCommand: (commandId: string, ...args: unknown[]) => Promise<{ executed: boolean; reason?: string; result?: unknown }>;
-  // [Fix] Subscribe to Host log entries (forwarded from `extension-ipc.ts`
-  // via the `extensions:host-log` IPC channel). Used to mirror Host stdout
-  // (including extension `console.log` calls) into the Renderer DevTools
-  // console so Test Unit 4's expected log output is visible to manual testers.
-  // Returns an unsubscribe function.
   onHostLog: (callback: (entry: HostLogEntry) => void) => () => void;
-  // [Fix] Subscribe to Extension Host lifecycle status changes (forwarded
-  // from `extension-ipc.ts` via the `extensions:host-status` IPC channel).
-  // Used to surface crash / restart / ready events in the Renderer DevTools
-  // console (Test Unit 5 step 6 expectation) and is the integration point
-  // for the Phase 4+ status-bar UI. Returns an unsubscribe function.
   onHostStatus: (callback: (status: HostStatus) => void) => () => void;
-  // Phase 4 Task 14 — subscribe to UI-mount requests. The callback receives
-  // `{ extensionId, componentTag, mountData, bundleUrl }`; the renderer mounts
-  // the named custom element (after dynamically importing the extension
-  // bundle at `bundleUrl`).
   onUiMount: (
     callback: (
       payload: {
@@ -68,16 +51,10 @@ export interface ExtensionsApi {
       }
     ) => void
   ) => () => void;
-  // Phase 4 Task 14 — renderer-side DB proxy (delegates to the DAO service in
-  // Main, the same one the Host uses).
   readTable: (params: unknown) => Promise<unknown>;
   writeTable: (params: unknown) => Promise<unknown>;
-  // Phase 4 Task 14 (Decision 12) — push a component-emitted event back to
-  // the Extension Host.
   uiEvent: (extensionId: string, eventName: string, detail: unknown) => void;
-  // Phase 5 Task 4 — subscribe to ui-events forwarded from panels through Main.
   onUiEventFromPanel: (callback: (payload: { extensionId: string; eventName: string; detail: unknown }) => void) => () => void;
-  // Phase 7 Task 4 — receive shortcut matches from Main.
   onShortcut: (callback: (payload: { accelerator: string; commandId: string; extensionId: string }) => void) => () => void;
 }
 
@@ -95,6 +72,14 @@ export interface PanelApi {
   onUnmounted: (callback: (panelId: string, viewId: string) => void) => () => void;
   onRequestBounds: (callback: (panelId: string) => void) => () => void;
   broadcastTheme: (theme: string) => void;
+}
+
+export interface LogEntry {
+  level: string;
+  message: string;
+  context?: string;
+  error?: string;
+  timestamp: number;
 }
 
 /** [Fix] One log entry forwarded from the Extension Host. See

@@ -97,31 +97,26 @@ const shellApi = {
       ipcRenderer.invoke('event:publish', { topic, payload })
   },
   panel: {
-    focus: (panelId: string): void => { console.log('[preload] panel.focus', panelId); ipcRenderer.send('panel:focus', panelId); },
-    show: (panelId: string): void => { console.log('[preload] panel.show', panelId); ipcRenderer.send('panel:show', panelId); },
-    hideForOverlay: (): void => { console.log('[preload] panel.hideForOverlay'); ipcRenderer.send('panel:hide-overlay'); },
-    restoreAfterOverlay: (): void => { console.log('[preload] panel.restoreAfterOverlay'); ipcRenderer.send('panel:restore-overlay'); },
+    focus: (panelId: string): void => { ipcRenderer.send('panel:focus', panelId); },
+    show: (panelId: string): void => { ipcRenderer.send('panel:show', panelId); },
+    hideForOverlay: (): void => { ipcRenderer.send('panel:hide-overlay'); },
+    restoreAfterOverlay: (): void => { ipcRenderer.send('panel:restore-overlay'); },
     getActive: (): Promise<string | null> => ipcRenderer.invoke('panel:active'),
     list: (): Promise<Array<{ panelId: string; extensionId: string; viewId: string }>> => ipcRenderer.invoke('panel:list'),
     resize: (panelId: string, bounds: { x: number; y: number; width: number; height: number }): void => {
-      console.log('[preload] panel.resize', { panelId, bounds });
       ipcRenderer.send('panel:resize', panelId, bounds);
     },
     unmount: (panelId: string): void => {
-      console.log('[preload] panel.unmount', panelId);
       ipcRenderer.send('panel:unmount', panelId);
     },
     unmountAll: (): void => {
-      console.log('[preload] panel.unmountAll');
       ipcRenderer.send('panel:unmount-all');
     },
     broadcastTheme: (theme: string): void => {
       ipcRenderer.send('theme:broadcast', theme);
     },
     onMounted: (callback: (panelId: string) => void): (() => void) => {
-      console.log('[preload] panel.onMounted subscriber registered');
       const listener = (_event: IpcRendererEvent, panelId: string): void => {
-        console.log('[preload] panel.onMounted fired', panelId);
         callback(panelId);
       };
       ipcRenderer.on('panel:mounted', listener);
@@ -135,9 +130,7 @@ const shellApi = {
       return () => { ipcRenderer.off('panel:unmounted', listener); };
     },
     onRequestBounds: (callback: (panelId: string) => void): (() => void) => {
-      console.log('[preload] panel.onRequestBounds subscriber registered');
       const listener = (_event: IpcRendererEvent, panelId: string): void => {
-        console.log('[preload] panel.onRequestBounds fired', panelId);
         callback(panelId);
       };
       ipcRenderer.on('workspace:request-bounds', listener);

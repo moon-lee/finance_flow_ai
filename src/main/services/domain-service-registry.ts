@@ -2,8 +2,11 @@ export interface DomainServiceImpl {
   [method: string]: (...args: unknown[]) => Promise<unknown> | unknown;
 }
 
+import { getLogger } from './logger';
+
 export class DomainServiceRegistry {
   private readonly registry = new Map<string, Map<string, DomainServiceImpl>>();
+  private readonly logger = getLogger();
 
   register(serviceName: string, extensionId: string, impl: DomainServiceImpl): void {
     let inner = this.registry.get(serviceName);
@@ -26,7 +29,7 @@ export class DomainServiceRegistry {
   async invoke(serviceName: string, method: string, params: unknown): Promise<unknown> {
     const inner = this.registry.get(serviceName);
     if (!inner || inner.size === 0) {
-      console.warn('[services] service not found:', serviceName);
+      this.logger.warn('[services] service not found:', serviceName);
       return null;
     }
     const [, impl] = Array.from(inner.entries())[0];
@@ -44,7 +47,7 @@ export class DomainServiceRegistry {
       return await fn(...args);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      console.warn('[services] service errored:', serviceName, message);
+      this.logger.warn('[services] service errored:', serviceName, message);
       return null;
     }
   }

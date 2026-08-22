@@ -17,6 +17,5 @@ const moduleDir = typeof __dirname !== 'undefined' ? __dirname : dirname(fileURL
  */
 export function resolveHostBundlePath(): string {
   const path = join(moduleDir, '..', '..', HOST_BUNDLE_DIR, HOST_BUNDLE_FILENAME);
-  console.log(`[extension-host] bundle path resolved: ${path}`);
   return path;
 }

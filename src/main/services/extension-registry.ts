@@ -1,6 +1,7 @@
 import type Database from 'better-sqlite3';
 import { getDatabase } from './database-service';
 import type { FinanceExtensionManifest, ManifestConfigurationContribution } from '../../types/finance';
+import { getLogger } from './logger';
 
 /** [Review fix §4.2] After this many recorded crashes, the extension is auto-disabled. */
 export const AUTO_DISABLE_CRASH_THRESHOLD = 3;
@@ -87,7 +88,7 @@ export class ExtensionRegistry {
     if (!row) {
       // Extension not in registry yet (e.g., crashing during initial discovery).
       // This is unusual but harmless — log and bail.
-      console.warn(`[registry] recordCrash called for unknown extension "${extensionId}"`);
+      getLogger().warn(`[registry] recordCrash called for unknown extension "${extensionId}"`);
       return { crashCount: 0, autoDisabled: false };
     }
 
@@ -101,12 +102,12 @@ export class ExtensionRegistry {
     `).run(newCount, errorMessage, shouldDisable ? 1 : 0, extensionId);
 
     if (shouldDisable) {
-      console.error(
-        `[registry] extension "${extensionId}" auto-disabled after ${newCount} crashes ` +
-        `(threshold: ${AUTO_DISABLE_CRASH_THRESHOLD}). Last error: ${errorMessage}`
-      );
+        getLogger().error(
+          `[registry] extension "${extensionId}" auto-disabled after ${newCount} crashes ` +
+          `(threshold: ${AUTO_DISABLE_CRASH_THRESHOLD}). Last error: ${errorMessage}`
+        );
     } else {
-      console.warn(`[registry] extension "${extensionId}" crash #${newCount}: ${errorMessage}`);
+      getLogger().warn(`[registry] extension "${extensionId}" crash #${newCount}: ${errorMessage}`);
     }
 
     return { crashCount: newCount, autoDisabled: shouldDisable };

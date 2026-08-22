@@ -16,6 +16,7 @@
 
 import { finance, createFinance } from './api/index';
 import { getHostEventHandlers } from './api/events';
+import { ExtensionLogger } from './api/logger';
 import {
   isRequest,
   isNotification,
@@ -37,41 +38,25 @@ declare const process: NodeJS.Process & {
 };
 
 const parentPort = process.parentPort;
-if (!parentPort) {
-  // Defensive: this file must be launched via utilityProcess, not node directly.
-  console.error('Extension Host must be launched via Electron utilityProcess.fork()');
-  process.exit(1);
-}
-
-/**
- * [Fix] Forward all console output (log/error/warn) to Main via the
- * JSON-RPC channel so it can be mirrored to the Renderer DevTools console.
- * Electron's `utilityProcess` does not expose `stdout` as a readable
- * stream (only 'spawn' / 'exit' / 'message' events are available), so
- * we cannot tail the child's stdout from Main. Wrapping the four console
- * methods is the equivalent — every log line that the Host (or any
- * extension it loads) writes ends up in the DevTools console with a
- * `[host]` prefix.
- */
-function forwardLog(level: 'log' | 'error' | 'warn', args: unknown[]): void {
-  try {
-    parentPort!.postMessage({
-      jsonrpc: '2.0',
-      method: 'host.log',
-      params: { level, args: args.map((a) => {
-        if (a instanceof Error) return a.stack ?? a.message;
-        if (typeof a === 'string') return a;
-        try { return JSON.stringify(a); } catch { return String(a); }
-      }) }
-    });
-  } catch {
-    // postMessage can fail if the parent disconnected; silently drop.
-  }
-}
-
 const _origLog = console.log.bind(console);
 const _origError = console.error.bind(console);
 const _origWarn = console.warn.bind(console);
+const hostLogger = new ExtensionLogger('host', {
+  log: _origLog,
+  error: _origError,
+  warn: _origWarn,
+});
+
+if (!parentPort) {
+  // Defensive: this file must be launched via utilityProcess, not node directly.
+  hostLogger.error('Extension Host must be launched via Electron utilityProcess.fork()');
+  process.exit(1);
+}
+
+function forwardLog(level: 'log' | 'error' | 'warn', args: unknown[]): void {
+  hostLogger[level === 'log' ? 'info' : level](...args);
+}
+
 console.log = (...args: unknown[]) => { _origLog(...args); forwardLog('log', args); };
 console.error = (...args: unknown[]) => { _origError(...args); forwardLog('error', args); };
 console.warn = (...args: unknown[]) => { _origWarn(...args); forwardLog('warn', args); };
@@ -120,7 +105,7 @@ function handleHostEventNotify(notification: JsonRpcNotification): void {
     try {
       handler(payload);
     } catch (err) {
-      console.error(`[host] event handler threw for topic "${topic}":`, err);
+      hostLogger.error(`[host] event handler threw for topic "${topic}":`, err);
     }
   }
 }
@@ -188,7 +173,7 @@ async function handleRequest(req: JsonRpcRequest): Promise<void> {
     switch (req.method) {
       case 'host.initialize': {
         const manifests = (req.params as { manifests: FinanceExtensionManifest[] }).manifests;
-        console.log(`[host] received host.initialize with ${manifests.length} manifests (id=${req.id})`);
+        hostLogger.info(`[host] received host.initialize with ${manifests.length} manifests (id=${req.id})`);
         for (const manifest of manifests) {
           activeExtensions.set(manifest.id, { manifest });
         }
@@ -209,7 +194,7 @@ async function handleRequest(req: JsonRpcRequest): Promise<void> {
           await activateExtension(manifest.id, 'onStartup');
         }
         respond(req.id, { accepted: manifests.length });
-        console.log(`[host] responded to host.initialize (id=${req.id})`);
+        hostLogger.info(`[host] responded to host.initialize (id=${req.id})`);
         return;
       }
       case 'extension.activate': {
@@ -321,24 +306,24 @@ function sortByDependencies(manifests: FinanceExtensionManifest[]): FinanceExten
 }
 
 async function activateExtension(extensionId: string, reason: string): Promise<boolean> {
-  console.log('[host] activateExtension called', { extensionId, reason });
+  hostLogger.info('[host] activateExtension called', { extensionId, reason });
   const ext = activeExtensions.get(extensionId);
   if (!ext) {
-    console.error(`[host] activate: extension "${extensionId}" not found`);
+    hostLogger.error(`[host] activate: extension "${extensionId}" not found`);
     return false;
   }
   if (ext.moduleUrl) {
-    console.log('[host] activate: extension already active', { extensionId });
+    hostLogger.info('[host] activate: extension already active', { extensionId });
     return true; // already active
   }
   if (!ext.manifest.activationEvents.some((evt) => evt === '*' || evt === reason)) {
-    console.warn(
+    hostLogger.warn(
       `[host] activate: extension "${extensionId}" has no activation event matching "${reason}"`
     );
     return false;
   }
 
-  console.log('[host] activate: loading bundle for', extensionId);
+  hostLogger.info('[host] activate: loading bundle for', extensionId);
   try {
     const path = await import('node:path');
     const url = await import('node:url');
@@ -350,7 +335,7 @@ async function activateExtension(extensionId: string, reason: string): Promise<b
     );
     const entryPath = path.join(extensionsBundleRoot, `${extensionId}.js`);
 
-    console.log('[host] activate: importing bundle from', entryPath);
+    hostLogger.info('[host] activate: importing bundle from', entryPath);
     const extModule = await import(url.pathToFileURL(entryPath).href);
     if (typeof extModule?.activate === 'function') {
       const perExtensionFinance = createFinance(extensionId, {
@@ -359,17 +344,17 @@ async function activateExtension(extensionId: string, reason: string): Promise<b
         notify: (method: string, params?: unknown): void =>
           notify(method, params)
       });
-      console.log('[host] activate: calling extModule.activate for', extensionId);
+      hostLogger.info('[host] activate: calling extModule.activate for', extensionId);
       await extModule.activate(perExtensionFinance);
-      console.log('[host] activate: extModule.activate returned for', extensionId);
+      hostLogger.info('[host] activate: extModule.activate returned for', extensionId);
     }
     ext.moduleUrl = entryPath;
     ext.module = extModule;
     notify('extension.activated', { extensionId, reason });
-    console.log('[host] activated', { extensionId, reason });
+    hostLogger.info('[host] activated', { extensionId, reason });
     return true;
   } catch (err) {
-    console.error(`[host] failed to activate "${extensionId}":`, err);
+    hostLogger.error(`[host] failed to activate "${extensionId}":`, err);
     return false;
   }
 }
@@ -387,11 +372,11 @@ async function handleNotification(notification: JsonRpcNotification): Promise<vo
     // has no active ui-event listeners), so for now we observe them. The
     // `salary-history:open-view` style subscriptions will consume this
     // channel once the back-channel is wired in a later task.
-    console.log('[host] ui-event received:', JSON.stringify(notification.params));
+    hostLogger.info('[host] ui-event received:', JSON.stringify(notification.params));
     return;
   }
   if (notification.method === RPC_METHOD.HostShutdown) {
-    console.log('[host] shutdown request received, draining requests...');
+    hostLogger.info('[host] shutdown request received, draining requests...');
     shuttingDown = true;
 
     // Wait for any in-flight JSON-RPC requests to complete before tearing
@@ -399,13 +384,13 @@ async function handleNotification(notification: JsonRpcNotification): Promise<vo
     // immediately by `handleRequest`.
     await waitForActiveRequests();
 
-    console.log('[host] requests drained, deactivating extensions...');
+      hostLogger.info('[host] requests drained, deactivating extensions...');
     for (const [id, ext] of activeExtensions) {
       if (ext.module && typeof ext.module.deactivate === 'function') {
         try {
           await ext.module.deactivate();
         } catch (err) {
-          console.error(`[host] failed to deactivate "${id}":`, err);
+          hostLogger.error(`[host] failed to deactivate "${id}":`, err);
         }
       }
     }
@@ -458,4 +443,4 @@ parentPort.on('message', (event: { data: unknown; ports?: unknown[] }) => {
 // Signal readiness so Main can send the manifest list.
 notify('host.ready', { pid: process.pid, requestId: makeRequestId() });
 
-console.log(`[host] Extension Host process started (pid ${process.pid})`);
+hostLogger.info(`[host] Extension Host process started (pid ${process.pid})`);

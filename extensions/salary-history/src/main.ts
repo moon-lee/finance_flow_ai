@@ -89,13 +89,13 @@ export async function activate(
 
    finance.commands.registerCommand('salary.show-pay-history', 'View: Pay History', () =>
      openPayHistory(finance, settingsMountData).catch((e) =>
-       console.error('[salary-history] openPayHistory failed', e),
+        console.error('[salary-history] openPayHistory failed', e),
      ),
    );
    finance.commands.registerCommand('salary.show-pay-rate-history', 'View: Pay Rate History', () => {
-     console.log('[salary-history] mounting pay-rate-history-view');
+      console.log('[salary-history] mounting pay-rate-history-view');
      finance.ui?.requestMount('pay-rate-history-view', settingsMountData).catch((e) =>
-       console.error('[salary-history] requestMount pay-rate-history-view failed', e),
+        console.error('[salary-history] requestMount pay-rate-history-view failed', e),
      );
    });
 

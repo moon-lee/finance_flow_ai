@@ -13,6 +13,7 @@ import type { ActivityView } from './components/activity-bar';
 import type { PaletteCommand } from './components/command-palette';
 import type { HostLogEntry, HostStatus } from '../types/finance-shell';
 import type { NavigationPanel } from './components/navigation-panel';
+import { rendererLogger } from './logger';
 
 const app = document.querySelector<HTMLElement>('#app');
 const commandPalette = document.querySelector<HTMLElement & { focusInput(): void; extensionCommands: PaletteCommand[] }>('#command-palette');
@@ -62,15 +63,25 @@ if (window.financeShell?.extensions?.onUiEventFromPanel) {
 if (window.financeShell?.extensions?.onHostStatus) {
   window.financeShell.extensions.onHostStatus((status: HostStatus) => {
     const tag = '[host status]';
-    // Use the severity of the status to pick the console method so DevTools
-    // filtering and styling work correctly. `crashed` and `restart-failed`
-    // are operational warnings; `starting`, `ready`, `restarting` are
-    // informational.
     if (status.status === 'crashed' || status.status === 'restart-failed') {
       console.error(tag, status);
     } else {
       console.log(tag, status);
     }
+  });
+}
+
+if (window.financeShell?.events?.on) {
+  ['error', 'warn', 'info', 'debug'].forEach((level) => {
+    window.financeShell.events.on(`log.${level}`, (payload: unknown) => {
+      const p = payload as Record<string, unknown>;
+      const tag = `[${(p.context as string) ?? 'renderer'}]`;
+      const message = (p.message as string) ?? '';
+      if (level === 'error') console.error(tag, message);
+      else if (level === 'warn') console.warn(tag, message);
+      else if (level === 'info') console.info(tag, message);
+      else console.debug(tag, message);
+    });
   });
 }
 
@@ -185,7 +196,7 @@ async function loadExtensionContributions(): Promise<void> {
       })));
     }
   } catch (err) {
-    console.error('Failed to load extension contributions:', err);
+    rendererLogger.error('Failed to load extension contributions:', err);
   }
 }
 
@@ -199,7 +210,7 @@ window.addEventListener('click', (event) => {
 window.addEventListener('view-changed', (event: Event) => {
   const customEvent = event as CustomEvent<{ view: string; source: string }>;
   const viewId = customEvent.detail.view;
-  console.log(`[renderer] view-changed event: viewId=${viewId}, source=${customEvent.detail.source}`);
+  rendererLogger.log(`[renderer] view-changed event: viewId=${viewId}, source=${customEvent.detail.source}`);
   
   if (viewId === '__settings__' || viewId === '__accounts__' || viewId === '__shortcuts__' || viewId === '__backup__') {
     if (activityBar) activityBar.activeView = viewId;
@@ -307,10 +318,10 @@ window.addEventListener('command-selected', (event: Event) => {
     // §7 Security deferral note.
     window.financeShell?.extensions.executeCommand(cmd).then((result) => {
       if (!result.executed) {
-        console.warn(`[palette] extension command "${cmd}" did not execute: ${result.reason ?? 'unknown reason'}`);
+        rendererLogger.warn(`[palette] extension command "${cmd}" did not execute: ${result.reason ?? 'unknown reason'}`);
       }
     }).catch((err) => {
-      console.error(`[palette] extension command "${cmd}" threw:`, err);
+      rendererLogger.error(`[palette] extension command "${cmd}" threw:`, err);
     });
   } else {
     if (cmd === 'toggle-ai') toggleAiPanel();
@@ -449,9 +460,9 @@ function executeExtensionCommand(commandId: string): void {
     .executeCommand(commandId)
     .then((result) => {
       if (result && !result.executed) {
-        console.warn(`[shortcut] extension command "${commandId}" did not execute: ${result.reason ?? 'unknown reason'}`);
+        rendererLogger.warn(`[shortcut] extension command "${commandId}" did not execute: ${result.reason ?? 'unknown reason'}`);
       }
     })
-    .catch((err) => console.error(`[shortcut] extension command "${commandId}" threw:`, err));
+    .catch((err) => rendererLogger.error(`[shortcut] extension command "${commandId}" threw:`, err));
   setCommandPaletteVisible(false);
 }

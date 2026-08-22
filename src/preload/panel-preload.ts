@@ -34,8 +34,8 @@ ipcRenderer.on('theme:changed', (_event, theme: string) => {
   }
 });
 
-ipcRenderer.on('panel:allowlist-denied', (_event, payload: { kind: string; extensionId: string; eventName: string; reason: string }) => {
-  console.warn(`[panel] allowlist denied (${payload.kind}): ${payload.reason}`);
+ipcRenderer.on('panel:allowlist-denied', () => {
+  // Silently dropped; Main already logs allowlist denials.
 });
 
 const panelApi = {

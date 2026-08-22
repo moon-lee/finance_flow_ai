@@ -2,6 +2,7 @@ import { LitElement, css, html } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import './tab-bar';
 import type { Tab } from './types';
+import { rendererLogger } from '../logger';
 export type { Tab };
 
 interface PersistedLayout {
@@ -132,7 +133,7 @@ export class WorkspacePanel extends LitElement {
       if (live) {
         this._addPanel(panelId, this._viewIdToLabel.get(live.viewId) ?? live.viewId, this._pendingCommandId ?? undefined);
       } else {
-        console.warn('[workspace] _onPanelMounted panel not in tabs', { panelId, availableTabs: this._tabs.map(t => t.panelId) });
+        rendererLogger.warn('[workspace] _onPanelMounted panel not in tabs', { panelId, availableTabs: this._tabs.map(t => t.panelId) });
       }
       this._pendingCommandId = null;
     } else {
@@ -257,7 +258,7 @@ export class WorkspacePanel extends LitElement {
     try {
       for (const tab of this._tabs) {
         const viewId = panelIdToViewId.get(tab.panelId);
-        console.log('[workspace] _activateRestoredTabs: tab panelId', tab.panelId, '-> viewId', viewId ?? '(internal)', 'commandId', tab.commandId);
+        rendererLogger.log('[workspace] _activateRestoredTabs: tab panelId', tab.panelId, '-> viewId', viewId ?? '(internal)', 'commandId', tab.commandId);
         if (viewId) {
           try {
             await window.financeShell.extensions.activateView(viewId);
@@ -266,7 +267,7 @@ export class WorkspacePanel extends LitElement {
           }
         } else if (tab.commandId) {
           // Internal view with saved commandId - execute it to restore
-          console.log('[workspace] _activateRestoredTabs: executing command for internal view', tab.commandId);
+          rendererLogger.log('[workspace] _activateRestoredTabs: executing command for internal view', tab.commandId);
           try {
             await window.financeShell.extensions.executeCommand(tab.commandId);
           } catch {
@@ -274,7 +275,7 @@ export class WorkspacePanel extends LitElement {
           }
         } else {
           // Tab for an internal view without commandId - will be mounted on-demand
-          console.log('[workspace] _activateRestoredTabs: skipping internal view panelId', tab.panelId);
+          rendererLogger.log('[workspace] _activateRestoredTabs: skipping internal view panelId', tab.panelId);
         }
       }
     } finally {
@@ -329,7 +330,7 @@ export class WorkspacePanel extends LitElement {
   private _sendBoundsToPanel(panelId: string) {
     const content = this.renderRoot.querySelector('.content') as HTMLElement | null;
     if (!content) {
-      console.warn('[workspace] _sendBoundsToPanel: .content element not found');
+      rendererLogger.warn('[workspace] _sendBoundsToPanel: .content element not found');
       return;
     }
     const rect = content.getBoundingClientRect();
@@ -337,7 +338,7 @@ export class WorkspacePanel extends LitElement {
     try {
       window.financeShell?.panel?.resize(panelId, bounds);
     } catch (err) {
-      console.error('[workspace] _sendBoundsToPanel: resize() threw', err);
+        rendererLogger.error('[workspace] _sendBoundsToPanel: resize() threw', err);
     }
   }
 

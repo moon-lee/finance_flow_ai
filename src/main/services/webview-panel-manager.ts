@@ -25,6 +25,7 @@ import { fileURLToPath } from "node:url";
 import { toAccelerator } from './shortcut-registry';
 import { getSetting } from './settings-service';
 import { EventBus } from './event-bus';
+import { getLogger } from './logger';
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 
@@ -87,7 +88,7 @@ export class WebviewPanelManager {
   }
 
   setMainWindow(window: BrowserWindow): void {
-    console.log('[setMainWindow] window:', window);
+    getLogger().log('[setMainWindow] window:', window);
     this.mainWindow = window;
     this.flushMountBuffer();
     this.startLazyUnmountTimer();
@@ -99,7 +100,7 @@ export class WebviewPanelManager {
   }
 
   setDirty(panelId: string, dirty: boolean): void {
-    console.log(`[webview-panel] setDirty: ${panelId} dirty=${dirty}`);
+    getLogger().log(`[webview-panel] setDirty: ${panelId} dirty=${dirty}`);
     if (dirty) {
       this.dirtyPanelIds.add(panelId);
     } else {
@@ -172,7 +173,7 @@ export class WebviewPanelManager {
     if (this.dirtyPanelIds.has(panelId)) return;
     if (handle.keepAlive) return;
 
-    console.log(`[webview-panel] lazy unmounting ${panelId}`);
+    getLogger().log(`[webview-panel] lazy unmounting ${panelId}`);
 
     if (this.eventBus) {
       this.eventBus.publish('panel.lazy-unmount', { panelId, viewId: handle.viewId });
@@ -188,7 +189,7 @@ export class WebviewPanelManager {
         ]);
       }
     } catch (err) {
-      console.warn(`[webview-panel] onBeforeUnmount failed for ${panelId}:`, err);
+      getLogger().warn(`[webview-panel] onBeforeUnmount failed for ${panelId}:`, err);
     }
 
     try {
@@ -211,7 +212,7 @@ export class WebviewPanelManager {
         view.webContents.close();
       }
     } catch (err) {
-      console.warn(`[webview-panel] lazy unmount failed for ${panelId}:`, err);
+      getLogger().warn(`[webview-panel] lazy unmount failed for ${panelId}:`, err);
     }
 
     if (this.activePanelId === panelId) {
@@ -232,14 +233,14 @@ export class WebviewPanelManager {
   }
 
   async autoSaveDraft(panelId: string): Promise<void> {
-    console.log(`[webview-panel] autoSaveDraft called: ${panelId}`);
+    getLogger().log(`[webview-panel] autoSaveDraft called: ${panelId}`);
     const handle = this.findByPanelId(panelId);
     if (!handle) {
-      console.warn(`[webview-panel] autoSaveDraft: panel not found for ${panelId}`);
+      getLogger().warn(`[webview-panel] autoSaveDraft: panel not found for ${panelId}`);
       return;
     }
     if (!this.uiHandler) {
-      console.warn('[webview-panel] autoSaveDraft: uiHandler is null');
+      getLogger().warn('[webview-panel] autoSaveDraft: uiHandler is null');
       return;
     }
     try {
@@ -253,7 +254,7 @@ export class WebviewPanelManager {
         ),
       ]);
     } catch (err) {
-      console.error(`[webview-panel] autoSaveDraft failed for ${panelId}:`, err);
+      getLogger().error(`[webview-panel] autoSaveDraft failed for ${panelId}:`, err);
       this.mainWindow?.webContents.send('panel:auto-save-failed', { panelId, viewId: handle.viewId, dirty: this.dirtyPanelIds.has(panelId) });
       if (this.eventBus) {
         this.eventBus.publish('panel.auto-save-failed', { panelId, viewId: handle.viewId, dirty: this.dirtyPanelIds.has(panelId) });
@@ -276,7 +277,7 @@ export class WebviewPanelManager {
 
     const existing = this.findByPanelId(panelId);
     if (existing) {
-      console.log('[webview-panel] mount() called (existing)', {
+      getLogger().log('[webview-panel] mount() called (existing)', {
         extensionId,
         viewId,
         hasMainWindow: !!this.mainWindow,
@@ -317,7 +318,7 @@ export class WebviewPanelManager {
     view.webContents.on(
       "did-fail-load",
       (_event, errorCode, errorDescription, validatedURL) => {
-        console.error(`[webview-panel] ${panelId} did-fail-load`, {
+          getLogger().error(`[webview-panel] ${panelId} did-fail-load`, {
           errorCode,
           errorDescription,
           validatedURL,
@@ -343,7 +344,7 @@ export class WebviewPanelManager {
     const handle: PanelHandle = { panelId, extensionId, viewId, view, keepAlive: this.keepAliveExtensionIds.has(extensionId) };
     this.panels.set(webContentsId, handle);
 
-    console.log('[webview-panel] mount() called (new)', {
+      getLogger().log('[webview-panel] mount() called (new)', {
       extensionId,
       viewId,
       hasMainWindow: !!this.mainWindow,
@@ -371,7 +372,7 @@ export class WebviewPanelManager {
         this.mountShowTimers.delete(panelId);
         if (!this.panels.has(webContentsId)) return; // already unmounted
         if (view.webContents.isDestroyed()) return;
-        console.log('[webview-panel] fallback timer firing for', panelId, ' making visible');
+        getLogger().log('[webview-panel] fallback timer firing for', panelId, ' making visible');
         const wb = this.mainWindow?.contentView.getBounds();
         if (wb) {
           const fallbackBounds = {
@@ -384,11 +385,11 @@ export class WebviewPanelManager {
             this.showPanel(panelId);
           }
           view.setBounds(fallbackBounds);
-          console.log('[webview-panel] fallback bounds applied for', panelId, fallbackBounds);
+          getLogger().log('[webview-panel] fallback bounds applied for', panelId, fallbackBounds);
         }
         // After showing with fallback bounds, ask the renderer for exact bounds
         if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-          console.log('[webview-panel] requesting exact bounds from renderer for', panelId);
+            getLogger().log('[webview-panel] requesting exact bounds from renderer for', panelId);
           this.mainWindow.webContents.send('workspace:request-bounds', panelId);
         }
       }, 200);
@@ -398,7 +399,7 @@ export class WebviewPanelManager {
     if (this.mainWindow) {
       this.mainWindow.webContents.send("panel:mounted", panelId);
     } else {
-      console.warn('[webview-panel] mainWindow is null, cannot send panel:mounted');
+      getLogger().warn('[webview-panel] mainWindow is null, cannot send panel:mounted');
     }
 
     this.markActive(panelId);
@@ -413,7 +414,7 @@ export class WebviewPanelManager {
       ([, h]) => h.panelId === panelId,
     );
     if (!entry) {
-      console.warn('[webview-panel] unmount: panel not found', panelId);
+      getLogger().warn('[webview-panel] unmount: panel not found', panelId);
       return;
     }
     const [webContentsId, handle] = entry;
@@ -430,7 +431,7 @@ export class WebviewPanelManager {
         view.webContents.close();
       }
     } catch (err) {
-      console.warn(
+      getLogger().warn(
         `[webview-panel] failed to unmount panel ${handle.panelId}:`,
         err,
       );
@@ -448,7 +449,7 @@ export class WebviewPanelManager {
       this.markActive(panelId);
       this.startLazyUnmountTimer();
     } else {
-      console.warn('[webview-panel] focus: panel not found', panelId);
+      getLogger().warn('[webview-panel] focus: panel not found', panelId);
     }
   }
 
@@ -463,7 +464,7 @@ export class WebviewPanelManager {
   ): { extensionId: string } | null {
     const panel = this.panels.get(webContentsId);
     if (!panel) {
-      console.warn(
+      getLogger().warn(
         `[webview-panel] dropped ui-event from unknown sender ${webContentsId}`,
       );
       return null;
@@ -499,7 +500,7 @@ export class WebviewPanelManager {
     // Ignore 0x0 bounds — these come from the ResizeObserver firing during
     // Lit re-render when the .content element briefly has zero dimensions.
     if (bounds.width <= 0 || bounds.height <= 0) {
-      console.log('[webview-panel] resize: ignoring 0x0 bounds for', panelId);
+      getLogger().log('[webview-panel] resize: ignoring 0x0 bounds for', panelId);
       return;
     }
 
@@ -514,7 +515,7 @@ export class WebviewPanelManager {
     if (timer) {
       clearTimeout(timer);
       this.mountShowTimers.delete(panelId);
-      console.log('[webview-panel] cancelled fallback timer for', panelId);
+        getLogger().log('[webview-panel] cancelled fallback timer for', panelId);
       if (!this.overlayActive && (!this.activePanelId || this.activePanelId === panelId)) {
         this.showPanel(panelId);
       }
@@ -536,7 +537,7 @@ export class WebviewPanelManager {
         //console.log('[webview-panel] panel', handle.panelId, 'setBounds done (shown)');
       }
     } catch (err) {
-      console.warn(
+      getLogger().warn(
         `[webview-panel] failed to resize panel ${handle.panelId}:`,
         err,
       );
@@ -602,9 +603,9 @@ export class WebviewPanelManager {
 
   findByPanelId(panelId: string): PanelHandle | undefined {
     const found = Array.from(this.panels.values()).find((h) => h.panelId === panelId);
-/*     if (!found) {
-      console.log('[webview-panel] findByPanelId NOT found:', panelId, ' existing panels:', Array.from(this.panels.values()).map(h => h.panelId));
-    } */
+/*      if (!found) {
+        getLogger().log('[webview-panel] findByPanelId NOT found:', panelId, ' existing panels:', Array.from(this.panels.values()).map(h => h.panelId));
+      } */
     return found;
   }
 
@@ -647,11 +648,11 @@ export class WebviewPanelManager {
       (h) => h.extensionId === extensionId,
     );
     if (!handle) {
-      console.warn('[webview-panel] navigatePanel: no panel found for extension', extensionId);
+      getLogger().warn('[webview-panel] navigatePanel: no panel found for extension', extensionId);
       return false;
     }
     if (handle.view.webContents.isDestroyed()) {
-      console.warn('[webview-panel] navigatePanel: panel webContents destroyed', handle.panelId);
+      getLogger().warn('[webview-panel] navigatePanel: panel webContents destroyed', handle.panelId);
       return false;
     }
     handle.view.webContents.send('panel:navigate', { view, mountData });
@@ -675,7 +676,7 @@ export class WebviewPanelManager {
           handle.view.webContents.close();
         }
       } catch (err) {
-        console.warn('[webview-panel] failed to unmount', handle.panelId, err);
+        getLogger().warn('[webview-panel] failed to unmount', handle.panelId, err);
       }
     }
   }
@@ -710,7 +711,7 @@ export class WebviewPanelManager {
             ]);
           }
         } catch (err) {
-          console.warn(
+          getLogger().warn(
             `[webview-panel] autoSaveDraft failed for ${handle.panelId}:`,
             err,
           );

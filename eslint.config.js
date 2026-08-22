@@ -33,7 +33,8 @@ export default tseslint.config(
       // `scripts/` is build tooling that runs under Node ESM, not under
       // Electron's bundled renderer/main/host processes. Global `console`
       // is provided by Node and should not trip `no-undef`.
-      'scripts/**'
+      'scripts/**',
+      '**/dist/**'
     ]
   }
 );

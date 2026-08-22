@@ -1,6 +1,7 @@
 import BetterSqlite3 from 'better-sqlite3';
 import { dirname } from 'node:path';
 import { existsSync, mkdirSync, renameSync } from 'node:fs';
+import { getLogger } from './logger';
 import {
   infrastructureMigration,
   extensionCrashTrackingMigration,
@@ -82,7 +83,7 @@ function verifyDatabaseIntegrity(database: BetterSqlite3.Database): boolean {
 
 function renameCorruptDatabase(dbPath: string): void {
   const corruptPath = `${dbPath}.corrupt-${Date.now()}`;
-  console.error(
+  getLogger().error(
     `Database at ${dbPath} failed integrity check; renaming to ${corruptPath} and starting fresh.`
   );
   if (existsSync(dbPath)) {

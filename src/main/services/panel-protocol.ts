@@ -33,8 +33,9 @@
 import { protocol } from 'electron';
 import { join } from 'node:path';
 import { readFile } from 'node:fs/promises';
-import {  existsSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { getLogger } from './logger';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const DEV_EXTENSIONS_DIR = join(__dirname, '..', 'extensions');
@@ -53,7 +54,7 @@ const PANEL_BOOTSTRAP_PATH = join(__dirname, '..', 'resources', 'panel-bootstrap
  * Serves three kinds of resources:
  */
 export function registerPanelProtocol(): void {
-  console.log('[panel-protocol] registering finance-shell protocol handler');
+  getLogger().log('[panel-protocol] registering finance-shell protocol handler');
   protocol.handle('finance-shell', async (request) => {
     const url = new URL(request.url);
     const pathname = url.host ? `/${url.host}${url.pathname}` : url.pathname;
@@ -71,7 +72,7 @@ export function registerPanelProtocol(): void {
       }
       return serveExtensionBundle(extPath);
     }
-    console.warn('[panel-protocol] 404 for', pathname);
+    getLogger().warn('[panel-protocol] 404 for', pathname);
     return new Response('Not Found', { status: 404 });
   });
 }

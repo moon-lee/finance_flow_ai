@@ -3,6 +3,7 @@ import { join, resolve } from 'node:path';
 import { validateManifest, type ManifestValidationResult } from '../../extension-host/manifest-schema';
 import type { FinanceExtensionManifest, PackageJsonFinanceExtension } from '../../types/finance';
 import type { TableSchemaRegistry } from './table-schema-registry';
+import { getLogger } from './logger';
 
 export interface DiscoveredExtension {
   /** Absolute path to the extension's package directory. */
@@ -107,7 +108,7 @@ export function discoverExtensions(
     const manifest = validation.manifest;
     if (!manifest.contributions.allowedCommands && manifest.contributions.commands) {
       manifest.contributions.allowedCommands = manifest.contributions.commands.map(c => c.id);
-      console.warn(`[loader] auto-filled allowedCommands for "${manifest.id}" from commands[]`);
+      getLogger().warn(`[loader] auto-filled allowedCommands for "${manifest.id}" from commands[]`);
     }
     if (!manifest.contributions.allowedUiEvents) {
       manifest.contributions.allowedUiEvents = [];

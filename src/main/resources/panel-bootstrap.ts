@@ -24,6 +24,12 @@ import type { PanelFinanceShellApi } from '../../types/finance-shell';
 
 declare const financeShell: PanelFinanceShellApi;
 
+const panelLogger = {
+  log: (message: string, ...args: unknown[]) => console.log(`[panel] ${message}`, ...args),
+  warn: (message: string, ...args: unknown[]) => console.warn(`[panel] ${message}`, ...args),
+  error: (message: string, ...args: unknown[]) => console.error(`[panel] ${message}`, ...args),
+};
+
 interface PanelPayload {
   extensionId: string;
   viewId: string;
@@ -101,7 +107,7 @@ function createPanelFinanceApi(extensionId: string): FinanceApi {
     ui: {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       requestMount: async (_viewId: string, _mountData?: object) => {
-        console.warn(`[panel] requestMount: ${_viewId} — panel already mounted, ignoring`);
+        panelLogger.warn(`[panel] requestMount: ${_viewId} — panel already mounted, ignoring`);
       },
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       navigatePanel: async (_view: string, _mountData?: object) => {
@@ -124,7 +130,7 @@ function createPanelFinanceApi(extensionId: string): FinanceApi {
 
 async function mountPanelComponent(payload: PanelPayload): Promise<void> {
   const { extensionId, viewId, mountData } = payload;
-  console.log('[panel bootstrap] mountPanelComponent', { extensionId, viewId, hasMountData: !!mountData });
+  panelLogger.log('[panel bootstrap] mountPanelComponent', { extensionId, viewId, hasMountData: !!mountData });
 
   const theme = await financeShell.theme.get();
   const root = document.documentElement;
@@ -226,15 +232,15 @@ async function mountPanelComponent(payload: PanelPayload): Promise<void> {
     cssLink.rel = 'stylesheet';
     cssLink.href = cssUrl;
     document.head.appendChild(cssLink);
-    console.log('[panel bootstrap] injected CSS:', cssUrl);
+    panelLogger.log('[panel bootstrap] injected CSS:', cssUrl);
 
-    console.log('[panel bootstrap] importing bundle:', bundleUrl);
+    panelLogger.log('[panel bootstrap] importing bundle:', bundleUrl);
     const bundle = await import(bundleUrl);
-    console.log('[panel bootstrap] bundle imported:', extensionId);
+    panelLogger.log('[panel bootstrap] bundle imported:', extensionId);
 
     const app = document.getElementById('app');
     if (!app) {
-      console.error('[panel bootstrap] #app element not found in panel template');
+      panelLogger.error('[panel bootstrap] #app element not found in panel template');
       return;
     }
 
@@ -242,24 +248,24 @@ async function mountPanelComponent(payload: PanelPayload): Promise<void> {
     for (const eventName of FORWARDED_EVENTS) {
       app.addEventListener(eventName, ((e: Event) => {
         const detail = (e as CustomEvent).detail;
-        console.log('[panel bootstrap] forwarding UI event:', eventName);
+        panelLogger.log('[panel bootstrap] forwarding UI event:', eventName);
         financeShell.extensions.uiEvent(extensionId, eventName, detail);
       }) as EventListener);
     }
 
     // --- Activate the extension ---
-    console.log('[panel bootstrap] creating FinanceApi and calling activate for', extensionId);
+    panelLogger.log('[panel bootstrap] creating FinanceApi and calling activate for', extensionId);
     const finance = createPanelFinanceApi(extensionId);
     
     if (typeof bundle.registerUIComponents === "function") {
       await bundle.registerUIComponents();
     } else {
-      console.warn(`[panel bootstrap] ${extensionId} does not implement registerUIComponents`);
+      panelLogger.warn(`[panel bootstrap] ${extensionId} does not implement registerUIComponents`);
     }
     
-    console.log('[panel bootstrap] calling activate for', extensionId);
+    panelLogger.log('[panel bootstrap] calling activate for', extensionId);
     await bundle.activate(finance, { viewId, ...(mountData ?? {}) });
-    console.log('[panel bootstrap] activate completed for', extensionId);
+    panelLogger.log('[panel bootstrap] activate completed for', extensionId);
 
     // --- Mount updates from Host (e.g. Dashboard refresh) ---
     financeShell.onMountUpdate((payload: unknown) => {
@@ -274,14 +280,14 @@ async function mountPanelComponent(payload: PanelPayload): Promise<void> {
     // --- Panel navigation from Host ---
     financeShell.onNavigate((payload: unknown) => {
       const { view, mountData: navMountData } = payload as { view: string; mountData?: Record<string, unknown> };
-      console.log('[panel bootstrap] received panel:navigate', { view });
+      panelLogger.log('[panel bootstrap] received panel:navigate', { view });
       const app = document.getElementById('app');
       if (app) {
         app.dispatchEvent(new CustomEvent('host-navigate', { detail: { view, mountData: navMountData } }));
       }
     });
   } catch (err) {
-    console.error('[panel bootstrap] failed to mount component:', err);
+    panelLogger.error('[panel bootstrap] failed to mount component:', err);
     const app = document.getElementById('app');
     if (app) {
       app.innerHTML = '<p style="color:#ff6b6b;padding:1rem;">Panel failed to load. See console for details.</p>';
@@ -290,9 +296,9 @@ async function mountPanelComponent(payload: PanelPayload): Promise<void> {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  console.log('[panel bootstrap] DOMContentLoaded');
+  panelLogger.log('[panel bootstrap] DOMContentLoaded');
   financeShell.onPanelInit(async (payload: unknown) => {
-    console.log('[panel bootstrap] received panel:init', payload);
+    panelLogger.log('[panel bootstrap] received panel:init', payload);
     await mountPanelComponent(payload as PanelPayload);
   });
 });
