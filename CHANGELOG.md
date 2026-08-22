@@ -1,7 +1,7 @@
 ---
 version: 0.9.0
 created: 2026-06-14
-last_updated: 2026-08-20T11:34:00+10:00
+last_updated: 2026-08-23T04:15:00+10:00
 ---
 
 # Changelog
@@ -12,6 +12,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+### Fixed
+
+- **DevTools console duplicated each log 3× (error/warn/info)** (`src/preload/preload.ts:89-95`, `src/renderer/logger.ts`, `src/renderer/index.ts:74-86`). `window.financeShell.events.on(topic, cb)` registered a global `ipcRenderer.on('shell:event')` listener that never filtered by `payload.topic`, so a single `eventBus.publish('log.info', ...)` from Main (`src/main/services/logger.ts:61`) fired all 4 render-side `log.*` subscribers (`error`/`warn`/`info`/`debug`). With the default `minLevel='info'`, this surfaced as 3 identical lines with different severities (`console.error`/`warn`/`info`). Fixed `preload.ts` to `if (payload.topic !== topic) return`. The same bug also affected every other `events.on` consumer (`toast-container`'s 3 topics). `src/renderer/logger.ts` now also mirrors to the local `console.*` before emitting to the bus, so renderer-originated logs remain visible even though `event:publish` in `src/main/main.ts:647-653` excludes the `renderer` source (otherwise they would be invisible).
 
 ### Administrative
 

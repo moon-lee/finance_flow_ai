@@ -911,6 +911,8 @@ app.whenReady().then(async () => {
           context: p.context as string | undefined,
           error: p.error as string | undefined,
           timestamp: p.timestamp as number,
+          file: p.file as string | undefined,
+          line: p.line as number | undefined,
         });
       };
       eventBus.subscribe('log.error', enqueue, 'renderer');
@@ -1163,10 +1165,10 @@ app.whenReady().then(async () => {
     extensionIPC.onHostLog((entry) => {
       if (eventBus) {
         const level = entry.level === 'log' ? 'info' : entry.level;
-        const message = entry.args.join(' ');
+        const message = `[host] ${entry.args.join(' ')}`;
         eventBus.publish(
           `log.${level}`,
-          { level, message, context: 'host', timestamp: Date.now() },
+          { level, message, context: 'host', timestamp: Date.now(), file: entry.file, line: entry.line },
           'host',
         );
       }

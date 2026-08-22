@@ -41,6 +41,8 @@ export type HostStatus =
 export interface HostLogEntry {
   level: 'log' | 'error' | 'warn';
   args: string[];
+  file?: string;
+  line?: number;
 }
 
 export interface ExtensionIPCOptions {
@@ -804,7 +806,7 @@ export class ExtensionIPC {
     if (typeof msg === 'object' && msg !== null && (msg as { method?: string }).method === 'host.log') {
       const params = (msg as { params: HostLogEntry }).params;
       if (params && (params.level === 'log' || params.level === 'error' || params.level === 'warn') && Array.isArray(params.args)) {
-        this.emitLog({ level: params.level, args: params.args });
+        this.emitLog({ level: params.level, args: params.args, file: params.file, line: params.line });
       }
       return;
     }

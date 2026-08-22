@@ -8,6 +8,8 @@ export interface LogPayload {
   context?: string;
   error?: string;
   timestamp: number;
+  file?: string;
+  line?: number;
 }
 
 export class LoggerImpl {
@@ -35,6 +37,7 @@ export class LoggerImpl {
     const message = args[0] instanceof Error ? args[0].message : String(args[0] ?? '');
     const context = args[1] instanceof Error ? undefined : (typeof args[1] === 'string' ? args[1] : undefined);
     const errorArg = args.find((a) => a instanceof Error) as Error | undefined;
+    const callerInfo = this.getCallerInfo();
 
     const payload: LogPayload = {
       level,
@@ -42,16 +45,36 @@ export class LoggerImpl {
       context,
       error: errorArg?.stack ?? errorArg?.message,
       timestamp: Date.now(),
+      file: callerInfo?.file,
+      line: callerInfo?.line,
     };
 
+    const suffix = callerInfo ? `  ${callerInfo.file}:${callerInfo.line}` : '';
+    const output = context ? `[${context}] ${message}${suffix}` : `${message}${suffix}`;
+
     console[level === 'error' ? 'error' : level === 'warn' ? 'warn' : level === 'info' ? 'info' : 'log'](
-      `[${context ?? 'main'}] ${message}`,
+      output,
       errorArg ?? ''
     );
 
     if (this.eventBus) {
       this.eventBus.publish(`log.${level}`, payload, null);
     }
+  }
+
+  private getCallerInfo(): { file: string; line: number } | null {
+    const stack = new Error().stack;
+    if (!stack) return null;
+    const lines = stack.split('\n').slice(2);
+    for (const line of lines) {
+      const match = line.match(/\(([^)]+):(\d+):\d+\)/);
+      if (!match) continue;
+      const fullPath = match[1];
+      if (fullPath.endsWith('logger.ts')) continue;
+      const file = fullPath.split(/[\\/]/).pop() ?? fullPath;
+      return { file, line: parseInt(match[2], 10) };
+    }
+    return null;
   }
 
   log(message: string, ...args: unknown[]): void {

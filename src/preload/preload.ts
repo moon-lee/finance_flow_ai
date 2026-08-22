@@ -88,7 +88,10 @@ const shellApi = {
   },
   events: {
     on: (topic: string, callback: (payload: unknown) => void): (() => void) => {
-      const listener = (_event: IpcRendererEvent, payload: { topic: string; payload: unknown }): void => callback(payload.payload);
+      const listener = (_event: IpcRendererEvent, payload: { topic: string; payload: unknown }): void => {
+        if (payload.topic !== topic) return;
+        callback(payload.payload);
+      };
       ipcRenderer.on('shell:event', listener);
       void ipcRenderer.invoke('event:subscribe', topic);
       return () => { ipcRenderer.off('shell:event', listener); };

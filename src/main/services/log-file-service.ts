@@ -13,6 +13,8 @@ interface LogEntry {
   context?: string;
   error?: string;
   timestamp: number;
+  file?: string;
+  line?: number;
 }
 
 export class LogFileService {
