@@ -15,6 +15,9 @@
  */
 
 import type { FinanceApi } from 'finance';
+import { ExtensionLogger } from 'finance-logger';
+
+const logger = new ExtensionLogger('salary-history');
 
 type AccountSeed = { name: string; institution: string | null };
 type PayslipInput = Record<string, unknown>;
@@ -134,7 +137,7 @@ export class Orchestrator {
 
       this._container.replaceChildren(child);
     } catch (err) {
-      console.error(`[salary-history] orchestrator mount failed for ${this._currentTag}:`, err);
+      logger.error(`orchestrator mount failed for ${this._currentTag}:`, err);
     }
   }
 
@@ -162,7 +165,7 @@ export class Orchestrator {
     try {
       await this._finance.db.table('salary_history_pay_slips').insert(input);
     } catch (err) {
-      console.error('[salary-history] payslip create failed:', err);
+      logger.error('payslip create failed:', err);
       return;
     }
     this.navigate('payslip-list', this._mountData);
@@ -181,7 +184,7 @@ export class Orchestrator {
     try {
       await this._finance.db.table('salary_history_pay_slips').update({ id }, input);
     } catch (err) {
-      console.error('[salary-history] payslip update failed:', err);
+      logger.error('payslip update failed:', err);
       return;
     }
     this.navigate('payslip-list', this._mountData);
@@ -196,7 +199,7 @@ export class Orchestrator {
     try {
       await this._finance.db.table('salary_history_pay_slips').delete({ id });
     } catch (err) {
-      console.error('[salary-history] payslip delete failed:', err);
+      logger.error('payslip delete failed:', err);
       return;
     }
     this.navigate('payslip-list', this._mountData);
@@ -216,7 +219,7 @@ export class Orchestrator {
       try {
         await this._finance.settings.set('salary-history.sectionOrder', JSON.stringify(order));
       } catch (err) {
-        console.error('[salary-history] failed to persist section order:', err);
+        logger.error('failed to persist section order:', err);
       }
     }
     this.navigate('payslip-form', this._mountData);
@@ -297,7 +300,7 @@ export class Orchestrator {
   };
 
   private async _failRateWrite(err: unknown, rateId: number | undefined): Promise<void> {
-    console.error('[salary-history] rate write failed:', err);
+    logger.error('rate write failed:', err);
     const message =
       err instanceof Error && /UNIQUE/i.test(err.message)
         ? 'A current rate (end date empty) already exists. Only one current rate is allowed — edit the existing current rate, or give this row an end date.'
@@ -346,7 +349,7 @@ export class Orchestrator {
     try {
       await this._finance.db.table('salary_history_rate_history').delete({ id });
     } catch (err) {
-      console.error('[salary-history] rate delete failed:', err);
+      logger.error('rate delete failed:', err);
     }
     this.navigate('pay-rate-history-view', this._mountData);
   };
@@ -387,7 +390,7 @@ export class Orchestrator {
 
   private _onHostNavigate = (e: Event): void => {
     const { view, mountData } = (e as CustomEvent).detail as { view: string; mountData?: Record<string, unknown> };
-    console.log('[salary-history] host-navigate received:', view);
+    logger.info('host-navigate received:', view);
     this.navigate(view, mountData ?? this._mountData);
   };
 }

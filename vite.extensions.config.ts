@@ -76,7 +76,8 @@ export default defineConfig({
   // guard the Task 13.3 build test codifies.
   resolve: {
     alias: {
-      finance: fileURLToPath(new URL('./src/types/finance.d.ts', import.meta.url))
+      finance: fileURLToPath(new URL('./src/types/finance.d.ts', import.meta.url)),
+      'finance-logger': fileURLToPath(new URL('./src/extension-host/api/logger.ts', import.meta.url))
     }
   },
   build: {

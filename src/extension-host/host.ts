@@ -38,28 +38,16 @@ declare const process: NodeJS.Process & {
 };
 
 const parentPort = process.parentPort;
-const _origLog = console.log.bind(console);
-const _origError = console.error.bind(console);
-const _origWarn = console.warn.bind(console);
 const hostLogger = new ExtensionLogger('host', {
-  log: _origLog,
-  error: _origError,
-  warn: _origWarn,
+  log: console.log.bind(console),
+  error: console.error.bind(console),
+  warn: console.warn.bind(console),
 });
 
 if (!parentPort) {
-  // Defensive: this file must be launched via utilityProcess, not node directly.
   hostLogger.error('Extension Host must be launched via Electron utilityProcess.fork()');
   process.exit(1);
 }
-
-function forwardLog(level: 'log' | 'error' | 'warn', args: unknown[]): void {
-  hostLogger[level === 'log' ? 'info' : level](...args);
-}
-
-console.log = (...args: unknown[]) => { _origLog(...args); forwardLog('log', args); };
-console.error = (...args: unknown[]) => { _origError(...args); forwardLog('error', args); };
-console.warn = (...args: unknown[]) => { _origWarn(...args); forwardLog('warn', args); };
 
 interface ActiveExtension {
   manifest: FinanceExtensionManifest;

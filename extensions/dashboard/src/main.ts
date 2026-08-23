@@ -16,9 +16,12 @@
  */
 
 import type { FinanceApi } from 'finance';
+import { ExtensionLogger } from 'finance-logger';
 import './styles/ext-tokens.css';
 import { buildAggregator, type DashboardData, type DashboardSettings } from './services/aggregator-service.js';
 import { DashboardOrchestrator, CANONICAL_CARD_ORDER } from './orchestrator.js';
+
+const logger = new ExtensionLogger('dashboard');
 
 const DEFAULT_FINANCIAL_YEAR_START = '07-01';
 
@@ -73,12 +76,12 @@ export async function activate(finance: FinanceApi, hostMountData?: Record<strin
         cardOrder: settings.cardOrder,
       });
     } catch (err) {
-      console.error('[dashboard] refresh failed:', err);
+      logger.error('refresh failed:', err);
     }
   });
 
   finance.commands.registerCommand('dashboard.open-net-worth-detail', 'View: Net Worth Detail', () => {
-    console.log('[dashboard] Net Worth Detail — placeholder for Phase 7 detail view');
+    logger.info('Net Worth Detail — placeholder for Phase 7 detail view');
   });
 
   if (typeof HTMLElement !== 'undefined' && document.getElementById('app')) {

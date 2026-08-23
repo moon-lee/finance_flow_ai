@@ -21,9 +21,12 @@
  */
 
 import type { FinanceApi } from 'finance';
+import { ExtensionLogger } from 'finance-logger';
 import { aggregateYearToDate } from '../services/pay-service.js';
 import { listPaySlips } from '../dao/pay-slips.js';
 import { getCurrentRate } from '../dao/pay-rate-history.js';
+
+const logger = new ExtensionLogger('salary-history');
 
 // ---------------------------------------------------------------------------
 // Public types (what callers see via `finance.services.invoke('pay', ...)`)
@@ -113,7 +116,7 @@ export function createPublicPayAdapter(finance: FinanceApi): PublicPayService {
         const aggregate = aggregateYearToDate(payslips, financialYearStart, asOfDate, financialYear);
         return aggregate;
       } catch (err) {
-        console.error('[public-pay-adapter] getYearToDateSummary failed:', err);
+        logger.error('getYearToDateSummary failed:', err);
         return null;
       }
     },
@@ -124,7 +127,7 @@ export function createPublicPayAdapter(finance: FinanceApi): PublicPayService {
         payslips.sort((a, b) => b.pay_date.localeCompare(a.pay_date));
         return payslips[0] ?? null;
       } catch (err) {
-        console.error('[public-pay-adapter] getLastPayslip failed:', err);
+        logger.error('getLastPayslip failed:', err);
         return null;
       }
     },
@@ -133,7 +136,7 @@ export function createPublicPayAdapter(finance: FinanceApi): PublicPayService {
       try {
         return (await getCurrentRate(finance)) as unknown as PublicRateRow;
       } catch (err) {
-        console.error('[public-pay-adapter] getCurrentRate failed:', err);
+        logger.error('getCurrentRate failed:', err);
         return null;
       }
     }

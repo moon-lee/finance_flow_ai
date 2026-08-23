@@ -14,9 +14,12 @@
  */
 
 import type { FinanceApi, DomainServiceImpl } from 'finance';
+import { ExtensionLogger } from 'finance-logger';
 import './styles/ext-tokens.css';
 import { createPublicPayAdapter } from './services/public-pay-adapter.js';
 import { Orchestrator } from './orchestrator.js';
+
+const logger = new ExtensionLogger('salary-history');
 
 let _orchestrator: Orchestrator | null = null;
 
@@ -81,23 +84,23 @@ export async function activate(
   const financialYearCurrent =
     (await finance.settings?.get('core.financialYear.current')) ?? '';
    const settingsMountData = { defaultCurrency, financialYearStart, financialYearCurrent };
-   console.log('[salary-history] activate', { defaultCurrency, financialYearStart, financialYearCurrent });
+  logger.info('activate', { defaultCurrency, financialYearStart, financialYearCurrent });
 
    // Register public pay service + commands in ALL contexts.
    const payAdapter = createPublicPayAdapter(finance);
    finance.services?.register('pay', payAdapter as unknown as DomainServiceImpl);
 
-   finance.commands.registerCommand('salary.show-pay-history', 'View: Pay History', () =>
-     openPayHistory(finance, settingsMountData).catch((e) =>
-        console.error('[salary-history] openPayHistory failed', e),
-     ),
-   );
-   finance.commands.registerCommand('salary.show-pay-rate-history', 'View: Pay Rate History', () => {
-      console.log('[salary-history] mounting pay-rate-history-view');
-     finance.ui?.requestMount('pay-rate-history-view', settingsMountData).catch((e) =>
-        console.error('[salary-history] requestMount pay-rate-history-view failed', e),
-     );
-   });
+    finance.commands.registerCommand('salary.show-pay-history', 'View: Pay History', () =>
+      openPayHistory(finance, settingsMountData).catch((e) =>
+         logger.error('openPayHistory failed', e),
+      ),
+    );
+    finance.commands.registerCommand('salary.show-pay-rate-history', 'View: Pay Rate History', () => {
+      logger.info('mounting pay-rate-history-view');
+      finance.ui?.requestMount('pay-rate-history-view', settingsMountData).catch((e) =>
+         logger.error('requestMount pay-rate-history-view failed', e),
+      );
+    });
 
     // Panel renderer context — create the Orchestrator for direct DOM rendering.
     // Distinguished from the Host (Node) context by the presence of the panel's
@@ -131,7 +134,7 @@ export function deactivate(finance?: FinanceApi): void {
     try {
       api.services?.unregister('pay');
     } catch (err) {
-      console.error('[salary-history] failed to unregister pay service:', err);
+      logger.error('failed to unregister pay service:', err);
     }
   }
 }

@@ -1,7 +1,7 @@
 ---
 version: 0.9.0
 created: 2026-06-14
-last_updated: 2026-08-23T04:15:00+10:00
+last_updated: 2026-08-23T12:31:58+10:00
 ---
 
 # Changelog
@@ -12,6 +12,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+### Added
+
+- **Structured logger implementation** (`src/main/services/logger.ts`, `src/main/services/log-file-service.ts`, `src/extension-host/api/logger.ts`, `src/renderer/logger.ts`, `src/main/main.ts`, `src/main/services/extension-ipc.ts`, `src/main/services/webview-panel-manager.ts`, `src/extension-host/host.ts`, `src/types/finance.d.ts`, `extensions/salary-history/src/main.ts`, `extensions/salary-history/src/orchestrator.ts`, `extensions/salary-history/src/services/public-pay-adapter.ts`, `extensions/dashboard/src/main.ts`, `extensions/dashboard/src/orchestrator.ts`, `vite.extensions.config.ts`, `tsconfig.json`, `tests/unit/main/services/logger.test.ts`, `tests/unit/main/services/log-file-service.test.ts`, `tests/unit/extension-host/api/logger.test.ts`). Replaced ad-hoc `console.*` calls with centralized `LoggerImpl` (Main), `ExtensionLogger` (Extension Host + extensions), and `rendererLogger` (Renderer). All structured logs publish to the existing global EventBus as `log.error`/`log.warn`/`log.info`/`log.debug` topics, written to `<userData>/logs/app.log` as JSONL with 5 MB rotation and 10-file retention. Host logs flow via `host.log` JSON-RPC → Main → EventBus → renderer DevTools. All three loggers auto-capture caller `file:line` via stack-trace parsing. Removed the `host.ts` monkey-patch that previously forwarded raw `console.*` calls. Migrated all extension `console.*` calls in `salary-history` and `dashboard` to `ExtensionLogger`. Added `finance-logger` Vite/TS alias so extensions import `ExtensionLogger` without bundling Core internals. Per `docs/superpowers/plans/2026-08-20-structured-logger.md`.
 
 ### Fixed
 

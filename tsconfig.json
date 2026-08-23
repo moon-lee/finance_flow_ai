@@ -15,7 +15,8 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "types": ["node"],
     "paths": {
-      "finance": ["./src/types/finance.d.ts"]
+      "finance": ["./src/types/finance.d.ts"],
+      "finance-logger": ["./src/extension-host/api/logger.ts"]
     }
   },
   "include": ["src/**/*", "extensions/**/*", "tests/**/*", "*.config.ts", "eslint.config.js"],

@@ -47,7 +47,7 @@ export function discoverExtensions(
   extensionsRoot: string,
   options: DiscoverExtensionsOptions = {}
 ): DiscoveryResult {
-  const log = options.logger ?? console.warn;
+  const log = options.logger ?? getLogger().warn.bind(getLogger());
   const result: DiscoveryResult = { extensions: [], skipped: [] };
 
   let entries: string[];

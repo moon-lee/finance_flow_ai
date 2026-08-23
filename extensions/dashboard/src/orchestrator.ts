@@ -7,7 +7,10 @@
  */
 
 import type { FinanceApi } from 'finance';
+import { ExtensionLogger } from 'finance-logger';
 import { buildAggregator, type DashboardData, type DashboardSettings } from './services/aggregator-service.js';
+
+const logger = new ExtensionLogger('dashboard');
 
 export const CANONICAL_CARD_ORDER = [
   'net-worth',
@@ -106,7 +109,7 @@ export class DashboardOrchestrator {
 
       this._container.replaceChildren(child);
     } catch (err) {
-      console.error(`[dashboard] orchestrator mount failed for ${this._currentTag}:`, err);
+      logger.error(`orchestrator mount failed for ${this._currentTag}:`, err);
     }
   }
 
@@ -159,7 +162,7 @@ export class DashboardOrchestrator {
         await this._finance.settings.set('dashboard.cardOrder', JSON.stringify(order));
         this._cardOrder = order;
       } catch (err) {
-        console.error('[dashboard] failed to persist card order:', err);
+        logger.error('failed to persist card order:', err);
       }
     }
     this.navigate('dashboard-view', this._mountData);

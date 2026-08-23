@@ -21,15 +21,8 @@ export type ActivationEvent =
   | `onView:${string}`
   | `onCommand:${string}`;
 
-export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
-
-export interface LogPayload {
-  level: LogLevel;
-  message: string;
-  context?: string;
-  error?: string;
-  timestamp: number;
-}
+export type { LogLevel, LogPayload } from '../main/services/logger';
+export type { ExtensionLogger } from '../extension-host/api/logger';
 
 // Re-exports of the table manifest types from the Shared Data tables module.
 // Per Phase 4 plan Task 8.1 / Decision 3, extension authors consume these

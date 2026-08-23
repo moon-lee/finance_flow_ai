@@ -1,8 +1,8 @@
 ---
 title: Structured Logger Implementation Plan
 date: 2026-08-20
-last_updated: 2026-08-22T13:25:48+10:00
-status: draft
+last_updated: 2026-08-23T12:31:58+10:00
+status: completed
 ---
 
 # Structured Logger Implementation Plan
@@ -86,10 +86,9 @@ The event bus already carries application topics. This plan adds log-specific to
 │  Renderer keeps its own console.* calls as-is.              │
 │  New subscriber in src/renderer/index.ts                    │
 │                                                              │
-│  Log Viewer (src/renderer/components/log-viewer.ts)         │
-│    - Mounted as __logs__ view via navigation panel           │
-│    - Reads via financeShell.logs.list/read IPC              │
-│    - Renders JSONL entries in scrollable panel              │
+│  Log Viewer (standalone app, completed externally)               │
+│    - Reads logs via financeShell.logs.list/read IPC or direct    │
+│    - Renders JSONL entries in scrollable panel                    │
 └─────────────────────────────────────────────────────────────┘
 ```
 

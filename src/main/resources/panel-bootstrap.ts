@@ -24,10 +24,37 @@ import type { PanelFinanceShellApi } from '../../types/finance-shell';
 
 declare const financeShell: PanelFinanceShellApi;
 
+function getPanelCallerInfo(): { file: string; line: number } | null {
+  const stack = new Error().stack;
+  if (!stack) return null;
+  const lines = stack.split('\n').slice(2);
+  for (const line of lines) {
+    const match = line.match(/\(([^)]+):(\d+):\d+\)/);
+    if (!match) continue;
+    const fullPath = match[1];
+    if (fullPath.endsWith('panel-bootstrap.ts')) continue;
+    const file = fullPath.split(/[\\/]/).pop() ?? fullPath;
+    return { file, line: parseInt(match[2], 10) };
+  }
+  return null;
+}
+
 const panelLogger = {
-  log: (message: string, ...args: unknown[]) => console.log(`[panel] ${message}`, ...args),
-  warn: (message: string, ...args: unknown[]) => console.warn(`[panel] ${message}`, ...args),
-  error: (message: string, ...args: unknown[]) => console.error(`[panel] ${message}`, ...args),
+  log: (message: string, ...args: unknown[]) => {
+    const callerInfo = getPanelCallerInfo();
+    const suffix = callerInfo ? `  ${callerInfo.file}:${callerInfo.line}` : '';
+    console.log(`[panel] ${message}${suffix}`, ...args);
+  },
+  warn: (message: string, ...args: unknown[]) => {
+    const callerInfo = getPanelCallerInfo();
+    const suffix = callerInfo ? `  ${callerInfo.file}:${callerInfo.line}` : '';
+    console.warn(`[panel] ${message}${suffix}`, ...args);
+  },
+  error: (message: string, ...args: unknown[]) => {
+    const callerInfo = getPanelCallerInfo();
+    const suffix = callerInfo ? `  ${callerInfo.file}:${callerInfo.line}` : '';
+    console.error(`[panel] ${message}${suffix}`, ...args);
+  },
 };
 
 interface PanelPayload {
