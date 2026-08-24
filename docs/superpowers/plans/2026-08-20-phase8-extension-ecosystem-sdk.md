@@ -1,7 +1,7 @@
 ---
 title: Phase 8 — Extension Ecosystem (SDK + Installer) Implementation Plan
 date: 2026-08-20
-last_updated: 2026-08-20T15:00:00+10:00
+last_updated: 2026-08-20T18:30:00+10:00
 status: draft
 target_version: 0.10.0
 ---
@@ -26,12 +26,13 @@ This plan is written for two audiences at once. Each task starts with a **"What 
 
 1. **Create.** You run one command that makes a new folder — your extension's own mini-project (a "Hello World" finance extension with one screen and one command).
 2. **Edit.** You open that folder in your editor and add your own logic, exactly like you'd edit any TypeScript project. The finance helper types are included so the editor gives you autocomplete.
+2b. **Preview standalone (fast loop for bigger extensions).** Inside your extension folder run `npm run dev` — Vite opens `http://localhost:5173` with your UI + a fake in-memory `FinanceApi` (mock DB/commands). Save → browser hot-reloads instantly. No Build/Install/Restart while you iterate. When it looks good, go to step 3 for the real app.
 3. **Build.** One command packages your extension into a single ready-to-install folder.
-4. **Install.** Inside the app there is a new **Extensions** screen (next to Settings and Accounts). You click **Install**, pick your built folder (or a `.zip`), and the app copies it in, creates any database tables it needs, and adds it to the extension list.
+4. **Install.** Inside the app there is a new **Extensions** screen (next to Settings and Accounts). You click **Install Folder** or **Install Zip**, pick your built folder (or a `.zip`), and the app copies it in, creates any database tables it needs, and adds it to the extension list.
 5. **Restart.** You restart the app once. Your extension now appears in the Activity Bar / Command Palette and works exactly like the built-in ones.
 6. **Manage.** The Extensions screen lets you **Enable / Disable**, **Uninstall** (removes the extension but keeps its data), and **Delete Data** (removes the data too — with a confirmation).
 
-**When the app updates:** the finance dictionary inside an extension you already created is a snapshot, so run `refresh` to pull the latest copy, fix any editor errors, rebuild, and reinstall.
+**When the app updates:** the finance dictionary + logger + tokens inside an extension you already created are snapshots, so run `refresh` to pull the latest copies, fix any editor errors, rebuild, and reinstall.
 
 **Deliberately not included:** digital signing, installers for other people, hot-install without restart, marketplace.
 
@@ -75,7 +76,7 @@ node scripts/sdk/cli.mjs refresh todo-list
 node scripts/sdk/cli.mjs refresh D:\my-extensions\todo-list
 ```
 
-→ overwrites only `src\finance.d.ts` (never your own code). Then fix any new errors the editor shows, rebuild, and reinstall over the old version.
+→ overwrites only vendored files `src\finance.d.ts` + `src\vendor\logger.ts` + `src\styles\tokens.css`/`ext-layout.css` (never your own code). Then fix any new errors the editor shows, rebuild, and reinstall over the old version.
 
 **If the app changed the API:**
 
@@ -92,23 +93,42 @@ node scripts/sdk/cli.mjs refresh D:\my-extensions\todo-list
 2. Pick the `build\extension` folder (or zip it first and pick the `.zip`).
 3. Restart the app once. The extension appears in the sidebar / command palette.
 
-**Full walkthrough — a "Todo List" extension**
+**Full walkthrough — a "Todo List" extension (standalone-first)**
 
 ```bash
 node scripts/sdk/cli.mjs init todo-list D:\my-extensions
 ```
 
 1. Open `D:\my-extensions\todo-list` in VS Code and edit `src/main.ts` and `src\ui\`.
-2. Build it:
+2. Fast loop — preview standalone (no app restart):
 
    ```bash
-   node scripts/sdk/cli.mjs build D:\my-extensions\todo-list
+   cd D:\my-extensions\todo-list
+   npm install
+   npm run dev   # http://localhost:5173, save → hot reload
    ```
 
-3. App → Extensions → Install → pick `D:\my-extensions\todo-list\build\extension`.
-4. Restart the app. Done.
+3. When good, build for the real app:
 
-**Alternative — npm scripts.** The project also exposes `npm run sdk:init` and `npm run sdk:build`; append the arguments after `--`:
+   ```bash
+   node D:\finance_flow_ai\scripts\sdk\cli.mjs build D:\my-extensions\todo-list
+   # or from the app folder: node scripts/sdk/cli.mjs build D:\my-extensions\todo-list
+   ```
+
+4. App → Extensions → Install Folder → pick `D:\my-extensions\todo-list\build\extension` (or Install Zip if you zipped it).
+5. Restart the app. Done. Re-edit? Stay in `npm run dev` until next integration check.
+
+**`dev` — preview standalone (inside your extension folder, not the app folder)**
+
+```bash
+cd D:\my-extensions\todo-list
+npm install        # first time only
+npm run dev        # opens http://localhost:5173 with mock FinanceApi + HMR
+```
+
+Uses the scaffold's `vite.config.ts` + `index.html` + `src/mock/finance-mock.ts` (in-memory DB/commands). No Build/Install/Restart while iterating. When ready, `build` + Install in the real app for final verification.
+
+**Alternative — npm scripts from the app folder.** The project also exposes `npm run sdk:init` and `npm run sdk:build`; append the arguments after `--`:
 
 ```bash
 npm run sdk:init -- todo-list D:\my-extensions
@@ -129,12 +149,12 @@ The direct `node scripts/sdk/cli.mjs …` form above is the most predictable and
 | D4 | No digital signing (single local user). |
 | D5 | Uninstall keeps data; Delete Data is a separate confirmed action (per vision). |
 | D6 | Fix `ExtensionRegistry.upsert()` so disable state survives restarts (stop forcing `enabled = 1`). |
-| D7 | SDK CLI = `node scripts/sdk/cli.mjs init|build|refresh`. Scaffold is a standalone project with a vendored, self-contained `src/finance.d.ts`; a parity test guards drift and `refresh` re-syncs existing projects. |
+| D7 | SDK CLI = `node scripts/sdk/cli.mjs init|build|refresh` + scaffold `npm run dev` (Vite dev server with `src/mock/finance-mock.ts` + `index.html`, HMR, standalone preview before integration). Scaffold is a standalone project with a vendored, self-contained `src/finance.d.ts`; a parity test guards drift and `refresh` re-syncs existing projects. |
 | D8 | Install validates dependencies + versions (no downgrades). Activation already topo-sorts by `dependencies` in the Host. |
 | D9 | Table DDL for user extensions is generated at install time by Core (`src/main/services/table-ddl.ts`) — extensions cannot ship migrations (ADR-0002 trigger stays unmet). |
 | D10 | Extension Manager is a main-renderer workspace view (`__extensions__`), same pattern as `__settings__` / `__accounts__`. |
 
-**Scope check:** These are two cohesive subsystems — (A) the in-app installer + manager, (B) the SDK CLI. They share the manifest/registry/table machinery and the install artifact format, so they ship in one plan (as the project's Phase 8 milestone, per `docs/superpowers/specs/2026-06-13-implementation-design.md`).
+**Scope check:** These are two cohesive subsystems — (A) the in-app installer + manager, (B) the SDK CLI + standalone `npm run dev` preview. They share the manifest/registry/table machinery and the install artifact format, so they ship in one plan (as the project's Phase 8 milestone, per `docs/superpowers/specs/2026-06-13-implementation-design.md`).
 
 ---
 
@@ -150,14 +170,14 @@ The direct `node scripts/sdk/cli.mjs …` form above is the most predictable and
 | `src/main/services/extension-catalog.ts` | `discoverExtensionsInRoots(roots, options)` — multi-root discovery + built-in-id conflict rejection (thin wrapper over the existing loader). |
 | `src/renderer/components/extension-manager.ts` | The Extensions workspace view (Lit). |
 | `scripts/sdk/cli.mjs` | SDK CLI: `init` + `build` + `refresh`. |
-| `scripts/sdk/templates/*` | Scaffold templates (manifest, tsconfig, entry, view, README). |
+| `scripts/sdk/templates/*` | Scaffold templates (manifest, tsconfig, `vite.config.ts`, `index.html`, entry, view, mock, README). |
 | `scripts/sdk/types/finance.d.ts` | Vendored, self-contained SDK type surface for standalone projects. |
 | `tests/unit/shared/semver.test.ts` | Semver helpers. |
 | `tests/unit/main/services/table-ddl.test.ts` | DDL generation. |
 | `tests/unit/main/services/extension-installer.test.ts` | Installer contract. |
 | `tests/unit/main/services/extension-catalog.test.ts` | Multi-root discovery. |
 | `tests/unit/sdk/sdk-build.test.ts` | SDK `build` end-to-end against a temp scaffold. |
-| `tests/unit/sdk/sdk-refresh.test.ts` | SDK `refresh` re-syncs only `src/finance.d.ts`. |
+| `tests/unit/sdk/sdk-refresh.test.ts` | SDK `refresh` re-syncs `src/finance.d.ts` + `src/vendor/logger.ts` + `src/styles/*`. |
 | `tests/unit/sdk/sdk-type-parity.test.ts` | SDK types compile and are assignable to canonical types. |
 
 ### Modified files
@@ -464,17 +484,15 @@ export function discoverExtensionsInRoots(
   options: DiscoverExtensionsOptions = {}
 ): DiscoveryResult {
   const result: DiscoveryResult = { extensions: [], skipped: [] };
-  let builtinIds = new Set<string>();
-
-  roots.forEach((root, index) => {
-    const discovered = discoverExtensions(root, options);
-    if (index === roots.length - 1) {
-      // Last root is the built-in root; its ids are the canonical set.
-      builtinIds = new Set(discovered.extensions.map((e) => e.manifest.id));
-      result.extensions.push(...discovered.extensions);
-      result.skipped.push(...discovered.skipped);
-      return;
-    }
+  if (roots.length === 0) return result;
+  // Built-in root is always last — discover it first to get the canonical id set.
+  const builtinRoot = roots[roots.length - 1];
+  const builtinDiscovered = discoverExtensions(builtinRoot, options);
+  const builtinIds = new Set(builtinDiscovered.extensions.map((e) => e.manifest.id));
+  result.extensions.push(...builtinDiscovered.extensions);
+  result.skipped.push(...builtinDiscovered.skipped);
+  for (let i = 0; i < roots.length - 1; i++) {
+    const discovered = discoverExtensions(roots[i], options);
     for (const ext of discovered.extensions) {
       if (builtinIds.has(ext.manifest.id)) {
         result.skipped.push({ directory: ext.directory, reason: `user extension id "${ext.manifest.id}" collides with a built-in extension` });
@@ -483,8 +501,7 @@ export function discoverExtensionsInRoots(
       result.extensions.push(ext);
     }
     result.skipped.push(...discovered.skipped);
-  });
-
+  }
   return result;
 }
 ```
@@ -660,6 +677,9 @@ export function buildCreateTableSql(table: TableManifest): string {
   ];
   return `CREATE TABLE IF NOT EXISTS ${table.name} (${columns.join(', ')});`;
 }
+
+// Prefix enforcement is done in the installer (Task 3 Step 8) and in manifest-schema Zod validation —
+// every table name must start with `<extensionId with - → _>_`. buildCreateTableSql stays generic so it can be unit-tested in isolation.
 
 export function createExtensionTables(db: Database.Database, tables: readonly TableManifest[]): void {
   for (const table of tables) {
@@ -863,11 +883,7 @@ export class ExtensionInstaller {
   constructor(private readonly deps: InstallerDeps) {}
 
   private builtinIds(): ReadonlySet<string> {
-    // Built-in ids are the ids already known to the registry minus nothing;
-    // installs happen against the running app whose registry is seeded at
-    // boot from discovery (built-in + user). To detect built-ins we keep a
-    // separate marker set — see main.ts wiring in Task 4.
-    return this.deps.registry.builtinIds ?? new Set();
+    return this.deps.registry.builtinIds;
   }
 
   installFromSource(sourcePath: string): InstallOutcome | InstallError {
@@ -889,6 +905,14 @@ export class ExtensionInstaller {
     // 2. Built-in collision guard.
     if (this.builtinIds().has(manifest.id)) {
       return { ok: false, reason: `"${manifest.id}" is a built-in extension and cannot be installed over` };
+    }
+
+    // 2b. Table-name namespace guard — every table must be prefixed `<id with - → _>_`.
+    const requiredPrefix = `${manifest.id.replace(/-/g, '_')}_`;
+    for (const table of manifest.tables ?? []) {
+      if (!table.name.startsWith(requiredPrefix)) {
+        return { ok: false, reason: `table "${table.name}" must start with "${requiredPrefix}" (namespaced to extension "${manifest.id}")` };
+      }
     }
 
     // 3. Dependency check.
@@ -952,11 +976,14 @@ export class ExtensionInstaller {
 - [ ] **Step 9: Add `builtinIds` to `ExtensionRegistry`**
 
 ```ts
-/** Phase 8 — ids of built-in (bundled) extensions; set once at boot. Read-only guard for the installer. */
-builtinIds: ReadonlySet<string> = new Set();
+private _builtinIds: ReadonlySet<string> = new Set();
+get builtinIds(): ReadonlySet<string> { return this._builtinIds; }
+setBuiltinIds(ids: ReadonlySet<string> | string[]): void {
+  this._builtinIds = new Set(ids);
+}
 ```
 
-In `main.ts` after dual-root discovery: `registry.builtinIds = new Set(builtinDiscovery.extensions.map((e) => e.manifest.id));`
+In `main.ts` after dual-root discovery: `registry.setBuiltinIds(builtinDiscovery.extensions.map((e) => e.manifest.id));`
 
 - [ ] **Step 10: Run the installer tests**
 
@@ -1043,7 +1070,17 @@ Refactor the existing body into `installFromFolder(folder: string, tempCleanup?:
 Wire the installer (construct it after the registry exists) and add handlers beside the existing `extensions:*` handlers:
 
 ```ts
+import { dialog } from 'electron';
+
 ipcMain.handle('extensions:manager-list', () => installerManagerList());
+ipcMain.handle('extensions:pick-folder', async () => {
+  const { canceled, filePaths } = await dialog.showOpenDialog({ properties: ['openDirectory'] });
+  return canceled ? null : filePaths[0];
+});
+ipcMain.handle('extensions:pick-zip', async () => {
+  const { canceled, filePaths } = await dialog.showOpenDialog({ properties: ['openFile'], filters: [{ name: 'Zip', extensions: ['zip'] }] });
+  return canceled ? null : filePaths[0];
+});
 ipcMain.handle('extensions:install', async (_e, source: string) => installer.installFromSource(source));
 ipcMain.handle('extensions:uninstall', (_e, id: string) => installer.uninstall(id));
 ipcMain.handle('extensions:delete-data', (_e, id: string) => installer.deleteData(id));
@@ -1061,6 +1098,8 @@ In `src/preload/preload.ts` under the `extensions` bridge:
 
 ```ts
 managerList: () => ipcRenderer.invoke('extensions:manager-list'),
+pickFolder: () => ipcRenderer.invoke('extensions:pick-folder'),
+pickZip: () => ipcRenderer.invoke('extensions:pick-zip'),
 install: (source: string) => ipcRenderer.invoke('extensions:install', source),
 uninstall: (id: string) => ipcRenderer.invoke('extensions:uninstall', id),
 deleteData: (id: string) => ipcRenderer.invoke('extensions:delete-data', id),
@@ -1266,7 +1305,7 @@ A Lit element following the `settings-screen.ts`/`accounts-manager.ts` pattern:
 
 - Loads `window.financeShell.extensions.managerList()` on `connectedCallback`.
 - Renders a list: displayName, version, description, source badge (`built-in` / `user`), enable/disable toggle (`data-toggle="<id>"`), Uninstall (`data-uninstall="<id>"`, hidden for built-in), Delete Data (`data-delete="<id>"`, hidden for built-in).
-- Install: a file-picker button using `input type="file" webkitdirectory` (folder install) plus a second `<input type="file" accept=".zip">` for zips; on selection calls `window.financeShell.extensions.install(path)`.
+- Install: two buttons — "Install Folder" and "Install Zip" — each calls `window.financeShell.extensions.pickFolder()` / `pickZip()` (IPC → `dialog.showOpenDialog` in Main, returns absolute path or `null` if canceled); on non-null result calls `window.financeShell.extensions.install(path)`. Do NOT use `<input webkitdirectory>` — it yields a fake path in Electron.
 - Delete Data: two-step confirm (button → inline "Confirm?" with yes/no).
 - Banner: after install/uninstall/delete-data, show `Restart the app for changes to take effect.`
 - Styling: reuse the Obsidian dark-theme variables (`--ff-*`) used by settings-screen.
@@ -1308,7 +1347,7 @@ git commit -m "feat(phase8): extension manager workspace view"
 
 ## Task 7: SDK CLI — `init` scaffold
 
-**What this does (plain English):** The "create" step. `node scripts/sdk/cli.mjs init todo-list` makes a new folder called `todo-list` containing a ready-to-edit mini-project: a package description, TypeScript settings, a starting screen, and the built-in "finance dictionary" so your editor helps you as you type. You can open it and start writing your feature immediately.
+**What this does (plain English):** The "create" step. `node scripts/sdk/cli.mjs init todo-list` makes a new folder called `todo-list` containing a ready-to-edit mini-project: a package description, TypeScript settings, a Vite dev server (`npm run dev` → `http://localhost:5173` with a mock `FinanceApi` for fast preview), a starting screen, and the built-in "finance dictionary" so your editor helps you as you type. You can open it, run `npm run dev`, and start writing your feature with instant hot-reload — no app restart until you integrate.
 
 **Files:**
 - Create: `scripts/sdk/cli.mjs`, `scripts/sdk/templates/*`
@@ -1376,7 +1415,15 @@ Expected: FAIL — CLI missing.
     }
   },
   "scripts": {
-    "build": "node <path-to-app>/scripts/sdk/cli.mjs build ."
+    "dev": "vite",
+    "build": "node {{APP_SDK}} build ."
+  },
+  "devDependencies": {
+    "vite": "^5.4.0",
+    "typescript": "^5.5.0"
+  },
+  "dependencies": {
+    "lit": "^3.1.0"
   }
 }
 ```
@@ -1395,38 +1442,36 @@ Expected: FAIL — CLI missing.
     "noEmit": true,
     "lib": ["ES2022", "DOM"],
     "skipLibCheck": true,
-    "paths": { "finance": ["./src/finance.d.ts"] }
+    "paths": { "finance": ["./src/finance.d.ts"], "finance-logger": ["./src/vendor/logger.ts"] }
   },
   "include": ["src"]
 }
 ```
 
-`src/main.ts.template`:
+`src/main.ts.template` (uses vendored logger + ensures panel is bundled):
 
 ```ts
 import type { FinanceApi } from 'finance';
-
+import { ExtensionLogger } from 'finance-logger';
+import './ui/index.js'; // ensures the view's custom element is bundled (Task 8 lib entry is src/main.ts)
+const logger = new ExtensionLogger('{{ID}}');
 export function activate(finance: FinanceApi): void {
+  logger.info('activate {{ID}}');
   finance.commands.registerCommand('{{ID}}.hello', '{{DISPLAY_NAME}}: Hello', () => {
     finance.ui?.requestMount('{{ID}}', { greeting: 'Hello from {{ID}}' });
   });
 }
-
-export function deactivate(): void {
-  // Clean up timers / subscriptions here.
-}
+export function deactivate(): void { logger.info('deactivate {{ID}}'); }
 ```
 
-`src/ui/sample-view.ts.template` (a minimal Lit element the orchestrator can mount):
+`src/ui/sample-view.ts.template` (uses shared styles + tokens):
 
 ```ts
 import { LitElement, html } from 'lit';
-
+import { sharedStyles } from '../styles/shared-styles.js';
 export class SampleView extends LitElement {
-  static override styles = `:host { display: block; padding: 16px; }`;
-  override render() {
-    return html`<h1>{{DISPLAY_NAME}}</h1><p>Your extension screen is ready to edit.</p>`;
-  }
+  static override styles = [sharedStyles];
+  override render() { return html`<div class="view-container"><div class="view-container-inner"><h1>{{DISPLAY_NAME}}</h1><p>Your extension screen is ready — uses tokens + layout.</p></div></div>`; }
 }
 ```
 
@@ -1437,7 +1482,101 @@ import { SampleView } from './sample-view';
 if (!customElements.get('{{ID}}-view')) customElements.define('{{ID}}-view', SampleView);
 ```
 
-`README.md.template`: short "how to build + install" section for the generated project.
+`vite.config.ts.template`:
+
+```ts
+import { defineConfig } from 'vite';
+export default defineConfig({
+  root: '.',
+  server: { port: 5173, open: true },
+  resolve: { alias: { finance: '/src/mock/finance-mock.ts', 'finance-logger': '/src/vendor/logger.ts' } }
+});
+```
+
+`index.html.template` (dev entry — mounts the view standalone, loads vendored tokens):
+
+```html
+<!doctype html>
+<html>
+  <head><meta charset="utf-8" /><title>{{DISPLAY_NAME}} — dev</title><link rel="stylesheet" href="/src/styles/tokens.css" /></head>
+  <body>
+    <div id="app"></div>
+    <script type="module">
+      import './src/ui/index.js';
+      import { createMockFinance } from './src/mock/finance-mock.js';
+      const finance = createMockFinance();
+      const el = document.createElement('{{ID}}-view');
+      document.getElementById('app').appendChild(el);
+      // optional: exercise activate() with mock
+      import('./src/main.js').then(m => m.activate?.(finance));
+    </script>
+  </body>
+</html>
+```
+
+`src/mock/finance-mock.ts.template` (in-memory mock — HMR-friendly, no persistence):
+
+```ts
+export function createMockFinance(): import('finance').FinanceApi {
+  const mem = new Map<string, Map<number, Record<string, unknown>>>();
+  let nextId = 1;
+  const table = (name: string) => {
+    if (!mem.has(name)) mem.set(name, new Map());
+    const m = mem.get(name)!;
+    return {
+      find: async (filter = {}) => [...m.values()].filter(r => Object.entries(filter).every(([k,v]) => r[k]===v)),
+      findOne: async (filter = {}) => [...m.values()].find(r => Object.entries(filter).every(([k,v]) => r[k]===v)) ?? null,
+      insert: async (row) => { const id = nextId++; const r = { id, ...row }; m.set(id, r); return { id }; },
+      update: async (filter, patch) => { let n=0; for (const [id,r] of m) if (Object.entries(filter).every(([k,v])=>r[k]===v)) { m.set(id,{...r,...patch}); n++; } return { affected: n }; },
+      delete: async (filter) => { let n=0; for (const [id,r] of m) if (Object.entries(filter).every(([k,v])=>r[k]===v)) { m.delete(id); n++; } return { affected: n }; },
+      count: async (filter = {}) => [...m.values()].filter(r => Object.entries(filter).every(([k,v])=>r[k]===v)).length,
+    };
+  };
+  return {
+    commands: { registerCommand: () => {}, execute: async () => {} },
+    ai: { registerTool: () => {} },
+    db: { table } as never,
+    services: { register: () => {}, unregister: () => {}, invoke: async () => null },
+    ui: { requestMount: async () => {}, setDirty: () => {}, autoSaveDraft: async () => {}, onBeforeUnmount: () => {} },
+    events: { on: () => () => {}, emit: async () => {} },
+    settings: { get: async () => null, set: async () => {} },
+  } as never;
+}
+```
+
+`src/vendor/logger.ts.template` (vendored `ExtensionLogger` shim — standalone dev falls back to `console`, built extension posts via `parentPort` → Main `log.*` → file + DevTools; never bundle Core):
+
+```ts
+export class ExtensionLogger {
+  constructor(private context: string, private impl: Pick<Console,'log'|'warn'|'error'> = console) {}
+  private out(level:'log'|'warn'|'error', ...args: unknown[]) {
+    const msg = args[0] instanceof Error ? args[0].message : String(args[0] ?? '');
+    const prefix = `[${this.context}] ${msg}`;
+    if (level==='error') this.impl.error(prefix, ...args.slice(1));
+    else if (level==='warn') this.impl.warn(prefix, ...args.slice(1));
+    else this.impl.log(prefix, ...args.slice(1));
+    try { const pp: any = (globalThis as any).process?.parentPort; if (pp?.postMessage) pp.postMessage({ jsonrpc:'2.0', method:'host.log', params:{ level, args:[msg], file: undefined, line: undefined } }); } catch {}
+  }
+  info(...a: unknown[]) { this.out('log', ...a); }
+  warn(...a: unknown[]) { this.out('warn', ...a); }
+  error(...a: unknown[]) { this.out('error', ...a); }
+  debug(...a: unknown[]) { this.out('log', ...a); }
+}
+```
+
+`src/styles/tokens.css.template` — vendored copy of `src/renderer/styles/tokens.css` (all `--ff-*`, `--activity-bar-*`, light-theme overrides).
+
+`src/styles/ext-layout.css.template` — vendored copy of `extensions/salary-history/src/styles/ext-layout.css` (shell, topbar, form, table, modal, scrollbar primitives).
+
+`src/styles/shared-styles.ts.template`:
+
+```ts
+import { css, unsafeCSS } from 'lit';
+import layoutCss from './ext-layout.css?raw';
+export const sharedStyles = css`${unsafeCSS(layoutCss)}`;
+```
+
+`README.md.template`: short "how to dev / build + install" section for the generated project (documents `npm run dev` → `http://localhost:5173`, then `npm run build` → `build/extension`; notes `src/styles/*` and `finance-logger` for consistent UI/logging).
 
 - [ ] **Step 4: Implement `scripts/sdk/cli.mjs` (init + build dispatcher)**
 
@@ -1470,21 +1609,39 @@ function cmdInit(idRaw, targetDir) {
   const vars = { ID: id, DISPLAY_NAME: display, ICON: display[0], DESCRIPTION: `${display} extension`, APP_SDK: join(resolve('.'), 'scripts', 'sdk', 'cli.mjs') };
   const out = join(targetDir ?? process.cwd(), id);
   mkdirSync(join(out, 'src', 'ui'), { recursive: true });
+  mkdirSync(join(out, 'src', 'mock'), { recursive: true });
+  mkdirSync(join(out, 'src', 'vendor'), { recursive: true });
+  mkdirSync(join(out, 'src', 'styles'), { recursive: true });
   writeFileSync(join(out, 'package.json'), render('package.json.template', vars));
   writeFileSync(join(out, 'tsconfig.json'), render('tsconfig.json.template', vars));
+  writeFileSync(join(out, 'vite.config.ts'), render('vite.config.ts.template', vars));
+  writeFileSync(join(out, 'index.html'), render('index.html.template', vars));
   writeFileSync(join(out, 'README.md'), render('README.md.template', vars));
   writeFileSync(join(out, 'src', 'main.ts'), render('src/main.ts.template', vars));
   writeFileSync(join(out, 'src', 'finance.d.ts'), readFileSync(join(__dirname, 'types', 'finance.d.ts'), 'utf8'));
+  writeFileSync(join(out, 'src', 'vendor', 'logger.ts'), render('src/vendor/logger.ts.template', vars));
+  writeFileSync(join(out, 'src', 'styles', 'tokens.css'), readFileSync(join(__dirname, '..', '..', 'src', 'renderer', 'styles', 'tokens.css'), 'utf8'));
+  writeFileSync(join(out, 'src', 'styles', 'ext-layout.css'), readFileSync(join(__dirname, '..', '..', 'extensions', 'salary-history', 'src', 'styles', 'ext-layout.css'), 'utf8'));
+  writeFileSync(join(out, 'src', 'styles', 'shared-styles.ts'), render('src/styles/shared-styles.ts.template', vars));
+  writeFileSync(join(out, 'src', 'mock', 'finance-mock.ts'), render('src/mock/finance-mock.ts.template', vars));
   writeFileSync(join(out, 'src', 'ui', 'index.ts'), render('src/ui/index.ts.template', vars));
   writeFileSync(join(out, 'src', 'ui', 'sample-view.ts'), render('src/ui/sample-view.ts.template', vars));
   console.log(`Created extension project at ${out}`);
-  console.log('Edit src/main.ts and src/ui/, then run:');
+  console.log('Preview standalone:');
+  console.log(`  cd ${out} && npm install && npm run dev   # http://localhost:5173`);
+  console.log('Then build for the real app:');
   console.log(`  node ${vars.APP_SDK} build ${out}`);
 }
 
 function cmdBuild(projectDir) {
   // Implemented in Task 8 — placeholder here.
   console.error('build not implemented yet (Task 8)');
+  process.exit(1);
+}
+
+function cmdRefresh(projectDir) {
+  // Implemented in Task 10 — placeholder until then.
+  console.error('refresh not implemented yet (Task 10)');
   process.exit(1);
 }
 
@@ -1527,10 +1684,23 @@ export interface FinanceApi {
 }
 ```
 
-- [ ] **Step 6: Run the init test**
+- [ ] **Step 6: Run the init test (+ smoke-check dev scaffold, logger, styles)**
 
 Run: `npx vitest run tests/unit/sdk/sdk-init.test.ts`
-Expected: PASS.
+Expected: PASS. Also assert `vite.config.ts`, `index.html`, `src/mock/finance-mock.ts`, `src/vendor/logger.ts`, and `src/styles/*` exist — extend the test in Step 1 with:
+```ts
+expect(existsSync(join(project, 'vite.config.ts'))).toBe(true);
+expect(existsSync(join(project, 'index.html'))).toBe(true);
+expect(existsSync(join(project, 'src', 'mock', 'finance-mock.ts'))).toBe(true);
+expect(existsSync(join(project, 'src', 'vendor', 'logger.ts'))).toBe(true);
+expect(existsSync(join(project, 'src', 'styles', 'tokens.css'))).toBe(true);
+expect(existsSync(join(project, 'src', 'styles', 'ext-layout.css'))).toBe(true);
+expect(existsSync(join(project, 'src', 'styles', 'shared-styles.ts'))).toBe(true);
+expect(JSON.parse(readFileSync(join(project, 'package.json'),'utf8')).scripts.dev).toBe('vite');
+expect(readFileSync(join(project, 'src', 'vendor', 'logger.ts'),'utf8')).toContain('ExtensionLogger');
+expect(readFileSync(join(project, 'src', 'main.ts'),'utf8')).toContain('finance-logger');
+expect(readFileSync(join(project, 'src', 'ui', 'sample-view.ts'),'utf8')).toContain('sharedStyles');
+```
 
 - [ ] **Step 7: Commit**
 
@@ -1594,7 +1764,8 @@ import { build as viteBuild } from 'vite';
 import { mkdirSync, readFileSync, writeFileSync, cpSync } from 'node:fs';
 import { join, basename } from 'node:path';
 
-const EXTERNALS = ['electron', 'node:path', 'node:url', 'node:fs', 'node:module', 'better-sqlite3'];
+// 'finance' is types-only — never bundle it; authors must use `import type { ... } from 'finance'`. 'finance-logger' shim is bundled (vendored logger) — not external.
+const EXTERNALS = ['finance', 'electron', 'node:path', 'node:url', 'node:fs', 'node:module', 'better-sqlite3'];
 
 async function cmdBuild(projectDirRaw) {
   const projectDir = resolve(projectDirRaw ?? '.');
@@ -1612,7 +1783,6 @@ async function cmdBuild(projectDirRaw) {
     root: projectDir,
     logLevel: 'warn',
     configFile: false,
-    resolve: { alias: { finance: join(projectDir, 'src', 'finance.d.ts') } },
     build: {
       outDir,
       emptyOutDir: true,
@@ -1628,7 +1798,7 @@ async function cmdBuild(projectDirRaw) {
 }
 ```
 
-> `main` in the scaffold manifest points at `src/main.ts` (the Host-side entry). The bundle entry is the same file; the panel UI registers its custom element via the `src/ui/index.ts` import chain reachable from the view's activation.
+> `main` in the scaffold manifest points at `src/main.ts` (the Host-side entry). The bundle entry is the same file; the panel UI registers its custom element via `src/main.ts → src/ui/index.ts` (the template imports `./ui/index.js` so Vite includes it — without that import the built `{{ID}}.js` would contain only `activate()` and the view would be blank).
 
 - [ ] **Step 4: Run the build test**
 
@@ -1752,7 +1922,12 @@ export interface FinanceExtensionManifest {
 }
 ```
 
-Keep the `FinanceApi` interface from Task 7 but tighten `db` to mirror `DbAccessor` (methods return typed rows; keep the loose `Record<string, unknown>` shapes for author ergonomics — structural compatibility is preserved because the canonical API's return types are broader/equal).
+Keep the `FinanceApi` interface from Task 7 but tighten `db` to mirror `DbAccessor` (methods return typed rows; keep the loose `Record<string, unknown>` shapes for author ergonomics — structural compatibility is preserved because the canonical API's return types are broader/equal). Also re-export logger types so scaffold can `import { ExtensionLogger } from 'finance-logger'`:
+
+```ts
+export type { LogLevel, LogPayload } from '../main/services/logger';
+export declare class ExtensionLogger { constructor(context: string); info(...a: unknown[]): void; warn(...a: unknown[]): void; error(...a: unknown[]): void; debug(...a: unknown[]): void; }
+```
 
 - [ ] **Step 5: Run parity + build tests**
 
@@ -1770,7 +1945,7 @@ git commit -m "feat(phase8): full vendored SDK types with canonical parity guard
 
 ## Task 10: SDK CLI — `refresh` (re-sync types after app updates)
 
-**What this does (plain English):** When the app releases an update, its "finance dictionary" (the types your editor uses) may grow or change — but the copy inside an extension you created earlier stays on the old version. `refresh` copies the app's latest dictionary into your extension, overwriting **only** that dictionary file and never touching your code. You then fix any new errors the editor shows, rebuild, and reinstall.
+**What this does (plain English):** When the app releases an update, its "finance dictionary" (the types your editor uses) and the vendored UI/logger shims may grow or change — but the copy inside an extension you created earlier stays on the old version. `refresh` copies the app's latest dictionary + logger + tokens/layout into your extension, overwriting **only** those vendored files and never touching your code. You then fix any new errors the editor shows, rebuild, and reinstall.
 
 **Files:**
 - Modify: `scripts/sdk/cli.mjs` (add `cmdRefresh`)
@@ -1791,17 +1966,23 @@ const CLI = join(__dirname, '..', '..', '..', 'scripts', 'sdk', 'cli.mjs');
 const APP_ROOT = join(__dirname, '..', '..', '..');
 
 describe('sdk refresh', () => {
-  it('updates only src/finance.d.ts in an existing project', () => {
+  it('updates only vendored files in an existing project', () => {
     const dir = mkdtempSync(join(tmpdir(), 'ffx-refresh-'));
     execFileSync(process.execPath, [CLI, 'init', 'todo-list', dir], { stdio: 'pipe', cwd: APP_ROOT });
     const project = join(dir, 'todo-list');
     const typesPath = join(project, 'src', 'finance.d.ts');
+    const loggerPath = join(project, 'src', 'vendor', 'logger.ts');
+    const tokensPath = join(project, 'src', 'styles', 'tokens.css');
     writeFileSync(typesPath, 'export type ColumnType = "old";');
+    writeFileSync(loggerPath, '// old');
+    writeFileSync(tokensPath, '/* old */');
     writeFileSync(join(project, 'src', 'main.ts'), '// my code\n');
 
     execFileSync(process.execPath, [CLI, 'refresh', project], { stdio: 'pipe', cwd: APP_ROOT });
 
     expect(readFileSync(typesPath, 'utf8')).not.toContain('"old"');
+    expect(readFileSync(loggerPath, 'utf8')).not.toContain('// old');
+    expect(readFileSync(tokensPath, 'utf8')).not.toContain('/* old */');
     expect(readFileSync(join(project, 'src', 'main.ts'), 'utf8')).toContain('// my code');
   });
 });
@@ -1823,12 +2004,15 @@ function cmdRefresh(projectDirRaw) {
     process.exit(1);
   }
   writeFileSync(typesPath, readFileSync(join(__dirname, 'types', 'finance.d.ts'), 'utf8'));
-  console.log(`Refreshed ${typesPath}`);
+  writeFileSync(join(projectDir, 'src', 'vendor', 'logger.ts'), readFileSync(join(__dirname, 'templates', 'src/vendor/logger.ts.template'), 'utf8'));
+  writeFileSync(join(projectDir, 'src', 'styles', 'tokens.css'), readFileSync(join(__dirname, '..', '..', 'src', 'renderer', 'styles', 'tokens.css'), 'utf8'));
+  writeFileSync(join(projectDir, 'src', 'styles', 'ext-layout.css'), readFileSync(join(__dirname, '..', '..', 'extensions', 'salary-history', 'src', 'styles', 'ext-layout.css'), 'utf8'));
+  console.log(`Refreshed ${typesPath} + vendor/logger.ts + styles/*`);
   console.log('Fix any new type errors the editor shows, rebuild, and reinstall.');
 }
 ```
 
-> `refresh` touches only `src/finance.d.ts`. It deliberately never rewrites `main.ts`, `src/ui/*`, or `package.json`, so the author's code is untouched. If the app *removed or renamed* a runtime API the extension already calls, types alone cannot fix that — the author must adapt that code before rebuilding.
+> `refresh` touches only vendored files (`src/finance.d.ts`, `src/vendor/logger.ts`, `src/styles/tokens.css` + `ext-layout.css`). It deliberately never rewrites `main.ts`, `src/ui/*`, or `package.json`, so the author's code is untouched. If the app *removed or renamed* a runtime API the extension already calls, types alone cannot fix that — the author must adapt that code before rebuilding.
 
 - [ ] **Step 4: Run the refresh test**
 
@@ -1859,7 +2043,8 @@ git commit -m "feat(phase8): SDK CLI refresh subcommand re-syncs extension types
 
 | Unit | Steps | Expected |
 |---|---|---|
-| TU-1 | `node scripts/sdk/cli.mjs init todo-list <tmp>` | Scaffold created; `src/main.ts` + `src/finance.d.ts` present |
+| TU-0 | `cd <project> && npm install && npm run dev` | Vite opens `http://localhost:5173`, `<todo-list-view>` renders with mock `FinanceApi`, HMR works on save |
+| TU-1 | `node scripts/sdk/cli.mjs init todo-list <tmp>` | Scaffold created; `src/main.ts` + `src/finance.d.ts` + `vite.config.ts` + `index.html` + `src/mock/finance-mock.ts` present; `package.json` has `scripts.dev === 'vite'` |
 | TU-2 | `node scripts/sdk/cli.mjs build <project>` | `build/extension/todo-list.js` + `package.json` exist |
 | TU-3 | App → Extensions → Install → pick `build/extension` | Listed as user extension; banner shows restart needed |
 | TU-4 | Restart app | `todo-list` appears in Activity Bar / Command Palette; command runs; sample view mounts |
@@ -1868,7 +2053,7 @@ git commit -m "feat(phase8): SDK CLI refresh subcommand re-syncs extension types
 | TU-7 | Install again → Extensions → Delete Data (confirm) | Tables dropped; settings namespace cleared |
 | TU-8 | Built-in `salary-history`/`dashboard` still work; install with id `salary-history` is rejected | No regression; collision guard fires |
 | TU-9 | Install a `.zip` of `build/extension` | Succeeds via zip path |
-| TU-10 | `node scripts/sdk/cli.mjs refresh <project>` | `src/finance.d.ts` replaced with the current dictionary; `src/main.ts` + `src/ui/*` untouched |
+| TU-10 | `node scripts/sdk/cli.mjs refresh <project>` | `src/finance.d.ts` + `src/vendor/logger.ts` + `src/styles/tokens.css`/`ext-layout.css` replaced with current vendored copies; `src/main.ts` + `src/ui/*` untouched |
 
 - [ ] **Step 2: Full gate**
 
@@ -1880,7 +2065,7 @@ Expected: all PASS; packaged build includes the new user-extensions path and SDK
 
 - [ ] **Step 3: Document the workflow**
 
-- `docs/extension-api.md`: add an "Installing extensions" section (SDK init/build, Extensions screen, restart requirement, uninstall vs delete-data semantics, dependency/version checks, no-signing note).
+- `docs/extension-api.md`: add an "Installing extensions" section (SDK init/build/refresh, standalone `npm run dev` preview, Extensions screen, restart requirement, uninstall vs delete-data semantics, dependency/version checks, no-signing note).
 - `docs/file-reference.md`: add a Phase 8 inventory (new + modified files from this plan).
 - `docs/decisions/README.md`: index ADR-0009.
 - `docs/superpowers/specs/2026-06-13-implementation-design.md`: update the Phase 8 section to the agreed scope (SDK + installer, no signing) and mark it as the active Phase 8 plan.
@@ -1908,7 +2093,7 @@ Expected: all PASS; packaged build includes the new user-extensions path and SDK
 
 | Risk | Mitigation |
 |---|---|
-| Vendored SDK types drift from canonical types | Parity test (Task 9) fails the build on drift; `refresh` (Task 10) re-syncs types into existing extension projects. |
+| Vendored SDK types drift from canonical types | Parity test (Task 9) fails the build on drift; `refresh` (Task 10) re-syncs `finance.d.ts` + logger + tokens/layout into existing extension projects. |
 | Install writes inside the Main process | Trusted single-user path; manifest Zod-validated before copy; table names validated before DDL; `builtinIds` guard prevents overriding built-ins. |
 | `extract-zip` adds a dependency | Folder install is the primary path; zip is a convenience; extract-zip is tiny and maintained. |
 | Host/panel bundle resolution breaks built-ins | `resolveExtensionBundlePath` is pure and tested; built-in style (`<root>/<id>.js`) is tried first per root and existing bundles are unchanged. |
