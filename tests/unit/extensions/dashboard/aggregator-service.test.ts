@@ -29,7 +29,8 @@ function makeMockFinance(overrides: {
 const defaultSettings: DashboardSettings = {
   financialYearStart: '2026-07-01',
   financialYearCurrent: '',
-  cardOrder: ['netWorth', 'ytdSalary', 'lastPayslip', 'accountsSummary']
+  cardOrder: ['pay-summary'],
+  financeYearFilter: 5
 };
 
 describe('Dashboard aggregator service', () => {

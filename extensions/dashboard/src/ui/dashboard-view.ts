@@ -1,14 +1,14 @@
 /**
  * Phase 5 Task 9 — Dashboard lit host element.
  *
- * Receives `aggregator` (a `DashboardData` payload) + `cardOrder` (an
- * array of card ids controlling render order) and slots them into a 2×2
- * grid of Lit-rendered cards. Each card component is a pure Lit template
- * that emits no events; the aggregator service owns all data fetching.
+ * New layout: single Pay Summary card in a 2-column grid (column 2
+ * reserved for future cards). The card contains:
+ *   - Last Payslip table (Date / Gross / Net)
+ *   - Separator
+ *   - YTD Comparison table (Actual / Estimated / Variance)
  *
- * Cards degrade gracefully: when a card's data is `null` / empty, the
- * card shows a "—" or "install Salary History to see this card"
- * placeholder instead of crashing.
+ * Topbar includes a Finance Year filter dropdown populated from
+ * core.financeYear.filter setting.
  */
 
 import { LitElement, html, css } from 'lit';
@@ -20,18 +20,21 @@ export class DashboardView extends LitElement {
   static properties = {
     aggregator: { attribute: false },
     cardOrder: { attribute: false },
-    financialYearCurrent: { attribute: false }
+    financialYearCurrent: { attribute: false },
+    financeYearFilter: { attribute: false }
   };
 
   aggregator: DashboardData | null = null;
   cardOrder: string[] = [];
   financialYearCurrent = '';
+  financeYearFilter = 5;
 
   private _boundMountUpdate = (e: Event): void => {
     const detail = (e as CustomEvent).detail as Record<string, unknown>;
     if (detail?.aggregator) this.aggregator = detail.aggregator as DashboardData;
     if (detail?.cardOrder) this.cardOrder = detail.cardOrder as string[];
     if (typeof detail?.financialYearCurrent === 'string') this.financialYearCurrent = detail.financialYearCurrent;
+    if (typeof detail?.financeYearFilter === 'number') this.financeYearFilter = detail.financeYearFilter;
   };
 
   connectedCallback(): void {
@@ -47,15 +50,47 @@ export class DashboardView extends LitElement {
   static styles = [
     sharedStyles,
     css`
-      .subtitle {
-        color: var(--ff-text-muted, #858585);
+      .topbar {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 20px;
+        background: var(--ff-bg-panel, #252526);
+        border-bottom: 1px solid var(--ff-border, #3e3e3e);
+      }
+      .crumb-current {
+        color: var(--ff-text, #d4d4d4);
+        font-weight: 500;
         font-size: var(--ff-font-base);
       }
+      .fy-select {
+        background: var(--ff-bg-input, #3c3c3c);
+        color: var(--ff-text, #d4d4d4);
+        border: 1px solid var(--ff-border, #3e3e3e);
+        padding: 4px 8px;
+        border-radius: 3px;
+        font-size: var(--ff-font-sm);
+        font-family: inherit;
+        cursor: pointer;
+      }
+      .spacer { flex: 1; }
+      .reorder-btn {
+        background: var(--ff-bg-input, #3c3c3c);
+        color: var(--ff-text, #d4d4d4);
+        border: 1px solid var(--ff-border, #3e3e3e);
+        padding: 5px 12px;
+        border-radius: 3px;
+        font-size: var(--ff-font-sm);
+        cursor: pointer;
+        font-family: inherit;
+      }
+      .reorder-btn:hover { border-color: var(--ff-accent, #007acc); }
+
       .grid {
         display: grid;
-        padding: 24px 20px 20px 20px;
         grid-template-columns: repeat(2, 1fr);
         gap: 16px;
+        padding: 24px 20px 20px 20px;
       }
       .card {
         background: var(--ff-bg-panel, #252526);
@@ -84,45 +119,49 @@ export class DashboardView extends LitElement {
         color: var(--ff-bg-base, #1e1e1e);
         font-weight: 600;
       }
-      .card-badge.warn {
-        background: #cca700;
-        color: var(--ff-bg-base, #1e1e1e);
-      }
-      .card-badge.placeholder {
+      .card-badge.muted {
         background: var(--ff-bg-input, #3c3c3c);
         color: var(--ff-text-muted, #858585);
       }
-      .card-value {
-        font-family: "SF Mono", Consolas, monospace;
-        font-size: 23px;
+      .section-title {
+        font-size: var(--ff-font-sm);
         font-weight: 600;
-        color: var(--ff-text-strong, #ffffff);
-        margin-bottom: 4px;
-      }
-      .card-sub {
-        font-size: var(--ff-font-sm);
         color: var(--ff-text-muted, #858585);
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        margin-bottom: 8px;
       }
-      .card-detail {
-        font-size: var(--ff-font-sm);
-        color: var(--ff-text-muted, #858585);
-        margin-top: 8px;
-        padding-top: 8px;
+      .section-sep {
         border-top: 1px solid var(--ff-border, #3e3e3e);
+        margin: 12px 0;
+        padding-top: 12px;
       }
-      .placeholder {
+      .ytd-table { width: 100%; border-collapse: collapse; }
+      .ytd-table th {
+        text-align: left;
+        padding: 6px 8px;
+        font-size: var(--ff-font-sm);
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
         color: var(--ff-text-muted, #858585);
+        border-bottom: 1px solid var(--ff-border, #3e3e3e);
+      }
+      .ytd-table th.num { text-align: right; }
+      .ytd-table td {
+        padding: 6px 8px;
+        border-bottom: 1px solid var(--ff-bg-input, #2a2a2a);
         font-size: var(--ff-font-base);
       }
-      .placeholder a {
-        color: var(--ff-accent, #007acc);
-        cursor: pointer;
+      .ytd-table td.num {
+        font-family: "SF Mono", Consolas, monospace;
+        text-align: right;
       }
-      .missing {
-        color: var(--ff-text-muted, #858585);
-        font-size: var(--ff-font-base);
-        font-style: italic;
-      }
+      .ytd-table .actual { color: var(--ff-teal, #4ec9b0); }
+      .ytd-table .estimated { color: #cca700; }
+      .ytd-table .variance-positive { color: var(--ff-teal, #4ec9b0); }
+      .ytd-table .variance-negative { color: #f48771; }
+
       @media (max-width: 640px) {
         .grid { grid-template-columns: 1fr; }
       }
@@ -131,10 +170,9 @@ export class DashboardView extends LitElement {
 
   @property({ type: String })
   referenceDate = '';
-  
+
   @property({ type: String })
   financialYearStart = '07-01';
-
 
   private _formatCurrency(value: number | null, fallbackCurrency = 'AUD'): string {
     if (value === null || value === undefined) return '—';
@@ -149,124 +187,25 @@ export class DashboardView extends LitElement {
     }
   }
 
-  private _renderNetWorth(): unknown {
-    const data = this.aggregator?.netWorth;
-    if (!data) return this._missing('Net Worth');
-    const total = data.totalBalance !== null ? data.totalBalance : data.totalNetPayLast12Months;
-    const label = data.totalBalance !== null && data.totalNetPayLast12Months !== null
-      ? 'Balance + last payslip net'
-      : data.totalBalance !== null
-        ? 'Accounts balance only'
-        : 'Last payslip net only';
-    const badge = total !== null
-      ? html`<span class="card-badge">${this._formatCurrency(total, data.currency ?? 'AUD')}</span>`
-      : html`<span class="card-badge placeholder">—</span>`;
-    return html`
-      <div class="card">
-        <div class="card-header">
-          <span class="card-title">Net Worth</span>
-          ${badge}
-        </div>
-        <div class="card-value">${total !== null
-          ? this._formatCurrency(total, data.currency ?? 'AUD')
-          : html`<span class="placeholder">—</span>`}</div>
-        <div class="card-sub">${label}</div>
-      </div>
-    `;
-  }
-
-  private _renderYtdSalary(): unknown {
-    const data = this.aggregator?.ytdSalary;
-    if (!data) return this._missing('YTD Salary');
-    if (!data.summary) {
-      return html`
-        <div class="card">
-          <div class="card-header">
-            <span class="card-title">Year-to-Date Salary</span>
-          </div>
-          <div class="placeholder">Install Salary History to see this card</div>
-        </div>
-      `;
+  private _fyOptions(): { label: string; value: string }[] {
+    const ref = this.referenceDate || new Date().toISOString().slice(0, 10);
+    const [ry, rm] = ref.split('-').map(Number);
+    const [sm] = this.financialYearStart.split('-').map(Number);
+    const currentStartYear = rm >= sm ? ry : ry - 1;
+    const count = typeof this.financeYearFilter === 'number' ? this.financeYearFilter : 5;
+    const options: { label: string; value: string }[] = [];
+    for (let i = 0; i < count; i++) {
+      const start = currentStartYear - i;
+      const end = start + 1;
+      options.push({
+        label: `FY ${start}–${end}`,
+        value: `${start}-${end}`
+      });
     }
-    const rate = data.currentRate;
-    const subtitle = rate
-      ? `Current rate ${this._formatCurrency(rate.base_hourly_rate)}/hr since ${rate.effective_from}`
-      : 'No current rate set';
-    return html`
-      <div class="card">
-        <div class="card-header">
-          <span class="card-title">Year-to-Date Salary</span>
-          <span class="card-badge">${this._formatCurrency(data.summary.gross)}</span>
-        </div>
-        <div class="card-value">${this._formatCurrency(data.summary.net)}</div>
-        <div class="card-sub">Gross ${this._formatCurrency(data.summary.gross)} · ${subtitle}</div>
-        <div class="card-sub">PAYG ${this._formatCurrency(data.summary.payg)} · SG ${this._formatCurrency(data.summary.superannuation_guarantee)}</div>
-      </div>
-    `;
+    return options;
   }
 
-  private _renderLastPayslip(): unknown {
-    const data = this.aggregator?.lastPayslip;
-    if (!data || data.id === null) return this._missing('Last Payslip');
-    const badge = data.pay_date
-      ? html`<span class="card-badge placeholder">${data.pay_date}</span>`
-      : html`<span class="card-badge placeholder">—</span>`;
-    return html`
-      <div class="card">
-        <div class="card-header">
-          <span class="card-title">Last Payslip</span>
-          ${badge}
-        </div>
-        <div class="card-value">${this._formatCurrency(data.net ?? 0)}</div>
-        <div class="card-sub">Gross ${this._formatCurrency(data.gross ?? 0)}</div>
-        <div class="card-detail">${data.pay_date ?? 'unknown date'} · ${data.currency ?? 'AUD'}</div>
-      </div>
-    `;
-  }
-
-  private _renderAccountsSummary(): unknown {
-    const data = this.aggregator?.accountsSummary;
-    if (!data) return this._missing('Accounts');
-    return html`
-      <div class="card">
-        <div class="card-header">
-          <span class="card-title">Accounts Summary</span>
-          <span class="card-badge">${data.count} active</span>
-        </div>
-        <div class="card-value">${data.count} account${data.count === 1 ? '' : 's'}</div>
-        <div class="card-sub">${data.totalBalance !== null ? `Total ${this._formatCurrency(data.totalBalance)}` : 'No balance data'}</div>
-      </div>
-    `;
-  }
-
-  private _missing(label: string): unknown {
-    return html`
-      <div class="card">
-        <div class="card-header">
-          <span class="card-title">${label}</span>
-        </div>
-        <div class="missing">Install Salary History to see this card</div>
-      </div>
-    `;
-  }
-
-  private _renderCard(id: string): unknown {
-    switch (id) {
-      case 'net-worth': return this._renderNetWorth();
-      case 'ytd-salary': return this._renderYtdSalary();
-      case 'last-payslip': return this._renderLastPayslip();
-      case 'accounts-summary': return this._renderAccountsSummary();
-      default: return this._missing(id);
-    }
-  }
-
-  private _onReorder(): void {
-    this.dispatchEvent(
-      new CustomEvent('reorder-cards', { bubbles: true, composed: true }),
-    );
-  }
-
-  private _fyLabel(): string {
+  private _currentFyValue(): string {
     const override = (this.financialYearCurrent ?? '').trim();
     if (override) return this._fyDisplay(override);
     const ref = this.referenceDate || new Date().toISOString().slice(0, 10);
@@ -276,25 +215,123 @@ export class DashboardView extends LitElement {
     return `${startYear}-${startYear + 1}`;
   }
 
-  /** Expand a stored `YYYY-YY` finance year to `YYYY-YYYY` for display. */
   private _fyDisplay(fy: string): string {
-    const m = /^(\d{4})-(\d{2})$/.exec(fy.trim());
-    if (!m) return fy;
+    const trimmed = fy.trim();
+    const m = /^(\d{4})-(\d{2})$/.exec(trimmed);
+    if (!m) return trimmed;
     const start = Number(m[1]);
     const end2 = Number(m[2]);
     const century = Math.floor(start / 100);
     return `${start}-${century * 100 + end2}`;
   }
 
+  private _onFyChange(e: Event): void {
+    const target = e.target as HTMLSelectElement;
+    this.dispatchEvent(
+      new CustomEvent('fy-changed', {
+        detail: { financialYearCurrent: target.value },
+        bubbles: true,
+        composed: true
+      })
+    );
+  }
+
+  private _renderPaySummaryCard(): unknown {
+    const data = this.aggregator;
+    const fyLabel = this._fyDisplay(this._currentFyValue());
+    const currentFy = this._currentFyValue();
+
+    return html`
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Pay Summary</span>
+          <span class="card-badge muted">${fyLabel}</span>
+        </div>
+
+        <div class="section-title">Last Payslip</div>
+        <table class="ytd-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th class="num">Gross</th>
+              <th class="num">Net</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data?.lastPayslip && data.lastPayslip.id !== null ? html`
+              <tr>
+                <td>${data.lastPayslip.pay_date ?? '—'}</td>
+                <td class="num actual">${this._formatCurrency(data.lastPayslip.gross)}</td>
+                <td class="num actual">${this._formatCurrency(data.lastPayslip.net)}</td>
+              </tr>
+            ` : html`
+              <tr><td colspan="3">No payslips yet</td></tr>
+            `}
+          </tbody>
+        </table>
+
+        <div class="section-sep"></div>
+
+        <div class="section-title">YTD Comparison</div>
+        <table class="ytd-table">
+          <thead>
+            <tr>
+              <th></th>
+              <th class="num">Actual</th>
+              <th class="num">Estimated</th>
+              <th class="num">Variance</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data?.ytdSalary?.summary && data?.estimatedYtd ? html`
+              <tr>
+                <td>Gross</td>
+                <td class="num actual">${this._formatCurrency(data.ytdSalary.summary.gross)}</td>
+                <td class="num estimated">${this._formatCurrency(data.estimatedYtd.gross)}</td>
+                <td class="num ${data.estimatedYtd.gross - data.ytdSalary.summary.gross >= 0 ? 'variance-positive' : 'variance-negative'}">${this._formatCurrency(data.estimatedYtd.gross - data.ytdSalary.summary.gross)}</td>
+              </tr>
+              <tr>
+                <td>NET</td>
+                <td class="num actual">${this._formatCurrency(data.ytdSalary.summary.net)}</td>
+                <td class="num estimated">${this._formatCurrency(data.estimatedYtd.net)}</td>
+                <td class="num ${data.estimatedYtd.net - data.ytdSalary.summary.net >= 0 ? 'variance-positive' : 'variance-negative'}">${this._formatCurrency(data.estimatedYtd.net - data.ytdSalary.summary.net)}</td>
+              </tr>
+              <tr>
+                <td>PAYG</td>
+                <td class="num actual">${this._formatCurrency(data.ytdSalary.summary.payg)}</td>
+                <td class="num estimated">${this._formatCurrency(data.estimatedYtd.payg)}</td>
+                <td class="num ${data.estimatedYtd.payg - data.ytdSalary.summary.payg >= 0 ? 'variance-positive' : 'variance-negative'}">${this._formatCurrency(data.estimatedYtd.payg - data.ytdSalary.summary.payg)}</td>
+              </tr>
+            ` : html`
+              <tr><td colspan="4">Install Salary History to see this card</td></tr>
+            `}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  private _onReorder(): void {
+    this.dispatchEvent(
+      new CustomEvent('reorder-cards', { bubbles: true, composed: true }),
+    );
+  }
+
   render() {
-    const cards = this.cardOrder.map(id => this._renderCard(id));
-    const subtitle = `(FY ${this._fyDisplay(this._fyLabel())})`;
-    
+    const cards = this.cardOrder.map(id => {
+      if (id === 'pay-summary') return this._renderPaySummaryCard();
+      return null;
+    });
+    const fyOptions = this._fyOptions();
+    const currentFy = this._currentFyValue();
+
     return html`
       <div class="topbar">
         <span class="crumb-current">Dashboard</span>
-        <span class="subtitle">${subtitle}</span>
-        <div class="spacer"></div>
+        <select class="fy-select" .value=${currentFy} @change=${this._onFyChange}>
+          ${fyOptions.map(opt => html`<option value="${opt.value}" ?selected=${opt.value === currentFy}>${opt.label}</option>`)}
+        </select>
+        <span class="spacer"></span>
         <button class="reorder-btn" @click="${this._onReorder}">⇅ Reorder Cards</button>
       </div>
       <div class="grid">

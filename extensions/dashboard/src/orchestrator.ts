@@ -13,19 +13,13 @@ import { buildAggregator, type DashboardData, type DashboardSettings } from './s
 const logger = new ExtensionLogger('dashboard');
 
 export const CANONICAL_CARD_ORDER = [
-  'net-worth',
-  'ytd-salary',
-  'last-payslip',
-  'accounts-summary',
+  'pay-summary',
 ] as const;
 
 export type CardId = (typeof CANONICAL_CARD_ORDER)[number];
 
 const CARD_LABELS: Record<string, string> = {
-  'net-worth': 'Net Worth',
-  'ytd-salary': 'Year-to-Date Salary',
-  'last-payslip': 'Last Payslip',
-  'accounts-summary': 'Accounts Summary',
+  'pay-summary': 'Pay Summary',
 };
 
 export class DashboardOrchestrator {
@@ -35,9 +29,10 @@ export class DashboardOrchestrator {
   private _mountData: Record<string, unknown> = {};
   private _cardOrder: string[] = [...CANONICAL_CARD_ORDER];
   private _aggregator: DashboardData | null = null;
-  private _dashboardSettings: { financialYearStart: string; financialYearCurrent: string } = {
+  private _dashboardSettings: { financialYearStart: string; financialYearCurrent: string; financeYearFilter: number } = {
     financialYearStart: '07-01',
     financialYearCurrent: '',
+    financeYearFilter: 5,
   };
 
   constructor(finance: FinanceApi, container: HTMLElement, mountData: Record<string, unknown> = {}) {
@@ -49,7 +44,7 @@ export class DashboardOrchestrator {
   async init(): Promise<void> {
     const settings = await this._loadDashboardSettings();
     this._cardOrder = settings.cardOrder;
-    this._dashboardSettings = { financialYearStart: settings.financialYearStart, financialYearCurrent: settings.financialYearCurrent ?? '' };
+    this._dashboardSettings = { financialYearStart: settings.financialYearStart, financialYearCurrent: settings.financialYearCurrent, financeYearFilter: settings.financeYearFilter };
     this._bindEvents();
     this.navigate('dashboard-view', this._mountData);
   }
@@ -72,6 +67,7 @@ export class DashboardOrchestrator {
     on('reorder-cards', this._onReorderRequest);
     on('card-order-change', this._onCardOrderChange);
     on('card-order-cancel', this._onReorderCancel);
+    on('fy-changed', this._onFyChanged);
   }
 
   private _unbindEvents(): void {
@@ -103,6 +99,7 @@ export class DashboardOrchestrator {
       childEl.cardOrder = this._cardOrder;
       childEl.financialYearStart = settings.financialYearStart;
       childEl.financialYearCurrent = settings.financialYearCurrent;
+      childEl.financeYearFilter = settings.financeYearFilter;
     } else if (this._currentTag === 'reorder-cards-modal') {
       childEl.cardOrder = this._cardOrder;
     }
@@ -122,6 +119,9 @@ export class DashboardOrchestrator {
 
     const currentFyRaw = await this._finance.settings?.get('core.financialYear.current');
     const financialYearCurrent = typeof currentFyRaw === 'string' ? currentFyRaw : '';
+
+    const filterRaw = await this._finance.settings?.get('core.financeYear.filter');
+    const financeYearFilter = typeof filterRaw === 'number' && filterRaw > 0 ? filterRaw : 5;
 
     let cardOrder: string[] = [...CANONICAL_CARD_ORDER];
     if (this._finance.settings) {
@@ -145,7 +145,7 @@ export class DashboardOrchestrator {
       }
     }
 
-    return { financialYearStart, financialYearCurrent, cardOrder };
+    return { financialYearStart, financialYearCurrent, cardOrder, financeYearFilter };
   }
 
   // ── Card reorder events ────────────────────────────────────────────
@@ -170,5 +170,26 @@ export class DashboardOrchestrator {
 
   private _onReorderCancel = (): void => {
     this.navigate('dashboard-view', this._mountData);
+  };
+
+  private _onFyChanged = async (e: Event): Promise<void> => {
+    const detail = (e as CustomEvent).detail as { financialYearCurrent: string };
+    if (!detail?.financialYearCurrent) return;
+    if (this._finance.settings) {
+      try {
+        await this._finance.settings.set('core.financialYear.current', detail.financialYearCurrent);
+      } catch (err) {
+        logger.error('failed to set financialYear.current:', err);
+        return;
+      }
+    }
+    const settings = await this._loadDashboardSettings();
+    this._dashboardSettings = { financialYearStart: settings.financialYearStart, financialYearCurrent: settings.financialYearCurrent, financeYearFilter: settings.financeYearFilter };
+    this._aggregator = await buildAggregator(this._finance, settings);
+    const child = this._container.querySelector('dashboard-view') as HTMLElement | null;
+    if (child) {
+      (child as unknown as Record<string, unknown>).aggregator = this._aggregator;
+      (child as unknown as Record<string, unknown>).financialYearCurrent = settings.financialYearCurrent;
+    }
   };
 }

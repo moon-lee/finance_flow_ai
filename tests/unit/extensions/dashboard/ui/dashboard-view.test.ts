@@ -14,7 +14,8 @@ interface DashboardViewEl extends HTMLElement {
   referenceDate: string;
   financialYearStart: string;
   financialYearCurrent: string;
-  _fyLabel(): string;
+  financeYearFilter: number;
+  _currentFyValue(): string;
   _fyDisplay(fy: string): string;
 }
 
@@ -23,6 +24,7 @@ function makeView(): DashboardViewEl {
   document.body.appendChild(el);
   el.referenceDate = '2026-01-15';
   el.financialYearStart = '07-01';
+  el.financeYearFilter = 5;
   return el;
 }
 
@@ -31,22 +33,22 @@ describe('DashboardView financial year label (Task 2)', () => {
     const el = makeView();
     el.financialYearCurrent = '2025-26';
     await el.updateComplete;
-    expect(el._fyLabel()).toBe('2025-2026');
+    expect(el._currentFyValue()).toBe('2025-2026');
   });
 
   it('keeps a YYYY-YYYY financialYearCurrent override unchanged', async () => {
     const el = makeView();
     el.financialYearCurrent = '2025-2026';
     await el.updateComplete;
-    expect(el._fyLabel()).toBe('2025-2026');
+    expect(el._currentFyValue()).toBe('2025-2026');
   });
 
-  it('renders the override in the topbar subtitle', async () => {
+  it('renders the override in the topbar select', async () => {
     const el = makeView();
     el.financialYearCurrent = '2025-26';
     await el.updateComplete;
-    const text = (el.shadowRoot as ShadowRoot).textContent ?? '';
-    expect(text).toContain('FY 2025-2026');
+    const select = el.shadowRoot?.querySelector('.fy-select') as HTMLSelectElement | null;
+    expect(select?.value).toBe('2025-2026');
   });
 
   it('auto-computes when financialYearCurrent is empty', async () => {
@@ -54,7 +56,7 @@ describe('DashboardView financial year label (Task 2)', () => {
     el.financialYearCurrent = '';
     await el.updateComplete;
     // referenceDate 2026-01-15 + start 07-01 -> FY 2025-2026
-    expect(el._fyLabel()).toBe('2025-2026');
+    expect(el._currentFyValue()).toBe('2025-2026');
   });
 
   it('updates financialYearCurrent via mount-update and normalizes', async () => {
@@ -69,6 +71,6 @@ describe('DashboardView financial year label (Task 2)', () => {
     );
     await el.updateComplete;
     expect(el.financialYearCurrent).toBe('2026-27');
-    expect(el._fyLabel()).toBe('2026-2027');
+    expect(el._currentFyValue()).toBe('2026-2027');
   });
 });

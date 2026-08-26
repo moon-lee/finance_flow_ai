@@ -102,6 +102,7 @@ export interface PublicPayService {
   getYearToDateSummary(financialYearStart: string, asOfDate?: string, financialYear?: string): Promise<YtdSummary | null>;
   getLastPayslip(): Promise<PublicPaySlip | null>;
   getCurrentRate(): Promise<PublicRateRow | null>;
+  getPayslipStats(): Promise<{ avgGross: number; avgNet: number; avgPayg: number; totalCount: number } | null>;
 }
 
 // ---------------------------------------------------------------------------
@@ -137,6 +138,31 @@ export function createPublicPayAdapter(finance: FinanceApi): PublicPayService {
         return (await getCurrentRate(finance)) as unknown as PublicRateRow;
       } catch (err) {
         logger.error('getCurrentRate failed:', err);
+        return null;
+      }
+    },
+
+    async getPayslipStats(): Promise<{ avgGross: number; avgNet: number; avgPayg: number; totalCount: number } | null> {
+      try {
+        const payslips = (await listPaySlips(finance, {})) as unknown as PublicPaySlip[];
+        if (!payslips.length) return null;
+        const sum = payslips.reduce(
+          (acc, p) => {
+            acc.gross += Number(p.gross ?? 0);
+            acc.net += Number(p.net ?? 0);
+            acc.payg += Number(p.payg_withholding ?? 0);
+            return acc;
+          },
+          { gross: 0, net: 0, payg: 0 }
+        );
+        return {
+          avgGross: sum.gross / payslips.length,
+          avgNet: sum.net / payslips.length,
+          avgPayg: sum.payg / payslips.length,
+          totalCount: payslips.length,
+        };
+      } catch (err) {
+        logger.error('getPayslipStats failed:', err);
         return null;
       }
     }

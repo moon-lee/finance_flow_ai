@@ -60,7 +60,10 @@ async function readSettings(finance: FinanceApi): Promise<DashboardSettings> {
     }
   }
 
-  return { financialYearStart, financialYearCurrent, cardOrder };
+  const filterRaw = await finance.settings?.get('core.financeYear.filter');
+  const financeYearFilter = typeof filterRaw === 'number' && filterRaw > 0 ? filterRaw : 5;
+
+  return { financialYearStart, financialYearCurrent, cardOrder, financeYearFilter };
 }
 
 export async function activate(finance: FinanceApi, hostMountData?: Record<string, unknown>): Promise<void> {

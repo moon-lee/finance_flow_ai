@@ -69,12 +69,18 @@ export interface DashboardData {
   ytdSalary: YtdSalaryCard;
   lastPayslip: LastPayslipCard;
   accountsSummary: AccountsSummaryCard;
+  estimatedYtd?: {
+    gross: number;
+    net: number;
+    payg: number;
+  };
 }
 
 export interface DashboardSettings {
   financialYearStart: string;
-  financialYearCurrent?: string;
+  financialYearCurrent: string;
   cardOrder: string[];
+  financeYearFilter: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -85,17 +91,19 @@ export async function buildAggregator(
   finance: FinanceApi,
   settings: DashboardSettings
 ): Promise<DashboardData> {
-  const [accountsRow, lastPayslipRow, ytdSummaryRaw, currentRateRaw] = await Promise.all([
+  const [accountsRow, lastPayslipRow, ytdSummaryRaw, currentRateRaw, payslipStats] = await Promise.all([
     finance.db.table('accounts').find({}),
     finance.services?.invoke<unknown>('pay', 'getLastPayslip'),
     finance.services?.invoke<unknown>('pay', 'getYearToDateSummary', [settings.financialYearStart, undefined, settings.financialYearCurrent]),
     finance.services?.invoke<unknown>('pay', 'getCurrentRate'),
+    finance.services?.invoke<unknown>('pay', 'getPayslipStats'),
   ]);
 
   const accounts = (accountsRow as Array<Record<string, unknown>>) ?? [];
   const lastPayslip = lastPayslipRow as Record<string, unknown> | null;
   const ytdSummary = ytdSummaryRaw as Record<string, unknown> | null;
   const currentRate = currentRateRaw as Record<string, unknown> | null;
+  const stats = payslipStats as { avgGross: number; avgNet: number; avgPayg: number; totalCount: number } | null;
 
   const totalBalance = accounts.reduce((sum, a) => {
     const bal = Number(a.balance ?? a.current_balance ?? 0);
@@ -152,6 +160,13 @@ export async function buildAggregator(
         institution: a.institution === undefined || a.institution === null ? null : String(a.institution)
       })),
       totalBalance: totalBalance || null
-    }
+    },
+    ...(stats && ytdSummary && typeof ytdSummary.count === 'number' && ytdSummary.count > 0 ? {
+      estimatedYtd: {
+        gross: stats.avgGross * ytdSummary.count,
+        net: stats.avgNet * ytdSummary.count,
+        payg: stats.avgPayg * ytdSummary.count,
+      }
+    } : {})
   };
 }
