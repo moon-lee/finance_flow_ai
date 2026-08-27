@@ -127,63 +127,32 @@ export class DashboardView extends LitElement {
     return html`
       <div class="card">
         <div class="card-header">
-          <span class="card-title">Pay Summary</span>
+          <span class="card-title">YTD Pay Summary</span>
           <span class="card-badge">${fyLabel}</span>
         </div>
 
-        <div class="section-title">Last Payslip</div>
-        <table class="ytd-table">
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th class="num">GROSS</th>
-              <th class="num">NET</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${data?.lastPayslip && data.lastPayslip.id !== null ? html`
-              <tr>
-                <td>${data.lastPayslip.pay_date ?? '—'}</td>
-                <td class="num actual">${this._formatCurrency(data.lastPayslip.gross)}</td>
-                <td class="num actual">${this._formatCurrency(data.lastPayslip.net)}</td>
-              </tr>
-            ` : html`
-              <tr><td colspan="3">No payslips yet</td></tr>
-            `}
-          </tbody>
-        </table>
-
-        <div class="section-sep"></div>
-
-        <div class="section-title">YTD Comparison</div>
         <table class="ytd-table">
           <thead>
             <tr>
               <th></th>
-              <th class="num">Actual</th>
-              <th class="num">Estimated</th>
-              <th class="num">Variance</th>
+              <th class="num">GROSS</th>
+              <th class="num">NET</th>
+              <th class="num">PAYG</th>
             </tr>
           </thead>
           <tbody>
             ${data?.ytdSalary?.summary && data?.estimatedYtd ? html`
               <tr>
-                <td>GROSS</td>
+                <td>Actual</td>
                 <td class="num actual">${this._formatCurrency(data.ytdSalary.summary.gross)}</td>
-                <td class="num estimated">${this._formatCurrency(data.estimatedYtd.gross)}</td>
-                <td class="num ${data.estimatedYtd.gross - data.ytdSalary.summary.gross >= 0 ? 'variance-positive' : 'variance-negative'}">${this._formatCurrency(data.estimatedYtd.gross - data.ytdSalary.summary.gross)}</td>
-              </tr>
-              <tr>
-                <td>NET</td>
                 <td class="num actual">${this._formatCurrency(data.ytdSalary.summary.net)}</td>
-                <td class="num estimated">${this._formatCurrency(data.estimatedYtd.net)}</td>
-                <td class="num ${data.estimatedYtd.net - data.ytdSalary.summary.net >= 0 ? 'variance-positive' : 'variance-negative'}">${this._formatCurrency(data.estimatedYtd.net - data.ytdSalary.summary.net)}</td>
+                <td class="num actual">${this._formatCurrency(data.ytdSalary.summary.payg)}</td>
               </tr>
               <tr>
-                <td>PAYG</td>
-                <td class="num actual">${this._formatCurrency(data.ytdSalary.summary.payg)}</td>
+                <td>Estimated</td>
+                <td class="num estimated">${this._formatCurrency(data.estimatedYtd.gross)}</td>
+                <td class="num estimated">${this._formatCurrency(data.estimatedYtd.net)}</td>
                 <td class="num estimated">${this._formatCurrency(data.estimatedYtd.payg)}</td>
-                <td class="num ${data.estimatedYtd.payg - data.ytdSalary.summary.payg >= 0 ? 'variance-positive' : 'variance-negative'}">${this._formatCurrency(data.estimatedYtd.payg - data.ytdSalary.summary.payg)}</td>
               </tr>
             ` : html`
               <tr><td colspan="4">Install Salary History to see this card</td></tr>

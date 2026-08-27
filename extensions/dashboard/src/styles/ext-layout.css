@@ -125,7 +125,7 @@
 .ytd-table th {
   text-align: left;
   padding: 6px 8px;
-  font-size: var(--ff-font-base, 14px);
+  font-size: var(--ff-font-lg, 15px);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -138,24 +138,20 @@
 .ytd-table td {
   padding: 6px 8px;
   border-bottom: 1px solid var(--ff-bg-input, #2a2a2a);
-  font-size: var(--ff-font-base, 14px);
+  font-size: var(--ff-font-lg, 15px);
 }
 .ytd-table td.num {
   font-family: "SF Mono", Consolas, monospace;
   text-align: right;
 }
 .ytd-table .actual {
-  color: var(--ff-teal, #4ec9b0);
+  color: var(--ff-accent, #007acc);
+  font-weight: 600;
 }
 .ytd-table .estimated {
-  color: #cca700;
+  color: #ffdb2a;
 }
-.ytd-table .variance-positive {
-  color: var(--ff-teal, #4ec9b0);
-}
-.ytd-table .variance-negative {
-  color: #f48771;
-}
+
 
 @media (max-width: 640px) {
   .grid {
