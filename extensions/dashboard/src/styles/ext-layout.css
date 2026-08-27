@@ -37,6 +37,8 @@
   border: 1px solid var(--ff-border, #3e3e3e);
   padding: 5px 12px;
   border-radius: 3px;
+  font-size: var(--ff-font-base, 14px);
+  font-family: inherit;
   cursor: pointer;
 }
 .topbar .reorder-btn:hover {
@@ -54,6 +56,111 @@
 .reorder-btn:hover {
   border-color: var(--ff-accent, #007acc);
   color: var(--ff-text, #d4d4d4);
+}
+.fy-select {
+  background: var(--ff-bg-input, #3c3c3c);
+  color: var(--ff-text, #d4d4d4);
+  border: 1px solid var(--ff-border, #3e3e3e);
+  padding: 4px 8px;
+  border-radius: 3px;
+  font-size: var(--ff-font-base, 14px);
+  font-family: inherit;
+  cursor: pointer;
+}
+
+/* Dashboard view layout — single Pay Summary card in a 2-col grid */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  padding: 24px 20px 20px 20px;
+}
+.card {
+  background: var(--ff-bg-panel, #252526);
+  border: 1px solid var(--ff-border, #3e3e3e);
+  border-radius: 6px;
+  padding: 16px;
+}
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 12px;
+}
+.card-title {
+  font-size: var(--ff-font-lg, 15px);
+  font-weight: 700;
+  color: var(--ff-text-strong, #d4d4d4);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.card-badge {
+  font-size: var(--ff-font-md, 13px);
+  padding: 2px 8px;
+  border-radius: 3px;
+  background: var(--ff-teal, #4ec9b0);
+  color: var(--ff-bg-base, #1e1e1e);
+  font-weight: 600;
+}
+.card-badge.muted {
+  background: var(--ff-bg-input, #3c3c3c);
+  color: var(--ff-text-muted, #858585);
+}
+.section-title {
+  font-size: var(--ff-font-base, 14px);
+  font-weight: 600;
+  color: var(--ff-text-muted, #858585);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin-bottom: 8px;
+}
+.section-sep {
+  margin: 12px 0;
+  padding-top: 12px;
+}
+.ytd-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.ytd-table th {
+  text-align: left;
+  padding: 6px 8px;
+  font-size: var(--ff-font-base, 14px);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--ff-text-muted, #858585);
+  border-bottom: 1px solid var(--ff-border, #3e3e3e);
+}
+.ytd-table th.num {
+  text-align: right;
+}
+.ytd-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--ff-bg-input, #2a2a2a);
+  font-size: var(--ff-font-base, 14px);
+}
+.ytd-table td.num {
+  font-family: "SF Mono", Consolas, monospace;
+  text-align: right;
+}
+.ytd-table .actual {
+  color: var(--ff-teal, #4ec9b0);
+}
+.ytd-table .estimated {
+  color: #cca700;
+}
+.ytd-table .variance-positive {
+  color: var(--ff-teal, #4ec9b0);
+}
+.ytd-table .variance-negative {
+  color: #f48771;
+}
+
+@media (max-width: 640px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* Modal primitives */

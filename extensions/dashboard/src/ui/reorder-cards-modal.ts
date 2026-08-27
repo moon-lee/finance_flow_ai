@@ -27,13 +27,6 @@ export class ReorderCardsModal extends LitElement {
   static styles = [
     sharedStyles,
     css`
-      .modal {
-        width: 320px;
-      }
-      h2 {
-        margin: 0 0 12px;
-        font-size: var(--ff-font-lg);
-      }
       .item {
         display: flex;
         align-items: center;

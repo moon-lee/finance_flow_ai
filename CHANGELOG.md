@@ -1,7 +1,7 @@
 ---
 version: 0.9.0
 created: 2026-06-14
-last_updated: 2026-08-27T01:54:00+10:00
+last_updated: 2026-08-27T11:40:00+10:00
 ---
 
 # Changelog
@@ -19,9 +19,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Dashboard redesigned to single Pay Summary card with Estimated YTD** (`extensions/dashboard/src/ui/dashboard-view.ts`, `extensions/dashboard/src/orchestrator.ts`, `extensions/dashboard/src/services/aggregator-service.ts`, `extensions/salary-history/src/services/public-pay-adapter.ts`, `src/renderer/components/settings-screen.ts`, `docs/design/dashboard-mockup.html`, `tests/unit/extensions/dashboard/ui/dashboard-view.test.ts`, `tests/unit/extensions/dashboard/aggregator-service.test.ts`). Replaced the 4-card layout with a single **Pay Summary** card containing a **Last Payslip** table (Date / Gross / Net) and a **YTD Comparison** table (Actual / Estimated / Variance). Estimated YTD is computed as historical average per payslip × current-FY payslip count via the new `pay.getPayslipStats()` adapter method. Dashboard topbar now includes a Finance Year filter dropdown populated from `core.financeYear.filter` (default 5 years). Added `core.financeYear.filter` setting to App Preferences. Updated `CANONICAL_CARD_ORDER` to `['pay-summary']`.
 
+### Changed
+
+- **Dashboard Estimated YTD now full-year projection `avg×52`** (`extensions/dashboard/src/services/aggregator-service.ts:164`, `extensions/salary-history/src/services/public-pay-adapter.ts:145`). Changed from `avg × ytdSummary.count` to `avgGross/Net/Payg × 52` (weekly pay, 52 payslips per FY). Only shown when `ytdSummary.count>0` (empty FY 2023-2024 with `count=0` correctly shows no estimated instead of `52×avg` leak); FY with data shows full-year estimate vs YTD actual variance (`variance = estimated - actual`).
+
 ### Fixed
 
 - **DevTools console duplicated each log 3× (error/warn/info)** (`src/preload/preload.ts:89-95`, `src/renderer/logger.ts`, `src/renderer/index.ts:74-86`). `window.financeShell.events.on(topic, cb)` registered a global `ipcRenderer.on('shell:event')` listener that never filtered by `payload.topic`, so a single `eventBus.publish('log.info', ...)` from Main (`src/main/services/logger.ts:61`) fired all 4 render-side `log.*` subscribers (`error`/`warn`/`info`/`debug`). With the default `minLevel='info'`, this surfaced as 3 identical lines with different severities (`console.error`/`warn`/`info`). Fixed `preload.ts` to `if (payload.topic !== topic) return`. The same bug also affected every other `events.on` consumer (`toast-container`'s 3 topics). `src/renderer/logger.ts` now also mirrors to the local `console.*` before emitting to the bus, so renderer-originated logs remain visible even though `event:publish` in `src/main/main.ts:647-653` excludes the `renderer` source (otherwise they would be invisible).
+
+- **Dashboard styles duplicated in UI instead of style folder** (`extensions/dashboard/src/styles/ext-layout.css`, `extensions/dashboard/src/styles/shared-styles.ts`, `extensions/dashboard/src/ui/dashboard-view.ts`, `extensions/dashboard/src/ui/reorder-cards-modal.ts`). Recent `1103ee6` redesign re-introduced ~120 lines of inline Lit CSS in `dashboard-view.ts` (`.topbar`, `.reorder-btn`, `.grid`, `.card`, `.ytd-table` etc.) duplicating the canonical `ext-layout.css`/`sharedStyles` pattern used by `salary-history`. Moved all dashboard-specific layout (`.fy-select`, `.grid`, `.card`, `.card-header`, `.card-title` bold `700`, `.section-sep` without `border-top`, `.ytd-table` etc.) into `ext-layout.css` and reduced `dashboard-view.ts:static styles` to `[sharedStyles]` only. Removed duplicate `.modal`/`h2` from `reorder-cards-modal.ts`.
+
+- **Dashboard FY select `_onFyChange` broken and FY switch lost data on return** (`extensions/dashboard/src/ui/dashboard-view.ts:109-118`, `extensions/dashboard/src/orchestrator.ts:175-208`, `extensions/dashboard/src/main.ts:73-112`). `private _onFyChange(e)` was unbound (`@change=${this._onFyChange}` → `this` = `<select>`), used `e.target` only and dual `select .value` + `option ?selected` binding. Fixed to arrow `private _onFyChange = (e)=>` with `(e.currentTarget ?? e.target)` guard and `select .value` only. Orchestrator panel path rebuilt `aggregator` via `noop` `services.invoke` (panel `finance` has no `pay` service) and overwrote `mountData.aggregator` with `null`, so `FY2023-2024` (no data) → back to `2026-2027` stayed empty (user-reported). Fixed to detect panel (`globalThis.financeShell.extensions.executeCommand`) → optimistically set `financialYearCurrent` and `await executeCommand('dashboard.refresh')` on Host which rebuilds with real `pay` service and pushes `panel:mount-update`; Host branch now syncs `mountData.aggregator`. Host `dashboard.refresh` and initial `requestMount` now also ship `financialYearCurrent`/`financialYearStart`/`financeYearFilter` for `mount-update`.
 
 ### Administrative
 

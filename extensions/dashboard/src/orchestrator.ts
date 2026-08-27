@@ -174,18 +174,40 @@ export class DashboardOrchestrator {
 
   private _onFyChanged = async (e: Event): Promise<void> => {
     const detail = (e as CustomEvent).detail as { financialYearCurrent: string };
-    if (!detail?.financialYearCurrent) return;
+    const nextFy = typeof detail?.financialYearCurrent === 'string' ? detail.financialYearCurrent.trim() : '';
+    if (!nextFy) return;
     if (this._finance.settings) {
       try {
-        await this._finance.settings.set('core.financialYear.current', detail.financialYearCurrent);
+        await this._finance.settings.set('core.financialYear.current', nextFy);
       } catch (err) {
         logger.error('failed to set financialYear.current:', err);
         return;
       }
     }
+    // Panel (WebContentsView) has no real pay service (services.invoke is a noop).
+    // Building the aggregator locally would discard the Host-computed data and
+    // never recover when switching back to a FY that has data (user reported:
+    // FY2023-2024 no data -> back to 2026-2027 stays empty). In panel, ask the
+    // Host to rebuild via dashboard.refresh and rely on the mount-update push.
+    const panelShell = (globalThis as unknown as { financeShell?: { extensions: { executeCommand: (id: string, ...args: unknown[]) => Promise<unknown> } } }).financeShell;
+    if (panelShell?.extensions?.executeCommand) {
+      const child = this._container.querySelector('dashboard-view') as HTMLElement | null;
+      if (child) {
+        (child as unknown as Record<string, unknown>).financialYearCurrent = nextFy;
+      }
+      try {
+        await panelShell.extensions.executeCommand('dashboard.refresh');
+      } catch (err) {
+        logger.error('failed to refresh dashboard after FY change:', err);
+      }
+      return;
+    }
     const settings = await this._loadDashboardSettings();
     this._dashboardSettings = { financialYearStart: settings.financialYearStart, financialYearCurrent: settings.financialYearCurrent, financeYearFilter: settings.financeYearFilter };
     this._aggregator = await buildAggregator(this._finance, settings);
+    // Keep mountData in sync so a subsequent remount (e.g. after reorder modal)
+    // does not revert to a stale host-computed aggregator.
+    this._mountData = { ...this._mountData, aggregator: this._aggregator };
     const child = this._container.querySelector('dashboard-view') as HTMLElement | null;
     if (child) {
       (child as unknown as Record<string, unknown>).aggregator = this._aggregator;

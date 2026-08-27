@@ -161,11 +161,14 @@ export async function buildAggregator(
       })),
       totalBalance: totalBalance || null
     },
-    ...(stats && ytdSummary && typeof ytdSummary.count === 'number' && ytdSummary.count > 0 ? {
+    // Full-year projection: historical per-payslip avg × 52 (weekly pay)
+    // Only when FY has data (count>0); empty/post FY with 0 payslips shows no
+    // estimated (avoids showing 52×avg for future FY with no history).
+    ...(stats && ytdSummary && typeof (ytdSummary as Record<string, unknown>).count === 'number' && Number((ytdSummary as Record<string, unknown>).count) > 0 ? {
       estimatedYtd: {
-        gross: stats.avgGross * ytdSummary.count,
-        net: stats.avgNet * ytdSummary.count,
-        payg: stats.avgPayg * ytdSummary.count,
+        gross: stats.avgGross * 52,
+        net: stats.avgNet * 52,
+        payg: stats.avgPayg * 52,
       }
     } : {})
   };

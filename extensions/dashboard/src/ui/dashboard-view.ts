@@ -11,7 +11,7 @@
  * core.financeYear.filter setting.
  */
 
-import { LitElement, html, css } from 'lit';
+import { LitElement, html } from 'lit';
 import { property } from 'lit/decorators.js';
 import { sharedStyles } from '../styles/shared-styles.js';
 import type { DashboardData } from '../services/aggregator-service.js';
@@ -47,126 +47,7 @@ export class DashboardView extends LitElement {
     this.parentElement?.removeEventListener('mount-update', this._boundMountUpdate);
   }
 
-  static styles = [
-    sharedStyles,
-    css`
-      .topbar {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        padding: 10px 20px;
-        background: var(--ff-bg-panel, #252526);
-        border-bottom: 1px solid var(--ff-border, #3e3e3e);
-      }
-      .crumb-current {
-        color: var(--ff-text, #d4d4d4);
-        font-weight: 500;
-        font-size: var(--ff-font-base);
-      }
-      .fy-select {
-        background: var(--ff-bg-input, #3c3c3c);
-        color: var(--ff-text, #d4d4d4);
-        border: 1px solid var(--ff-border, #3e3e3e);
-        padding: 4px 8px;
-        border-radius: 3px;
-        font-size: var(--ff-font-sm);
-        font-family: inherit;
-        cursor: pointer;
-      }
-      .spacer { flex: 1; }
-      .reorder-btn {
-        background: var(--ff-bg-input, #3c3c3c);
-        color: var(--ff-text, #d4d4d4);
-        border: 1px solid var(--ff-border, #3e3e3e);
-        padding: 5px 12px;
-        border-radius: 3px;
-        font-size: var(--ff-font-sm);
-        cursor: pointer;
-        font-family: inherit;
-      }
-      .reorder-btn:hover { border-color: var(--ff-accent, #007acc); }
-
-      .grid {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 16px;
-        padding: 24px 20px 20px 20px;
-      }
-      .card {
-        background: var(--ff-bg-panel, #252526);
-        border: 1px solid var(--ff-border, #3e3e3e);
-        border-radius: 6px;
-        padding: 16px;
-      }
-      .card-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: baseline;
-        margin-bottom: 12px;
-      }
-      .card-title {
-        font-size: var(--ff-font-sm);
-        font-weight: 700;
-        color: var(--ff-text-muted, #858585);
-        text-transform: uppercase;
-        letter-spacing: 0.3px;
-      }
-      .card-badge {
-        font-size: var(--ff-font-sm);
-        padding: 2px 8px;
-        border-radius: 3px;
-        background: var(--ff-teal, #4ec9b0);
-        color: var(--ff-bg-base, #1e1e1e);
-        font-weight: 600;
-      }
-      .card-badge.muted {
-        background: var(--ff-bg-input, #3c3c3c);
-        color: var(--ff-text-muted, #858585);
-      }
-      .section-title {
-        font-size: var(--ff-font-sm);
-        font-weight: 600;
-        color: var(--ff-text-muted, #858585);
-        text-transform: uppercase;
-        letter-spacing: 0.3px;
-        margin-bottom: 8px;
-      }
-      .section-sep {
-        border-top: 1px solid var(--ff-border, #3e3e3e);
-        margin: 12px 0;
-        padding-top: 12px;
-      }
-      .ytd-table { width: 100%; border-collapse: collapse; }
-      .ytd-table th {
-        text-align: left;
-        padding: 6px 8px;
-        font-size: var(--ff-font-sm);
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        color: var(--ff-text-muted, #858585);
-        border-bottom: 1px solid var(--ff-border, #3e3e3e);
-      }
-      .ytd-table th.num { text-align: right; }
-      .ytd-table td {
-        padding: 6px 8px;
-        border-bottom: 1px solid var(--ff-bg-input, #2a2a2a);
-        font-size: var(--ff-font-base);
-      }
-      .ytd-table td.num {
-        font-family: "SF Mono", Consolas, monospace;
-        text-align: right;
-      }
-      .ytd-table .actual { color: var(--ff-teal, #4ec9b0); }
-      .ytd-table .estimated { color: #cca700; }
-      .ytd-table .variance-positive { color: var(--ff-teal, #4ec9b0); }
-      .ytd-table .variance-negative { color: #f48771; }
-
-      @media (max-width: 640px) {
-        .grid { grid-template-columns: 1fr; }
-      }
-    `,
-  ];
+  static styles = [sharedStyles];
 
   @property({ type: String })
   referenceDate = '';
@@ -225,16 +106,18 @@ export class DashboardView extends LitElement {
     return `${start}-${century * 100 + end2}`;
   }
 
-  private _onFyChange(e: Event): void {
-    const target = e.target as HTMLSelectElement;
+  private _onFyChange = (e: Event): void => {
+    const target = (e.currentTarget ?? e.target) as HTMLSelectElement | null;
+    const value = target?.value ?? '';
+    if (!value) return;
     this.dispatchEvent(
       new CustomEvent('fy-changed', {
-        detail: { financialYearCurrent: target.value },
+        detail: { financialYearCurrent: value },
         bubbles: true,
         composed: true
       })
     );
-  }
+  };
 
   private _renderPaySummaryCard(): unknown {
     const data = this.aggregator;
@@ -245,7 +128,7 @@ export class DashboardView extends LitElement {
       <div class="card">
         <div class="card-header">
           <span class="card-title">Pay Summary</span>
-          <span class="card-badge muted">${fyLabel}</span>
+          <span class="card-badge">${fyLabel}</span>
         </div>
 
         <div class="section-title">Last Payslip</div>
@@ -253,8 +136,8 @@ export class DashboardView extends LitElement {
           <thead>
             <tr>
               <th>Date</th>
-              <th class="num">Gross</th>
-              <th class="num">Net</th>
+              <th class="num">GROSS</th>
+              <th class="num">NET</th>
             </tr>
           </thead>
           <tbody>
@@ -285,7 +168,7 @@ export class DashboardView extends LitElement {
           <tbody>
             ${data?.ytdSalary?.summary && data?.estimatedYtd ? html`
               <tr>
-                <td>Gross</td>
+                <td>GROSS</td>
                 <td class="num actual">${this._formatCurrency(data.ytdSalary.summary.gross)}</td>
                 <td class="num estimated">${this._formatCurrency(data.estimatedYtd.gross)}</td>
                 <td class="num ${data.estimatedYtd.gross - data.ytdSalary.summary.gross >= 0 ? 'variance-positive' : 'variance-negative'}">${this._formatCurrency(data.estimatedYtd.gross - data.ytdSalary.summary.gross)}</td>
@@ -311,11 +194,11 @@ export class DashboardView extends LitElement {
     `;
   }
 
-  private _onReorder(): void {
+  private _onReorder = (): void => {
     this.dispatchEvent(
       new CustomEvent('reorder-cards', { bubbles: true, composed: true }),
     );
-  }
+  };
 
   render() {
     const cards = this.cardOrder.map(id => {
@@ -329,10 +212,10 @@ export class DashboardView extends LitElement {
       <div class="topbar">
         <span class="crumb-current">Dashboard</span>
         <select class="fy-select" .value=${currentFy} @change=${this._onFyChange}>
-          ${fyOptions.map(opt => html`<option value="${opt.value}" ?selected=${opt.value === currentFy}>${opt.label}</option>`)}
+          ${fyOptions.map(opt => html`<option value=${opt.value}>${opt.label}</option>`)}
         </select>
         <span class="spacer"></span>
-        <button class="reorder-btn" @click="${this._onReorder}">⇅ Reorder Cards</button>
+        <button class="reorder-btn" @click=${this._onReorder}>⇅ Reorder Cards</button>
       </div>
       <div class="grid">
         ${cards}

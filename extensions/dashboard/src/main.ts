@@ -77,6 +77,9 @@ export async function activate(finance: FinanceApi, hostMountData?: Record<strin
       finance.ui?.requestMount('dashboard-view', {
         aggregator: data,
         cardOrder: settings.cardOrder,
+        financialYearCurrent: settings.financialYearCurrent,
+        financialYearStart: settings.financialYearStart,
+        financeYearFilter: settings.financeYearFilter,
       });
     } catch (err) {
       logger.error('refresh failed:', err);
@@ -103,6 +106,9 @@ export async function activate(finance: FinanceApi, hostMountData?: Record<strin
   finance.ui?.requestMount('dashboard-view', {
     aggregator,
     cardOrder: settings.cardOrder,
+    financialYearCurrent: settings.financialYearCurrent,
+    financialYearStart: settings.financialYearStart,
+    financeYearFilter: settings.financeYearFilter,
   });
 }
 
