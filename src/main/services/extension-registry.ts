@@ -47,8 +47,7 @@ export class ExtensionRegistry {
       VALUES (@id, @name, @version, 1, 0, NULL)
       ON CONFLICT(id) DO UPDATE SET
         name = excluded.name,
-        version = excluded.version,
-        enabled = 1
+        version = excluded.version
     `);
     stmt.run({ id: manifest.id, name: manifest.displayName, version: manifest.version });
     if (!this.byId.has(manifest.id)) {
@@ -246,5 +245,17 @@ export class ExtensionRegistry {
 
   getAllManifests(): FinanceExtensionManifest[] {
     return Array.from(this.byId.values()).map((row) => row.manifest);
+  }
+
+  private _builtinIds: ReadonlySet<string> = new Set();
+  get builtinIds(): ReadonlySet<string> { return this._builtinIds; }
+  setBuiltinIds(ids: ReadonlySet<string> | string[]): void {
+    this._builtinIds = new Set(ids);
+  }
+
+  /** Phase 8 — remove an extension from the registry (uninstall / delete-data). */
+  remove(extensionId: string): void {
+    this.db.prepare('DELETE FROM extension_registry WHERE id = ?').run(extensionId);
+    this.byId.delete(extensionId);
   }
 }

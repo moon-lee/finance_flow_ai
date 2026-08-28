@@ -28,6 +28,7 @@ import {
 } from '../shared/json-rpc';
 import { RPC_METHOD } from '../shared/json-rpc-methods';
 import type { FinanceExtensionManifest } from '../types/finance';
+import { resolveExtensionBundlePath } from '../shared/extension-paths';
 
 declare const process: NodeJS.Process & {
   // Electron exposes the parent IPC channel here when launched via utilityProcess.fork.
@@ -62,6 +63,7 @@ interface ActiveExtension {
 }
 
 const activeExtensions = new Map<string, ActiveExtension>();
+let userExtensionsRoot = '';
 
 /**
  * Phase 7 Task 10 — graceful shutdown state.
@@ -160,7 +162,8 @@ async function handleRequest(req: JsonRpcRequest): Promise<void> {
   try {
     switch (req.method) {
       case 'host.initialize': {
-        const manifests = (req.params as { manifests: FinanceExtensionManifest[] }).manifests;
+        const { manifests, userExtensionsRoot: incomingRoot } = req.params as { manifests: FinanceExtensionManifest[]; userExtensionsRoot?: string };
+        if (incomingRoot) userExtensionsRoot = incomingRoot;
         hostLogger.info(`received host.initialize with ${manifests.length} manifests (id=${req.id})`);
         for (const manifest of manifests) {
           activeExtensions.set(manifest.id, { manifest });
@@ -321,7 +324,8 @@ async function activateExtension(extensionId: string, reason: string): Promise<b
       '..',
       'extensions'
     );
-    const entryPath = path.join(extensionsBundleRoot, `${extensionId}.js`);
+    const roots = userExtensionsRoot ? [userExtensionsRoot, extensionsBundleRoot] : [extensionsBundleRoot];
+    const entryPath = resolveExtensionBundlePath(extensionId, roots) ?? path.join(extensionsBundleRoot, `${extensionId}.js`);
 
     hostLogger.info('activate: importing bundle from', entryPath);
     const extModule = await import(url.pathToFileURL(entryPath).href);

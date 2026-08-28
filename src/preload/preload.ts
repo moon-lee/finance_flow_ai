@@ -34,6 +34,13 @@ const shellApi = {
       navigation: Array<{ extensionId: string; navigation: { id: string; label: string; command: string; group?: string; icon?: string } }>;
       configuration: Array<{ extensionId: string; configuration: { key: string; type: string; label: string; default?: unknown; enumOptions?: string[] } }>;
     }> => ipcRenderer.invoke('extensions:list'),
+    managerList: (): Promise<Array<{ id: string; displayName: string; version: string; description?: string; enabled: boolean; source: 'built-in' | 'user'; dependencies?: string[] }>> => ipcRenderer.invoke('extensions:manager-list'),
+    pickFolder: (): Promise<string | null> => ipcRenderer.invoke('extensions:pick-folder'),
+    pickZip: (): Promise<string | null> => ipcRenderer.invoke('extensions:pick-zip'),
+    install: (source: string): Promise<{ ok: boolean; reason?: string }> => ipcRenderer.invoke('extensions:install', source),
+    uninstall: (id: string): Promise<{ ok: boolean; reason?: string }> => ipcRenderer.invoke('extensions:uninstall', id),
+    deleteData: (id: string): Promise<{ ok: boolean; reason?: string }> => ipcRenderer.invoke('extensions:delete-data', id),
+    setEnabled: (id: string, enabled: boolean): Promise<{ ok: boolean }> => ipcRenderer.invoke('extensions:set-enabled', id, enabled),
     activateView: async (viewId: string): Promise<{ activated: boolean; reason?: string }> =>
       ipcRenderer.invoke('extensions:activate-view', viewId),
     executeCommand: async (commandId: string, ...args: unknown[]): Promise<{ executed: boolean; reason?: string; result?: unknown }> =>

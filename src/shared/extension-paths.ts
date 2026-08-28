@@ -1,5 +1,6 @@
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { existsSync } from 'node:fs';
 import { HOST_BUNDLE_DIR, HOST_BUNDLE_FILENAME } from './extension-constants';
 
 declare const __dirname: string;
@@ -18,4 +19,26 @@ const moduleDir = typeof __dirname !== 'undefined' ? __dirname : dirname(fileURL
 export function resolveHostBundlePath(): string {
   const path = join(moduleDir, '..', '..', HOST_BUNDLE_DIR, HOST_BUNDLE_FILENAME);
   return path;
+}
+
+/**
+ * Resolve the ESM bundle for an extension, trying each root in order.
+ * Two layouts are supported per root:
+ *   1. Built-in style: `<root>/<id>.js`   (dist/extensions/<id>.js)
+ *   2. Installed style: `<root>/<id>/<id>.js` (ADR-0009 user extensions)
+ * Returns the absolute path or `null`.
+ */
+export function resolveExtensionBundlePath(
+  extensionId: string,
+  roots: readonly string[]
+): string | null {
+  for (const root of roots) {
+    for (const candidate of [
+      join(root, `${extensionId}.js`),
+      join(root, extensionId, `${extensionId}.js`)
+    ]) {
+      if (existsSync(candidate)) return candidate;
+    }
+  }
+  return null;
 }

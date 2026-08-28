@@ -6,7 +6,7 @@ const rendererLogger = {
     const errorArg = args.find((a) => a instanceof Error) as Error | undefined;
     const output = context ? `[${context}] ${message}${suffix}` : `${message}${suffix}`;
     console.log(output, errorArg ?? '');
-    window.financeShell?.events?.emit('log.info', { message: `${message}${suffix}`, context });
+    window.financeShell?.events?.emit('log.info', { level: 'info', message, context, file: callerInfo?.file, line: callerInfo?.line, timestamp: Date.now(), error: errorArg?.stack ?? errorArg?.message });
   },
   error: (message: string, ...args: unknown[]) => {
     const context = args[0] instanceof Error ? undefined : String(args[0] ?? 'renderer');
@@ -15,7 +15,7 @@ const rendererLogger = {
     const errorArg = args.find((a) => a instanceof Error) as Error | undefined;
     const output = context ? `[${context}] ${message}${suffix}` : `${message}${suffix}`;
     console.error(output, errorArg ?? '');
-    window.financeShell?.events?.emit('log.error', { message: `${message}${suffix}`, context });
+    window.financeShell?.events?.emit('log.error', { level: 'error', message, context, file: callerInfo?.file, line: callerInfo?.line, timestamp: Date.now(), error: errorArg?.stack ?? errorArg?.message });
   },
   warn: (message: string, ...args: unknown[]) => {
     const context = args[0] instanceof Error ? undefined : String(args[0] ?? 'renderer');
@@ -24,7 +24,7 @@ const rendererLogger = {
     const errorArg = args.find((a) => a instanceof Error) as Error | undefined;
     const output = context ? `[${context}] ${message}${suffix}` : `${message}${suffix}`;
     console.warn(output, errorArg ?? '');
-    window.financeShell?.events?.emit('log.warn', { message: `${message}${suffix}`, context });
+    window.financeShell?.events?.emit('log.warn', { level: 'warn', message, context, file: callerInfo?.file, line: callerInfo?.line, timestamp: Date.now(), error: errorArg?.stack ?? errorArg?.message });
   },
   info: (message: string, ...args: unknown[]) => {
     const context = args[0] instanceof Error ? undefined : String(args[0] ?? 'renderer');
@@ -33,7 +33,7 @@ const rendererLogger = {
     const errorArg = args.find((a) => a instanceof Error) as Error | undefined;
     const output = context ? `[${context}] ${message}${suffix}` : `${message}${suffix}`;
     console.info(output, errorArg ?? '');
-    window.financeShell?.events?.emit('log.info', { message: `${message}${suffix}`, context });
+    window.financeShell?.events?.emit('log.info', { level: 'info', message, context, file: callerInfo?.file, line: callerInfo?.line, timestamp: Date.now(), error: errorArg?.stack ?? errorArg?.message });
   },
   debug: (message: string, ...args: unknown[]) => {
     const context = args[0] instanceof Error ? undefined : String(args[0] ?? 'renderer');
@@ -42,7 +42,7 @@ const rendererLogger = {
     const errorArg = args.find((a) => a instanceof Error) as Error | undefined;
     const output = context ? `[${context}] ${message}${suffix}` : `${message}${suffix}`;
     console.debug(output, errorArg ?? '');
-    window.financeShell?.events?.emit('log.debug', { message: `${message}${suffix}`, context });
+    window.financeShell?.events?.emit('log.debug', { level: 'debug', message, context, file: callerInfo?.file, line: callerInfo?.line, timestamp: Date.now(), error: errorArg?.stack ?? errorArg?.message });
   },
 };
 

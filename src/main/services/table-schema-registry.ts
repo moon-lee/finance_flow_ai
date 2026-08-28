@@ -270,4 +270,18 @@ export class TableSchemaRegistry {
     }
     return entry;
   }
+
+  /** Phase 8 — all registered table names owned by `owner` (extension id or 'shared'). */
+  getTablesByOwner(owner: string): readonly string[] {
+    return Array.from(this.entries.entries())
+      .filter(([, e]) => e.owner === owner)
+      .map(([name]) => name);
+  }
+
+  /** Phase 8 — remove an extension's table registrations (delete-data). */
+  unregisterExtensionTables(owner: string): void {
+    for (const name of this.getTablesByOwner(owner)) {
+      this.entries.delete(name);
+    }
+  }
 }

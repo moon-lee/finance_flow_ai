@@ -1,0 +1,25 @@
+export function createMockFinance(): import('finance').FinanceApi {
+  const mem = new Map<string, Map<number, Record<string, unknown>>>();
+  let nextId = 1;
+  const table = (name: string) => {
+    if (!mem.has(name)) mem.set(name, new Map());
+    const m = mem.get(name)!;
+    return {
+      find: async (filter = {}) => [...m.values()].filter(r => Object.entries(filter).every(([k,v]) => r[k]===v)),
+      findOne: async (filter = {}) => [...m.values()].find(r => Object.entries(filter).every(([k,v])=> r[k]===v)) ?? null,
+      insert: async (row) => { const id = nextId++; const r = { id, ...row }; m.set(id, r); return { id }; },
+      update: async (filter, patch) => { let n=0; for (const [id,r] of m) if (Object.entries(filter).every(([k,v])=>r[k]===v)) { m.set(id,{...r,...patch}); n++; } return { affected: n }; },
+      delete: async (filter) => { let n=0; for (const [id,r] of m) if (Object.entries(filter).every(([k,v])=>r[k]===v)) { m.delete(id); n++; } return { affected: n }; },
+      count: async (filter = {}) => [...m.values()].filter(r => Object.entries(filter).every(([k,v])=>r[k]===v)).length,
+    };
+  };
+  return {
+    commands: { registerCommand: () => {}, execute: async () => {} },
+    ai: { registerTool: () => {} },
+    db: { table } as never,
+    services: { register: () => {}, unregister: () => {}, invoke: async () => null },
+    ui: { requestMount: async () => {}, setDirty: () => {}, autoSaveDraft: async () => {}, onBeforeUnmount: () => {} },
+    events: { on: () => () => {}, emit: async () => {} },
+    settings: { get: async () => null, set: async () => {} },
+  } as never;
+}

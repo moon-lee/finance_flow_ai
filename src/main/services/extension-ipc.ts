@@ -50,6 +50,7 @@ export interface ExtensionIPCOptions {
   hostPath?: string;
   /** Request timeout in ms. Defaults to 10_000. */
   requestTimeoutMs?: number;
+  userExtensionsRoot?: string;
 }
 
 /**
@@ -117,6 +118,7 @@ export class ExtensionIPC {
   } | null = null;
   private readonly requestTimeoutMs: number;
   private readonly hostPath: string;
+  private readonly userExtensionsRoot: string;
   private initialManifests: FinanceExtensionManifest[] = [];
   private crashed = false;
   private shuttingDown = false;
@@ -137,6 +139,7 @@ export class ExtensionIPC {
   constructor(options: ExtensionIPCOptions = {}) {
     this.requestTimeoutMs = options.requestTimeoutMs ?? 10_000;
     this.hostPath = options.hostPath ?? resolveHostBundlePath();
+    this.userExtensionsRoot = options.userExtensionsRoot ?? '';
   }
 
   /**
@@ -196,7 +199,7 @@ export class ExtensionIPC {
       });
 
       // Send the manifests.
-      await this.request('host.initialize', { manifests: this.initialManifests });
+      await this.request('host.initialize', { manifests: this.initialManifests, userExtensionsRoot: this.userExtensionsRoot });
       this.emitStatus({ status: 'ready' });
     };
 

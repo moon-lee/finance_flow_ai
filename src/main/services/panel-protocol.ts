@@ -33,9 +33,10 @@
 import { protocol } from 'electron';
 import { join } from 'node:path';
 import { readFile } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { getLogger } from './logger';
+import { resolveExtensionBundlePath } from '../../shared/extension-paths';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const DEV_EXTENSIONS_DIR = join(__dirname, '..', 'extensions');
@@ -53,7 +54,7 @@ const PANEL_BOOTSTRAP_PATH = join(__dirname, '..', 'resources', 'panel-bootstrap
  *
  * Serves three kinds of resources:
  */
-export function registerPanelProtocol(): void {
+export function registerPanelProtocol(userExtensionsRoot = ''): void {
   getLogger().log('[panel-protocol] registering finance-shell protocol handler');
   protocol.handle('finance-shell', async (request) => {
     const url = new URL(request.url);
@@ -67,10 +68,37 @@ export function registerPanelProtocol(): void {
     }
     if (pathname.startsWith('/extensions/')) {
       const extPath = pathname.slice('/extensions/'.length);
-      if (extPath.endsWith('.css')) {
-        return serveExtensionCss(extPath);
+      // Try direct file lookup for code-split chunks (e.g. ui-*.js) first — scan user dirs
+      const candidates: string[] = [];
+      if (userExtensionsRoot && existsSync(userExtensionsRoot)) {
+        try {
+          for (const dir of readdirSync(userExtensionsRoot)) {
+            candidates.push(join(userExtensionsRoot, dir, extPath));
+            candidates.push(join(userExtensionsRoot, dir, extPath.split('/').pop() ?? ''));
+          }
+        } catch {}
+        candidates.push(join(userExtensionsRoot, extPath));
       }
-      return serveExtensionBundle(extPath);
+      candidates.push(join(DIST_EXTENSIONS_DIR, extPath));
+      for (const cand of candidates) {
+        if (cand && existsSync(cand)) {
+          try {
+            const data = await readFile(cand);
+            const isCss = cand.endsWith('.css');
+            return new Response(data, {
+              status: 200,
+              headers: {
+                'Content-Type': isCss ? 'text/css; charset=utf-8' : 'application/javascript; charset=utf-8',
+                'Cache-Control': 'no-cache'
+              }
+            });
+          } catch {}
+        }
+      }
+      if (extPath.endsWith('.css')) {
+        return serveExtensionCss(extPath, userExtensionsRoot);
+      }
+      return serveExtensionBundle(extPath, userExtensionsRoot);
     }
     getLogger().warn('[panel-protocol] 404 for', pathname);
     return new Response('Not Found', { status: 404 });
@@ -153,12 +181,15 @@ async function servePanelBootstrap(): Promise<Response> {
  * by `scripts/rename-extension-bundles.mjs` so the filename matches the
  * manifest id exactly.
  */
-async function serveExtensionBundle(path: string): Promise<Response> {
+async function serveExtensionBundle(path: string, userExtensionsRoot = ''): Promise<Response> {
   if (path.endsWith('/') || path.includes('/')) {
     return new Response('Not Found', { status: 404 });
   }
   const filename = decodeURIComponent(path);
-  const absolutePath = join(DIST_EXTENSIONS_DIR, filename);
+  const id = filename.replace(/\.js$/, '');
+  const roots = userExtensionsRoot ? [userExtensionsRoot, DIST_EXTENSIONS_DIR] : [DIST_EXTENSIONS_DIR];
+  const resolved = resolveExtensionBundlePath(id, roots);
+  const absolutePath = resolved ?? join(DIST_EXTENSIONS_DIR, filename);
 
   try {
     const data = await readFile(absolutePath);
@@ -186,7 +217,7 @@ async function serveExtensionBundle(path: string): Promise<Response> {
  * request falls back to the root-package-named CSS file when a per-extension
  * stylesheet does not exist.
  */
-async function serveExtensionCss(path: string): Promise<Response> {
+async function serveExtensionCss(path: string, _userExtensionsRoot = ''): Promise<Response> {
   if (path.endsWith('/') || path.includes('/')) {
     return new Response('Not Found', { status: 404 });
   }

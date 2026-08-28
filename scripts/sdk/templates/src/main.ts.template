@@ -1,0 +1,11 @@
+import type { FinanceApi } from 'finance';
+import { ExtensionLogger } from 'finance-logger';
+const logger = new ExtensionLogger('{{ID}}');
+if (typeof window !== 'undefined') { import('./ui/index.js').catch(()=>{}); }
+export function activate(finance: FinanceApi): void {
+  logger.info('activate {{ID}}');
+  finance.commands.registerCommand('{{ID}}.hello', '{{DISPLAY_NAME}}: Hello', () => {
+    finance.ui?.requestMount('{{ID}}', { greeting: 'Hello from {{ID}}' });
+  });
+}
+export function deactivate(): void { logger.info('deactivate {{ID}}'); }

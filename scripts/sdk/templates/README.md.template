@@ -1,0 +1,15 @@
+# {{DISPLAY_NAME}} — Finance Flow AI Extension
+
+## Dev (standalone)
+```bash
+npm install
+npm run dev   # http://localhost:5173
+```
+
+## Build + Install
+```bash
+npm run build   # or: node {{APP_SDK}} build .
+# Then in Finance Flow AI: Extensions → Install Folder → pick build/extension → Restart
+```
+
+Uses `src/styles/*` (tokens + layout) and `finance-logger` for consistent UI/logging.

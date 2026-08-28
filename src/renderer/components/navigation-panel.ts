@@ -88,7 +88,7 @@ export class NavigationPanel extends LitElement {
   setView(view: string, extensionId?: string) {
     this._currentView = view;
     this._currentExtensionId = extensionId ?? '';
-    if (view === '__settings__' || view === '__accounts__' || view === '__shortcuts__') {
+    if (view === '__settings__' || view === '__accounts__' || view === '__shortcuts__' || view === '__extensions__') {
       this._activeCommand = view;
     }
     this.requestUpdate();
@@ -134,6 +134,14 @@ export class NavigationPanel extends LitElement {
       }));
       return;
     }
+    if (cmd === '__extensions__') {
+      this.dispatchEvent(new CustomEvent('view-changed', {
+        detail: { view: '__extensions__', source: 'core' },
+        bubbles: true,
+        composed: true,
+      }));
+      return;
+    }
     this.dispatchEvent(new CustomEvent('command-selected', {
       detail: { command: cmd, extensionCommand: true },
       bubbles: true,
@@ -168,6 +176,7 @@ export class NavigationPanel extends LitElement {
     { extensionId: 'core', id: 'accounts', label: 'Accounts', command: '__accounts__', group: 'Settings' },
     { extensionId: 'core', id: 'keyboard-shortcuts', label: 'Keyboard Shortcuts', command: '__shortcuts__', group: 'Settings' },
     { extensionId: 'core', id: 'backup-restore', label: 'Backup & Restore', command: '__backup__', group: 'Settings' },
+    { extensionId: 'core', id: 'extensions', label: 'Extensions', command: '__extensions__', group: 'Settings' },
   ];
 
   private _groupedItems(): Map<string | undefined, NavItem[]> {
@@ -181,7 +190,7 @@ export class NavigationPanel extends LitElement {
   }
 
   private _getVisibleItems(): NavItem[] {
-    if (this._currentView === '__settings__' || this._currentView === '__accounts__' || this._currentView === '__shortcuts__' || this._currentView === '__backup__') {
+    if (this._currentView === '__settings__' || this._currentView === '__accounts__' || this._currentView === '__shortcuts__' || this._currentView === '__backup__' || this._currentView === '__extensions__') {
       return [...NavigationPanel._coreItems];
     }
     if (this._currentExtensionId) {

@@ -30,6 +30,8 @@
     "deploy:local": "node scripts/deploy-local.mjs",
     "rebuild": "electron-rebuild --force",
     "test:unit:watch": "vitest",
+    "sdk:init": "node scripts/sdk/cli.mjs init",
+    "sdk:build": "node scripts/sdk/cli.mjs build",
     "postinstall": "electron-rebuild --force"
   },
   "keywords": [],
@@ -38,6 +40,7 @@
   "type": "module",
   "dependencies": {
     "better-sqlite3": "^12.11.1",
+    "extract-zip": "^2.0.1",
     "lit": "^3.3.3",
     "zod": "^3.25.76"
   },
@@ -91,5 +94,8 @@
         "dir"
       ]
     }
+  },
+  "allowScripts": {
+    "better-sqlite3@12.11.1": true
   }
 }

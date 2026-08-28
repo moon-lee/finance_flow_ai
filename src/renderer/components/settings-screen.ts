@@ -461,7 +461,7 @@ export class SettingsScreen extends LitElement {
         else document.body.classList.remove('light-theme');
       }
     } catch (err) {
-        rendererLogger.error(`[settings] failed to set ${key}:`, err);
+        rendererLogger.error(`failed to set ${key}`, 'settings', err as Error);
       }
     }, 300);
     this._debounceTimers.set(key, timer);
@@ -564,7 +564,7 @@ export class SettingsScreen extends LitElement {
             try {
               this._commit(item.key, JSON.parse(raw));
             } catch {
-              rendererLogger.warn(`[settings] invalid JSON for ${item.key}`);
+              rendererLogger.warn(`invalid JSON for ${item.key}`, 'settings');
             }
           }}
         ></textarea>

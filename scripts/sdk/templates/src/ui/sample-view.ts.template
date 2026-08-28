@@ -1,0 +1,7 @@
+import { LitElement, html } from 'lit';
+import { sharedStyles } from '../styles/shared-styles.js';
+const Base = typeof HTMLElement !== 'undefined' ? LitElement : class {} as unknown as typeof LitElement;
+export class SampleView extends Base {
+  static override styles = typeof HTMLElement !== 'undefined' ? [sharedStyles] as any : [];
+  override render() { if (typeof HTMLElement === 'undefined') return html``; return html`<div class="view-container"><div class="view-container-inner"><h1>{{DISPLAY_NAME}}</h1><p>Your extension screen is ready — uses tokens + layout.</p></div></div>`; }
+}

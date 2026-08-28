@@ -17,8 +17,10 @@ import {
   registerSettingDefault,
 } from "./services/settings-service";
 import { discoverExtensions } from "./services/extension-loader";
+import { discoverExtensionsInRoots } from "./services/extension-catalog";
 import { ExtensionRegistry } from "./services/extension-registry";
 import { ExtensionIPC } from "./services/extension-ipc";
+import { ExtensionInstaller } from "./services/extension-installer";
 import { RPC_METHOD } from "../shared/json-rpc-methods";
 import { TableSchemaRegistry } from "./services/table-schema-registry";
 import { DAOService } from "./services/dao-service";
@@ -66,6 +68,8 @@ let dbClosed = false;
 let extensionRegistry: ExtensionRegistry | null = null;
 let extensionIPC: ExtensionIPC | null = null;
 let tableSchemaRegistry: TableSchemaRegistry | null = null;
+let userExtensionsRoot: string = "";
+let extensionInstaller: ExtensionInstaller | null = null;
 let daoService: DAOService | null = null;
 let commandAllowlist: CommandAllowlist | null = null;
 let uiEventAllowlist: UiEventAllowlist | null = null;
@@ -260,6 +264,46 @@ function registerIpcHandlers(): void {
       navigation: extensionRegistry.navigation(),
       configuration: extensionRegistry.configuration(),
     };
+  });
+
+  ipcMain.handle("extensions:manager-list", () => {
+    if (!extensionRegistry) return [];
+    return extensionRegistry.getAllManifests().map((m) => ({
+      id: m.id,
+      displayName: m.displayName,
+      version: m.version,
+      description: m.description,
+      enabled: extensionRegistry!.isEnabled(m.id),
+      source: extensionRegistry!.builtinIds.has(m.id) ? 'built-in' as const : 'user' as const,
+      dependencies: m.dependencies,
+    }));
+  });
+  ipcMain.handle("extensions:pick-folder", async () => {
+    const { canceled, filePaths } = await dialog.showOpenDialog({ properties: ['openDirectory'] });
+    return canceled ? null : filePaths[0];
+  });
+  ipcMain.handle("extensions:pick-zip", async () => {
+    const { canceled, filePaths } = await dialog.showOpenDialog({ properties: ['openFile'], filters: [{ name: 'Zip', extensions: ['zip'] }] });
+    return canceled ? null : filePaths[0];
+  });
+  ipcMain.handle("extensions:install", async (_e, source: string) => {
+    if (!extensionInstaller) return { ok: false, reason: 'installer not ready' };
+    return extensionInstaller.installFromSource(source);
+  });
+  ipcMain.handle("extensions:uninstall", (_e, id: string) => {
+    if (!extensionInstaller) return { ok: false, reason: 'installer not ready' };
+    const err = extensionInstaller.uninstall(id);
+    return err ? { ok: false, reason: err.reason } : { ok: true };
+  });
+  ipcMain.handle("extensions:delete-data", (_e, id: string) => {
+    if (!extensionInstaller) return { ok: false, reason: 'installer not ready' };
+    const err = extensionInstaller.deleteData(id);
+    return err ? { ok: false, reason: err.reason } : { ok: true };
+  });
+  ipcMain.handle("extensions:set-enabled", (_e, id: string, enabled: boolean) => {
+    if (!extensionRegistry) return { ok: false };
+    extensionRegistry.setEnabled(id, enabled);
+    return { ok: true };
   });
 
   // [Follow-up §3.9] Main-side activate-view try/catch error handling
@@ -646,7 +690,8 @@ function registerIpcHandlers(): void {
 
   ipcMain.handle("event:publish", async (_event, { topic, payload }: { topic: string; payload: unknown }) => {
     if (!eventBus) return;
-    eventBus.publish(topic, payload, 'renderer');
+    const exclude = topic.startsWith('log.') ? null : 'renderer' as const;
+    eventBus.publish(topic, payload, exclude);
     if (extensionIPC) {
       extensionIPC.notify(RPC_METHOD.EventPublish, { topic, payload });
     }
@@ -829,7 +874,7 @@ app.whenReady().then(async () => {
     // Phase 5 Task 2.1 — register the `finance-shell://` custom protocol
     // before any WebContentsView tries to load a panel URL. `protocol.handle`
     // requires the app to be ready (needs the default session).
-    registerPanelProtocol();
+    registerPanelProtocol(userExtensionsRoot);
 
     const dbPath = resolveDatabasePath();
     // [Review fix §3.5] Log the resolved database path so Test Unit 6 (and
@@ -856,10 +901,17 @@ app.whenReady().then(async () => {
     // requests can be dispatched against real tables.
     daoService = new DAOService(getDatabase(), tableSchemaRegistry);
 
+    userExtensionsRoot = join(app.getPath("userData"), "extensions");
     extensionRegistry = new ExtensionRegistry();
-    const discovery = discoverExtensions(resolveExtensionsRoot(), {
-      tableSchemaRegistry,
-    });
+    const discovery = discoverExtensionsInRoots(
+      [userExtensionsRoot, resolveExtensionsRoot()],
+      { tableSchemaRegistry }
+    );
+    {
+      const builtinOnly = discoverExtensions(resolveExtensionsRoot(), { tableSchemaRegistry });
+      extensionRegistry.setBuiltinIds(builtinOnly.extensions.map((e) => e.manifest.id));
+    }
+    extensionInstaller = new ExtensionInstaller({ db: getDatabase(), userExtensionsRoot, registry: extensionRegistry });
     for (const { manifest } of discovery.extensions) {
       extensionRegistry.upsert(manifest);
       // Register the extension's settings namespace so its `finance.settings`
@@ -924,7 +976,7 @@ app.whenReady().then(async () => {
     // Phase 5 Task 7 — cross-extension domain service registry.
     domainServiceRegistry = new DomainServiceRegistry();
 
-    extensionIPC = new ExtensionIPC();
+    extensionIPC = new ExtensionIPC({ userExtensionsRoot });
 
     // Phase 7 Task 8 — wire the event bus into ExtensionIPC so Host
     // `event.subscribe` / `event.publish` requests are routed through the

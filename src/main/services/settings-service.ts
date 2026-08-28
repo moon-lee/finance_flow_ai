@@ -122,3 +122,13 @@ export function getSettings(namespace: string): Record<string, unknown> {
   }
   return result;
 }
+
+/** Phase 8 — delete every setting whose key starts with `<namespace>.`. */
+export function deleteNamespace(namespace: string): number {
+  if (!db) throw new Error('Settings not initialized. Call initializeSettings() first.');
+  return db.prepare('DELETE FROM settings WHERE key LIKE ?').run(`${namespace}.%`).changes;
+}
+
+export function getSettingsService(): { deleteNamespace: typeof deleteNamespace } {
+  return { deleteNamespace };
+}

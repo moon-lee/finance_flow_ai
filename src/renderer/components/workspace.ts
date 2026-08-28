@@ -133,7 +133,7 @@ export class WorkspacePanel extends LitElement {
       if (live) {
         this._addPanel(panelId, this._viewIdToLabel.get(live.viewId) ?? live.viewId, this._pendingCommandId ?? undefined);
       } else {
-        rendererLogger.warn('[workspace] _onPanelMounted panel not in tabs', { panelId, availableTabs: this._tabs.map(t => t.panelId) });
+        rendererLogger.warn(`_onPanelMounted panel not in tabs panelId=${panelId} availableTabs=${this._tabs.map(t => t.panelId).join(',')}`, 'workspace');
       }
       this._pendingCommandId = null;
     } else {
@@ -258,7 +258,7 @@ export class WorkspacePanel extends LitElement {
     try {
       for (const tab of this._tabs) {
         const viewId = panelIdToViewId.get(tab.panelId);
-        rendererLogger.log('[workspace] _activateRestoredTabs: tab panelId', tab.panelId, '-> viewId', viewId ?? '(internal)', 'commandId', tab.commandId);
+        rendererLogger.log(`_activateRestoredTabs: tab panelId=${tab.panelId} -> viewId=${viewId ?? '(internal)'} commandId=${tab.commandId}`, 'workspace');
         if (viewId) {
           try {
             await window.financeShell.extensions.activateView(viewId);
@@ -267,7 +267,7 @@ export class WorkspacePanel extends LitElement {
           }
         } else if (tab.commandId) {
           // Internal view with saved commandId - execute it to restore
-          rendererLogger.log('[workspace] _activateRestoredTabs: executing command for internal view', tab.commandId);
+          rendererLogger.debug(`_activateRestoredTabs: executing command for internal view ${tab.commandId}`, 'workspace');
           try {
             await window.financeShell.extensions.executeCommand(tab.commandId);
           } catch {
@@ -275,7 +275,7 @@ export class WorkspacePanel extends LitElement {
           }
         } else {
           // Tab for an internal view without commandId - will be mounted on-demand
-          rendererLogger.log('[workspace] _activateRestoredTabs: skipping internal view panelId', tab.panelId);
+          rendererLogger.log(`_activateRestoredTabs: skipping internal view panelId=${tab.panelId}`, 'workspace');
         }
       }
     } finally {
@@ -330,7 +330,7 @@ export class WorkspacePanel extends LitElement {
   private _sendBoundsToPanel(panelId: string) {
     const content = this.renderRoot.querySelector('.content') as HTMLElement | null;
     if (!content) {
-      rendererLogger.warn('[workspace] _sendBoundsToPanel: .content element not found');
+      rendererLogger.warn('_sendBoundsToPanel: .content element not found', 'workspace');
       return;
     }
     const rect = content.getBoundingClientRect();
@@ -338,7 +338,7 @@ export class WorkspacePanel extends LitElement {
     try {
       window.financeShell?.panel?.resize(panelId, bounds);
     } catch (err) {
-        rendererLogger.error('[workspace] _sendBoundsToPanel: resize() threw', err);
+        rendererLogger.error('_sendBoundsToPanel: resize() threw', 'workspace', err as Error);
     }
   }
 

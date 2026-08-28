@@ -30,6 +30,16 @@ export interface SettingsApi {
   set: (key: string, value: unknown) => Promise<void>;
 }
 
+export interface ManagedExtension {
+  id: string;
+  displayName: string;
+  version: string;
+  description?: string;
+  enabled: boolean;
+  source: 'built-in' | 'user';
+  dependencies?: string[];
+}
+
 export interface ExtensionsApi {
   list: () => Promise<{
     views: Array<{ extensionId: string; view: ManifestViewContribution }>;
@@ -39,6 +49,13 @@ export interface ExtensionsApi {
   }>;
   activateView: (viewId: string) => Promise<{ activated: boolean; reason?: string }>;
   executeCommand: (commandId: string, ...args: unknown[]) => Promise<{ executed: boolean; reason?: string; result?: unknown }>;
+  managerList: () => Promise<ManagedExtension[]>;
+  pickFolder: () => Promise<string | null>;
+  pickZip: () => Promise<string | null>;
+  install: (source: string) => Promise<{ ok: boolean; reason?: string }>;
+  uninstall: (id: string) => Promise<{ ok: boolean; reason?: string }>;
+  deleteData: (id: string) => Promise<{ ok: boolean; reason?: string }>;
+  setEnabled: (id: string, enabled: boolean) => Promise<{ ok: boolean }>;
   onHostLog: (callback: (entry: HostLogEntry) => void) => () => void;
   onHostStatus: (callback: (status: HostStatus) => void) => () => void;
   onUiMount: (

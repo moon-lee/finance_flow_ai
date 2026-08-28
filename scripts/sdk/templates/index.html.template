@@ -1,0 +1,15 @@
+<!doctype html>
+<html>
+  <head><meta charset="utf-8" /><title>{{DISPLAY_NAME}} — dev</title><link rel="stylesheet" href="/src/styles/tokens.css" /></head>
+  <body>
+    <div id="app"></div>
+    <script type="module">
+      import '/src/ui/index.ts';
+      import { createMockFinance } from '/src/mock/finance-mock.ts';
+      const finance = createMockFinance();
+      const el = document.createElement('{{ID}}-view');
+      document.getElementById('app').appendChild(el);
+      import('/src/main.ts').then(m => m.activate?.(finance));
+    </script>
+  </body>
+</html>

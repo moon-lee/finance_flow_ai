@@ -8,6 +8,7 @@ import './components/accounts-manager';
 import './components/shortcuts-screen';
 import './components/backup-screen';
 import './components/toast-container';
+import './components/extension-manager';
 import { overlayCoordinator } from './overlay-coordinator';
 import type { ActivityView } from './components/activity-bar';
 import type { PaletteCommand } from './components/command-palette';
@@ -210,9 +211,10 @@ window.addEventListener('click', (event) => {
 window.addEventListener('view-changed', (event: Event) => {
   const customEvent = event as CustomEvent<{ view: string; source: string }>;
   const viewId = customEvent.detail.view;
-  rendererLogger.log(`[renderer] view-changed event: viewId=${viewId}, source=${customEvent.detail.source}`);
+  const src = customEvent.detail.source || 'renderer';
+  rendererLogger.log(`view-changed event: viewId=${viewId}`, src);
   
-  if (viewId === '__settings__' || viewId === '__accounts__' || viewId === '__shortcuts__' || viewId === '__backup__') {
+  if (viewId === '__settings__' || viewId === '__accounts__' || viewId === '__shortcuts__' || viewId === '__backup__' || viewId === '__extensions__') {
     if (activityBar) activityBar.activeView = viewId;
     if (navigationPanel) navigationPanel.setView(viewId);
     
@@ -224,6 +226,8 @@ window.addEventListener('view-changed', (event: Event) => {
     if (shortcutsScreen) shortcutsScreen.remove();
     const backupScreen = document.querySelector('backup-screen');
     if (backupScreen) backupScreen.remove();
+    const extensionManager = document.querySelector('extension-manager');
+    if (extensionManager) extensionManager.remove();
     
     if (viewId === '__settings__') {
       const existing = workspace?.querySelector('settings-screen');
@@ -235,6 +239,7 @@ window.addEventListener('view-changed', (event: Event) => {
       overlayCoordinator.hideOverlay('accounts');
       overlayCoordinator.hideOverlay('shortcuts');
       overlayCoordinator.hideOverlay('backup');
+      overlayCoordinator.hideOverlay('extensions');
       overlayCoordinator.showOverlay('settings');
     } else if (viewId === '__accounts__') {
       const existing = workspace?.querySelector('accounts-manager');
@@ -246,6 +251,7 @@ window.addEventListener('view-changed', (event: Event) => {
       overlayCoordinator.hideOverlay('settings');
       overlayCoordinator.hideOverlay('shortcuts');
       overlayCoordinator.hideOverlay('backup');
+      overlayCoordinator.hideOverlay('extensions');
       overlayCoordinator.showOverlay('accounts');
     } else if (viewId === '__shortcuts__') {
       const existing = workspace?.querySelector('shortcuts-screen');
@@ -257,6 +263,7 @@ window.addEventListener('view-changed', (event: Event) => {
       overlayCoordinator.hideOverlay('settings');
       overlayCoordinator.hideOverlay('accounts');
       overlayCoordinator.hideOverlay('backup');
+      overlayCoordinator.hideOverlay('extensions');
       overlayCoordinator.showOverlay('shortcuts');
     } else if (viewId === '__backup__') {
       const existing = workspace?.querySelector('backup-screen');
@@ -268,7 +275,20 @@ window.addEventListener('view-changed', (event: Event) => {
       overlayCoordinator.hideOverlay('settings');
       overlayCoordinator.hideOverlay('accounts');
       overlayCoordinator.hideOverlay('shortcuts');
+      overlayCoordinator.hideOverlay('extensions');
       overlayCoordinator.showOverlay('backup');
+    } else if (viewId === '__extensions__') {
+      const existing = workspace?.querySelector('extension-manager');
+      if (!existing) {
+        const screen = document.createElement('extension-manager');
+        workspace?.appendChild(screen);
+      }
+      if (workspace) workspace.hideTabStrip = true;
+      overlayCoordinator.hideOverlay('settings');
+      overlayCoordinator.hideOverlay('accounts');
+      overlayCoordinator.hideOverlay('shortcuts');
+      overlayCoordinator.hideOverlay('backup');
+      overlayCoordinator.showOverlay('extensions');
     }
     return;
   }
@@ -281,12 +301,15 @@ window.addEventListener('view-changed', (event: Event) => {
   if (shortcutsScreen) shortcutsScreen.remove();
   const backupScreen = document.querySelector('backup-screen');
   if (backupScreen) backupScreen.remove();
+  const extensionManager2 = document.querySelector('extension-manager');
+  if (extensionManager2) extensionManager2.remove();
   if (workspace) workspace.hideTabStrip = false;
   
   overlayCoordinator.hideOverlay('settings');
   overlayCoordinator.hideOverlay('accounts');
   overlayCoordinator.hideOverlay('shortcuts');
   overlayCoordinator.hideOverlay('backup');
+  overlayCoordinator.hideOverlay('extensions');
   
   const extId = viewToExtension.get(viewId);
   if (!extId) {
@@ -318,10 +341,10 @@ window.addEventListener('command-selected', (event: Event) => {
     // §7 Security deferral note.
     window.financeShell?.extensions.executeCommand(cmd).then((result) => {
       if (!result.executed) {
-        rendererLogger.warn(`[palette] extension command "${cmd}" did not execute: ${result.reason ?? 'unknown reason'}`);
+        rendererLogger.warn(`extension command "${cmd}" did not execute: ${result.reason ?? 'unknown reason'}`, 'palette');
       }
     }).catch((err) => {
-      rendererLogger.error(`[palette] extension command "${cmd}" threw:`, err);
+      rendererLogger.error(`extension command "${cmd}" threw`, 'palette', err as Error);
     });
   } else {
     if (cmd === 'toggle-ai') toggleAiPanel();
@@ -460,9 +483,9 @@ function executeExtensionCommand(commandId: string): void {
     .executeCommand(commandId)
     .then((result) => {
       if (result && !result.executed) {
-        rendererLogger.warn(`[shortcut] extension command "${commandId}" did not execute: ${result.reason ?? 'unknown reason'}`);
+        rendererLogger.warn(`extension command "${commandId}" did not execute: ${result.reason ?? 'unknown reason'}`, 'shortcut');
       }
     })
-    .catch((err) => rendererLogger.error(`[shortcut] extension command "${commandId}" threw:`, err));
+    .catch((err) => rendererLogger.error(`extension command "${commandId}" threw`, 'shortcut', err as Error));
   setCommandPaletteVisible(false);
 }

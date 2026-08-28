@@ -1,0 +1,109 @@
+#!/usr/bin/env node
+import { mkdirSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = fileURLToPath(new URL('.', import.meta.url));
+const TEMPLATES = join(__dirname, 'templates');
+
+function slug(id) {
+  if (!/^[a-z0-9][a-z0-9-]*$/.test(id)) {
+    console.error(`invalid extension id "${id}" — use lowercase letters, digits, hyphens`);
+    process.exit(1);
+  }
+  return id;
+}
+
+function render(template, vars) {
+  let out = readFileSync(join(TEMPLATES, template), 'utf8');
+  for (const [k, v] of Object.entries(vars)) out = out.replaceAll(`{{${k}}}`, v);
+  return out;
+}
+
+function cmdInit(idRaw, targetDir) {
+  const id = slug(idRaw);
+  const display = id.split('-').map((w) => w[0].toUpperCase() + w.slice(1)).join(' ');
+  const vars = { ID: id, DISPLAY_NAME: display, ICON: display[0], DESCRIPTION: `${display} extension`, APP_SDK: join(resolve('.'), 'scripts', 'sdk', 'cli.mjs').replace(/\\/g, '/') };
+  const out = join(targetDir ? resolve(targetDir) : process.cwd(), id);
+  mkdirSync(join(out, 'src', 'ui'), { recursive: true });
+  mkdirSync(join(out, 'src', 'mock'), { recursive: true });
+  mkdirSync(join(out, 'src', 'vendor'), { recursive: true });
+  mkdirSync(join(out, 'src', 'styles'), { recursive: true });
+  writeFileSync(join(out, 'package.json'), render('package.json.template', vars));
+  writeFileSync(join(out, 'tsconfig.json'), render('tsconfig.json.template', vars));
+  writeFileSync(join(out, 'vite.config.ts'), render('vite.config.ts.template', vars));
+  writeFileSync(join(out, 'index.html'), render('index.html.template', vars));
+  writeFileSync(join(out, 'README.md'), render('README.md.template', vars));
+  writeFileSync(join(out, 'src', 'main.ts'), render('src/main.ts.template', vars));
+  writeFileSync(join(out, 'src', 'finance.d.ts'), readFileSync(join(__dirname, 'types', 'finance.d.ts'), 'utf8'));
+  writeFileSync(join(out, 'src', 'vendor', 'logger.ts'), render('src/vendor/logger.ts.template', vars));
+  writeFileSync(join(out, 'src', 'styles', 'tokens.css'), readFileSync(join(__dirname, '..', '..', 'src', 'renderer', 'styles', 'tokens.css'), 'utf8'));
+  writeFileSync(join(out, 'src', 'styles', 'ext-layout.css'), readFileSync(join(__dirname, '..', '..', 'extensions', 'salary-history', 'src', 'styles', 'ext-layout.css'), 'utf8'));
+  writeFileSync(join(out, 'src', 'styles', 'shared-styles.ts'), render('src/styles/shared-styles.ts.template', vars));
+  writeFileSync(join(out, 'src', 'mock', 'finance-mock.ts'), render('src/mock/finance-mock.ts.template', vars));
+  writeFileSync(join(out, 'src', 'ui', 'index.ts'), render('src/ui/index.ts.template', vars));
+  writeFileSync(join(out, 'src', 'ui', 'sample-view.ts'), render('src/ui/sample-view.ts.template', vars));
+  console.log(`Created extension project at ${out}`);
+  console.log('Preview standalone:');
+  console.log(`  cd ${out} && npm install && npm run dev   # http://localhost:5173`);
+  console.log('Then build for the real app:');
+  console.log(`  node ${vars.APP_SDK} build ${out}`);
+}
+
+async function cmdBuild(projectDirRaw) {
+  const { build: viteBuild } = await import('vite');
+  const { mkdirSync: mk, readFileSync: rf, cpSync } = await import('node:fs');
+  const { join: j, resolve: rs } = await import('node:path');
+  const projectDir = rs(projectDirRaw ?? '.');
+  const pkg = JSON.parse(rf(j(projectDir, 'package.json'), 'utf8'));
+  const manifest = pkg.financeExtension;
+  if (!manifest?.id) {
+    console.error(`no financeExtension.id in ${projectDir}/package.json`);
+    process.exit(1);
+  }
+  const id = manifest.id;
+  const outDir = j(projectDir, 'build', 'extension');
+  mk(outDir, { recursive: true });
+  const EXTERNALS = ['finance', 'electron', 'node:path', 'node:url', 'node:fs', 'node:module', 'better-sqlite3'];
+  const hostLit = j(__dirname, '..', '..', 'node_modules', 'lit');
+  await viteBuild({
+    root: projectDir,
+    logLevel: 'warn',
+    configFile: false,
+    resolve: { alias: { lit: hostLit } },
+    build: {
+      outDir,
+      emptyOutDir: true,
+      sourcemap: true,
+      lib: { entry: j(projectDir, manifest.main ?? 'src/main.ts'), formats: ['es'], fileName: () => `${id}.js` },
+      rollupOptions: { external: EXTERNALS }
+    }
+  });
+  cpSync(j(projectDir, 'package.json'), j(outDir, 'package.json'));
+  console.log(`Built ${id} -> ${outDir}`);
+  console.log('Install it in the app: Extensions > Install > pick this folder (or zip it first).');
+}
+
+function cmdRefresh(projectDirRaw) {
+  const projectDir = resolve(projectDirRaw ?? '.');
+  const typesPath = join(projectDir, 'src', 'finance.d.ts');
+  if (!existsSync(typesPath)) {
+    console.error(`no src/finance.d.ts found in ${projectDir} — is this a scaffolded project?`);
+    process.exit(1);
+  }
+  writeFileSync(typesPath, readFileSync(join(__dirname, 'types', 'finance.d.ts'), 'utf8'));
+  writeFileSync(join(projectDir, 'src', 'vendor', 'logger.ts'), readFileSync(join(TEMPLATES, 'src/vendor/logger.ts.template'), 'utf8'));
+  writeFileSync(join(projectDir, 'src', 'styles', 'tokens.css'), readFileSync(join(__dirname, '..', '..', 'src', 'renderer', 'styles', 'tokens.css'), 'utf8'));
+  writeFileSync(join(projectDir, 'src', 'styles', 'ext-layout.css'), readFileSync(join(__dirname, '..', '..', 'extensions', 'salary-history', 'src', 'styles', 'ext-layout.css'), 'utf8'));
+  console.log(`Refreshed ${typesPath} + vendor/logger.ts + styles/*`);
+  console.log('Fix any new type errors the editor shows, rebuild, and reinstall.');
+}
+
+const [cmd, ...rest] = process.argv.slice(2);
+if (cmd === 'init') cmdInit(rest[0], rest[1]);
+else if (cmd === 'build') await cmdBuild(rest[0]);
+else if (cmd === 'refresh') cmdRefresh(rest[0]);
+else {
+  console.log('usage: node scripts/sdk/cli.mjs init <extension-id> [dir] | build <project-dir> | refresh <project-dir>');
+  process.exit(1);
+}
