@@ -1,7 +1,7 @@
 ---
 version: 0.9.0
 created: 2026-06-14
-last_updated: 2026-08-27T11:40:00+10:00
+last_updated: 2026-08-29T10:00:00+10:00
 ---
 
 # Changelog
@@ -30,6 +30,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Dashboard styles duplicated in UI instead of style folder** (`extensions/dashboard/src/styles/ext-layout.css`, `extensions/dashboard/src/styles/shared-styles.ts`, `extensions/dashboard/src/ui/dashboard-view.ts`, `extensions/dashboard/src/ui/reorder-cards-modal.ts`). Recent `1103ee6` redesign re-introduced ~120 lines of inline Lit CSS in `dashboard-view.ts` (`.topbar`, `.reorder-btn`, `.grid`, `.card`, `.ytd-table` etc.) duplicating the canonical `ext-layout.css`/`sharedStyles` pattern used by `salary-history`. Moved all dashboard-specific layout (`.fy-select`, `.grid`, `.card`, `.card-header`, `.card-title` bold `700`, `.section-sep` without `border-top`, `.ytd-table` etc.) into `ext-layout.css` and reduced `dashboard-view.ts:static styles` to `[sharedStyles]` only. Removed duplicate `.modal`/`h2` from `reorder-cards-modal.ts`.
 
 - **Dashboard FY select `_onFyChange` broken and FY switch lost data on return** (`extensions/dashboard/src/ui/dashboard-view.ts:109-118`, `extensions/dashboard/src/orchestrator.ts:175-208`, `extensions/dashboard/src/main.ts:73-112`). `private _onFyChange(e)` was unbound (`@change=${this._onFyChange}` → `this` = `<select>`), used `e.target` only and dual `select .value` + `option ?selected` binding. Fixed to arrow `private _onFyChange = (e)=>` with `(e.currentTarget ?? e.target)` guard and `select .value` only. Orchestrator panel path rebuilt `aggregator` via `noop` `services.invoke` (panel `finance` has no `pay` service) and overwrote `mountData.aggregator` with `null`, so `FY2023-2024` (no data) → back to `2026-2027` stayed empty (user-reported). Fixed to detect panel (`globalThis.financeShell.extensions.executeCommand`) → optimistically set `financialYearCurrent` and `await executeCommand('dashboard.refresh')` on Host which rebuilds with real `pay` service and pushes `panel:mount-update`; Host branch now syncs `mountData.aggregator`. Host `dashboard.refresh` and initial `requestMount` now also ship `financialYearCurrent`/`financialYearStart`/`financeYearFilter` for `mount-update`.
+
+- **Disable tab sync: Activity Bar not updated when extension disabled** (`src/renderer/components/extension-manager.ts:60-84`). Disabling an extension (e.g. todo-list) correctly filtered workspace `localStorage` and `_tabs` (2→1: Dashboard remains) via `prefix = panel-${e.id}-` filter, but `activityBar.views` was never refreshed so it still showed 3 icons (Dashboard, Pay History, Todo List) instead of 2. The workspace persistence was correct on refresh, but the immediate UI was stale because `extensions:list` → `activityBar.views` was not re-fetched. Fixed by reloading the Activity Bar after disable via `financeShell.extensions.list()` and `ab.views = contribs.views.map(v => ({id, name, icon}))`. No hard-coded panelIds, no empty catch blocks, no `enabledPanelIds` race, no `tabs:update` trigger — keeps the minimal prefix-filter approach for both workspace and Activity Bar.
 
 ### Administrative
 

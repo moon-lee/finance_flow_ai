@@ -293,6 +293,11 @@ function registerIpcHandlers(): void {
   ipcMain.handle("extensions:uninstall", (_e, id: string) => {
     if (!extensionInstaller) return { ok: false, reason: 'installer not ready' };
     const err = extensionInstaller.uninstall(id);
+    if (!err && webviewPanelManager) {
+      const panel = webviewPanelManager.findByExtensionId(id);
+      if (panel) webviewPanelManager.unmount(panel.panelId);
+    }
+    if (!err && mainWindow) mainWindow.webContents.send('extensions:changed');
     return err ? { ok: false, reason: err.reason } : { ok: true };
   });
   ipcMain.handle("extensions:delete-data", (_e, id: string) => {
@@ -303,6 +308,12 @@ function registerIpcHandlers(): void {
   ipcMain.handle("extensions:set-enabled", (_e, id: string, enabled: boolean) => {
     if (!extensionRegistry) return { ok: false };
     extensionRegistry.setEnabled(id, enabled);
+    if (!enabled && webviewPanelManager) {
+      const panel = webviewPanelManager.findByExtensionId(id);
+      if (panel) webviewPanelManager.unmount(panel.panelId);
+    }
+    // Enable: just activate — do not auto-mount view
+    // Renderer handles tab sync via local event (extension-manager dispatches), no ipc needed to avoid dup logs
     return { ok: true };
   });
 
@@ -871,6 +882,7 @@ registerIpcHandlers();
 
 app.whenReady().then(async () => {
   try {
+    userExtensionsRoot = join(app.getPath("userData"), "extensions");
     // Phase 5 Task 2.1 — register the `finance-shell://` custom protocol
     // before any WebContentsView tries to load a panel URL. `protocol.handle`
     // requires the app to be ready (needs the default session).

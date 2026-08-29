@@ -76,7 +76,9 @@ export function registerPanelProtocol(userExtensionsRoot = ''): void {
             candidates.push(join(userExtensionsRoot, dir, extPath));
             candidates.push(join(userExtensionsRoot, dir, extPath.split('/').pop() ?? ''));
           }
-        } catch {}
+        } catch (err) {
+          getLogger().warn('[panel-protocol] readdir failed', err as Error);
+        }
         candidates.push(join(userExtensionsRoot, extPath));
       }
       candidates.push(join(DIST_EXTENSIONS_DIR, extPath));
@@ -92,7 +94,9 @@ export function registerPanelProtocol(userExtensionsRoot = ''): void {
                 'Cache-Control': 'no-cache'
               }
             });
-          } catch {}
+          } catch (err) {
+            getLogger().warn('[panel-protocol] read failed for ' + cand, err as Error);
+          }
         }
       }
       if (extPath.endsWith('.css')) {
@@ -123,7 +127,8 @@ async function servePanelShell(path: string): Promise<Response> {
   let html: string;
   try {
     html = await readFile(PANEL_TEMPLATE_PATH, 'utf-8');
-  } catch {
+  } catch (err) {
+    getLogger().warn('[panel-protocol] panel template not found', err as Error);
     return new Response('Panel template not found', { status: 500 });
   }
 
@@ -168,7 +173,8 @@ async function servePanelBootstrap(): Promise<Response> {
         'Cache-Control': 'no-cache',
       },
     });
-  } catch {
+  } catch (err) {
+    getLogger().warn('[panel-protocol] bootstrap not found', err as Error);
     return new Response('Panel bootstrap not found', { status: 404 });
   }
 }
@@ -200,7 +206,8 @@ async function serveExtensionBundle(path: string, userExtensionsRoot = ''): Prom
         'Cache-Control': 'no-cache'
       }
     });
-  } catch {
+  } catch (err) {
+    getLogger().warn(`[panel-protocol] bundle not found for ${path}, tried ${absolutePath}, roots: ${roots.join(', ')}`, err as Error);
     return new Response('Extension bundle not found', { status: 404 });
   }
 }
@@ -217,12 +224,27 @@ async function serveExtensionBundle(path: string, userExtensionsRoot = ''): Prom
  * request falls back to the root-package-named CSS file when a per-extension
  * stylesheet does not exist.
  */
-async function serveExtensionCss(path: string, _userExtensionsRoot = ''): Promise<Response> {
+async function serveExtensionCss(path: string, userExtensionsRoot = ''): Promise<Response> {
   if (path.endsWith('/') || path.includes('/')) {
     return new Response('Not Found', { status: 404 });
   }
   const filename = decodeURIComponent(path);
-  const absolutePath = join(DIST_EXTENSIONS_DIR, filename);
+  const roots = userExtensionsRoot ? [userExtensionsRoot, DIST_EXTENSIONS_DIR] : [DIST_EXTENSIONS_DIR];
+  let absolutePath: string | null = null;
+  for (const root of roots) {
+    const cand = join(root, filename);
+    if (existsSync(cand)) { absolutePath = cand; break; }
+    try {
+      for (const dir of readdirSync(root)) {
+        const sub = join(root, dir, filename);
+        if (existsSync(sub)) { absolutePath = sub; break; }
+      }
+    } catch (err) {
+      getLogger().warn('[panel-protocol] readdir sub failed for ' + root, err as Error);
+    }
+    if (absolutePath) break;
+  }
+  absolutePath = absolutePath ?? join(DIST_EXTENSIONS_DIR, filename);
 
   try {
     const data = await readFile(absolutePath);
@@ -233,7 +255,8 @@ async function serveExtensionCss(path: string, _userExtensionsRoot = ''): Promis
         'Cache-Control': 'no-cache'
       }
     });
-  } catch {
+  } catch (err) {
+    getLogger().warn('[panel-protocol] stylesheet not found for ' + absolutePath, err as Error);
     return new Response('Extension stylesheet not found', { status: 404 });
   }
 }

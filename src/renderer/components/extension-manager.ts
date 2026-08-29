@@ -61,6 +61,26 @@ export class ExtensionManager extends LitElement {
     const next = !e.enabled;
     await (window as any).financeShell.extensions.setEnabled(e.id, next);
     e.enabled = next;
+    if (!next) {
+      const prefix = `panel-${e.id}-`;
+      const raw = localStorage.getItem('core.workspace.layout');
+      if (raw) {
+        try {
+          const saved = JSON.parse(raw);
+          if (saved && Array.isArray(saved.tabs)) {
+            saved.tabs = (saved.tabs as any[]).filter((t: any) => !String(t.panelId).startsWith(prefix));
+            if (!saved.tabs.some((t: any) => t.panelId === saved.activePanelId)) saved.activePanelId = saved.tabs[0]?.panelId ?? '';
+            localStorage.setItem('core.workspace.layout', JSON.stringify(saved));
+          }
+        } catch (err) {
+          rendererLogger.warn('Disable cleanup failed', err as Error);
+        }
+      }
+      const ws = document.querySelector('workspace-panel') as any;
+      if (ws && ws._tabs) {
+        for (const t of [...ws._tabs]) if (String(t.panelId).startsWith(prefix)) ws._closePanel(t.panelId);
+      }
+    }
     this._toast({ type: 'info', title: next ? 'Enabled' : 'Disabled', message: `${e.displayName} ${next ? 'enabled' : 'disabled'} — restart to apply.` });
     this.requestUpdate();
   }
