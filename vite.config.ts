@@ -7,7 +7,12 @@ export default defineConfig({
     outDir: '../../dist/renderer',
     emptyOutDir: true,
     rollupOptions: {
-      input: './index.html'
+      input: './index.html',
+      external: ['node:os', 'node:fs', 'node:path', 'node:util', 'node:stream', 'node:events', 'node:zlib', 'extract-zip', 'yauzl', 'fd-slicer', 'get-stream'],
+      onwarn(warning, warn) {
+        if (String(warning.message).includes('externalized for browser compatibility')) return;
+        warn(warning);
+      }
     }
   },
   server: {

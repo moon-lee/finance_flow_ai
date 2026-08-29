@@ -255,8 +255,11 @@ async function serveExtensionCss(path: string, userExtensionsRoot = ''): Promise
         'Cache-Control': 'no-cache'
       }
     });
-  } catch (err) {
-    getLogger().warn('[panel-protocol] stylesheet not found for ' + absolutePath, err as Error);
-    return new Response('Extension stylesheet not found', { status: 404 });
+  } catch {
+    // User extensions inline tokens via sharedStyles (?raw), so no separate CSS file — return empty 200
+    return new Response('/* no extension stylesheet */', {
+      status: 200,
+      headers: { 'Content-Type': 'text/css; charset=utf-8', 'Cache-Control': 'no-cache' }
+    });
   }
 }

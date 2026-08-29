@@ -76,10 +76,10 @@ export class ExtensionManager extends LitElement {
           rendererLogger.warn('Disable cleanup failed', err as Error);
         }
       }
-      const ws = document.querySelector('workspace-panel') as any;
-      if (ws && ws._tabs) {
-        for (const t of [...ws._tabs]) if (String(t.panelId).startsWith(prefix)) ws._closePanel(t.panelId);
-      }
+      // const ws = document.querySelector('workspace-panel') as any;
+      // if (ws && ws._tabs) {
+      //   for (const t of [...ws._tabs]) if (String(t.panelId).startsWith(prefix)) ws._closePanel(t.panelId);
+      // }
     }
     this._toast({ type: 'info', title: next ? 'Enabled' : 'Disabled', message: `${e.displayName} ${next ? 'enabled' : 'disabled'} — restart to apply.` });
     this.requestUpdate();
