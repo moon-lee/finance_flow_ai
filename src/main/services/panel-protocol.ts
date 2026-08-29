@@ -207,7 +207,7 @@ async function serveExtensionBundle(path: string, userExtensionsRoot = ''): Prom
       }
     });
   } catch (err) {
-    getLogger().warn(`[panel-protocol] bundle not found for ${path}, tried ${absolutePath}, roots: ${roots.join(', ')}`, err as Error);
+    if (!path.endsWith('.map')) getLogger().warn(`[panel-protocol] bundle not found for ${path}, tried ${absolutePath}, roots: ${roots.join(', ')}`, err as Error);
     return new Response('Extension bundle not found', { status: 404 });
   }
 }

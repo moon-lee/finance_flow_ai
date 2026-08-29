@@ -312,8 +312,13 @@ function registerIpcHandlers(): void {
       const panel = webviewPanelManager.findByExtensionId(id);
       if (panel) webviewPanelManager.unmount(panel.panelId);
     }
-    // Enable: just activate — do not auto-mount view
-    // Renderer handles tab sync via local event (extension-manager dispatches), no ipc needed to avoid dup logs
+    return { ok: true };
+  });
+  ipcMain.handle("app:restart", async () => {
+    logger.log('[main] app:restart requested');
+    if (mainWindow) mainWindow.webContents.send('app:restarting');
+    app.relaunch();
+    app.exit(0);
     return { ok: true };
   });
 

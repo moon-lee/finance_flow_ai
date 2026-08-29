@@ -38,9 +38,7 @@ export class ExtensionManager extends LitElement {
     if (!p) return;
     const res: any = await (window as any).financeShell.extensions.install(p);
     if (res?.ok) {
-      this._toast({ type: 'info', title: 'Installed', message: `${res.id} v${res.version} — restart to activate.` });
-      const list: any[] = await (window as any).financeShell.extensions.managerList();
-      this.extensions = list; this.requestUpdate();
+      setTimeout(() => (window as any).financeShell?.restartApp?.(), 200);
     } else {
       this._toast({ type: 'error', title: 'Install failed', message: res?.reason ?? 'Unknown error' });
     }
@@ -50,9 +48,7 @@ export class ExtensionManager extends LitElement {
     if (!p) return;
     const res: any = await (window as any).financeShell.extensions.install(p);
     if (res?.ok) {
-      this._toast({ type: 'info', title: 'Installed', message: `${res.id} v${res.version} — restart to activate.` });
-      const list: any[] = await (window as any).financeShell.extensions.managerList();
-      this.extensions = list; this.requestUpdate();
+      setTimeout(() => (window as any).financeShell?.restartApp?.(), 200);
     } else {
       this._toast({ type: 'error', title: 'Install failed', message: res?.reason ?? 'Unknown error' });
     }
@@ -61,6 +57,7 @@ export class ExtensionManager extends LitElement {
     const next = !e.enabled;
     await (window as any).financeShell.extensions.setEnabled(e.id, next);
     e.enabled = next;
+
     if (!next) {
       const prefix = `panel-${e.id}-`;
       const raw = localStorage.getItem('core.workspace.layout');
@@ -76,27 +73,19 @@ export class ExtensionManager extends LitElement {
           rendererLogger.warn('Disable cleanup failed', err as Error);
         }
       }
-      // const ws = document.querySelector('workspace-panel') as any;
-      // if (ws && ws._tabs) {
-      //   for (const t of [...ws._tabs]) if (String(t.panelId).startsWith(prefix)) ws._closePanel(t.panelId);
-      // }
     }
-    this._toast({ type: 'info', title: next ? 'Enabled' : 'Disabled', message: `${e.displayName} ${next ? 'enabled' : 'disabled'} — restart to apply.` });
+    setTimeout(() => (window as any).financeShell?.restartApp?.(), 200);
     this.requestUpdate();
   }
   private async _uninstall(id: string) {
     const res: any = await (window as any).financeShell.extensions.uninstall(id);
     if (res?.ok) {
-      this._toast({ type: 'info', title: 'Uninstalled', message: `${id} — restart to remove.` });
-      const list: any[] = await (window as any).financeShell.extensions.managerList();
-      this.extensions = list; this.requestUpdate();
+      setTimeout(() => (window as any).financeShell?.restartApp?.(), 200);
     } else if (res?.reason) {
       this._toast({ type: 'error', title: 'Uninstall failed', message: res.reason });
     } else {
       // legacy null success
-      this._toast({ type: 'info', title: 'Uninstalled', message: `${id} — restart to remove.` });
-      const list: any[] = await (window as any).financeShell.extensions.managerList();
-      this.extensions = list; this.requestUpdate();
+      setTimeout(() => (window as any).financeShell?.restartApp?.(), 200);
     }
   }
   private _askDelete(id: string) { this.pendingDeleteId = id; this.requestUpdate(); }
@@ -106,9 +95,7 @@ export class ExtensionManager extends LitElement {
     this.pendingDeleteId = null;
     const res: any = await (window as any).financeShell.extensions.deleteData(id);
     if (res?.ok || res === null) {
-      this._toast({ type: 'warning', title: 'Data deleted', message: `${id} data removed.` });
-      const list: any[] = await (window as any).financeShell.extensions.managerList();
-      this.extensions = list; this.requestUpdate();
+      setTimeout(() => (window as any).financeShell?.restartApp?.(), 200);
     } else if (res?.reason) {
       this._toast({ type: 'error', title: 'Delete failed', message: res.reason });
     }
