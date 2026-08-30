@@ -306,33 +306,27 @@ export class ExtensionManager extends LitElement {
     }
   }
 
+  private _pruneWorkspaceTabs(id: string): void {
+    const prefix = `panel-${id}-`;
+    const raw = localStorage.getItem("core.workspace.layout");
+    if (!raw) return;
+    try {
+      const saved = JSON.parse(raw) as { tabs?: Array<{ panelId?: string }>; activePanelId?: string };
+      if (!saved?.tabs) return;
+      saved.tabs = saved.tabs.filter((t) => !String(t.panelId).startsWith(prefix));
+      if (!saved.tabs.some((t) => t.panelId === saved.activePanelId)) saved.activePanelId = saved.tabs[0]?.panelId ?? "";
+      localStorage.setItem("core.workspace.layout", JSON.stringify(saved));
+    } catch (err) {
+      rendererLogger.warn("Workspace layout prune failed", err as Error);
+    }
+  }
+
   private async _toggle(e: ManagedExtension) {
     const next = !e.enabled;
     await window.financeShell.extensions.setEnabled(e.id, next);
     e.enabled = next;
 
-    if (!next) {
-      const prefix = `panel-${e.id}-`;
-      const raw = localStorage.getItem("core.workspace.layout");
-      if (raw) {
-        try {
-          const saved = JSON.parse(raw) as { tabs?: Array<{ panelId?: string }>; activePanelId?: string };
-          if (saved?.tabs) {
-            saved.tabs = saved.tabs.filter(
-              (t) => !String(t.panelId).startsWith(prefix),
-            );
-            if (!saved.tabs.some((t) => t.panelId === saved.activePanelId))
-              saved.activePanelId = saved.tabs[0]?.panelId ?? "";
-            localStorage.setItem(
-              "core.workspace.layout",
-              JSON.stringify(saved),
-            );
-          }
-        } catch (err) {
-          rendererLogger.warn("Disable cleanup failed", err as Error);
-        }
-      }
-    }
+    if (!next) this._pruneWorkspaceTabs(e.id);
     setTimeout(() => window.financeShell?.restartApp?.(), 200);
     this.requestUpdate();
   }
@@ -340,10 +334,13 @@ export class ExtensionManager extends LitElement {
   private async _uninstall(id: string) {
     const res = await window.financeShell.extensions.uninstall(id);
     if (res?.ok) {
+      this._pruneWorkspaceTabs(id);
       setTimeout(() => window.financeShell?.restartApp?.(), 200);
     } else if (res?.reason) {
       rendererLogger.error(`Uninstall failed: ${res.reason}`, "extensions");
     } else {
+      // legacy null success
+      this._pruneWorkspaceTabs(id);
       setTimeout(() => window.financeShell?.restartApp?.(), 200);
     }
   }
@@ -362,6 +359,7 @@ export class ExtensionManager extends LitElement {
     this.pendingDeleteId = null;
     const res = await window.financeShell.extensions.deleteData(id);
     if (res?.ok || res === null) {
+      this._pruneWorkspaceTabs(id);
       setTimeout(() => window.financeShell?.restartApp?.(), 200);
     } else if (res?.reason) {
       rendererLogger.error(`Delete failed: ${res.reason}`, "extensions");

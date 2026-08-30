@@ -125,12 +125,12 @@ export class ExtensionInstaller {
     const tables = this.deps.db
       .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE ?")
       .all(`${prefix}%`) as Array<{ name: string }>;
-    const ts = Date.now();
-    const backupPrefix = `backup_${ts}_${prefix}`;
     for (const { name } of tables) {
-      this.deps.db.exec(`ALTER TABLE ${name} RENAME TO ${backupPrefix}${name.slice(prefix.length)}`);
+      this.deps.db.exec(`DROP TABLE IF EXISTS ${name}`);
     }
     getSettingsService().deleteNamespace(id);
+    const dir = join(this.deps.userExtensionsRoot, id);
+    if (existsSync(dir)) rmSync(dir, { recursive: true, force: true });
     this.deps.registry.remove(id);
     return null;
   }
