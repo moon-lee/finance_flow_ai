@@ -84,26 +84,6 @@ export class ExtensionManager extends LitElement {
         )}
       </ul>`;
   }
-  private _toast(msg: {
-    type: "info" | "warning" | "error";
-    title: string;
-    message: string;
-    duration?: number;
-  }) {
-    const duration = msg.duration ?? (msg.type === "info" ? 8000 : 6000);
-    const tc = document.querySelector("toast-container") as any;
-    if (tc?.showToast) tc.showToast({ ...msg, duration });
-    else console.log(`[extensions] ${msg.title}: ${msg.message}`);
-    // also write to log file via structured logger (eventBus → LogFileService)
-    const level =
-      msg.type === "error" ? "error" : msg.type === "warning" ? "warn" : "info";
-    if (level === "error")
-      rendererLogger.error(`${msg.title}: ${msg.message}`, "extensions");
-    else if (level === "warn")
-      rendererLogger.warn(`${msg.title}: ${msg.message}`, "extensions");
-    else rendererLogger.info(`${msg.title}: ${msg.message}`, "extensions");
-  }
-
   private async _pickFolder() {
     const p = await (window as any).financeShell?.extensions?.pickFolder?.();
     if (!p) return;
@@ -111,11 +91,10 @@ export class ExtensionManager extends LitElement {
     if (res?.ok) {
       setTimeout(() => (window as any).financeShell?.restartApp?.(), 200);
     } else {
-      this._toast({
-        type: "error",
-        title: "Install failed",
-        message: res?.reason ?? "Unknown error",
-      });
+      rendererLogger.error(
+        `Install failed: ${res?.reason ?? "Unknown error"}`,
+        "extensions",
+      );
     }
   }
 
@@ -126,11 +105,10 @@ export class ExtensionManager extends LitElement {
     if (res?.ok) {
       setTimeout(() => (window as any).financeShell?.restartApp?.(), 200);
     } else {
-      this._toast({
-        type: "error",
-        title: "Install failed",
-        message: res?.reason ?? "Unknown error",
-      });
+      rendererLogger.error(
+        `Install failed: ${res?.reason ?? "Unknown error"}`,
+        "extensions",
+      );
     }
   }
 
@@ -172,11 +150,7 @@ export class ExtensionManager extends LitElement {
     if (res?.ok) {
       setTimeout(() => (window as any).financeShell?.restartApp?.(), 200);
     } else if (res?.reason) {
-      this._toast({
-        type: "error",
-        title: "Uninstall failed",
-        message: res.reason,
-      });
+      rendererLogger.error(`Uninstall failed: ${res.reason}`, "extensions");
     } else {
       // legacy null success
       setTimeout(() => (window as any).financeShell?.restartApp?.(), 200);
@@ -205,11 +179,7 @@ export class ExtensionManager extends LitElement {
     if (res?.ok || res === null) {
       setTimeout(() => (window as any).financeShell?.restartApp?.(), 200);
     } else if (res?.reason) {
-      this._toast({
-        type: "error",
-        title: "Delete failed",
-        message: res.reason,
-      });
+      rendererLogger.error(`Delete failed: ${res.reason}`, "extensions");
     }
     this.requestUpdate();
   }
