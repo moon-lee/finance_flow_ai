@@ -1,5 +1,5 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 import { LitElement, html, css } from "lit";
+import type { ManagedExtension } from "../../types/finance-shell";
 import { rendererLogger } from "../logger";
 
 export class ExtensionManager extends LitElement {
@@ -17,20 +17,14 @@ export class ExtensionManager extends LitElement {
     }
   `;
 
-  private extensions: Array<{
-    id: string;
-    displayName: string;
-    version: string;
-    source: string;
-    enabled: boolean;
-  }> = [];
+  private extensions: ManagedExtension[] = [];
   private pendingDeleteId: string | null = null;
 
   override connectedCallback(): void {
     super.connectedCallback();
-    (window as any).financeShell?.extensions
+    window.financeShell?.extensions
       ?.managerList?.()
-      .then((list: any[]) => {
+      .then((list: ManagedExtension[]) => {
         this.extensions = list;
         this.requestUpdate();
       });
@@ -47,7 +41,7 @@ export class ExtensionManager extends LitElement {
       </div>
       <ul>
         ${this.extensions.map(
-          (e) =>
+          (e: ManagedExtension) =>
             html`<li>
               ${e.displayName} v${e.version}
               <span class="badge">${e.source}</span>
@@ -84,12 +78,13 @@ export class ExtensionManager extends LitElement {
         )}
       </ul>`;
   }
+
   private async _pickFolder() {
-    const p = await (window as any).financeShell?.extensions?.pickFolder?.();
+    const p = await window.financeShell?.extensions?.pickFolder?.();
     if (!p) return;
-    const res: any = await (window as any).financeShell.extensions.install(p);
+    const res = await window.financeShell.extensions.install(p);
     if (res?.ok) {
-      setTimeout(() => (window as any).financeShell?.restartApp?.(), 200);
+      setTimeout(() => window.financeShell?.restartApp?.(), 200);
     } else {
       rendererLogger.error(
         `Install failed: ${res?.reason ?? "Unknown error"}`,
@@ -99,11 +94,11 @@ export class ExtensionManager extends LitElement {
   }
 
   private async _pickZip() {
-    const p = await (window as any).financeShell?.extensions?.pickZip?.();
+    const p = await window.financeShell?.extensions?.pickZip?.();
     if (!p) return;
-    const res: any = await (window as any).financeShell.extensions.install(p);
+    const res = await window.financeShell.extensions.install(p);
     if (res?.ok) {
-      setTimeout(() => (window as any).financeShell?.restartApp?.(), 200);
+      setTimeout(() => window.financeShell?.restartApp?.(), 200);
     } else {
       rendererLogger.error(
         `Install failed: ${res?.reason ?? "Unknown error"}`,
@@ -112,9 +107,9 @@ export class ExtensionManager extends LitElement {
     }
   }
 
-  private async _toggle(e: any) {
+  private async _toggle(e: ManagedExtension) {
     const next = !e.enabled;
-    await (window as any).financeShell.extensions.setEnabled(e.id, next);
+    await window.financeShell.extensions.setEnabled(e.id, next);
     e.enabled = next;
 
     if (!next) {
@@ -122,12 +117,12 @@ export class ExtensionManager extends LitElement {
       const raw = localStorage.getItem("core.workspace.layout");
       if (raw) {
         try {
-          const saved = JSON.parse(raw);
-          if (saved && Array.isArray(saved.tabs)) {
-            saved.tabs = (saved.tabs as any[]).filter(
-              (t: any) => !String(t.panelId).startsWith(prefix),
+          const saved = JSON.parse(raw) as { tabs?: Array<{ panelId?: string }>; activePanelId?: string };
+          if (saved?.tabs) {
+            saved.tabs = saved.tabs.filter(
+              (t) => !String(t.panelId).startsWith(prefix),
             );
-            if (!saved.tabs.some((t: any) => t.panelId === saved.activePanelId))
+            if (!saved.tabs.some((t) => t.panelId === saved.activePanelId))
               saved.activePanelId = saved.tabs[0]?.panelId ?? "";
             localStorage.setItem(
               "core.workspace.layout",
@@ -139,21 +134,18 @@ export class ExtensionManager extends LitElement {
         }
       }
     }
-    setTimeout(() => (window as any).financeShell?.restartApp?.(), 200);
+    setTimeout(() => window.financeShell?.restartApp?.(), 200);
     this.requestUpdate();
   }
 
   private async _uninstall(id: string) {
-    const res: any = await (window as any).financeShell.extensions.uninstall(
-      id,
-    );
+    const res = await window.financeShell.extensions.uninstall(id);
     if (res?.ok) {
-      setTimeout(() => (window as any).financeShell?.restartApp?.(), 200);
+      setTimeout(() => window.financeShell?.restartApp?.(), 200);
     } else if (res?.reason) {
       rendererLogger.error(`Uninstall failed: ${res.reason}`, "extensions");
     } else {
-      // legacy null success
-      setTimeout(() => (window as any).financeShell?.restartApp?.(), 200);
+      setTimeout(() => window.financeShell?.restartApp?.(), 200);
     }
   }
 
@@ -167,17 +159,11 @@ export class ExtensionManager extends LitElement {
     this.requestUpdate();
   }
 
-  private async _delete(id: string) {
-    return this._askDelete(id);
-  }
-  
   private async _confirm(id: string) {
     this.pendingDeleteId = null;
-    const res: any = await (window as any).financeShell.extensions.deleteData(
-      id,
-    );
+    const res = await window.financeShell.extensions.deleteData(id);
     if (res?.ok || res === null) {
-      setTimeout(() => (window as any).financeShell?.restartApp?.(), 200);
+      setTimeout(() => window.financeShell?.restartApp?.(), 200);
     } else if (res?.reason) {
       rendererLogger.error(`Delete failed: ${res.reason}`, "extensions");
     }

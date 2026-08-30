@@ -2,7 +2,8 @@ import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
 import type { HostLogEntry, HostStatus } from '../types/finance-shell';
 
 const shellApi = {
-    getVersion: async (): Promise<string> => ipcRenderer.invoke('shell:get-version') as Promise<string>,
+  getVersion: async (): Promise<string> => ipcRenderer.invoke('shell:get-version') as Promise<string>,
+  restartApp: (): Promise<void> => ipcRenderer.invoke('app:restart'),
   settings: {
     get: async (key: string): Promise<unknown> => ipcRenderer.invoke('settings:get', key),
     set: async (key: string, value: unknown): Promise<void> => { await ipcRenderer.invoke('settings:set', key, value); }
@@ -147,7 +148,6 @@ const shellApi = {
       return () => { ipcRenderer.off('workspace:request-bounds', listener); };
     },
   },
-  restartApp: (): Promise<void> => ipcRenderer.invoke('app:restart'),
   backup: {
     export: async (): Promise<{ success: boolean; path?: string; error?: string }> => ipcRenderer.invoke('backup:export'),
     import: async (): Promise<{ success: boolean; error?: string }> => ipcRenderer.invoke('backup:import'),

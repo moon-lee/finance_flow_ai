@@ -135,6 +135,7 @@ export interface FinanceShellApi {
   shortcuts: ShortcutsApi;
   backup: BackupApi;
   panel: PanelApi;
+  restartApp: () => Promise<void>;
 }
 
 /**
