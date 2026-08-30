@@ -262,43 +262,53 @@
 | `extensions/dashboard/src/orchestrator.ts` | modified | Reads `dashboard.financeYear` and forwards `financialYearStart` + `financeYear` to the view (Task 2.5). |
 | `extensions/dashboard/src/main.ts` | modified | Reads `dashboard.financeYear` in `readSettings` (Task 2.5). |
 
-## Phase 8 — Extension Ecosystem: SDK + Installer (Planned; v0.10.0)
+## Phase 8 — Extension Ecosystem: SDK + Installer (Implemented; v0.10.0)
 
-> Plan: `docs/superpowers/plans/2026-08-20-phase8-extension-ecosystem-sdk.md`. Status: draft — awaiting review. Target: v0.10.0. Architecture per ADR-0009 (no digital signing). All files marked `(planned)` are not yet written.
+> Plan: `docs/superpowers/plans/2026-08-20-phase8-extension-ecosystem-sdk.md` (draft, target 0.10.0). Architecture per ADR-0009 (no digital signing). Implemented with `TU-0`–`TU-10` manual verification, `build` + `typecheck` PASS, `vite.main.config.ts` zip fix, tab prune for Disable/Uninstall/Delete Data.
 
 | File | Status | Purpose |
 |------|--------|---------|
 | `docs/decisions/0009-user-extension-installation.md` | new | ADR-0009: user-writable extensions dir (`<userData>/extensions` dev / `<product>/data/extensions` packaged), install artifact = folder with `package.json` + `<id>.js`, bundle resolution order (user root first), no digital signing, data-preserving uninstall, registry upsert fix, SDK CLI, dependency/version checks, install-time table DDL, `__extensions__` manager view. |
+| `docs/sdk-templates.md` | new | Template inventory + `init` vs `refresh` maintenance workflow (§1–§4) for `scripts/sdk/templates/`. |
 | `src/shared/semver.ts` | new | `parseVersion`, `compareVersions`, `satisfiesRequirement` (pure, tested). |
+| `src/shared/extension-paths.ts` | modified | Add `resolveExtensionBundlePath(extensionId, roots)` and `resolveBuiltinExtensionsRoot()`; fix dual-root order `[userRoot, builtinRoot]`. |
 | `src/main/services/table-ddl.ts` | new | `buildCreateTableSql(table)`, `createExtensionTables(db, tables)` — DDL generation from a `TableManifest`. |
-| `src/main/services/extension-installer.ts` | new | `ExtensionInstaller` — install/uninstall/delete-data/list, dependency + version checks, runtime table creation. |
-| `src/main/services/extension-catalog.ts` | new | `discoverExtensionsInRoots(roots, options)` — multi-root discovery + built-in-id conflict rejection. |
-| `src/renderer/components/extension-manager.ts` | new | The Extensions workspace view (Lit) — install/uninstall/delete-data/enable-disable (`__extensions__`). |
-| `scripts/sdk/cli.mjs` | new | SDK CLI: `node scripts/sdk/cli.mjs init|build`. |
-| `scripts/sdk/templates/*` | new | Scaffold templates (manifest, tsconfig, entry, view, README). |
-| `scripts/sdk/types/finance.d.ts` | new | Vendored, self-contained SDK type surface for standalone projects. |
-| `src/main/runtime-profile.ts` | modified | Add `userExtensionsPath` to the dev profile (`<userData>/extensions`; packaged `<product>/data/extensions`). |
-| `src/main/main.ts` | modified | Compute `userExtensionsRoot`; dual-root discovery; wire `ExtensionInstaller`; add 5 IPC handlers (`extensions:manager-list` / `install` / `uninstall` / `delete-data` / `set-enabled`). |
-| `src/main/services/extension-registry.ts` | modified | Fix `upsert` conflict behavior (D6 — stop forcing `enabled = 1`); add `remove(id)`. |
+| `src/main/services/extension-installer.ts` | new | `ExtensionInstaller` — install/uninstall/delete-data/list, dependency + version checks (`compareVersions`, no downgrades), `builtinIds` collision guard, `ID_SNAKE` prefix check, runtime table creation; `deleteData` now `DROP` + `deleteNamespace` + `rmSync` (`vite.main.config.ts` `extract-zip` external fix for zip). |
+| `src/main/services/extension-catalog.ts` | new | `discoverExtensionsInRoots(roots, options)` — multi-root discovery + built-in-id conflict rejection (2-pass). |
 | `src/main/services/table-schema-registry.ts` | modified | Add `getTablesByOwner(owner)` + `unregisterExtensionTables(owner)`. |
 | `src/main/services/settings-service.ts` | modified | Add `deleteNamespace(namespace)`. |
-| `src/shared/extension-paths.ts` | modified | Add `resolveExtensionBundlePath(extensionId, roots)` and `resolveBuiltinExtensionsRoot()`. |
-| `src/extension-host/host.ts` | modified | Store `userExtensionsRoot` from the `host.initialize` payload; use `resolveExtensionBundlePath` in `activateExtension`. |
-| `src/main/services/extension-ipc.ts` | modified | Accept/store `userExtensionsRoot`; include it in the `host.initialize` payload. |
-| `src/main/services/panel-protocol.ts` | modified | Serve `/extensions/<id>.js` via `resolveExtensionBundlePath`. |
-| `src/preload/preload.ts` | modified | Expose `financeShell.extensions.{managerList,install,uninstall,deleteData,setEnabled}`. |
-| `src/types/finance-shell.d.ts` | modified | Add the manager methods + `ManagedExtension` type. |
+| `src/main/services/extension-registry.ts` | modified | Fix `upsert` conflict behavior (D6 — stop forcing `enabled = 1`); add `remove(id)` + `builtinIds`/`setBuiltinIds`. |
+| `src/renderer/components/extension-manager.ts` | new | Extensions workspace view (Lit) — Install Folder/Zip, Enable/Disable, Uninstall, Delete Data (confirm) with `app:restart` auto-restart and `_pruneWorkspaceTabs(id)` for `core.workspace.layout` (`panel-${id}-`) tab sync on Disable/Uninstall/Delete Data. |
+| `src/main/main.ts` | modified | Compute `userExtensionsRoot` (`app.getPath('userData')/extensions`); dual-root discovery via `discoverExtensionsInRoots`; wire `ExtensionInstaller` + `app:restart` IPC (`app.relaunch`/`app.exit`); 7 IPC handlers (`manager-list`/`install`/`uninstall`/`delete-data`/`set-enabled`/`pick-folder`/`pick-zip`). |
+| `src/extension-host/host.ts` | modified | Store `userExtensionsRoot` from `host.initialize`; use `resolveExtensionBundlePath` in `activateExtension`; `ReferenceError: HTMLElement` fix via guarded dynamic `import('./ui/index.js')`. |
+| `src/main/services/extension-ipc.ts` | modified | Accept/store `userExtensionsRoot`; include it in `host.initialize` payload. |
+| `src/main/services/panel-protocol.ts` | modified | Serve `/extensions/<id>.js` via `resolveExtensionBundlePath` + `ui-*.js` code-split chunks (scan `userExtensionsRoot/*/<file>`), empty CSS 200 fallback, `userExtensionsRoot` lookup order. |
+| `src/main/runtime-profile.ts` | modified | Add `userExtensionsPath` to dev profile. |
+| `src/preload/preload.ts` | modified | Expose `financeShell.extensions.{managerList,install,uninstall,deleteData,setEnabled,pickFolder,pickZip}` + `restartApp` (`app:restart`). |
+| `src/types/finance-shell.d.ts` | modified | Add manager methods + `ManagedExtension` type + `restartApp`. |
 | `src/renderer/components/navigation-panel.ts` | modified | Add `__extensions__` nav item. |
 | `src/renderer/index.ts` | modified | Mount `extension-manager` for `view === '__extensions__'`. |
-| `package.json` | modified | Add SDK CLI scripts. |
-| `docs/extension-api.md` | modified | Add an "Installing extensions" section (SDK init/build, Extensions screen, restart requirement, uninstall vs delete-data semantics, dependency/version checks, no-signing note). |
+| `scripts/sdk/cli.mjs` | new | SDK CLI: `init` (renders `AGENTS.md`+`.gitignore`+`git init`), `build` (Vite lib, `finance` external), `refresh` (re-syncs `finance.d.ts`/`vendor/logger.ts`/`styles/*`); `ID_SNAKE` (`-`→`_`) for `tables` names. |
+| `scripts/sdk/templates/AGENTS.md.template` | new | Agent entrypoint for standalone projects (§1–§11): independent tables/UI/service patterns, `{{ID_SNAKE}}` prefix rule, Domain Service `register`/`invoke` example, growth to `orchestrator`/`dao`/`services`, version bump `+0.0.1` + `git commit`, out-of-scope fallback. |
+| `scripts/sdk/templates/.gitignore.template` | new | Scaffold `.gitignore` (`node_modules/`, `dist/`, `build/`). |
+| `scripts/sdk/templates/package.json.template` | new | Manifest with `{{ID_SNAKE}}_items` table example (`title`/`amount`/`created_at`) + `allowedCommands`/`allowedUiEvents`. |
+| `scripts/sdk/templates/src/main.ts.template` | new | Isomorphic `activate` (`await import('./ui/index.js')` guarded, `setFinance` via `queueMicrotask`), `registerUIComponents` async, Domain Service `count`/`sum` example with `{{ID_SNAKE}}`. |
+| `scripts/sdk/templates/src/ui/sample-view.ts.template` | new | Generates `{{ID}}-view.ts` (topbar + `view-container`/`view-container-inner`, `sharedStyles`, `crumb-current` + `{{DISPLAY_NAME}}`). |
+| `scripts/sdk/templates/src/ui/index.ts.template` | new | `import './{{ID}}-view'` + `customElements.define('{{ID}}-view')`. |
+| `scripts/sdk/templates/src/mock/finance-mock.ts.template` | new | In-memory `Map` DB + `globalThis.__mockServices` registry for `services.register`/`invoke` (`count`/`sum`) in `npm run dev`. |
+| `scripts/sdk/templates/*` (other) | new | `tsconfig.json.template`, `vite.config.ts.template`, `index.html.template`, `README.md.template`, `src/vendor/logger.ts.template`, `src/styles/shared-styles.ts.template`, `tokens.css`/`ext-layout.css` copies. |
+| `scripts/sdk/types/finance.d.ts` | new | Vendored, self-contained SDK type surface for standalone projects (parity guard). |
+| `vite.main.config.ts` | modified | `external` now `extract-zip`/`yauzl`/`fd-slicer`/`get-stream` + `/^node:.*/` + `fs`/`util`/`stream`/`events`/`zlib` — fixes `r.inherits is not a function` on `install .zip`. |
+| `vite.config.ts` | modified | Suppress `externalized for browser compatibility` warning for renderer. |
+| `docs/extension-api.md` | modified | Add "Installing extensions" section (SDK `init`/`build`/`refresh`, `npm run dev` mock, Extension Manager lifecycle, `ID_SNAKE` rule, dependency/version/builtin guard, `DROP` semantics). |
+| `docs/sdk-templates.md` | new | Template inventory + `init` vs `refresh` workflow + parity note. |
+| `package.json` | modified | Add `extract-zip` + `sdk:init`/`sdk:build` scripts. |
 | `tests/unit/shared/semver.test.ts` | new | Semver helpers. |
-| `tests/unit/shared/extension-paths.test.ts` | new | Bundle path resolution. |
-| `tests/unit/main/services/extension-catalog.test.ts` | new | Multi-root discovery. |
-| `tests/unit/main/services/extension-registry.test.ts` | modified | upsert fix + `remove`. |
+| `tests/unit/shared/extension-paths.test.ts` | new | Bundle path resolution (user vs builtin, `<id>.js` vs `<id>/<id>.js`). |
+| `tests/unit/main/services/extension-catalog.test.ts` | new | Multi-root discovery + collision guard. |
 | `tests/unit/main/services/table-ddl.test.ts` | new | DDL generation. |
-| `tests/unit/main/services/extension-installer.test.ts` | new | Installer contract + zip case. |
-| `tests/unit/renderer/extension-manager.test.ts` | new | Extensions view. |
-| `tests/unit/sdk/sdk-init.test.ts` | new | SDK `init`. |
-| `tests/unit/sdk/sdk-build.test.ts` | new | SDK `build` end-to-end against a temp scaffold. |
-| `tests/unit/sdk/sdk-type-parity.test.ts` + `tests/unit/sdk/fixtures/parity-check.ts` | new | SDK types compile + assignable to canonical types. |
+| `tests/unit/main/services/extension-installer.test.ts` | new | Installer contract + zip case (async `installFromSource`). |
+| `tests/unit/sdk/sdk-init.test.ts` | new | `init` renders `AGENTS.md` + `{{ID}}-view.ts`. |
+| `tests/unit/sdk/sdk-build.test.ts` | new | `build` end-to-end (`<id>.js` + `package.json`, no `from "finance"`). |
+| `tests/unit/sdk/sdk-type-parity.test.ts` + `fixtures/parity-check.ts` | new | Types compile + assignable. |
+| `tests/unit/sdk/sdk-refresh.test.ts` | new | `refresh` re-syncs `finance.d.ts`/`vendor/logger.ts`/`styles/*`. |

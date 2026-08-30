@@ -10,7 +10,7 @@ export default defineConfig({
       fileName: () => 'main.js'
     },
     rollupOptions: {
-      external: ['electron', 'node:path', 'node:url', 'node:fs', 'node:fs/promises', 'node:crypto', 'better-sqlite3']
+      external: ['electron', 'better-sqlite3', 'extract-zip', 'yauzl', 'fd-slicer', 'get-stream', /^node:.*/, 'fs', 'path', 'os', 'util', 'stream', 'events', 'zlib', 'buffer', 'url', 'child_process']
     }
   }
 });

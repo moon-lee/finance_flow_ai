@@ -1,0 +1,88 @@
+# AGENTS.md — {{DISPLAY_NAME}} ({{ID}})
+
+> **For agentic workers:** This file is the agent entrypoint for this standalone Finance Flow AI extension. Read it before editing. `README.md` is user-facing; this file is agent-facing.
+
+## 1. What this project is
+- Standalone extension `{{ID}}` (`package.json` `financeExtension.id`). Runs in two processes:
+  - **Host (Node `utilityProcess`)** — `src/main.ts` `activate(finance, ctx)` registers commands/services, owns DB access.
+  - **Panel (WebContentsView)** — `src/ui/sample-view.ts` (`{{ID}}-view` Lit element) renders inside `finance-shell://panel/{{ID}}/bootstrap.js` (`src/main/resources/panel-bootstrap.ts` in main app).
+- `src/finance.d.ts`, `src/vendor/logger.ts`, `src/styles/tokens.css`/`ext-layout.css`/`shared-styles.ts` are **vendored snapshots** from `D:\finance_flow_ai` at `init` time. Re-synced by `node D:/finance_flow_ai/scripts/sdk/cli.mjs refresh .` (overwrites only those files, never your code).
+
+## 2. How to work
+```bash
+npm run dev    # Vite http://localhost:5173 with src/mock/finance-mock.ts (in-memory FinanceApi, HMR)
+npm run build  # node D:/finance_flow_ai/scripts/sdk/cli.mjs build . → build/extension/{{ID}}.js + package.json
+# then in app: Extensions → Install Folder/Zip → pick build/extension → restart (all lifecycle actions auto-restart)
+node D:/finance_flow_ai/scripts/sdk/cli.mjs refresh .  # after app updates finance.d.ts
+```
+- `dev` mock DB is ephemeral; real SQLite (`better-sqlite3`, `TableSchemaRegistry`) only after Install+restart.
+- Install artifact = folder with `package.json` (`financeExtension`) + `{{ID}}.js` (+ `ui-*.js` if code-split). Validated by `ExtensionInstaller` (`src/main/services/extension-installer.ts:62`).
+
+## 3. Key files & constraints (self-contained — no need to open other extensions)
+- `package.json` `financeExtension` is source of truth: `id` lowercase `a-z0-9-`, `version` semver, `activationEvents`, `contributions.views/commands/navigation`, `tables`, `allowedCommands`/`allowedUiEvents`, `main: "src/main.ts"`. The scaffold already includes a working `tables` example:
+  ```json
+  "tables": [{ "name": "{{ID_SNAKE}}_items", "columns": [
+    { "name": "title", "type": "text", "nullable": false },
+    { "name": "created_at", "type": "datetime", "nullable": false, "default": "now" }
+  ]}]
+  ```
+  Rename `{{ID_SNAKE}}_items` and add columns as needed (`{{ID_SNAKE}}` = `{{ID}}` with `-`→`_`, e.g. `my-ext`→`my_ext_items`). Column types: `integer`/`real`/`text`/`date`/`datetime`/`boolean` with `nullable`/`default`/`min`/`max`/`enumOptions` (see `src/finance.d.ts` `ColumnManifest`). Add `amount: { type:"real", default:0, min:0 }` or `is_done: { type:"boolean", default:false }` as needed. Delete the whole `tables` array if you need no persistence.
+- `tables` name **must** start with `{{ID_SNAKE}}_` (`{{ID}}` with `-`→`_`, e.g. `my-ext`→`my_ext_items` must be `my_ext_items`, not `my-ext_items`) — enforced at `manifest-schema.ts:177` `^[a-z][a-z0-9_]*$` and at install (`extension-installer.ts:80`). Hyphens in `{{ID}}` → underscores in table name.
+- `finance` is type-only: `import type { FinanceApi } from 'finance'` (Vite `external: ['finance']`, never bundled). `finance-logger` shim is bundled (`src/vendor/logger.ts`).
+
+## 4. Finance API (use this, not raw SQL)
+```ts
+finance.db.table(name).find(query?) / findOne / count / insert(payload) / update(where,payload) / delete(query) // async, throws typed errors
+finance.settings.get(key) / set(key,value) // key must start with "{{ID}}." (assertExtensionKey)
+finance.commands.registerCommand(id,title,handler,keybinding?) / execute(id,...args)
+finance.ui.requestMount(viewId,mountData?) / setDirty / autoSaveDraft / onBeforeUnmount
+finance.services.register(name,impl) / unregister / invoke(name,method,params?) // cross-extension (see §7)
+finance.events.on/off/emit
+```
+
+## 5. UI patterns — standalone but matches app
+- Lit: `const Base = typeof HTMLElement !== 'undefined' ? LitElement : class {}` guard (`src/ui/{{ID}}-view.ts:3`), `static styles = typeof HTMLElement !== 'undefined' ? [sharedStyles] : []`, `if (typeof customElements !== 'undefined') customElements.define(...)` (`src/ui/index.ts`).
+- Styles: `sharedStyles` from `src/styles/shared-styles.ts` (`unsafeCSS` of `ext-layout.css`) + `tokens.css` (`--ff-*`, `--activity-bar-*`, light-theme overrides). All tokens/layout are **vendored inside this project** (`src/styles/*`), no need to open main repo.
+- Layout (self-contained): `src/ui/{{ID}}-view.ts` (generated from `sample-view.ts.template`) already uses the canonical pattern from the app:
+  ```html
+  <div class="topbar"><span class="crumb-current">{{DISPLAY_NAME}}</span><div class="spacer"></div><button class="filter-btn">Action</button></div>
+  <div class="view-container"><div class="view-container-inner"><h1>{{DISPLAY_NAME}}</h1> ... </div></div>
+  ```
+  Use `.topbar`/`.view-container`/`.view-container-inner`/`.table-wrap`/`.section` from `src/styles/ext-layout.css`. Don't hardcode colors — use `var(--ff-*)`. The scaffold's topbar is the reference; duplicate it for new views.
+- View gets `finance` via `activate` → `createElement` → `viewEl.finance = finance` / `setFinance(f)` after `await import('./ui/index.js')` (see §6). Change `<h1>{{DISPLAY_NAME}}</h1>` and crumb to your name; rename `SampleView` class but keep `{{ID}}-view` tag (defined in `src/ui/index.ts`).
+- **Growth:** when `src/ui/{{ID}}-view.ts` (~ from `sample-view.ts`) > ~150 lines or you have >1 table/view or cross-extension `services.invoke` consumers, split like `extensions/salary-history`:
+  ```
+  src/
+    main.ts              # activate → registers commands + services, seeds data
+    orchestrator.ts      # Lit host, owns navigation + mountData, injects finance into child views
+    dao/<table>.ts       # typed wrapper: table('{{ID}}_items').find/insert/update/delete + validation
+    services/<domain>.ts # business logic: validate, aggregate, sum/count (wraps dao)
+    ui/<view>.ts         # Lit element, thin: calls service.list()/create(), dispatches CustomEvent to orchestrator
+  ```
+  Start with `src/ui/{{ID}}-view.ts` in-view DB; extract to `dao`/`services` when you add validation/derived fields; add `orchestrator` when you need 2+ views or `finance.ui.requestMount` navigation. `extensions/salary-history/src/orchestrator.ts` + `dao/pay-slips.ts` + `services/pay-service.ts` are the reference — copy that layout only when needed.
+
+## 6. Lifecycle & gotchas
+- `activate(finance, ctx:{viewId?})` is called in **both** Host Node (no `document`/`window`) and panel browser (`panel-bootstrap.ts:294` `await bundle.activate(finance,{viewId,...mountData})` after `await bundle.registerUIComponents()`). Guard: `if (typeof window !== 'undefined') await import('./ui/index.js')`; `if (ctx.viewId && typeof document !== 'undefined') { createElement ... queueMicrotask(()=>setFinance) }`. Host crash at `todo-list.js:105` `HTMLElement is not defined` was top-level `import './ui/index.js'` + Lit in Node.
+- `registerUIComponents(): Promise<void>` is awaited in panel before `activate`; keep it as `if (typeof window !== 'undefined') await import('./ui/index.js')`.
+- `deactivate()` cleanup; `onBeforeUnmount` for dirty check.
+
+## 7. Data ownership & sharing (must read)
+- **Ownership:** you own only `{{ID}}_*` tables. `TableSchemaRegistry.registerExtensionTables` + `DAOService` enforce prefix; `finance.db.table('other_ext_*')` throws `TableAccessDenied` (`src/shared/json-rpc.ts`). `accounts` shared table is read-only (`SharedTableReadOnly`).
+- **No direct cross-table access.** Don't `SELECT` another extension's tables.
+- **Sharing via Domain Services (upper layer, ADR-0005):** owner `finance.services.register('{{ID}}', { method: (p)=> db.table('{{ID}}_items').find(p) })` (`src/main/services/domain-service-registry.ts`, `src/extension-host/api/services.ts`); consumer `await finance.services.invoke('{{ID}}','method',params)`. Consumer-driven design — expose minimal API, not raw tables. Example: `salary-history` `public-pay-adapter.ts` `pay` service. Add `services` only when needed.
+
+## 8. Logging, styling, settings, allowlists
+- **Log:** `import { ExtensionLogger } from 'finance-logger'; const log = new ExtensionLogger('{{ID}}'); log.info/warn/error` (`src/vendor/logger.ts` posts `host.log` → `src/main/services/logger.ts` JSONL + DevTools). Don't use raw `console.log` in shipped code.
+- **Settings:** `contributes.configuration` entries `key:"{{ID}}.myKey"` with `type/default/placeholder/pattern` (`src/extension-host/manifest-schema.ts`). Block-write validation shows inline `Format: ...` in `settings-screen.ts`.
+- **Allowlists:** list every command in `allowedCommands` and every `CustomEvent` name in `allowedUiEvents`; otherwise `command-allowlist.ts`/`ui-event-allowlist.ts` drops them.
+
+## 9. Build & error handling
+- `vite` lib `rollupOptions.external: ['finance']`; never `require("finance")`; bundle size <200KB (`sdk-build.test.ts`).
+- Errors: `TableNotFound`/`TableAccessDenied`/`ValidationFailed`/`SharedTableReadOnly` (`src/shared/json-rpc-methods.ts`). Always `try/catch` `insert/update` and surface in UI (as `{{ID}}-view.ts:10` red `Error: ...`).
+- Versioning: `package.json` `version` semver (`0.1.0` on `init`). After **every** change that you `build`+Install, bump **patch** `+0.0.1` (`0.1.2`→`0.1.3`, `0.2.0`→`0.2.1` — never reset) and `git commit` before reinstall. `ExtensionInstaller` (`extension-installer.ts:87` `compareVersions` + `src/shared/semver.ts`) rejects downgrades (`0.1.3` installed → `0.1.2` `build` will be rejected on Install with `a newer version is already installed`). Keep `financeExtension.version` and top-level `version` in sync.
+
+## 10. Checklist before `build`
+1) `npm run dev` → Add works with mock 2) no `HTMLElement` at top-level 3) `tables` prefix correct 4) `finance` only `import type` 5) test `build` → Install Folder → restart → panel Add + DB `SELECT * FROM {{ID}}_items` → `Delete Data` → `DROP` verified.
+
+## 11. Out of scope — what to do
+If this file doesn't cover your case: check `D:\finance_flow_ai\docs/extension-api.md` + `D:\finance_flow_ai\src/types/finance.d.ts` (canonical API/types), and `extensions/salary-history` / `extensions/dashboard` as working references. For product decisions (new `tables`, cross-extension `services.invoke`, breaking changes after `refresh`), ask the owner — don't guess the table/service contract.

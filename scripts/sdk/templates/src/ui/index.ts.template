@@ -1,2 +1,2 @@
-import { SampleView } from './sample-view';
+import { SampleView } from './{{ID}}-view';
 if (typeof customElements !== 'undefined' && !customElements.get('{{ID}}-view')) customElements.define('{{ID}}-view', SampleView as unknown as CustomElementConstructor);

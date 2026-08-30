@@ -167,9 +167,39 @@ Extension entries are bundled to `dist/extensions/<id>.js` by `vite.extensions.c
 - **Phase 5 hardening:** a per-extension command allowlist on the Main side gates every `executeCommand` IPC call (see `project_vision.md:46` and Self-Review §7).
 - **Phase 5 hardening:** a per-extension `ui-event` allowlist on the Main side gates every `ui-event` IPC call; disallowed events are dropped with a `console.warn` (see Decision 7).
 
-## Working example
+## Installing extensions (Phase 8 — SDK + Extension Manager)
+
+> **Goal:** create a brand-new extension in its own folder, build it, and install it into the app — no code changes to the app itself.
+
+**Create / Edit / Preview / Build:**
+
+```bash
+node scripts/sdk/cli.mjs init todo-list [D:\my-extensions]  # → D:\my-extensions\todo-list\ (package.json, src/main.ts, src/ui/<id>-view.ts, src/mock/finance-mock.ts, AGENTS.md)
+cd D:\my-extensions\todo-list
+npm install
+npm run dev    # http://localhost:5173 with mock FinanceApi + HMR (in-memory Map + __mockServices)
+# edit src/main.ts (activate + finance.services.register) and src/ui/<id>-view.ts (Lit + sharedStyles)
+node D:/finance_flow_ai/scripts/sdk/cli.mjs build .  # → build/extension/<id>.js (+ ui-*.js if code-split)
+# or from the app folder: node scripts/sdk/cli.mjs build D:\my-extensions\todo-list
+```
+
+- `tables` in `package.json` `financeExtension` must be `{{ID_SNAKE}}_items` (`{{ID}}` with `-`→`_`, e.g. `todo-list`→`todo_list_items`) with columns `{ name, type, nullable, default, min, max }` (see `src/finance.d.ts` `ColumnManifest`). Validated by `manifest-schema.ts:177` `^[a-z][a-z0-9_]*$` and `extension-installer.ts:80` prefix check.
+- `finance` is type-only (`import type { FinanceApi } from 'finance'`), `finance-logger` shim is bundled.
+- `npm run dev` DB is ephemeral (Map); real SQLite (`better-sqlite3`) only after Install+restart.
+
+**Refresh after app updates:**
+
+```bash
+node D:/finance_flow_ai/scripts/sdk/cli.mjs refresh D:\my-extensions\todo-list  # re-syncs src/finance.d.ts + vendor/logger.ts + styles/*
+```
+
+**App-side Extension Manager (Workspace `__extensions__`):** Activity Bar → **Extensions** → **Install Folder** / **Install Zip** (via `dialog.showOpenDialog`), **Enable/Disable**, **Uninstall** (removes folder + registry, keeps tables), **Delete Data** (confirmed → `DROP TABLE` + `deleteNamespace` + `rmSync` + `registry.remove`). All 5 actions auto-restart the app (`app:restart` IPC). Dependency/version checks (`compareVersions`, no downgrades) and `builtinIds` collision guard enforced by `ExtensionInstaller` (`src/main/services/extension-installer.ts`).
+
+**Working example**
 
 See [`extensions/salary-history/`](../extensions/salary-history/) — the Phase 4 implementation declares one view (`salary-history`), two commands (`salary.show-pay-history`, `salary.show-pay-rate-history`), and activates on `onView:salary-history`. Phase 5 adds `allowedCommands`, `allowedUiEvents`, and a `finance.services.pay.*` public adapter registered in `activate()`.
+
+**SDK template reference:** `docs/sdk-templates.md` documents the full template inventory and `init` vs `refresh` maintenance workflow.
 
 ## Phase 4+ migration notes
 

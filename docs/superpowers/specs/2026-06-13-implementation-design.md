@@ -134,12 +134,12 @@ status: active
 - Graceful host shutdown drain (finish in-flight RPC before exit)
 - **Deliverable**: Stable 0.9.0 release with encrypted backup/restore, production-ready settings, and polished multi-extension UX
 
-### Phase 8: Extension Ecosystem (Est: 3 – 5 Days) (Active — plan `docs/superpowers/plans/2026-08-20-phase8-extension-ecosystem-sdk.md`, ADR-0009)
-- User-writable extensions directory (`<userData>/extensions`) discovered alongside the built-in `extensions/` root
-- In-app Extension Manager (`__extensions__` view): install/uninstall/delete-data of self-contained extension folders or `.zip`; restart required to activate
-- Install-time table DDL generation (extensions cannot ship migrations); dependency + version checks (no downgrades)
-- SDK CLI (`node scripts/sdk/cli.mjs init|build`) scaffolding standalone extension projects with vendored `finance.d.ts` type definitions
-- No digital signing (single local user per ADR-0009)
+### ✅ Phase 8: Extension Ecosystem (Complete — 2026-08-30, shipped as 0.10.0)
+- User-writable extensions directory (`<userData>/extensions` dev / `<product>/data/extensions` packaged) discovered alongside built-in `extensions/` root (`discoverExtensionsInRoots` + `resolveExtensionBundlePath` + `panel-protocol` `ui-*.js` chunk scan)
+- In-app Extension Manager (`__extensions__` view): Install Folder/Zip (`dialog.showOpenDialog` + `extract-zip` via `vite.main.config.ts` external), Enable/Disable, Uninstall (`rmSync` + `registry.remove` keeps tables), Delete Data (confirmed `DROP` + `deleteNamespace` + `rmSync`); all 5 actions auto-restart via `app:restart` IPC and `_pruneWorkspaceTabs` tab sync (`core.workspace.layout` `panel-${id}-` prefix)
+- Install-time table DDL generation (`table-ddl.ts` `buildCreateTableSql`/`createExtensionTables`) with `ID_SNAKE` (`-`→`_`) prefix guard and `builtinIds` collision check; dependency + version checks (`semver.ts` `compareVersions`, no downgrades)
+- SDK CLI (`node scripts/sdk/cli.mjs init|build|refresh` + `npm run dev` HMR): scaffolds standalone projects with vendored `finance.d.ts`/`vendor/logger.ts`/`styles/*`, `{{ID}}-view.ts` topbar layout, `{{ID_SNAKE}}_items` table, Domain Service `count`/`sum` example, `AGENTS.md` (§1–§11 growth/out-of-scope), `.gitignore` + `git init`, `finance-mock.ts` shared `__mockServices` registry for `services.invoke` in dev
+- Template maintenance documented in `docs/sdk-templates.md`; full `TU-0`–`TU-10` manual verification, `typecheck`/`build` PASS, `vite.main.config.ts` zip fix, no digital signing (ADR-0009)
 - **Deliverable**: Published extension SDK and in-app installer
 
 ## Development Time Estimation
@@ -155,7 +155,7 @@ Based on a single full-time developer or agent working sequentially, the project
 | **Phase 5** | WebviewPanels & Multi-Extension UI | 4 – 6 Days | ~4 Days (2026-07-18 → 2026-08-02, incl. planning + review + bug fixes) | High |
 | **Phase 6** | AI Assistant (Local-first) | 3 – 5 Days | — | Medium |
 | **Phase 7** | Production Polish & Encryption | 3 – 4 Days | ~17 Days (2026-08-02 → 2026-08-19, incl. planning, implementation, review, and testing across 14 tasks) | Medium |
-| **Phase 8** | Extension Ecosystem & SDK | 3 – 5 Days | — | High |
+| **Phase 8** | Extension Ecosystem & SDK | 3 – 5 Days | ~10 Days (2026-08-20 → 2026-08-30, incl. SDK init/build/refresh, manager UI, tab prune, zip fix, AGENTS.md, templates, independent scaffold) | High |
 | **Buffer** | Integration, build debugging, platform adjustments | 4 – 5 Days | — | - |
 | **Total** | **Sleek Desktop Finance Workspace** | **30 – 43 Days** | **~43 Days so far** | **High** |
 

@@ -1,7 +1,7 @@
 ---
-version: 0.9.0
+version: 0.10.0
 created: 2026-06-14
-last_updated: 2026-08-29T10:00:00+10:00
+last_updated: 2026-08-30T22:30:00+10:00
 ---
 
 # Changelog
@@ -10,6 +10,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.10.0] - 2026-08-30
+
+### Added
+
+- **Phase 8 — Extension Ecosystem (SDK + Installer)** (`docs/superpowers/plans/2026-08-20-phase8-extension-ecosystem-sdk.md`, `docs/decisions/0009-user-extension-installation.md`, `src/shared/semver.ts`, `src/shared/extension-paths.ts`, `src/main/services/table-ddl.ts`, `src/main/services/extension-installer.ts`, `src/main/services/extension-catalog.ts`, `src/renderer/components/extension-manager.ts`, `scripts/sdk/cli.mjs`, `scripts/sdk/templates/**`, `scripts/sdk/types/finance.d.ts`, `docs/sdk-templates.md`, `docs/extension-api.md`, `docs/file-reference.md`, `vite.main.config.ts`, `src/main/main.ts`, `src/extension-host/host.ts`, `src/main/services/extension-ipc.ts`, `src/main/services/panel-protocol.ts`, `src/main/services/extension-registry.ts`, `src/main/services/table-schema-registry.ts`, `src/main/services/settings-service.ts`, `src/preload/preload.ts`, `src/types/finance-shell.d.ts`, `src/renderer/components/navigation-panel.ts`, `src/renderer/index.ts`, `package.json`). User-writable extensions dir (`<userData>/extensions`) alongside built-in root, dual-root discovery (`resolveExtensionBundlePath`), in-app Extension Manager (`__extensions__`) with Install Folder/Zip (`dialog.showOpenDialog` + `extract-zip`, `vite.main.config.ts` external fix `r.inherits`), Enable/Disable, Uninstall (keeps tables), Delete Data (`DROP` + `deleteNamespace` + `rmSync`, confirmed), all 5 actions auto-restart (`app:restart` IPC) and `_pruneWorkspaceTabs` tab sync (`core.workspace.layout` `panel-${id}-`). Install-time DDL (`ID_SNAKE` `-`→`_` prefix, `builtinIds` guard, no downgrades via `semver.ts`). SDK CLI `init` (renders `AGENTS.md`+`.gitignore`+`git init`, `{{ID}}-view.ts` topbar layout, `{{ID_SNAKE}}_items` table with `amount`), `build` (Vite lib `finance` external), `refresh` (re-syncs `finance.d.ts`/`vendor/logger.ts`/`styles/*`), `npm run dev` HMR with `finance-mock.ts` shared `__mockServices` for `services.register`/`invoke` (`count`/`sum` example). Template maintenance in `docs/sdk-templates.md`; `AGENTS.md.template` §1–§11 (growth to `orchestrator`/`dao`/`services`, version bump `+0.0.1` + `git commit`, out-of-scope fallback). Manual `TU-0`–`TU-10` verified, `typecheck`/`build` PASS. Per ADR-0009 (no signing).
 
 ## [Unreleased]
 

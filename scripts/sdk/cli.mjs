@@ -20,10 +20,10 @@ function render(template, vars) {
   return out;
 }
 
-function cmdInit(idRaw, targetDir) {
+async function cmdInit(idRaw, targetDir) {
   const id = slug(idRaw);
   const display = id.split('-').map((w) => w[0].toUpperCase() + w.slice(1)).join(' ');
-  const vars = { ID: id, DISPLAY_NAME: display, ICON: display[0], DESCRIPTION: `${display} extension`, APP_SDK: join(resolve('.'), 'scripts', 'sdk', 'cli.mjs').replace(/\\/g, '/') };
+  const vars = { ID: id, ID_SNAKE: id.replace(/-/g, '_'), DISPLAY_NAME: display, ICON: display[0], DESCRIPTION: `${display} extension`, APP_SDK: join(resolve('.'), 'scripts', 'sdk', 'cli.mjs').replace(/\\/g, '/') };
   const out = join(targetDir ? resolve(targetDir) : process.cwd(), id);
   mkdirSync(join(out, 'src', 'ui'), { recursive: true });
   mkdirSync(join(out, 'src', 'mock'), { recursive: true });
@@ -42,7 +42,16 @@ function cmdInit(idRaw, targetDir) {
   writeFileSync(join(out, 'src', 'styles', 'shared-styles.ts'), render('src/styles/shared-styles.ts.template', vars));
   writeFileSync(join(out, 'src', 'mock', 'finance-mock.ts'), render('src/mock/finance-mock.ts.template', vars));
   writeFileSync(join(out, 'src', 'ui', 'index.ts'), render('src/ui/index.ts.template', vars));
-  writeFileSync(join(out, 'src', 'ui', 'sample-view.ts'), render('src/ui/sample-view.ts.template', vars));
+  writeFileSync(join(out, 'src', 'ui', `${id}-view.ts`), render('src/ui/sample-view.ts.template', vars));
+  writeFileSync(join(out, 'AGENTS.md'), render('AGENTS.md.template', vars));
+  writeFileSync(join(out, '.gitignore'), render('.gitignore.template', vars));
+  // git init (best-effort, no fail if git missing)
+  try {
+    const { execSync } = await import('node:child_process');
+    execSync('git init', { cwd: out, stdio: 'ignore' });
+    execSync('git add .', { cwd: out, stdio: 'ignore' });
+    execSync('git commit -m "init: scaffold {{ID}} 0.1.0"'.replace('{{ID}}', id), { cwd: out, stdio: 'ignore' });
+  } catch {}
   console.log(`Created extension project at ${out}`);
   console.log('Preview standalone:');
   console.log(`  cd ${out} && npm install && npm run dev   # http://localhost:5173`);
@@ -100,7 +109,7 @@ function cmdRefresh(projectDirRaw) {
 }
 
 const [cmd, ...rest] = process.argv.slice(2);
-if (cmd === 'init') cmdInit(rest[0], rest[1]);
+if (cmd === 'init') await cmdInit(rest[0], rest[1]);
 else if (cmd === 'build') await cmdBuild(rest[0]);
 else if (cmd === 'refresh') cmdRefresh(rest[0]);
 else {

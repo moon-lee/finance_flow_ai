@@ -3,5 +3,21 @@ import { sharedStyles } from '../styles/shared-styles.js';
 const Base = typeof HTMLElement !== 'undefined' ? LitElement : class {} as unknown as typeof LitElement;
 export class SampleView extends Base {
   static override styles = typeof HTMLElement !== 'undefined' ? [sharedStyles] as any : [];
-  override render() { if (typeof HTMLElement === 'undefined') return html``; return html`<div class="view-container"><div class="view-container-inner"><h1>{{DISPLAY_NAME}}</h1><p>Your extension screen is ready — uses tokens + layout.</p></div></div>`; }
+  override render() {
+    if (typeof HTMLElement === 'undefined') return html``;
+    return html`
+      <div class="topbar">
+        <span class="crumb-current">{{DISPLAY_NAME}}</span>
+        <div class="spacer"></div>
+        <button class="filter-btn" @click=${() => this.dispatchEvent(new CustomEvent('sample-action', { bubbles: true, composed: true }))}>Action</button>
+      </div>
+      <div class="view-container">
+        <div class="view-container-inner">
+          <h1>{{DISPLAY_NAME}}</h1>
+          <p>Your extension screen is ready — uses <code>tokens.css</code> + <code>ext-layout.css</code> (<code>.topbar</code> / <code>.view-container</code> / <code>.view-container-inner</code>).</p>
+          <p style="opacity:0.6;font-size:12px">DB example: table <code>{{ID}}_items</code> — see AGENTS.md §7 for manifest pattern. Match <code>extensions/salary-history</code> layout.</p>
+        </div>
+      </div>
+    `;
+  }
 }
