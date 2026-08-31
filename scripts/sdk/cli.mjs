@@ -37,12 +37,13 @@ async function cmdInit(idRaw, targetDir) {
   writeFileSync(join(out, 'src', 'main.ts'), render('src/main.ts.template', vars));
   writeFileSync(join(out, 'src', 'finance.d.ts'), readFileSync(join(__dirname, 'types', 'finance.d.ts'), 'utf8'));
   writeFileSync(join(out, 'src', 'vendor', 'logger.ts'), render('src/vendor/logger.ts.template', vars));
-  writeFileSync(join(out, 'src', 'styles', 'tokens.css'), readFileSync(join(__dirname, '..', '..', 'src', 'renderer', 'styles', 'tokens.css'), 'utf8'));
+  writeFileSync(join(out, 'src', 'styles', 'ext-tokens.css'), readFileSync(join(__dirname, '..', '..', 'extensions', 'salary-history', 'src', 'styles', 'ext-tokens.css'), 'utf8'));
   writeFileSync(join(out, 'src', 'styles', 'ext-layout.css'), readFileSync(join(__dirname, '..', '..', 'extensions', 'salary-history', 'src', 'styles', 'ext-layout.css'), 'utf8'));
   writeFileSync(join(out, 'src', 'styles', 'shared-styles.ts'), render('src/styles/shared-styles.ts.template', vars));
   writeFileSync(join(out, 'src', 'mock', 'finance-mock.ts'), render('src/mock/finance-mock.ts.template', vars));
   writeFileSync(join(out, 'src', 'ui', 'index.ts'), render('src/ui/index.ts.template', vars));
   writeFileSync(join(out, 'src', 'ui', `${id}-view.ts`), render('src/ui/sample-view.ts.template', vars));
+  writeFileSync(join(out, 'src', 'vite-env.d.ts'), render('vite-env.d.ts.template', vars));
   writeFileSync(join(out, 'AGENTS.md'), render('AGENTS.md.template', vars));
   writeFileSync(join(out, '.gitignore'), render('.gitignore.template', vars));
   // git init (best-effort, no fail if git missing)
@@ -95,6 +96,8 @@ async function cmdBuild(projectDirRaw) {
 
 function cmdRefresh(projectDirRaw) {
   const projectDir = resolve(projectDirRaw ?? '.');
+  const pkg = JSON.parse(readFileSync(join(projectDir, 'package.json'), 'utf8'));
+  const manifest = pkg.financeExtension ?? {};
   const typesPath = join(projectDir, 'src', 'finance.d.ts');
   if (!existsSync(typesPath)) {
     console.error(`no src/finance.d.ts found in ${projectDir} — is this a scaffolded project?`);
@@ -102,8 +105,14 @@ function cmdRefresh(projectDirRaw) {
   }
   writeFileSync(typesPath, readFileSync(join(__dirname, 'types', 'finance.d.ts'), 'utf8'));
   writeFileSync(join(projectDir, 'src', 'vendor', 'logger.ts'), readFileSync(join(TEMPLATES, 'src/vendor/logger.ts.template'), 'utf8'));
-  writeFileSync(join(projectDir, 'src', 'styles', 'tokens.css'), readFileSync(join(__dirname, '..', '..', 'src', 'renderer', 'styles', 'tokens.css'), 'utf8'));
+  writeFileSync(join(projectDir, 'src', 'styles', 'ext-tokens.css'), readFileSync(join(__dirname, '..', '..', 'extensions', 'salary-history', 'src', 'styles', 'ext-tokens.css'), 'utf8'));
   writeFileSync(join(projectDir, 'src', 'styles', 'ext-layout.css'), readFileSync(join(__dirname, '..', '..', 'extensions', 'salary-history', 'src', 'styles', 'ext-layout.css'), 'utf8'));
+  const mainTsPath = join(projectDir, manifest.main ?? 'src/main.ts');
+  if (!readFileSync(mainTsPath, 'utf8').includes("import './styles/ext-tokens.css'")) {
+    const mainTs = readFileSync(mainTsPath, 'utf8');
+    writeFileSync(mainTsPath, mainTs.replace("import { ExtensionLogger } from 'finance-logger';\n", "import { ExtensionLogger } from 'finance-logger';\nimport './styles/ext-tokens.css';\n"));
+    console.log(`[refresh] injected tokens.css import into ${mainTsPath}`);
+  }
   console.log(`Refreshed ${typesPath} + vendor/logger.ts + styles/*`);
   console.log('Fix any new type errors the editor shows, rebuild, and reinstall.');
 }

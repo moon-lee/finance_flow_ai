@@ -928,7 +928,7 @@ app.whenReady().then(async () => {
       const builtinOnly = discoverExtensions(resolveExtensionsRoot(), { tableSchemaRegistry });
       extensionRegistry.setBuiltinIds(builtinOnly.extensions.map((e) => e.manifest.id));
     }
-    extensionInstaller = new ExtensionInstaller({ db: getDatabase(), userExtensionsRoot, registry: extensionRegistry });
+    extensionInstaller = new ExtensionInstaller({ db: getDatabase(), userExtensionsRoot, registry: extensionRegistry, tableSchemaRegistry });
     for (const { manifest } of discovery.extensions) {
       extensionRegistry.upsert(manifest);
       // Register the extension's settings namespace so its `finance.settings`

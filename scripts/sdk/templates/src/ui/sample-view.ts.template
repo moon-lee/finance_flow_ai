@@ -14,8 +14,8 @@ export class SampleView extends Base {
       <div class="view-container">
         <div class="view-container-inner">
           <h1>{{DISPLAY_NAME}}</h1>
-          <p>Your extension screen is ready — uses <code>tokens.css</code> + <code>ext-layout.css</code> (<code>.topbar</code> / <code>.view-container</code> / <code>.view-container-inner</code>).</p>
-          <p style="opacity:0.6;font-size:12px">DB example: table <code>{{ID}}_items</code> — see AGENTS.md §7 for manifest pattern. Match <code>extensions/salary-history</code> layout.</p>
+          <p>Your extension screen is ready — uses <code>ext-tokens.css</code> + <code>ext-layout.css</code> (<code>.topbar</code> / <code>.view-container</code> / <code>.view-container-inner</code>).</p>
+          <p style="opacity:0.6;font-size:12px">DB: add <code>{{ID_SNAKE}}_records</code> in <code>package.json</code> for persistence — see AGENTS.md §3.</p>
         </div>
       </div>
     `;

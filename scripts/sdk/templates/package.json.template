@@ -17,16 +17,6 @@
       "allowedCommands": ["{{ID}}.hello"],
       "allowedUiEvents": []
     },
-    "tables": [
-      {
-        "name": "{{ID_SNAKE}}_items",
-        "columns": [
-          { "name": "title", "type": "text", "nullable": false },
-          { "name": "amount", "type": "real", "nullable": false, "default": 0, "min": 0 },
-          { "name": "created_at", "type": "datetime", "nullable": false, "default": "now" }
-        ]
-      }
-    ],
     "main": "src/main.ts"
   },
   "scripts": {

@@ -1,5 +1,6 @@
 import type { FinanceApi } from 'finance';
 import { ExtensionLogger } from 'finance-logger';
+import './styles/ext-tokens.css';
 const logger = new ExtensionLogger('{{ID}}');
 export async function registerUIComponents(): Promise<void> { if (typeof window !== 'undefined') await import('./ui/index.js'); }
 let _finance: FinanceApi | null = null;
@@ -9,13 +10,10 @@ export async function activate(finance: FinanceApi, ctx: { viewId?: string } & R
   finance.commands.registerCommand('{{ID}}.hello', '{{DISPLAY_NAME}}: Hello', () => {
     finance.ui?.requestMount('{{ID}}', { greeting: 'Hello from {{ID}}' });
   });
-  // Example Domain Service — other extensions can call finance.services.invoke('{{ID}}','count'/'sum')
+  // Example Domain Service — other extensions can call finance.services.invoke('{{ID}}','hello')
+  // When you add tables (e.g. {{ID_SNAKE}}_items), add methods that use finance.db.table('{{ID_SNAKE}}_items').find/count/insert
   finance.services.register('{{ID}}', {
-    count: async () => (await finance.db.table('{{ID_SNAKE}}_items').count({})),
-    sum: async () => {
-      const rows = await finance.db.table('{{ID_SNAKE}}_items').find({});
-      return (rows as any[]).reduce((s, r) => s + (Number(r.amount ?? 0)), 0);
-    },
+    hello: async (p?: unknown) => `Hello from {{ID}}: ${JSON.stringify(p ?? {})}`,
   });
   if (typeof window !== 'undefined') await import('./ui/index.js');
   if (ctx.viewId && typeof document !== 'undefined') {

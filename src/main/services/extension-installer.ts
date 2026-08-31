@@ -9,6 +9,7 @@ import { compareVersions } from '../../shared/semver';
 import { createExtensionTables } from './table-ddl';
 import { ExtensionRegistry } from './extension-registry';
 import { getSettingsService } from './settings-service';
+import type { TableSchemaRegistry } from './table-schema-registry';
 
 export interface InstallOutcome {
   ok: true;
@@ -26,6 +27,7 @@ export interface InstallerDeps {
   db: Database.Database;
   userExtensionsRoot: string;
   registry: ExtensionRegistry;
+  tableSchemaRegistry?: TableSchemaRegistry;
 }
 
 const COPY_SKIP = new Set(['node_modules', '.git', 'dist']);
@@ -105,6 +107,11 @@ export class ExtensionInstaller {
     }
 
     createExtensionTables(this.deps.db, manifest.tables ?? []);
+    // keep in-memory registry in sync for immediate read-table after install (before restart)
+    if (manifest.tables?.length && this.deps.tableSchemaRegistry) {
+      try { this.deps.tableSchemaRegistry.unregisterExtensionTables(manifest.id); } catch {}
+      try { this.deps.tableSchemaRegistry.registerExtensionTables(manifest.id, manifest.tables); } catch {}
+    }
 
     this.deps.registry.upsert(manifest);
     const action = existing ? (compareVersions(manifest.version, existing.version) === 0 ? 'no-change' : 'updated') : 'installed';
@@ -120,6 +127,11 @@ export class ExtensionInstaller {
     return null;
   }
 
+  // called on main:restart-less paths if needed — keeps registry consistent before discovery
+  unregisterTables(id: string): void {
+    try { this.deps.tableSchemaRegistry?.unregisterExtensionTables(id); } catch {}
+  }
+
   deleteData(id: string): InstallError | null {
     const prefix = `${id.replace(/-/g, '_')}_`;
     const tables = this.deps.db
@@ -128,6 +140,7 @@ export class ExtensionInstaller {
     for (const { name } of tables) {
       this.deps.db.exec(`DROP TABLE IF EXISTS ${name}`);
     }
+    try { this.deps.tableSchemaRegistry?.unregisterExtensionTables(id); } catch {}
     getSettingsService().deleteNamespace(id);
     const dir = join(this.deps.userExtensionsRoot, id);
     if (existsSync(dir)) rmSync(dir, { recursive: true, force: true });
