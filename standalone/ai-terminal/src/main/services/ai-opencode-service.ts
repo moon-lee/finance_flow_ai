@@ -123,7 +123,7 @@ export class AiOpencodeService {
     if (this.serverProc) {
       try {
         this.serverProc.kill();
-      } catch {}
+      } catch { void 0; }
       this.serverProc = null;
     }
     this.serverReady = false;
@@ -134,14 +134,8 @@ export class AiOpencodeService {
     console.log(`[ai-terminal] query: "${prompt.slice(0,80)}" (model: ${this.model ?? 'default'}, db: ${this.fallbackDbPath})`);
     const timeout = this.deps.timeoutMs ?? 180000;
     console.log(`[ai-terminal] query: spawning opencode run --model ${this.model ?? 'default'} --format json (direct, no attach)`);
-    const args = ['run', '--model', this.model ?? 'opencode/big-pickle', '--format', 'json', '--auto', fullPrompt];
-    if (this.model) {
-      args.push('--model', this.model);
-    }
-    args.push(prompt);
     console.log(`[ai-terminal] query: fullPrompt ${fullPrompt.length} chars:\n${fullPrompt}`);
     return new Promise((resolve, reject) => {
-      // use PowerShell like manual shell (handles single-quote escaping correctly)
       const psPrompt = fullPrompt.replace(/'/g, "''");
       const psCmd = `opencode run --model ${this.model ?? 'opencode/big-pickle'} --format json --auto '${psPrompt}'`;
       console.log(`[ai-terminal] query: spawning via powershell: ${psCmd.slice(0,120)}...`);
@@ -151,7 +145,7 @@ export class AiOpencodeService {
       proc.stdout?.on('data', (d: Buffer | string) => (out += d));
       proc.stderr?.on('data', (d: Buffer | string) => (err += d));
       const t = setTimeout(() => {
-        try { proc.kill(); } catch {}
+        try { proc.kill(); } catch { void 0; }
         console.log(`[ai-terminal] query: timeout after ${timeout}ms`);
         reject(new Error('opencode timeout'));
       }, timeout);

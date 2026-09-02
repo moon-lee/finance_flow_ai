@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { AiOpencodeService } from '../../src/main/services/ai-opencode-service';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -19,7 +19,7 @@ describe('AiOpencodeService standalone', ()=>{
       expect(s.getDbPath()).toBe(tmp);
       s.setDbPath('/tmp/invalid.txt');
       expect(s.getDbPath()).toBe(tmp);
-    } finally { try{fs.unlinkSync(tmp);}catch{} }
+    } finally { try{fs.unlinkSync(tmp);}catch{ void 0; } }
   });
 
   it('getSystemPrompt includes db path', ()=>{
@@ -38,7 +38,7 @@ describe('AiOpencodeService standalone', ()=>{
       expect(p).toBe(tmp);
       expect(s.getDbPath()).toBe(tmp);
       expect(mockDialog.showOpenDialog).toHaveBeenCalled();
-    } finally { try{fs.unlinkSync(tmp);}catch{} }
+    } finally { try{fs.unlinkSync(tmp);}catch{ void 0; } }
   });
 
   it('selectDbPath returns fallback when canceled', async ()=>{

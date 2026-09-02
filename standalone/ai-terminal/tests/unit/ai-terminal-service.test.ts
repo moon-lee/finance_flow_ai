@@ -37,7 +37,7 @@ describe('AiTerminalService standalone', ()=>{
       s.setDbPath(tmp);
       expect(s.getDbPath()).toBe(tmp);
     } finally {
-      try{ fs.unlinkSync(tmp);}catch{}
+      try{ fs.unlinkSync(tmp);}catch{ void 0; }
     }
   });
 });
