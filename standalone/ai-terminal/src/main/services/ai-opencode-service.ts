@@ -145,7 +145,7 @@ export class AiOpencodeService {
       const psPrompt = fullPrompt.replace(/'/g, "''");
       const psCmd = `opencode run --model ${this.model ?? 'opencode/big-pickle'} --format json --auto '${psPrompt}'`;
       console.log(`[ai-terminal] query: spawning via powershell: ${psCmd.slice(0,120)}...`);
-      const proc = (this.deps.spawn ?? nodeSpawn)('powershell.exe', ['-NoProfile', '-Command', psCmd], { windowsHide: true, cwd: 'D:\\finance_flow_ai' } as unknown as Parameters<typeof nodeSpawn>[2]) as ChildProcess;
+      const proc = (this.deps.spawn ?? nodeSpawn)('powershell.exe', ['-NoProfile', '-Command', psCmd], { windowsHide: true } as unknown as Parameters<typeof nodeSpawn>[2]) as ChildProcess;
       let out = '';
       let err = '';
       proc.stdout?.on('data', (d: Buffer | string) => (out += d));
