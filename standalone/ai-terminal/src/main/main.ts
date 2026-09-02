@@ -81,7 +81,15 @@ app.whenReady().then(() => {
   void (async () => {
     const ok = await aiOpencodeService.isInstalled();
     if (!ok) console.log('[ai-terminal] opencode not installed — run npm install -g opencode-ai');
-    else console.log('[ai-terminal] opencode ready (direct run, no serve needed)');
+    else {
+      console.log('[ai-terminal] opencode ready (direct run, no serve needed)');
+      try {
+        console.log('[ai-terminal] auto probe: Are you ready?');
+        const probe = await aiOpencodeService.query("Are you ready? if you are ready say it 'yes'");
+        console.log(`[ai-terminal] probe response: ${probe.slice(0,120)}`);
+        mainWindow?.webContents.send('ai-terminal:receive', probe);
+      } catch (e) { console.log(`[ai-terminal] probe failed: ${String(e)}`); }
+    }
   })();
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 });
