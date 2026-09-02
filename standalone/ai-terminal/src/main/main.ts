@@ -1,8 +1,11 @@
 import { app, BrowserWindow, ipcMain, dialog, Menu } from 'electron';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { existsSync } from 'node:fs';
 import { AiTerminalService } from './services/ai-terminal-service.js';
 import { AiOpencodeService } from './services/ai-opencode-service.js';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 let mainWindow: BrowserWindow | null = null;
 const aiTerminalService = new AiTerminalService();
