@@ -78,6 +78,12 @@ app.whenReady().then(() => {
   ]);
   Menu.setApplicationMenu(menu);
   createWindow();
+  // auto-warm opencode so first question is instant (like most software)
+  void (async () => {
+    const ok = await aiOpencodeService.isInstalled();
+    if (!ok) console.log('[ai-terminal] opencode not installed — run npm install -g opencode-ai');
+    else { console.log('[ai-terminal] warming opencode serve…'); await aiOpencodeService.serve(); console.log('[ai-terminal] opencode ready'); }
+  })();
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 });
 
