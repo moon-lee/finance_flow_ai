@@ -9,7 +9,7 @@ const __dirname = dirname(__filename);
 
 let mainWindow: BrowserWindow | null = null;
 const aiTerminalService = new AiTerminalService();
-const fallbackDb = join(app.getPath('userData'), 'finance.db');
+const fallbackDb = join(app.getPath('appData'), 'Finance Flow AI Dev', 'finance.db');
 const aiOpencodeService = new AiOpencodeService(fallbackDb, {}, 'opencode/big-pickle');
 let terminalVisible = true;
 
