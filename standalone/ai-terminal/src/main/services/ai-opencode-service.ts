@@ -1,17 +1,11 @@
-import { spawn as nodeSpawn, ChildProcess, execFile } from 'node:child_process';
+import { spawn as nodeSpawn, ChildProcess } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { promisify } from 'node:util';
 
 // Electron dialog is optional in test environment; use dep injection fallback
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type DialogLike = { showOpenDialog: (opts: any) => Promise<{ canceled: boolean; filePaths: string[] }> };
 
-const execFileAsync = promisify(execFile);
-
 export class AiOpencodeService {
-  private serverProc: ChildProcess | null = null;
-  private port = 4096;
-  private serverReady = false;
   private hasSentContext = false;
 
   constructor(
@@ -70,67 +64,7 @@ export class AiOpencodeService {
     return `Your database is at '${this.fallbackDbPath}'. Use Python ${process.version} sqlite3 module to query it.`;
   }
 
-  async isInstalled(): Promise<boolean> {
-    try {
-      const opencodeBin = 'C:\\Users\\Moon\\AppData\\Roaming\\npm\\node_modules\\opencode-ai\\bin\\opencode.exe';
-      const { stdout } = await execFileAsync(opencodeBin, ['--version'], { timeout: 5000, windowsHide: true } as unknown as Parameters<typeof execFile>[2]) as { stdout: string };
-      console.log(`[ai-terminal] isInstalled: true (${String(stdout).trim()})`);
-      return true;
-    } catch (e) {
-      console.log(`[ai-terminal] isInstalled: false (${String(e)})`);
-      return false;
-    }
-  }
-
-  async serve(): Promise<void> {
-    if (this.serverReady) return;
-    console.log(`[ai-terminal] serve: spawning opencode serve --port ${this.port} (cwd: finance_flow_ai)`);
-    return new Promise((resolve) => {
-      this.serverProc = (this.deps.spawn ?? nodeSpawn)('cmd.exe', ['/c', 'opencode', 'serve', '--port', String(this.port), '--hostname', '127.0.0.1'], {
-        windowsHide: true,
-        detached: true,
-        stdio: 'ignore',
-        cwd: 'D:\\finance_flow_ai',
-      } as unknown as Parameters<typeof nodeSpawn>[2]) as ChildProcess;
-      this.serverProc?.unref?.();
-      const start = Date.now();
-      let attempts = 0;
-      const tryConnect = () => {
-        attempts++;
-        import('node:net')
-          .then(({ default: net }) => {
-            const sock = (net as unknown as { createConnection: (opts: unknown, cb: () => void) => { destroy: () => void; on: (ev: string, cb: () => void) => void } }).createConnection(
-              { host: '127.0.0.1', port: this.port },
-              () => {
-                console.log(`[ai-terminal] serve: port ${this.port} ready after ${attempts} polls (${Date.now() - start}ms)`);
-                sock.destroy();
-                this.serverReady = true;
-                resolve();
-              }
-            );
-            sock.on('error', () => {
-              if (Date.now() - start > 10000) {
-                console.log(`[ai-terminal] serve: port poll fallback after ${attempts} attempts, assuming ready`);
-                this.serverReady = true;
-                resolve();
-              } else setTimeout(tryConnect, 300);
-            });
-          })
-          .catch(() => setTimeout(() => { this.serverReady = true; resolve(); }, 800));
-      };
-      setTimeout(tryConnect, 400);
-    });
-  }
-
-  async stop(): Promise<void> {
-    if (this.serverProc) {
-      try {
-        this.serverProc.kill();
-      } catch { void 0; }
-      this.serverProc = null;
-    }
-    this.serverReady = false;
-  }
+  
 
   async query(prompt: string): Promise<string> {
     const isFirst = !this.hasSentContext;
