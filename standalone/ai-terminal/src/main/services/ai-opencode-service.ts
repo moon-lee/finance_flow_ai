@@ -64,7 +64,8 @@ export class AiOpencodeService {
   }
 
   getSystemPrompt(): string {
-    return `Your database is at '${this.fallbackDbPath}'. Use sqlite3 -readonly '${this.fallbackDbPath}' to answer.`;
+//    return `Your database is at '${this.fallbackDbPath}'. Use sqlite3 -readonly '${this.fallbackDbPath}' to answer.`;
+    return `Your database is at '${this.fallbackDbPath}'`;
   }
 
   async isInstalled(): Promise<boolean> {
@@ -131,12 +132,13 @@ export class AiOpencodeService {
 
   async query(prompt: string): Promise<string> {
     const fullPrompt = `${this.getSystemPrompt()}\n\nUser: ${prompt}`;
+//    const fullPrompt = `User: ${prompt}`;
     console.log(`[ai-terminal] query: "${prompt.slice(0,80)}" (model: ${this.model ?? 'default'}, db: ${this.fallbackDbPath})`);
     const timeout = this.deps.timeoutMs ?? 180000;
     console.log(`[ai-terminal] query: spawning opencode run --model ${this.model ?? 'default'} --format json (direct, no attach)`);
     console.log(`[ai-terminal] query: fullPrompt ${fullPrompt.length} chars:\n${fullPrompt}`);
     return new Promise((resolve, reject) => {
-      const psPrompt = fullPrompt.replace(/'/g, "''");
+      const psPrompt = fullPrompt.replace(/'/g, "''").replace(/\r?\n/g, ' ');
       const psCmd = `opencode run --model ${this.model ?? 'opencode/big-pickle'} --format json --auto '${psPrompt}'`;
       console.log(`[ai-terminal] query: spawning via powershell: ${psCmd.slice(0,120)}...`);
       const proc = (this.deps.spawn ?? nodeSpawn)('powershell.exe', ['-NoProfile', '-Command', psCmd], { windowsHide: true } as unknown as Parameters<typeof nodeSpawn>[2]) as ChildProcess;
