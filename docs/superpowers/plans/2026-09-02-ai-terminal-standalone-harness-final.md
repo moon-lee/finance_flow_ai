@@ -511,6 +511,7 @@ const aiTerminalService=new AiTerminalService();
 const aiOpencodeService=new AiOpencodeService(resolveDatabasePath(app.getPath('userData')), {}, 'opencode/big-pickle');
 const userDbPath = getSetting<string>('core.ai-terminal.dbPath');
 if (userDbPath) { aiOpencodeService.setDbPath(userDbPath); }
+void (async()=>{ if(await aiOpencodeService.isInstalled()){ await aiOpencodeService.serve(); } })(); // auto-warm so panel is ready when opened
 app.on('will-quit', async ()=>{ await aiOpencodeService.stop(); });
 ipcMain.handle('ai-terminal:select-db-path', async ()=>{
   const p=await aiOpencodeService.selectDbPath();
