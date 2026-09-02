@@ -39,10 +39,13 @@ app.whenReady().then(() => {
   console.log(`[ai-terminal] System prompt: ${aiOpencodeService.getSystemPrompt().slice(0,120)}...`);
 
   ipcMain.handle('ai-terminal:send', async (_e, prompt: string) => {
+    console.log(`[ai-terminal] IPC ai-terminal:send "${prompt.slice(0,60)}"`);
     try {
       const out = await aiOpencodeService.query(prompt);
+      console.log(`[ai-terminal] IPC send ok ${out.length} chars`);
       return { ok: true, output: out };
     } catch (err) {
+      console.log(`[ai-terminal] IPC send error ${String(err)}`);
       return { ok: false, output: String(err) };
     }
   });

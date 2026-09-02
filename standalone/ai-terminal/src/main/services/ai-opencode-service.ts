@@ -30,6 +30,7 @@ export class AiOpencodeService {
   }
 
   async selectDbPath(): Promise<string> {
+    console.log(`[ai-terminal] selectDbPath: opening dialog`);
     try {
       // Prefer injected dialog, otherwise try to load electron (may not be available in vitest)
       let dlg: DialogLike | undefined = this.deps.dialog as DialogLike | undefined;
@@ -49,13 +50,15 @@ export class AiOpencodeService {
       });
       if (!result.canceled && result.filePaths.length > 0) {
         const path = result.filePaths[0];
+        console.log(`[ai-terminal] selectDbPath: picked ${path}`);
         if (existsSync(path) && path.endsWith('.db')) {
           this.fallbackDbPath = path;
+          console.log(`[ai-terminal] selectDbPath: accepted ${path}`);
           return path;
-        }
-      }
-    } catch {
-      // ignore
+        } else console.log(`[ai-terminal] selectDbPath: rejected (not .db or missing) ${path}`);
+      } else console.log(`[ai-terminal] selectDbPath: canceled`);
+    } catch (e) {
+      console.log(`[ai-terminal] selectDbPath: error ${String(e)}`);
     }
     return this.fallbackDbPath;
   }
@@ -66,15 +69,18 @@ export class AiOpencodeService {
 
   async isInstalled(): Promise<boolean> {
     try {
-      await execFileAsync('opencode', ['--version'], { timeout: 5000, windowsHide: true } as unknown as Parameters<typeof execFile>[2]);
+      const { stdout } = await execFileAsync('opencode', ['--version'], { timeout: 5000, windowsHide: true } as unknown as Parameters<typeof execFile>[2]) as { stdout: string };
+      console.log(`[ai-terminal] isInstalled: true (${String(stdout).trim()})`);
       return true;
-    } catch {
+    } catch (e) {
+      console.log(`[ai-terminal] isInstalled: false (${String(e)})`);
       return false;
     }
   }
 
   async serve(): Promise<void> {
     if (this.serverReady) return;
+    console.log(`[ai-terminal] serve: spawning opencode serve --port ${this.port}`);
     return new Promise((resolve) => {
       this.serverProc = (this.deps.spawn ?? nodeSpawn)('cmd.exe', ['/c', 'opencode', 'serve', '--port', String(this.port), '--hostname', '127.0.0.1'], {
         windowsHide: true,
@@ -83,12 +89,15 @@ export class AiOpencodeService {
       } as unknown as Parameters<typeof nodeSpawn>[2]) as ChildProcess;
       this.serverProc?.unref?.();
       const start = Date.now();
+      let attempts = 0;
       const tryConnect = () => {
+        attempts++;
         import('node:net')
           .then(({ default: net }) => {
             const sock = (net as unknown as { createConnection: (opts: unknown, cb: () => void) => { destroy: () => void; on: (ev: string, cb: () => void) => void } }).createConnection(
               { host: '127.0.0.1', port: this.port },
               () => {
+                console.log(`[ai-terminal] serve: port ${this.port} ready after ${attempts} polls (${Date.now() - start}ms)`);
                 sock.destroy();
                 this.serverReady = true;
                 resolve();
@@ -96,6 +105,7 @@ export class AiOpencodeService {
             );
             sock.on('error', () => {
               if (Date.now() - start > 10000) {
+                console.log(`[ai-terminal] serve: port poll fallback after ${attempts} attempts, assuming ready`);
                 this.serverReady = true;
                 resolve();
               } else setTimeout(tryConnect, 300);
@@ -118,8 +128,10 @@ export class AiOpencodeService {
   }
 
   async query(prompt: string): Promise<string> {
+    console.log(`[ai-terminal] query: "${prompt.slice(0,80)}" (model: ${this.model ?? 'default'}, db: ${this.fallbackDbPath})`);
     if (!this.serverReady) await this.serve();
     const timeout = this.deps.timeoutMs ?? 90000;
+    console.log(`[ai-terminal] query: spawning opencode run --attach http://127.0.0.1:${this.port} --model ${this.model ?? 'default'} --format json`);
     const args = ['run', '--attach', 'http://127.0.0.1:' + this.port, '--format', 'json'];
     if (this.model) {
       args.push('--model', this.model);
@@ -132,25 +144,28 @@ export class AiOpencodeService {
       proc.stdout?.on('data', (d: Buffer | string) => (out += d));
       proc.stderr?.on('data', (d: Buffer | string) => (err += d));
       const t = setTimeout(() => {
-        try {
-          proc.kill();
-        } catch {}
+        try { proc.kill(); } catch {}
+        console.log(`[ai-terminal] query: timeout after ${timeout}ms`);
         reject(new Error('opencode timeout'));
       }, timeout);
       proc.on('close', (code: number | null) => {
         clearTimeout(t);
+        console.log(`[ai-terminal] query: close code=${code} out=${out.length} chars err=${err.slice(0,200)}`);
         if (code === 0) {
           try {
             const parsed = JSON.parse(out);
-            resolve(this.extractTextFromJson(parsed));
+            const text = this.extractTextFromJson(parsed);
+            console.log(`[ai-terminal] query: parsed JSON -> ${text.slice(0,120)}...`);
+            resolve(text);
           } catch {
+            console.log(`[ai-terminal] query: raw out -> ${out.slice(0,120)}...`);
             resolve(out);
           }
         } else if (code === null && err.includes('ECONNREFUSED')) {
+          console.log(`[ai-terminal] query: ECONNREFUSED, retrying once`);
           this.serverReady = false;
-          // retry once
           this.query(prompt).then(resolve, reject);
-        } else reject(new Error(err || `exit ${code}`));
+        } else { console.log(`[ai-terminal] query: error ${err || `exit ${code}`}`); reject(new Error(err || `exit ${code}`)); }
       });
       proc.on('error', reject);
     });
