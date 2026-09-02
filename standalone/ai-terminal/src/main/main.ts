@@ -34,6 +34,8 @@ function createWindow() {
 app.whenReady().then(() => {
   const userDb = aiTerminalService.getDbPath();
   if (userDb) aiOpencodeService.setDbPath(userDb);
+  console.log(`[ai-terminal] DB path: ${aiOpencodeService.getDbPath()} (fallback: ${fallbackDb}, user: ${userDb || '(none)'})`);
+  console.log(`[ai-terminal] System prompt: ${aiOpencodeService.getSystemPrompt().slice(0,120)}...`);
 
   ipcMain.handle('ai-terminal:send', async (_e, prompt: string) => {
     try {
