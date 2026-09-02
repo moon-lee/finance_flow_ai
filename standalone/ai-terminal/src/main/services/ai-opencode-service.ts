@@ -119,7 +119,7 @@ export class AiOpencodeService {
 
   async query(prompt: string): Promise<string> {
     if (!this.serverReady) await this.serve();
-    const timeout = this.deps.timeoutMs ?? 30000;
+    const timeout = this.deps.timeoutMs ?? 90000;
     const args = ['run', '--attach', 'http://127.0.0.1:' + this.port, '--format', 'json'];
     if (this.model) {
       args.push('--model', this.model);
