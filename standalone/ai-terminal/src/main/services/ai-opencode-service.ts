@@ -138,8 +138,10 @@ export class AiOpencodeService {
       args.push('--model', this.model);
     }
     args.push(prompt);
+    console.log(`[ai-terminal] query: fullPrompt ${fullPrompt.length} chars`);
     return new Promise((resolve, reject) => {
-      const proc = (this.deps.spawn ?? nodeSpawn)('cmd.exe', ['/c', 'opencode', ...args], { windowsHide: true, cwd: 'D:\\finance_flow_ai' } as unknown as Parameters<typeof nodeSpawn>[2]) as ChildProcess;
+      const opencodeCmd = 'C:\\Users\\Moon\\AppData\\Roaming\\npm\\opencode.cmd';
+      const proc = (this.deps.spawn ?? nodeSpawn)(opencodeCmd, args, { windowsHide: true, cwd: 'D:\\finance_flow_ai', shell: false } as unknown as Parameters<typeof nodeSpawn>[2]) as ChildProcess;
       let out = '';
       let err = '';
       proc.stdout?.on('data', (d: Buffer | string) => (out += d));
