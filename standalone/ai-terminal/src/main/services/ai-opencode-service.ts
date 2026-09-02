@@ -133,7 +133,7 @@ export class AiOpencodeService {
     console.log(`[ai-terminal] query: "${prompt.slice(0,80)}" (model: ${this.model ?? 'default'}, db: ${this.fallbackDbPath})`);
     const timeout = this.deps.timeoutMs ?? 180000;
     console.log(`[ai-terminal] query: spawning opencode run --model ${this.model ?? 'default'} --format json (direct, no attach)`);
-    const args = ['run', '--model', this.model ?? 'opencode/big-pickle', '--format', 'json', fullPrompt];
+    const args = ['run', '--model', this.model ?? 'opencode/big-pickle', '--format', 'json', '--auto', fullPrompt];
     if (this.model) {
       args.push('--model', this.model);
     }
