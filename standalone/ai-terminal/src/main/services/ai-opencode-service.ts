@@ -64,7 +64,7 @@ export class AiOpencodeService {
   }
 
   getSystemPrompt(): string {
-    return `Your database is at ${this.fallbackDbPath}. Use sqlite3 -readonly "${this.fallbackDbPath}" to query it. For summarize/estimate/report, query then format as markdown. For report as html/md/txt/jpg, write file to $REPORTS_DIR/report-{FY}.{ext} and return path.`;
+    return `Your database is at ${this.fallbackDbPath}. Use sqlite3 -readonly '${this.fallbackDbPath}' to query it. For summarize/estimate/report, query then format as markdown. For report as html/md/txt/jpg, write file to $REPORTS_DIR/report-{FY}.{ext} and return path.`;
   }
 
   async isInstalled(): Promise<boolean> {
@@ -141,8 +141,11 @@ export class AiOpencodeService {
     args.push(prompt);
     console.log(`[ai-terminal] query: fullPrompt ${fullPrompt.length} chars:\n${fullPrompt}`);
     return new Promise((resolve, reject) => {
-      const opencodeBin = 'C:\\Users\\Moon\\AppData\\Roaming\\npm\\node_modules\\opencode-ai\\bin\\opencode.exe';
-      const proc = (this.deps.spawn ?? nodeSpawn)(opencodeBin, args, { windowsHide: true, cwd: 'D:\\finance_flow_ai' } as unknown as Parameters<typeof nodeSpawn>[2]) as ChildProcess;
+      // use PowerShell like manual shell (handles single-quote escaping correctly)
+      const psPrompt = fullPrompt.replace(/'/g, "''");
+      const psCmd = `opencode run --model ${this.model ?? 'opencode/big-pickle'} --format json --auto '${psPrompt}'`;
+      console.log(`[ai-terminal] query: spawning via powershell: ${psCmd.slice(0,120)}...`);
+      const proc = (this.deps.spawn ?? nodeSpawn)('powershell.exe', ['-NoProfile', '-Command', psCmd], { windowsHide: true, cwd: 'D:\\finance_flow_ai' } as unknown as Parameters<typeof nodeSpawn>[2]) as ChildProcess;
       let out = '';
       let err = '';
       proc.stdout?.on('data', (d: Buffer | string) => (out += d));
