@@ -129,24 +129,24 @@ export class AiOpencodeService {
   }
 
   async query(prompt: string): Promise<string> {
+    const fullPrompt = `${this.getSystemPrompt()}\n\nUser: ${prompt}`;
     console.log(`[ai-terminal] query: "${prompt.slice(0,80)}" (model: ${this.model ?? 'default'}, db: ${this.fallbackDbPath})`);
-    if (!this.serverReady) await this.serve();
-    const timeout = this.deps.timeoutMs ?? 90000;
-    console.log(`[ai-terminal] query: spawning opencode run --attach http://127.0.0.1:${this.port} --model ${this.model ?? 'default'} --format json`);
-    const args = ['run', '--attach', 'http://127.0.0.1:' + this.port, '--format', 'json'];
+    const timeout = this.deps.timeoutMs ?? 180000;
+    console.log(`[ai-terminal] query: spawning opencode run --model ${this.model ?? 'default'} --format json (direct, no attach)`);
+    const args = ['run', '--model', this.model ?? 'opencode/big-pickle', '--format', 'json', fullPrompt];
     if (this.model) {
       args.push('--model', this.model);
     }
     args.push(prompt);
     return new Promise((resolve, reject) => {
-      const proc = (this.deps.spawn ?? nodeSpawn)('cmd.exe', ['/c', 'opencode', ...args], { windowsHide: true } as unknown as Parameters<typeof nodeSpawn>[2]) as ChildProcess;
+      const proc = (this.deps.spawn ?? nodeSpawn)('cmd.exe', ['/c', 'opencode', ...args], { windowsHide: true, cwd: 'D:\\finance_flow_ai' } as unknown as Parameters<typeof nodeSpawn>[2]) as ChildProcess;
       let out = '';
       let err = '';
       proc.stdout?.on('data', (d: Buffer | string) => (out += d));
       proc.stderr?.on('data', (d: Buffer | string) => (err += d));
       const t = setTimeout(() => {
         try { proc.kill(); } catch {}
-        console.log(`[ai-terminal] query: timeout after ${timeout}ms (will fallback if Session not found)`);
+        console.log(`[ai-terminal] query: timeout after ${timeout}ms`);
         reject(new Error('opencode timeout'));
       }, timeout);
       proc.on('close', (code: number | null) => {
@@ -162,27 +162,6 @@ export class AiOpencodeService {
             console.log(`[ai-terminal] query: raw out -> ${out.slice(0,120)}...`);
             resolve(out);
           }
-        } else if (code === null && err.includes('ECONNREFUSED')) {
-          console.log(`[ai-terminal] query: ECONNREFUSED, retrying once`);
-          this.serverReady = false;
-          this.query(prompt).then(resolve, reject);
-        } else if (err.includes('Session not found')) {
-          console.log(`[ai-terminal] query: Session not found via attach, falling back to direct run`);
-          // fallback: direct run without --attach (no server session needed)
-          const fallbackArgs = ['run', '--model', this.model ?? 'opencode/big-pickle', '--format', 'json', prompt];
-          const fbProc = (this.deps.spawn ?? nodeSpawn)('cmd.exe', ['/c', 'opencode', ...fallbackArgs], { windowsHide: true, cwd: 'D:\\finance_flow_ai' } as unknown as Parameters<typeof nodeSpawn>[2]) as ChildProcess;
-          let fbOut = '', fbErr = '';
-          fbProc.stdout?.on('data', (d: Buffer | string) => (fbOut += d));
-          fbProc.stderr?.on('data', (d: Buffer | string) => (fbErr += d));
-          const fbT = setTimeout(() => { try { fbProc.kill(); } catch {}; console.log(`[ai-terminal] fallback: timeout after 90000ms`); reject(new Error('opencode timeout (fallback)')); }, 180000);
-          fbProc.on('close', (fbCode: number | null) => {
-            clearTimeout(fbT);
-            console.log(`[ai-terminal] fallback: close code=${fbCode} out=${fbOut.length} err=${fbErr.slice(0,200)}`);
-            if (fbCode === 0) {
-              try { const p = JSON.parse(fbOut); resolve(this.extractTextFromJson(p)); } catch { resolve(fbOut); }
-            } else reject(new Error(fbErr || `exit ${fbCode}`));
-          });
-          fbProc.on('error', reject);
         } else { console.log(`[ai-terminal] query: error ${err || `exit ${code}`}`); reject(new Error(err || `exit ${code}`)); }
       });
       proc.on('error', reject);
