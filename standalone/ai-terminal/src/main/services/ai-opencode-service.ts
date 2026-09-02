@@ -64,7 +64,7 @@ export class AiOpencodeService {
   }
 
   getSystemPrompt(): string {
-    return `Your database is at ${this.fallbackDbPath}. Use sqlite3 -readonly '${this.fallbackDbPath}' to query it. For summarize/estimate/report, query then format as markdown. For report as html/md/txt/jpg, write file to $REPORTS_DIR/report-{FY}.{ext} and return path.`;
+    return `Your database is at '${this.fallbackDbPath}'. Use sqlite3 -readonly '${this.fallbackDbPath}' to answer.`;
   }
 
   async isInstalled(): Promise<boolean> {

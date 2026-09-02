@@ -71,5 +71,7 @@ kimch*.html
 notes.md
 .obsidian/
 .playwright-mcp/
+/standalone/ai-terminal/dist
+/standalone/ai-terminal/node_modules
 
 
