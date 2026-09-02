@@ -69,7 +69,8 @@ export class AiOpencodeService {
 
   async isInstalled(): Promise<boolean> {
     try {
-      const { stdout } = await execFileAsync('cmd.exe', ['/c', 'opencode', '--version'], { timeout: 5000, windowsHide: true } as unknown as Parameters<typeof execFile>[2]) as { stdout: string };
+      const opencodeBin = 'C:\\Users\\Moon\\AppData\\Roaming\\npm\\node_modules\\opencode-ai\\bin\\opencode.exe';
+      const { stdout } = await execFileAsync(opencodeBin, ['--version'], { timeout: 5000, windowsHide: true } as unknown as Parameters<typeof execFile>[2]) as { stdout: string };
       console.log(`[ai-terminal] isInstalled: true (${String(stdout).trim()})`);
       return true;
     } catch (e) {
@@ -140,7 +141,8 @@ export class AiOpencodeService {
     args.push(prompt);
     console.log(`[ai-terminal] query: fullPrompt ${fullPrompt.length} chars:\n${fullPrompt}`);
     return new Promise((resolve, reject) => {
-      const proc = (this.deps.spawn ?? nodeSpawn)('cmd.exe', ['/c', 'opencode', ...args], { windowsHide: true, cwd: 'D:\\finance_flow_ai' } as unknown as Parameters<typeof nodeSpawn>[2]) as ChildProcess;
+      const opencodeBin = 'C:\\Users\\Moon\\AppData\\Roaming\\npm\\node_modules\\opencode-ai\\bin\\opencode.exe';
+      const proc = (this.deps.spawn ?? nodeSpawn)(opencodeBin, args, { windowsHide: true, cwd: 'D:\\finance_flow_ai' } as unknown as Parameters<typeof nodeSpawn>[2]) as ChildProcess;
       let out = '';
       let err = '';
       proc.stdout?.on('data', (d: Buffer | string) => (out += d));
