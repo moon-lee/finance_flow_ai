@@ -168,7 +168,7 @@ export class AiOpencodeService {
   async stop(): Promise<void> { if (this.serverProc) { this.serverProc.kill(); this.serverProc=null; } this.serverReady=false; }
   async query(prompt:string): Promise<string> {
     if (!this.serverReady) await this.serve();
-    const timeout=this.deps.timeoutMs??30000;
+    const timeout=this.deps.timeoutMs??90000;
     const args=['run','--attach','http://127.0.0.1:'+this.port,'--format','json']; if(this.model) { args.push('--model',this.model); } args.push(prompt);
     return new Promise((resolve,reject)=>{
       const proc=(this.deps.spawn??nodeSpawn)('cmd.exe', ['/c','opencode', ...args], { windowsHide:true });
