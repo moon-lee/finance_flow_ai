@@ -10,7 +10,7 @@ const __dirname = dirname(__filename);
 let mainWindow: BrowserWindow | null = null;
 const aiTerminalService = new AiTerminalService();
 const fallbackDb = join(app.getPath('userData'), 'finance.db');
-const aiOpencodeService = new AiOpencodeService(fallbackDb, {}, 'opencode/muse-spark-1.2-contributor-free');
+const aiOpencodeService = new AiOpencodeService(fallbackDb, {}, 'opencode/big-pickle');
 let terminalVisible = true;
 
 function createWindow() {

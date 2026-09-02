@@ -508,7 +508,7 @@ Wire in `src/main/main.ts` `app.whenReady` after `initializeSettings()`:
 
 ```typescript
 const aiTerminalService=new AiTerminalService();
-const aiOpencodeService=new AiOpencodeService(resolveDatabasePath(app.getPath('userData')), {}, 'opencode/muse-spark-1.2-contributor-free');
+const aiOpencodeService=new AiOpencodeService(resolveDatabasePath(app.getPath('userData')), {}, 'opencode/big-pickle');
 const userDbPath = getSetting<string>('core.ai-terminal.dbPath');
 if (userDbPath) { aiOpencodeService.setDbPath(userDbPath); }
 app.on('will-quit', async ()=>{ await aiOpencodeService.stop(); });
