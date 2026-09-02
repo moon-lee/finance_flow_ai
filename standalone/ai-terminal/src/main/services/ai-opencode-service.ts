@@ -12,6 +12,7 @@ export class AiOpencodeService {
   private serverProc: ChildProcess | null = null;
   private port = 4096;
   private serverReady = false;
+  private hasSentContext = false;
 
   constructor(
     private fallbackDbPath: string,
@@ -25,6 +26,7 @@ export class AiOpencodeService {
 
   setDbPath(path: string): void {
     if (existsSync(path) && path.endsWith('.db')) {
+      if (this.fallbackDbPath !== path) this.hasSentContext = false;
       this.fallbackDbPath = path;
     }
   }
@@ -52,6 +54,7 @@ export class AiOpencodeService {
         const path = result.filePaths[0];
         console.log(`[ai-terminal] selectDbPath: picked ${path}`);
         if (existsSync(path) && path.endsWith('.db')) {
+          if (this.fallbackDbPath !== path) this.hasSentContext = false;
           this.fallbackDbPath = path;
           console.log(`[ai-terminal] selectDbPath: accepted ${path}`);
           return path;
@@ -64,8 +67,7 @@ export class AiOpencodeService {
   }
 
   getSystemPrompt(): string {
-//    return `Your database is at '${this.fallbackDbPath}'. Use sqlite3 -readonly '${this.fallbackDbPath}' to answer.`;
-    return `Your database is at '${this.fallbackDbPath}'`;
+    return `Your database is at '${this.fallbackDbPath}'. Use Python ${process.version} sqlite3 module to query it.`;
   }
 
   async isInstalled(): Promise<boolean> {
@@ -131,15 +133,16 @@ export class AiOpencodeService {
   }
 
   async query(prompt: string): Promise<string> {
-    const fullPrompt = `${this.getSystemPrompt()}\nUser: ${prompt}`;
-//    const fullPrompt = `User: ${prompt}`;
-    console.log(`[ai-terminal] query: "${prompt.slice(0,80)}" (model: ${this.model ?? 'default'}, db: ${this.fallbackDbPath})`);
+    const isFirst = !this.hasSentContext;
+    const fullPrompt = isFirst ? `${this.getSystemPrompt()}\nUser: ${prompt}` : `User: ${prompt}`;
+    console.log(`[ai-terminal] query: "${prompt.slice(0,80)}" (model: ${this.model ?? 'default'}, db: ${this.fallbackDbPath}, first=${isFirst})`);
     const timeout = this.deps.timeoutMs ?? 180000;
     console.log(`[ai-terminal] query: spawning opencode run --model ${this.model ?? 'default'} --format json (direct, no attach)`);
     console.log(`[ai-terminal] query: fullPrompt ${fullPrompt.length} chars:\n${fullPrompt}`);
     return new Promise((resolve, reject) => {
       const psPrompt = fullPrompt.replace(/'/g, "''").replace(/\r?\n/g, ' ');
-      const psCmd = `opencode run --model ${this.model ?? 'opencode/big-pickle'}  '${psPrompt}'`;
+      const continueFlag = isFirst ? '' : ' --continue';
+      const psCmd = `opencode run --model ${this.model ?? 'opencode/big-pickle'} --format json --auto${continueFlag} '${psPrompt}'`;
       console.log(`[ai-terminal] query: spawning via powershell: ${psCmd}...`);
       const proc = (this.deps.spawn ?? nodeSpawn)('powershell.exe', ['-Command', psCmd], { windowsHide: true } as unknown as Parameters<typeof nodeSpawn>[2]) as ChildProcess;
       let out = '';
@@ -156,6 +159,7 @@ export class AiOpencodeService {
         clearTimeout(t);
         console.log(`[ai-terminal] query: close code=${code} out=${out.length} chars err=${err.slice(0,200)}`);
         if (code === 0) {
+          if (isFirst) this.hasSentContext = true;
           try {
             const parsed = JSON.parse(out);
             const text = this.extractTextFromJson(parsed);
