@@ -146,7 +146,7 @@ export class AiOpencodeService {
       proc.stderr?.on('data', (d: Buffer | string) => (err += d));
       const t = setTimeout(() => {
         try { proc.kill(); } catch {}
-        console.log(`[ai-terminal] query: timeout after ${timeout}ms`);
+        console.log(`[ai-terminal] query: timeout after ${timeout}ms (will fallback if Session not found)`);
         reject(new Error('opencode timeout'));
       }, timeout);
       proc.on('close', (code: number | null) => {
@@ -174,7 +174,7 @@ export class AiOpencodeService {
           let fbOut = '', fbErr = '';
           fbProc.stdout?.on('data', (d: Buffer | string) => (fbOut += d));
           fbProc.stderr?.on('data', (d: Buffer | string) => (fbErr += d));
-          const fbT = setTimeout(() => { try { fbProc.kill(); } catch {}; reject(new Error('opencode timeout (fallback)')); }, 90000);
+          const fbT = setTimeout(() => { try { fbProc.kill(); } catch {}; console.log(`[ai-terminal] fallback: timeout after 90000ms`); reject(new Error('opencode timeout (fallback)')); }, 180000);
           fbProc.on('close', (fbCode: number | null) => {
             clearTimeout(fbT);
             console.log(`[ai-terminal] fallback: close code=${fbCode} out=${fbOut.length} err=${fbErr.slice(0,200)}`);
