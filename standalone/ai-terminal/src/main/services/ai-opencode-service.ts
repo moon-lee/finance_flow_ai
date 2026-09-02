@@ -69,7 +69,7 @@ export class AiOpencodeService {
 
   async isInstalled(): Promise<boolean> {
     try {
-      const { stdout } = await execFileAsync('opencode', ['--version'], { timeout: 5000, windowsHide: true } as unknown as Parameters<typeof execFile>[2]) as { stdout: string };
+      const { stdout } = await execFileAsync('cmd.exe', ['/c', 'opencode', '--version'], { timeout: 5000, windowsHide: true } as unknown as Parameters<typeof execFile>[2]) as { stdout: string };
       console.log(`[ai-terminal] isInstalled: true (${String(stdout).trim()})`);
       return true;
     } catch (e) {
