@@ -1,0 +1,76 @@
+import { app, BrowserWindow, ipcMain, dialog, Menu } from 'electron';
+import { join } from 'node:path';
+import { existsSync } from 'node:fs';
+import { AiTerminalService } from './services/ai-terminal-service.js';
+import { AiOpencodeService } from './services/ai-opencode-service.js';
+
+let mainWindow: BrowserWindow | null = null;
+const aiTerminalService = new AiTerminalService();
+const fallbackDb = join(app.getPath('userData'), 'finance.db');
+const aiOpencodeService = new AiOpencodeService(fallbackDb);
+let terminalVisible = true;
+
+function createWindow() {
+  mainWindow = new BrowserWindow({
+    width: 1100,
+    height: 800,
+    webPreferences: {
+      preload: join(__dirname, '../preload/preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+  const devUrl = 'http://localhost:5173';
+  // try dev server, fallback to built file
+  mainWindow.loadURL(devUrl).catch(() => {
+    mainWindow?.loadFile(join(__dirname, '../../dist/renderer/index.html'));
+  });
+  mainWindow.on('closed', () => { mainWindow = null; });
+}
+
+app.whenReady().then(() => {
+  const userDb = aiTerminalService.getDbPath();
+  if (userDb) aiOpencodeService.setDbPath(userDb);
+
+  ipcMain.handle('ai-terminal:send', async (_e, prompt: string) => {
+    try {
+      const out = await aiOpencodeService.query(prompt);
+      return { ok: true, output: out };
+    } catch (err) {
+      return { ok: false, output: String(err) };
+    }
+  });
+  ipcMain.handle('ai-terminal:toggle', () => {
+    terminalVisible = !terminalVisible;
+    aiTerminalService.setVisible(terminalVisible);
+    mainWindow?.webContents.send('ai-terminal:toggle', terminalVisible);
+    return terminalVisible;
+  });
+  ipcMain.handle('ai-terminal:select-db-path', async () => {
+    const p = await aiOpencodeService.selectDbPath();
+    if (p && p !== fallbackDb) aiTerminalService.setDbPath(p);
+    return p;
+  });
+  ipcMain.handle('ai-terminal:reset-db-path', async () => {
+    aiTerminalService.setDbPath('');
+    aiOpencodeService.setDbPath(fallbackDb);
+    return fallbackDb;
+  });
+
+  const menu = Menu.buildFromTemplate([
+    {
+      label: 'View',
+      submenu: [
+        { label: 'Toggle AI-Terminal', accelerator: 'CmdOrCtrl+J', click: () => { terminalVisible = !terminalVisible; aiTerminalService.setVisible(terminalVisible); mainWindow?.webContents.send('ai-terminal:toggle', terminalVisible); } },
+        { label: 'Select Database File…', click: async () => { const p = await aiOpencodeService.selectDbPath(); if (p) aiTerminalService.setDbPath(p); } },
+        { label: 'Reset Database File', click: async () => { aiTerminalService.setDbPath(''); aiOpencodeService.setDbPath(fallbackDb); } },
+      ],
+    },
+  ]);
+  Menu.setApplicationMenu(menu);
+  createWindow();
+  app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
+});
+
+app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
+app.on('will-quit', async () => { await aiOpencodeService.stop(); });
