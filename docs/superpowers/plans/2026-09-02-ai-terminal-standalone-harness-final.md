@@ -149,7 +149,7 @@ export class AiOpencodeService {
     } catch(e) {}
     return this.fallbackDbPath;
   }
-  getSystemPrompt(){ return `Your database is at ${this.fallbackDbPath}. Use sqlite3 -readonly "${this.fallbackDbPath}" to query it. For summarize/estimate/report, query then format as markdown. For report as html/md/txt/jpg, write file to $REPORTS_DIR/report-{FY}.{ext} and return path.`; }
+  getSystemPrompt(){ return `Your database is at '${this.fallbackDbPath}'. Use Python ${process.version} sqlite3 module to query it.`; }
   async isInstalled(): Promise<boolean> { try { const r=await execFile('opencode', ['--version'], {timeout:5000, windowsHide:true}); return r.status===0; } catch { return false; } }
   async serve(): Promise<void> {
     if (this.serverReady) return;
