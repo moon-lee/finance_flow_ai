@@ -1,4 +1,6 @@
-# AI-Terminal Standalone Harness + Main Integration Final Plan
+> **Status: SCRAPPED (2026-09-03).** Phase 6 AI-Terminal dropped by user decision — complexity (PowerShell spawning/quoting, session state, permission gates) exceeded value vs fixed summarize/report UI. Harness `standalone/ai-terminal/` deleted. Main app `src/` was never touched (Tasks 5-10 never started); `src/renderer/components/ai-panel.ts` remains as-is. Key findings preserved here for archaeology: direct `opencode run --model opencode/big-pickle --format json --auto` works; `opencode serve`/`--attach` unnecessary; `external_directory` writes auto-rejected (harness must write report files via Node); DB path must be absolute in prompt; PowerShell single-quote + newline escaping required.
+>
+> # AI-Terminal Standalone Harness + Main Integration Final Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
