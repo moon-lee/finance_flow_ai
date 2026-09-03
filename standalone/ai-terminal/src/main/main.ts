@@ -3,6 +3,7 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { AiTerminalService } from "./services/ai-terminal-service.js";
 import { AiOpencodeService } from "./services/ai-opencode-service.js";
+import { AiReportService, parseReportRequest } from "./services/ai-report-service.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -51,10 +52,19 @@ app.whenReady().then(() => {
     `[ai-terminal] System prompt: ${aiOpencodeService.getSystemPrompt().slice(0, 120)}...`,
   );
 
+  const aiReportService = new AiReportService(join(app.getPath("userData"), "Reports"));
+
   ipcMain.handle("ai-terminal:send", async (_e, prompt: string) => {
     console.log(`[ai-terminal] IPC ai-terminal:send "${prompt.slice(0, 60)}"`);
     try {
       const out = await aiOpencodeService.query(prompt);
+      const report = parseReportRequest(prompt);
+      if (report) {
+        const saved = await aiReportService.writeReport(out, report.fy, report.ext);
+        console.log(`[ai-terminal] report saved: ${saved}`);
+        await aiReportService.openReport(saved);
+        return { ok: true, output: `${out}\n\nSaved: ${saved}` };
+      }
       console.log(`[ai-terminal] IPC send ok ${out.length} chars`);
       return { ok: true, output: out };
     } catch (err) {

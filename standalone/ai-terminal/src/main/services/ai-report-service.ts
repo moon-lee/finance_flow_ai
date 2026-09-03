@@ -1,6 +1,13 @@
 import { mkdirSync, writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 
+export function parseReportRequest(prompt: string): { ext: string; fy: string } | null {
+  const extMatch = prompt.match(/\bas\s+(html|md|txt|jpg)\s*$/i);
+  if (!extMatch) return null;
+  const fyMatch = prompt.match(/(\d{4})\s*[-–]\s*(\d{4})/);
+  return { ext: extMatch[1].toLowerCase(), fy: fyMatch ? `${fyMatch[1]}-${fyMatch[2]}` : 'latest' };
+}
+
 export class AiReportService {
   constructor(private reportsDir: string) {}
 

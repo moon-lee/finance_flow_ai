@@ -98,7 +98,7 @@ export class AiOpencodeService {
   }
 
   getSystemPrompt(): string {
-    return `Your database is at '${this.fallbackDbPath}'. Use Python ${process.version} sqlite3 module to query it.`;
+    return `Your database is at '${this.fallbackDbPath}'. Use Python ${process.version} sqlite3 module to query it. Do NOT write files. Return the report content directly in your reply.`;
   }
 
   async isInstalled(): Promise<boolean> {
