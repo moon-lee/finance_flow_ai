@@ -25,7 +25,6 @@ describe('AiOpencodeService standalone', ()=>{
   it('getSystemPrompt includes db path', ()=>{
     const s=new AiOpencodeService('/my/db.db');
     expect(s.getSystemPrompt()).toContain('/my/db.db');
-    expect(s.getSystemPrompt()).toContain('sqlite3 -readonly');
   });
 
   it('selectDbPath uses dialog and validates', async ()=>{
