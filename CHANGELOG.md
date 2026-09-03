@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Administrative
 
 - **Phase 6 AI-Terminal scrapped** (`docs/archives/2026-09-02-ai-terminal-standalone-harness-final-SCRAPPED.md`, `docs/archives/2026-08-31-bottom-terminal-opencode-draft.md`). Standalone harness `standalone/ai-terminal/` deleted after validation; opencode-spawning complexity (PowerShell quoting, session state, `external_directory` write denial) exceeded value vs fixed summarize/report UI. Main app `src/` was never touched — `src/renderer/components/ai-panel.ts` remains as-is. Preserved findings: direct `opencode run --model opencode/big-pickle --format json --auto` works; `serve`/`--attach` unnecessary; report files must be written by Node (`AiReportService`), not opencode; DB path must be absolute in prompt.
+- **Dead AI panel placeholder removed** (`src/renderer/components/ai-panel.ts`, `src/renderer/index.html`, `src/renderer/index.ts`, `src/renderer/styles/layout.css`, `src/renderer/styles/tokens.css`, `src/renderer/components/command-palette.ts`, `src/main/services/shortcut-registry.ts`, `src/main/services/webview-panel-manager.ts`, `tests/e2e/renderer-shell.spec.ts`, `tests/unit/main/services/shortcut-registry.test.ts`, `docs/file-reference.md`). Right-side "Chat panel placeholder" had no functionality after Phase 6 scrap; shell collapses to 3 columns, workspace full width, `RIGHT_OFFSET` 320→0. Per `docs/superpowers/plans/2026-09-04-remove-ai-panel.md`.
 
 ### Added
 

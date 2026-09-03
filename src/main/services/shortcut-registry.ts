@@ -10,7 +10,6 @@ export interface ShortcutEntry {
 
 const CORE_SHORTCUTS: ShortcutEntry[] = [
   { commandId: 'core.toggle-command-palette', extensionId: 'core', accelerator: 'Ctrl+Shift+P' },
-  { commandId: 'core.toggle-ai', extensionId: 'core', accelerator: 'Ctrl+Shift+J' },
   { commandId: 'core.close-palette', extensionId: 'core', accelerator: 'Escape' },
 ];
 

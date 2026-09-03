@@ -24,7 +24,7 @@
 | `src/renderer/components/activity-bar.ts` | 5-button Activity Bar with view switching |
 | `src/renderer/components/navigation-panel.ts` | Context-sensitive sidebar |
 | `src/renderer/components/workspace.ts` | Tab bar + placeholder content |
-| `src/renderer/components/ai-panel.ts` | Collapsible AI Assistant panel |
+| `src/renderer/components/ai-panel.ts` | ~~Collapsible AI Assistant panel~~ — removed 2026-09-04 (dead placeholder; see `docs/superpowers/plans/2026-09-04-remove-ai-panel.md`) |
 | `src/renderer/components/command-palette.ts` | Full keyboard-navigable command palette |
 | `src/renderer/index.ts` | Keybindings, IPC version display, event wiring |
 | `tests/e2e/renderer-shell.spec.ts` | 6 Playwright smoke tests (optional) |

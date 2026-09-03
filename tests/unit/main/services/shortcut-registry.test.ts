@@ -49,8 +49,14 @@ describe('ShortcutRegistry', () => {
     registry.build([]);
 
     expect(registry.getCommandForAccelerator('Ctrl+Shift+P')).toBeDefined();
-    expect(registry.getCommandForAccelerator('Ctrl+Shift+J')).toBeDefined();
     expect(registry.getCommandForAccelerator('Escape')).toBeDefined();
+  });
+
+  it('build() no longer registers core.toggle-ai (ai-panel removed)', () => {
+    (getSettings as ReturnType<typeof vi.fn>).mockReturnValue({});
+    registry.build([]);
+
+    expect(registry.getCommandForAccelerator('Ctrl+Shift+J')).toBeUndefined();
   });
 
   it('build() applies custom accelerator overrides from settings', () => {

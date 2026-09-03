@@ -1,7 +1,6 @@
 import './components/activity-bar';
 import './components/navigation-panel';
 import './components/workspace';
-import './components/ai-panel';
 import './components/command-palette';
 import './components/settings-screen';
 import './components/accounts-manager';
@@ -16,7 +15,6 @@ import type { HostLogEntry, HostStatus } from '../types/finance-shell';
 import type { NavigationPanel } from './components/navigation-panel';
 import { rendererLogger } from './logger';
 
-const app = document.querySelector<HTMLElement>('#app');
 const commandPalette = document.querySelector<HTMLElement & { focusInput(): void; extensionCommands: PaletteCommand[] }>('#command-palette');
 const navigationPanel = document.querySelector<NavigationPanel>('#navigation-panel');
 const activityBar = document.querySelector<HTMLElement & { views: ActivityView[]; activeView: string }>('#activity-bar');
@@ -114,49 +112,6 @@ window.addEventListener('workspace:resize', (event: Event) => {
 // Host) has no DOM, so the Renderer performs the actual mount here.
 // Phase 5 replaces this with WebContentsView-based panels; the handler
 // remains as a no-op fallback for any legacy callers.
-
-function toggleAiPanel(): void {
-  app?.classList.toggle('ai-collapsed');
-  void window.financeShell?.settings.set('core.ui.aiCollapsed', app?.classList.contains('ai-collapsed'));
-}
-
-const resizer = document.querySelector<HTMLElement>('.ai-resizer');
-let _aiDragging = false;
-let _aiStartX = 0;
-let _aiStartWidth = 0;
-
-function _onResizerMouseDown(event: MouseEvent): void {
-  _aiDragging = true;
-  _aiStartX = event.clientX;
-  const aiPanel = document.querySelector<HTMLElement>('#ai-panel');
-  _aiStartWidth = aiPanel?.offsetWidth ?? 250;
-  resizer?.classList.add('dragging');
-  document.addEventListener('mousemove', _onResizerMouseMove);
-  document.addEventListener('mouseup', _onResizerMouseUp);
-  event.preventDefault();
-}
-
-function _onResizerMouseMove(event: MouseEvent): void {
-  if (!_aiDragging) return;
-  const delta = _aiStartX - event.clientX;
-  const newWidth = Math.max(200, Math.min(_aiStartWidth + delta, 600));
-  document.documentElement.style.setProperty('--ai-panel-width', `${newWidth}px`);
-}
-
-function _onResizerMouseUp(): void {
-  if (!_aiDragging) return;
-  _aiDragging = false;
-  resizer?.classList.remove('dragging');
-  document.removeEventListener('mousemove', _onResizerMouseMove);
-  document.removeEventListener('mouseup', _onResizerMouseUp);
-  const aiPanel = document.querySelector<HTMLElement>('#ai-panel');
-  const currentWidth = aiPanel?.offsetWidth ?? 250;
-  void window.financeShell?.settings.set('core.ui.aiPanelWidth', currentWidth);
-}
-
-if (resizer) {
-  resizer.addEventListener('mousedown', _onResizerMouseDown);
-}
 
 async function applyTheme(theme: unknown): Promise<void> {
   if (theme === 'light') document.body.classList.add('light-theme');
@@ -347,8 +302,7 @@ window.addEventListener('command-selected', (event: Event) => {
       rendererLogger.error(`extension command "${cmd}" threw`, 'palette', err as Error);
     });
   } else {
-    if (cmd === 'toggle-ai') toggleAiPanel();
-    else if (cmd === 'view-dashboard') navigationPanel?.setView('Dashboard');
+    if (cmd === 'view-dashboard') navigationPanel?.setView('Dashboard');
   }
   setCommandPaletteVisible(false);
 });
@@ -359,13 +313,7 @@ async function initApp(): Promise<void> {
   const theme = await window.financeShell?.settings.get('core.theme');
   if (theme !== undefined) await applyTheme(theme);
 
-  const aiCollapsed = await window.financeShell?.settings.get('core.ui.aiCollapsed');
-  if (aiCollapsed === true) app?.classList.add('ai-collapsed');
 
-  const aiPanelWidth = await window.financeShell?.settings.get('core.ui.aiPanelWidth') as number | undefined;
-  if (typeof aiPanelWidth === 'number' && aiPanelWidth > 0) {
-    document.documentElement.style.setProperty('--ai-panel-width', `${aiPanelWidth}px`);
-  }
 
   await loadExtensionContributions();
 
@@ -463,9 +411,6 @@ if (window.financeShell?.extensions?.onShortcut) {
     switch (commandId) {
       case 'core.toggle-command-palette':
         setCommandPaletteVisible(commandPalette?.classList.contains('hidden') ?? true);
-        break;
-      case 'core.toggle-ai':
-        toggleAiPanel();
         break;
       case 'core.close-palette':
         setCommandPaletteVisible(false);

@@ -362,11 +362,11 @@ export class WebviewPanelManager {
       // Fallback timer: if the renderer doesn't send panel:resize within 200ms,
       // make the panel visible at computed workspace-area size.
       // The workspace grid has: activity-bar (56) + nav (260) = 316px left offset,
-      // ai-panel (320px) right offset, tab-strip (36px) top, status-bar (26px) bottom.
+      // no right panel (ai-panel removed), tab-strip (36px) top, status-bar (26px) bottom.
       const TAB_STRIP_HEIGHT = 36;
       const STATUS_BAR_HEIGHT = 26;
       const LEFT_OFFSET = 56 + 260; // activity-bar + navigation
-      const RIGHT_OFFSET = 320; // ai-panel
+      const RIGHT_OFFSET = 0; // ai-panel removed
 
       const timer = setTimeout(() => {
         this.mountShowTimers.delete(panelId);

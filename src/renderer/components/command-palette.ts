@@ -12,7 +12,6 @@ export interface PaletteCommand {
 
 const BUILT_IN_COMMANDS: PaletteCommand[] = [
   { id: 'view-dashboard', label: 'View: Dashboard' },
-  { id: 'toggle-ai', label: 'View: Toggle AI Assistant' },
   { id: 'new-workspace', label: 'File: New Workspace' }
 ];
 

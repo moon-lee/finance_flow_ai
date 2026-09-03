@@ -6,7 +6,6 @@ test.describe('Phase 1 renderer shell', () => {
     await expect(page.locator('#activity-bar')).toBeVisible();
     await expect(page.locator('#navigation-panel')).toBeVisible();
     await expect(page.locator('#workspace')).toBeVisible();
-    await expect(page.locator('#ai-panel')).toBeVisible();
     await expect(page.locator('#status-bar')).toBeVisible();
   });
 
@@ -35,16 +34,6 @@ test.describe('Phase 1 renderer shell', () => {
     await expect(palette).toBeHidden();
   });
 
-  test('collapses and restores the AI panel', async ({ page }) => {
-    await page.goto('/');
-    const app = page.locator('#app');
-    await expect(app).not.toHaveClass(/ai-collapsed/);
-    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+J' : 'Control+J');
-    await expect(app).toHaveClass(/ai-collapsed/);
-    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+J' : 'Control+J');
-    await expect(app).not.toHaveClass(/ai-collapsed/);
-  });
-
   test('switches sidebar navigation on activity bar click', async ({ page }) => {
     await page.goto('/');
     const navPanel = page.locator('#navigation-panel');
@@ -65,7 +54,6 @@ test.describe('Phase 2 settings and theme', () => {
     await page.goto('/');
     await page.evaluate(async () => {
       await window.financeShell.settings.set('core.theme', 'dark');
-      await window.financeShell.settings.set('core.ui.aiCollapsed', false);
     });
     await page.reload();
   });
