@@ -26,7 +26,7 @@ export interface AccountOption {
 }
 
 type SortKey = 'pay_date' | 'gross' | 'net' | 'payg' | 'sg' | 'leave';
-const PAGE_SIZE = 15;
+const PAGE_SIZE = 10;
 
 @customElement('payslip-list')
 export class PayslipList extends LitElement {
@@ -565,7 +565,7 @@ export class PayslipList extends LitElement {
               </div>
             </div>
 
-            <p class="info-note">YTD summary uses <code>PayService.aggregateYearToDate(payslips, financialYearStart)</code>. Edit populates the payslip form; Delete confirms then dispatches <code>payslip-delete</code>. Pagination shows 15 rows/page.</p>
+            <p class="info-note">YTD summary uses <code>PayService.aggregateYearToDate(payslips, financialYearStart)</code>. Edit populates the payslip form; Delete confirms then dispatches <code>payslip-delete</code>. Pagination shows 10 rows/page.</p>
           `}
       </div>
       </div>

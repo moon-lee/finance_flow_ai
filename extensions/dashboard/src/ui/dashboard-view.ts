@@ -178,6 +178,7 @@ export class DashboardView extends LitElement {
     const currentFy = this._currentFyValue();
 
     return html`
+      <div class="view-scroll">
       <div class="topbar">
         <span class="crumb-current">Dashboard</span>
         <select class="fy-select" .value=${currentFy} @change=${this._onFyChange}>
@@ -188,6 +189,7 @@ export class DashboardView extends LitElement {
       </div>
       <div class="grid">
         ${cards}
+      </div>
       </div>
     `;
   }

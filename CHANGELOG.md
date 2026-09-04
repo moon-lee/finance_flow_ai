@@ -25,6 +25,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **SDK templates: multi-view dev support** (`scripts/sdk/templates/index.html.template`, `scripts/sdk/templates/AGENTS.md.template`). Added view-switcher dropdown to `index.html.template` for switching between views in dev mode. Updated `AGENTS.md.template` with §5b multi-view documentation.
 
+- **Scrollbar styling: dashboard + settings + SDK sample-view** (`extensions/dashboard/src/ui/dashboard-view.ts`, `extensions/dashboard/src/styles/ext-layout.css`, `extensions/dashboard/src/styles/ext-tokens.css`, `src/renderer/components/settings-screen.ts`, `scripts/sdk/templates/src/ui/sample-view.ts.template`). Applied the `.view-scroll` modern scrollbar wrapper to the dashboard view and synced dashboard styles from salary-history; added the same scrollbar styling to `.settings-body` in the main settings screen; wrapped SDK `sample-view.ts.template` in `.view-scroll`.
+
 ### Administrative
 
 - **Phase 6 AI-Terminal scrapped** (`docs/archives/2026-09-02-ai-terminal-standalone-harness-final-SCRAPPED.md`, `docs/archives/2026-08-31-bottom-terminal-opencode-draft.md`). Standalone harness `standalone/ai-terminal/` deleted after validation; opencode-spawning complexity (PowerShell quoting, session state, `external_directory` write denial) exceeded value vs fixed summarize/report UI. Main app `src/` was never touched — `src/renderer/components/ai-panel.ts` remains as-is. Preserved findings: direct `opencode run --model opencode/big-pickle --format json --auto` works; `serve`/`--attach` unnecessary; report files must be written by Node (`AiReportService`), not opencode; DB path must be absolute in prompt.

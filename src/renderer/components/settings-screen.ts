@@ -102,7 +102,29 @@ export class SettingsScreen extends LitElement {
       min-width: 0;
       min-height: 0;
       overflow-y: auto;
+      overflow-x: hidden;
+      scrollbar-width: thin;
+      scrollbar-color: #5a5a5a transparent;
+      scroll-behavior: smooth;
     }
+    .settings-body::-webkit-scrollbar { width: 10px; }
+    .settings-body::-webkit-scrollbar-track { background: transparent; }
+    .settings-body::-webkit-scrollbar-thumb {
+      background: #5a5a5a;
+      border-radius: 5px;
+      border: 2px solid transparent;
+      background-clip: padding-box;
+      transition: background 0.2s ease;
+    }
+    .settings-body::-webkit-scrollbar-thumb:hover {
+      background: #6a6a6a;
+      background-clip: padding-box;
+    }
+    .settings-body::-webkit-scrollbar-thumb:active {
+      background: #007acc;
+      background-clip: padding-box;
+    }
+    .settings-body::-webkit-scrollbar-corner { background: transparent; }
 
     .settings-header {
       margin-bottom: 24px;
