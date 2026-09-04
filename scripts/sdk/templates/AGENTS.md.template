@@ -64,6 +64,34 @@ finance.events.on/off/emit
   ```
   Start with `src/ui/{{ID}}-view.ts` in-view DB; extract to `dao`/`services` when you add validation/derived fields; add `orchestrator` when you need 2+ views or `finance.ui.requestMount` navigation. `extensions/salary-history/src/orchestrator.ts` + `dao/pay-slips.ts` + `services/pay-service.ts` are the reference — copy that layout only when needed.
 
+## 5b. Adding a second view (e.g. `{{ID}}-detail`)
+
+### Files to touch
+
+| File | Change |
+|------|--------|
+| `package.json` `financeExtension.contributions` | Add to `views[]`, `commands[]`, `navigation[]`, `allowedCommands[]`, `allowedUiEvents[]` |
+| `src/ui/{{ID}}-detail-view.ts` | New Lit element (copy `{{ID}}-view.ts` as starter) |
+| `src/ui/index.ts` | Import + `customElements.define('{{ID}}-detail-view', ...)` |
+| `src/main.ts` | Register the new command: `finance.commands.registerCommand('{{ID}}.open-detail', ...)` calling `finance.ui?.requestMount('{{ID}}-detail')` |
+| `index.html` | Add entry to the `VIEWS` array (dropdown auto-populates) |
+
+### Dev mode — switch views with the dropdown
+
+`index.html` includes a `<select>` dropdown (top-right) listing every view in the `VIEWS` array. When you add a new view:
+
+1. Create `src/ui/{{ID}}-detail-view.ts` and register it in `src/ui/index.ts`
+2. Add to the `VIEWS` array in `index.html`:
+   ```js
+   const VIEWS = [
+     { tag: '{{ID}}-view',         label: '{{DISPLAY_NAME}}' },
+     { tag: '{{ID}}-detail-view',  label: 'Detail View' },  // <-- add this
+   ];
+   ```
+3. `npm run dev` — use the dropdown to switch views, no restart needed
+
+No revert needed before `npm run build` — `index.html` is dev-only and ignored by the Vite lib build.
+
 ## 6. Lifecycle & gotchas
 - `activate(finance, ctx:{viewId?})` is called in **both** Host Node (no `document`/`window`) and panel browser (`panel-bootstrap.ts:294` `await bundle.activate(finance,{viewId,...mountData})` after `await bundle.registerUIComponents()`). Guard: `if (typeof window !== 'undefined') await import('./ui/index.js')`; `if (ctx.viewId && typeof document !== 'undefined') { createElement ... queueMicrotask(()=>setFinance) }`. Host crash at `todo-list.js:105` `HTMLElement is not defined` was top-level `import './ui/index.js'` + Lit in Node.
 - `registerUIComponents(): Promise<void>` is awaited in panel before `activate`; keep it as `if (typeof window !== 'undefined') await import('./ui/index.js')`.
