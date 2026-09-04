@@ -387,6 +387,7 @@ export class RateRowForm extends LitElement {
   private _renderDeleteConfirm(): unknown {
     const r = this.rate;
     return html`
+      <div class="view-scroll">
       <div class="topbar">
         <span
           class="crumb-link"
@@ -421,6 +422,7 @@ export class RateRowForm extends LitElement {
           </div>
         </div>
       </div>
+      </div>
     `;
   }
 
@@ -432,6 +434,7 @@ export class RateRowForm extends LitElement {
 
   private _renderForm(readOnly: boolean): unknown {
     return html`
+      <div class="view-scroll">
       <div class="topbar">
         <span
           class="crumb-link"
@@ -544,6 +547,7 @@ export class RateRowForm extends LitElement {
           </div>
         </form>
         <p class="info-note">Validated by <code>PayRateService.validateRateRow</code>: <code>effective_from &lt; effective_to</code> if both set; all rates ≥ 0; <code>SG ≤ 1</code>. Saving a new rate calls <code>PayRateService.addNewRate</code> in a single SQLite transaction (atomic close + insert).</p>
+      </div>
       </div>
     `;
   }

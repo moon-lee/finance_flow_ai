@@ -465,6 +465,7 @@ export class PayslipList extends LitElement {
     const subtitle = `FY ${this._fyDisplay(this._fyLabel())} · Account: ${this.accounts[0]?.name ?? '—'} · ${total} payslips`;
 
     return html`
+      <div class="view-scroll">
       <div class="topbar">
         <span class="crumb-current">Pay History</span>
         <div class="spacer"></div>
@@ -566,6 +567,7 @@ export class PayslipList extends LitElement {
 
             <p class="info-note">YTD summary uses <code>PayService.aggregateYearToDate(payslips, financialYearStart)</code>. Edit populates the payslip form; Delete confirms then dispatches <code>payslip-delete</code>. Pagination shows 15 rows/page.</p>
           `}
+      </div>
       </div>
     `;
   }

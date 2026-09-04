@@ -266,6 +266,7 @@ export class PayRateHistoryView extends LitElement {
 
   render(): unknown {
     return html`
+      <div class="view-scroll">
       <div class="topbar">
         <span class="crumb-current">Pay Rate History</span>
         <div class="spacer"></div>
@@ -292,6 +293,7 @@ export class PayRateHistoryView extends LitElement {
             </div>`}
 
         <p class="info-note">"Edit" is only available on the current row (the one with <code>effective_to = NULL</code>); historical rows are read-only "View". Adding a new rate row opens <code>rate-row-form</code> and confirms with a dialog.</p>
+      </div>
       </div>
     `;
   }

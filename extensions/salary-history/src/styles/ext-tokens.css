@@ -32,8 +32,8 @@
   --ff-success: #4ec9b0;
 
   /* Scrollbar */
-  --ff-scrollbar-thumb: #334155;
-  --ff-scrollbar-thumb-hover: #475569;
+  --ff-scrollbar-thumb: #5a5a5a;
+  --ff-scrollbar-thumb-hover: #6a6a6a;
 
   /* Spacing scale */
   --ff-space-1: 4px;
@@ -79,6 +79,6 @@ body.light-theme {
   --ff-warning-text: #92400e;
   --ff-warning-bg: #fef3c7;
   --ff-success: #0d9488;
-  --ff-scrollbar-thumb: #cbd5e1;
-  --ff-scrollbar-thumb-hover: #94a3b8;
+  --ff-scrollbar-thumb: #c1c1c1;
+  --ff-scrollbar-thumb-hover: #a8a8a8;
 }

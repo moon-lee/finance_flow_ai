@@ -19,6 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Salary-history scrollbar styling** (`extensions/salary-history/src/styles/ext-layout.css`, `extensions/salary-history/src/styles/ext-tokens.css`, `extensions/salary-history/src/ui/payslip-list.ts`, `extensions/salary-history/src/ui/pay-rate-history-view.ts`, `extensions/salary-history/src/ui/payslip-form.ts`, `extensions/salary-history/src/ui/rate-row-form.ts`). Added `.view-scroll` wrapper with modern vertical scrollbar (thin, `background-clip: padding-box` inset thumb, hover/active accent states, smooth scroll). Scrollbar pseudo-elements now target a real shadow-DOM element instead of `:host` (which WebKit ignores). `.topbar` made `position: sticky`. Dark/light scrollbar tokens updated in `ext-tokens.css`.
+
 ### Administrative
 
 - **Phase 6 AI-Terminal scrapped** (`docs/archives/2026-09-02-ai-terminal-standalone-harness-final-SCRAPPED.md`, `docs/archives/2026-08-31-bottom-terminal-opencode-draft.md`). Standalone harness `standalone/ai-terminal/` deleted after validation; opencode-spawning complexity (PowerShell quoting, session state, `external_directory` write denial) exceeded value vs fixed summarize/report UI. Main app `src/` was never touched — `src/renderer/components/ai-panel.ts` remains as-is. Preserved findings: direct `opencode run --model opencode/big-pickle --format json --auto` works; `serve`/`--attach` unnecessary; report files must be written by Node (`AiReportService`), not opencode; DB path must be absolute in prompt.

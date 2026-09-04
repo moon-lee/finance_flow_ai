@@ -14,7 +14,38 @@
   font-size: var(--ff-font-lg);
   line-height: 1.5;
   font-family: "SF Mono", Consolas, monospace;
+  height: 100%;
 }
+
+/* Scrollable wrapper — put this around all view content */
+.view-scroll {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: var(--ff-scrollbar-thumb, #5a5a5a) transparent;
+  scroll-behavior: smooth;
+}
+.view-scroll::-webkit-scrollbar { width: 10px; }
+.view-scroll::-webkit-scrollbar-track { background: transparent; }
+.view-scroll::-webkit-scrollbar-thumb {
+  background: var(--ff-scrollbar-thumb, #5a5a5a);
+  border-radius: 5px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  transition: background 0.2s ease;
+}
+.view-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--ff-scrollbar-thumb-hover, #6a6a6a);
+  background-clip: padding-box;
+}
+.view-scroll::-webkit-scrollbar-thumb:active {
+  background: var(--ff-accent, #007acc);
+  background-clip: padding-box;
+}
+.view-scroll::-webkit-scrollbar-corner { background: transparent; }
 
 .shell {
   display: flex;
@@ -60,6 +91,10 @@
   display: flex;
   align-items: center;
   gap: 12px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  flex-shrink: 0;
 }
 .topbar .crumb-link {
   color: var(--ff-accent, #007acc);
@@ -276,18 +311,5 @@ button {
 .primary { background: var(--ff-accent, #007acc); color: var(--ff-text-strong, #fff); }
 .ghost { background: transparent; color: var(--ff-text-muted, #858585); border: 1px solid var(--ff-border, #3e3e3e); }
 
-/* Scrollbar */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: var(--ff-scrollbar-thumb, #334155);
-  border-radius: 4px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: var(--ff-scrollbar-thumb-hover, #475569);
-}
+/* Scrollbar — plain selectors inside shadow DOM */
+/* old scrollbar rules removed — now on .view-scroll */

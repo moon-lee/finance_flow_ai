@@ -1098,6 +1098,7 @@ export class PayslipForm extends LitElement {
 
   render(): unknown {
     return html`
+      <div class="view-scroll">
       <div class="topbar">
         <span
           class="crumb-link"
@@ -1139,6 +1140,7 @@ export class PayslipForm extends LitElement {
             >${this.editPaySlip ? 'Save changes' : 'Add Payslip'}</button>
           </div>
         </form>
+      </div>
       </div>
     `;
   }
