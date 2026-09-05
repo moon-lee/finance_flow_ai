@@ -19,6 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Application menu with 'Terminal → New Terminal'** (`src/main/services/app-menu.ts`, `src/main/main.ts`, `tests/unit/main/services/app-menu.test.ts`). First application menu bar for the app. Adds a **Terminal** menu with **New Terminal** (`` Ctrl+` ``) that spawns a local terminal in the current working directory — Windows Terminal (`wt.exe`) if found on PATH, falling back to the WindowsApps path, then `cmd.exe`. Dev-mode default cwd is `process.cwd()`; packaged apps default to Documents. Also adds Edit/View/Window menu groups with standard roles (undo/redo, reload/devtools/zoom, minimize/close).
+
 ### Changed
 
 - **Salary-history scrollbar styling** (`extensions/salary-history/src/styles/ext-layout.css`, `extensions/salary-history/src/styles/ext-tokens.css`, `extensions/salary-history/src/ui/payslip-list.ts`, `extensions/salary-history/src/ui/pay-rate-history-view.ts`, `extensions/salary-history/src/ui/payslip-form.ts`, `extensions/salary-history/src/ui/rate-row-form.ts`). Added `.view-scroll` wrapper with modern vertical scrollbar (thin, `background-clip: padding-box` inset thumb, hover/active accent states, smooth scroll). Scrollbar pseudo-elements now target a real shadow-DOM element instead of `:host` (which WebKit ignores). `.topbar` made `position: sticky`. Dark/light scrollbar tokens updated in `ext-tokens.css`.

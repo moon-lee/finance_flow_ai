@@ -36,6 +36,7 @@ import { EventBus } from "./services/event-bus";
 import { createLogger } from "./services/logger";
 import { LogFileService } from "./services/log-file-service";
 import { resolveRuntimeProfile } from "./runtime-profile";
+import { installApplicationMenu } from "./services/app-menu";
 import {
   exportDatabase,
   importDatabase,
@@ -887,6 +888,7 @@ registerIpcHandlers();
 
 app.whenReady().then(async () => {
   try {
+    installApplicationMenu();
     userExtensionsRoot = join(app.getPath("userData"), "extensions");
     // Phase 5 Task 2.1 — register the `finance-shell://` custom protocol
     // before any WebContentsView tries to load a panel URL. `protocol.handle`
