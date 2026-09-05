@@ -30,6 +30,7 @@
     "deploy:local": "node scripts/deploy-local.mjs",
     "rebuild": "electron-rebuild --force",
     "test:unit:watch": "vitest",
+    "version:bump": "node scripts/version-bump.mjs",
     "sdk:init": "node scripts/sdk/cli.mjs init",
     "sdk:build": "node scripts/sdk/cli.mjs build",
     "postinstall": "electron-rebuild --force"

@@ -1,7 +1,7 @@
 ---
 version: 1.0.0
 created: 2026-06-14
-last_updated: 2026-09-05T11:37:00+10:00
+last_updated: 2026-09-05T11:57:00+10:00
 ---
 
 # Changelog
@@ -12,6 +12,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+### Administrative
+
+- **Dev version bump script (`npm run version:bump`)** (`scripts/version-bump.mjs`, `tests/unit/scripts/version-bump.test.ts`, `vitest.config.ts`, `package.json`, `AGENTS.md`, `docs/file-reference.md`). On-demand dev build counter using the project's 0–99 patch / 0–9 minor rollover scheme (`1.0.0 → 1.0.1 … 1.0.99 → 1.1.0 … 1.9.99 → 2.0.0`). Bumps `package.json#version` and syncs `package-lock.json`; never writes the CHANGELOG — released versions are still synced FROM CHANGELOG headers at release time. Documented in AGENTS.md rule 5 under "Dev build versioning".
 
 ## [1.0.0] - 2026-09-05
 

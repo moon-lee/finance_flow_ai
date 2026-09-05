@@ -312,3 +312,13 @@
 | `tests/unit/sdk/sdk-build.test.ts` | new | `build` end-to-end (`<id>.js` + `package.json`, no `from "finance"`). |
 | `tests/unit/sdk/sdk-type-parity.test.ts` + `fixtures/parity-check.ts` | new | Types compile + assignable. |
 | `tests/unit/sdk/sdk-refresh.test.ts` | new | `refresh` re-syncs `finance.d.ts`/`vendor/logger.ts`/`styles/*`. |
+
+## Dev Tooling (post-1.0.0)
+
+> `npm run version:bump` — optional on-demand dev build counter (does NOT run on `npm run dev`). Scheme: patch 0–99 → wraps to minor 0–9 → wraps to major. Bumps `package.json` + `package-lock.json` only; CHANGELOG stays authority for released versions. See AGENTS.md rule 5 "Dev build versioning".
+
+| File | Status | Purpose |
+|------|--------|---------|
+| `scripts/version-bump.mjs` | new | Pure `bumpVersion` + runner — increments `package.json#version` and syncs `package-lock.json` (`version` + `packages.""`); run-only-when-invoked detection. |
+| `tests/unit/scripts/version-bump.test.ts` | new | Pure-function coverage (rollovers `1.0.99 → 1.1.0`, `1.9.99 → 2.0.0`, malformed input throws); loads the `.mjs` via `file:` URL to bypass the Vite module graph. |
+| `package.json` | modified | Add `version:bump` script (`node scripts/version-bump.mjs`). |
