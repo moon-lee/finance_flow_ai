@@ -1,11 +1,13 @@
 ---
 title: Finance Flow AI - Implementation Design
 date: 2026-06-13
-last_updated: 2026-08-19T05:16:38+10:00
-status: active
+last_updated: 2026-09-05T11:27:46+10:00
+status: complete
 ---
 
 # Implementation Design
+
+> **Status: COMPLETE (archived 2026-09-05).** All phases are implemented or scrapped — Phase 1 (0.5 days), Phase 2 (0.6.0-era backbone), Phase 3 (shipped 0.6.0), Phase 4 (shipped 0.7.0), Phase 5 (shipped 0.8.0), Phase 6 (**scrapped** 2026-09-02 — see Phase 6 section), Phase 7 (shipped 0.9.0), Phase 8 (shipped 0.10.0). This spec is retained as a historical record in `docs/archives/`; the CHANGELOG and `docs/file-reference.md` are the living project record.
 
 ## Architecture Approach
 
@@ -40,7 +42,7 @@ status: active
 - Extension Loader service (`src/main/services/extension-loader.ts`) scans `<appRoot>/extensions/` for subdirectories with `package.json#financeExtension`; validates each manifest; cross-checks `package.json#name` matches `financeExtension.id`; skips `node_modules/`, `dist/`, and malformed manifests with a `console.log` warning (now visible on stdout after the visibility fix in commit `563ccd3`)
 - Extension Registry service (`src/main/services/extension-registry.ts`) backed by Phase 2's `extension_registry` SQLite table: idempotent `upsert`, `markActivated`, `isEnabled`/`setEnabled`, and aggregation helpers `views()`/`commands()`. Crash diagnostics: `recordCrash()`/`clearCrashes()` methods plus `crash_count`/`last_error` columns added via `002-extension-crash-tracking` migration; auto-disables at `AUTO_DISABLE_CRASH_THRESHOLD = 3`. DI seam: optional `Database` parameter (default `getDatabase()`) so unit tests use `getTestDatabase()` without touching production state.
 - Extension IPC transport (`src/main/services/extension-ipc.ts`): spawns the Host, performs the `host.ready` handshake, exposes typed `request<T>()`/`notify()` API, tracks pending requests with timeouts, restarts on crash detection via `ensureRunning()`. Operational telemetry: `[extension-ipc] host spawned, pid=<N>` line per spawn (in the `'spawn'` event handler — `pid` is async-populated by Electron). Crash log also routed to main-process terminal: `[extension-ipc] Extension Host exited unexpectedly (code <N>)`.
-- `finance.*` API stubs in the Host (`src/extension-host/api/`): functional `commands.registerCommand` and `commands.execute` (graceful `null` on missing); `db.table()` returns empty queryables; `ai.registerTool()` stores tool definitions. Phase 4 replaces DB stubs with real DAO access; Phase 6 replaces AI stubs with tool execution.
+- `finance.*` API stubs in the Host (`src/extension-host/api/`): functional `commands.registerCommand` and `commands.execute` (graceful `null` on missing); `db.table()` returns empty queryables; `ai.registerTool()` stores tool definitions. Phase 4 replaces DB stubs with real DAO access. Phase 6 (AI tool execution) was scrapped — `ai.registerTool` remains a no-op stub.
 - Renderer Activity Bar rebuilt as contribution-driven Lit component (`src/renderer/components/activity-bar.ts`); removed Phase 1's hardcoded `D/P/B/X` buttons, kept built-in `S` (Settings). Defensive `event.isTrusted` gate on `@click` blocks synthetic clicks but allows real user clicks.
 - Command Palette renders extension commands under an "Extensions" group label with `@input` filter and scroll-into-view selection (`src/renderer/components/command-palette.ts`).
 - Host stdout mirrored to Renderer DevTools console: wraps `console.log`/`error`/`warn` in `src/extension-host/host.ts` to also `postMessage` a JSON-RPC `host.log` notification; `extension-ipc.ts` adds a typed `HostLogEntry` and `onHostLog()` API; `main.ts` forwards via new `extensions:host-log` IPC channel; preload exposes `extensions.onHostLog(callback)` on the `contextBridge`; renderer subscribes and dispatches to `console[level](...)` with a `[host log]` prefix.
@@ -68,7 +70,7 @@ status: active
   - ExtensionRegistry unit tests → **Prerequisite satisfied in Phase 3** (8 new tests shipped)
 - **Deliverable**: app launches, spawns Extension Host, dynamically reads mock manifest, registers views/commands, executes round-trip IPC for both `activateView` and `executeCommand`. Crash isolation verified. Hot-disable contract verified. All 56+ unit tests pass.
 
-### Phase 4: Salary History Extension (Vertical Slice) + First Extension Domain Logic (Est: 6 – 8 Days) — **COMPLETE** (shipped_date: 2026-07-17; duration: 2026-07-04 → 2026-07-17, ~13 days; release: 0.7.0)
+### ✅ Phase 4: Salary History Extension (Vertical Slice) + First Extension Domain Logic (Est: 6 – 8 Days) — **COMPLETE** (shipped_date: 2026-07-17; duration: 2026-07-04 → 2026-07-17, ~13 days; release: 0.7.0)
 
 > *Updated 2026-07-06: aligned with Phase 4 plan Decisions 1, 5, 14, 16, 17 and Plan Amendments 1 & 3. Pay slips are extension-private (not shared); cross-extension `finance.services.*` is deferred to Phase 5; DeductionService removed per Amendment 1.*
 
@@ -82,7 +84,7 @@ status: active
   - `WebviewPanel` iframe rendering for extensions → Phase 5 (per Decision 11; Phase 4 mounts UI as Lit elements in the workspace).
   - `finance.services.*` cross-extension Domain Services → Phase 5 (PayService is a Phase 4 internal helper per Decision 5; the cross-extension contract lands when a second consumer needs it).
   - NavigationProvider data-driven sidebar → Phase 5.
-  - AI tools for Salary History (`finance.ai.registerTool` wiring) → Phase 6 (Phase 4's `ai.registerTool` remains a no-op stub).
+  - AI tools for Salary History (`finance.ai.registerTool` wiring) → Phase 6 — scrapped 2026-09-02 (Phase 4's `ai.registerTool` remains a no-op stub).
   - Typed DAO generation from manifest schemas → Phase 7+.
   - Generic settings UI renderer → Phase 7 (only the reorder modal shipped as a settings surface).
   - Per-extension command allowlist on Main → Phase 5 (security hardening; Renderer can still drive arbitrary command execution in Phase 4).
@@ -114,11 +116,10 @@ status: active
 - **Overlay coordination** — centralized `OverlayCoordinator` hides `WebContentsView` panels when main-renderer DOM overlays (command palette, modals) are open and restores them on close.
 - **Deliverable**: Multiple tabs with live charts in Dashboard; Domain Services consumed consistently across extensions; sandboxed WebviewPanel UI; navigation driven by contributions; hardened per-extension IPC allowlists; dirty-state protection; overlay coordination.
 
-### Phase 6: AI Assistant (Deferred until Phase 5 Complete) (Est: 3 – 5 Days)
-- Ollama integration (default local only)
-- Context building from Shared Financial Data
-- Tool registry for extension-registered functions
-- **Deliverable**: Chat panel with read-only data queries to local LLM
+### ❌ Phase 6: AI Assistant (Scrapped — 2026-09-02)
+- **Scrapped after evaluation.** The standalone AI-Terminal harness (`standalone/ai-terminal/`) was deleted after validation; opencode-spawning complexity (PowerShell quoting, session state, `external_directory` write denial) exceeded its value versus a fixed summarize/report UI. The dead right-side `ai-panel.ts` placeholder ("Chat panel placeholder", no functionality since Phase 6 was scrapped) was then removed per `docs/superpowers/plans/2026-09-04-remove-ai-panel.md`, collapsing the shell to 3 columns. The app's `src/` was never wired to AI; `finance.ai.registerTool` remains a no-op stub.
+- **Preserved findings:** direct `opencode run --model opencode/big-pickle --format json --auto` works; `serve`/`--attach` are unnecessary; report files must be written by Node (`AiReportService`), not by opencode; the DB path must be absolute in the prompt.
+- **Records:** `docs/archives/2026-09-02-ai-terminal-standalone-harness-final-SCRAPPED.md`, `docs/archives/2026-08-31-bottom-terminal-opencode-draft.md`
 
 ### ✅ Phase 7: Production Polish (Complete — 2026-08-19, shipped as 0.9.0)
 - Database backup/restore with AES-256-GCM encryption
@@ -153,7 +154,7 @@ Based on a single full-time developer or agent working sequentially, the project
 | **Phase 3** | Extension Host & IPC Foundation | 5 – 7 Days | ~8 Days (incl. 5 review rounds, ESM bundling fix, post-test bug fixes) | High |
 | **Phase 4** | Salary History Extension (Slice) | 6 – 8 Days | ~13 Days (2026-07-04 → 2026-07-17, incl. 2 review rounds + doc/self-review) | Medium |
 | **Phase 5** | WebviewPanels & Multi-Extension UI | 4 – 6 Days | ~4 Days (2026-07-18 → 2026-08-02, incl. planning + review + bug fixes) | High |
-| **Phase 6** | AI Assistant (Local-first) | 3 – 5 Days | — | Medium |
+| **Phase 6** | AI Assistant (Local-first) | 3 – 5 Days | Scrapped (2026-09-02) | Medium |
 | **Phase 7** | Production Polish & Encryption | 3 – 4 Days | ~17 Days (2026-08-02 → 2026-08-19, incl. planning, implementation, review, and testing across 14 tasks) | Medium |
 | **Phase 8** | Extension Ecosystem & SDK | 3 – 5 Days | ~10 Days (2026-08-20 → 2026-08-30, incl. SDK init/build/refresh, manager UI, tab prune, zip fix, AGENTS.md, templates, independent scaffold) | High |
 | **Buffer** | Integration, build debugging, platform adjustments | 4 – 5 Days | — | - |
@@ -190,7 +191,7 @@ Based on a single full-time developer or agent working sequentially, the project
 - **No raw SQL in extensions** - only `finance.db.table('name').find()/insert()/update()` to enforce security boundaries
 - **Graceful degradation** - missing extensions return `null`, never throw or crash
 - **Shared Data ownership** - Platform layer owns Accounts/Transactions/Categories, extensions have read-only access
-- **AI deferred** - no cloud providers until Phase 6; local-first with opt-in only
+- **AI scrapped** - no cloud providers; Phase 6 (AI Assistant / local LLM) was scrapped 2026-09-02, `finance.ai.registerTool` remains a no-op stub, and no AI panel ships in the app
 
 ## Success Criteria
 
