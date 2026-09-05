@@ -19,7 +19,7 @@ Nothing about the current architecture supports this:
 3. **No installer.** Nothing creates tables for extension-declared data (built-in extensions rely on Core-owned migrations `003`–`007`), registers manifests at runtime, or manages install/uninstall/delete-data.
 4. **No SDK.** Extension authors must edit files inside the app repo and rely on the app's own Vite config.
 
-The original Phase 8 scope in `docs/superpowers/specs/2026-06-13-implementation-design.md` also listed **digital signing**. The user explicitly cut it: *"it's just my local app and simple concept … I just create extension and use it."* Signing only matters when distributing to other people; this phase serves a single local user.
+The original Phase 8 scope in `docs/archives/2026-06-13-implementation-design.md` also listed **digital signing**. The user explicitly cut it: *"it's just my local app and simple concept … I just create extension and use it."* Signing only matters when distributing to other people; this phase serves a single local user.
 
 ## Decision
 

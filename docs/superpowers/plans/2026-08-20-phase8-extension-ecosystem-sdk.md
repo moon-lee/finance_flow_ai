@@ -154,7 +154,7 @@ The direct `node scripts/sdk/cli.mjs …` form above is the most predictable and
 | D9 | Table DDL for user extensions is generated at install time by Core (`src/main/services/table-ddl.ts`) — extensions cannot ship migrations (ADR-0002 trigger stays unmet). |
 | D10 | Extension Manager is a main-renderer workspace view (`__extensions__`), same pattern as `__settings__` / `__accounts__`. |
 
-**Scope check:** These are two cohesive subsystems — (A) the in-app installer + manager, (B) the SDK CLI + standalone `npm run dev` preview. They share the manifest/registry/table machinery and the install artifact format, so they ship in one plan (as the project's Phase 8 milestone, per `docs/superpowers/specs/2026-06-13-implementation-design.md`).
+**Scope check:** These are two cohesive subsystems — (A) the in-app installer + manager, (B) the SDK CLI + standalone `npm run dev` preview. They share the manifest/registry/table machinery and the install artifact format, so they ship in one plan (as the project's Phase 8 milestone, per `docs/archives/2026-06-13-implementation-design.md`).
 
 ---
 
@@ -2037,7 +2037,7 @@ git commit -m "feat(phase8): SDK CLI refresh subcommand re-syncs extension types
 **What this does (plain English):** Proves the whole story works by hand: create → build → install → restart → use → manage. Also updates the project's documentation so the new workflow and architecture are recorded for the future.
 
 **Files:**
-- Modify: `docs/extension-api.md`, `docs/file-reference.md`, `docs/decisions/README.md`, `docs/superpowers/specs/2026-06-13-implementation-design.md`, `CHANGELOG.md`
+- Modify: `docs/extension-api.md`, `docs/file-reference.md`, `docs/decisions/README.md`, `docs/archives/2026-06-13-implementation-design.md`, `CHANGELOG.md`
 
 - [ ] **Step 1: Manual test units (run the packaged or dev app)**
 
@@ -2068,7 +2068,7 @@ Expected: all PASS; packaged build includes the new user-extensions path and SDK
 - `docs/extension-api.md`: add an "Installing extensions" section (SDK init/build/refresh, standalone `npm run dev` preview, Extensions screen, restart requirement, uninstall vs delete-data semantics, dependency/version checks, no-signing note).
 - `docs/file-reference.md`: add a Phase 8 inventory (new + modified files from this plan).
 - `docs/decisions/README.md`: index ADR-0009.
-- `docs/superpowers/specs/2026-06-13-implementation-design.md`: update the Phase 8 section to the agreed scope (SDK + installer, no signing) and mark it as the active Phase 8 plan.
+- `docs/archives/2026-06-13-implementation-design.md`: update the Phase 8 section to the agreed scope (SDK + installer, no signing) and mark it as the active Phase 8 plan.
 - `CHANGELOG.md`: add an `### Administrative` entry (plan + ADR + docs), and — with user permission — a version header for `0.10.0`.
 
 - [ ] **Step 4: Self-review against the spec**
