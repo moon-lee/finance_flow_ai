@@ -82,6 +82,14 @@
         "to": "dist/extensions"
       },
       {
+        "from": "assets",
+        "to": "assets",
+        "filter": [
+          "icon.png",
+          "icon.ico"
+        ]
+      },
+      {
         "from": "extensions",
         "to": "extensions",
         "filter": [
@@ -93,7 +101,8 @@
     "win": {
       "target": [
         "dir"
-      ]
+      ],
+      "icon": "assets/icon.ico"
     }
   }
 }

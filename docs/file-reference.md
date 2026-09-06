@@ -1,5 +1,17 @@
 # File Reference
 
+## Application Icon
+
+| File | Status | Purpose |
+|------|--------|---------|
+| `assets/icon.svg` | new | Vector master for the pure-icon mark (dark square, indigo border, white flow + green trend, no lettermark). |
+| `assets/icon.png` / `assets/icon.ico` | new | Generated rasters (via `scripts/generate-icon-assets.py`): 512px PNG for `BrowserWindow`, multi-size ICO for `electron-builder`. |
+| `src/renderer/public/icon.png` | new | Generated favicon copy served by Vite at dev and build. |
+| `scripts/generate-icon-assets.py` | new | PIL-based generator drawing the mark from the vector spec; no new npm dependency. |
+| `src/main/main.ts` | modified | `BrowserWindow` gets `icon: resolveAppIconPath()` (dev `assets/`, packaged `resources/assets/`). |
+| `src/renderer/index.html` | modified | Links `icon.png` as favicon. |
+| `package.json` | modified | `extraResources` ships `assets/icon.*`; `win.icon` points at `assets/icon.ico`. |
+
 ## Local Product Deployment (ADR-0007)
 
 | File | Status | Purpose |

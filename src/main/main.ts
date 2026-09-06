@@ -1,5 +1,6 @@
 import { app, BrowserWindow, ipcMain, protocol, screen, dialog } from "electron";
 import { join } from "node:path";
+import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import {
   initializeDatabase,
@@ -92,6 +93,16 @@ function resolveRendererIndex(): string {
   return join(mainDir, "../renderer/index.html");
 }
 
+function resolveAppIconPath(): string | undefined {
+  // Dev: <repo>/assets/icon.png (mainDir = dist/main). Packaged: resources/assets/icon.png
+  // via electron-builder extraResources. Undefined = Electron default (never throws).
+  const devIcon = join(mainDir, "../../assets/icon.png");
+  if (existsSync(devIcon)) return devIcon;
+  const prodIcon = join(process.resourcesPath, "assets/icon.png");
+  if (existsSync(prodIcon)) return prodIcon;
+  return undefined;
+}
+
 function resolveDatabasePath(): string {
   // Phase 2 keeps the database in Electron's default app data folder.
   // Future custom DB path support should read a tiny bootstrap config
@@ -181,6 +192,7 @@ export async function createWindow(): Promise<BrowserWindow> {
     backgroundColor: backgroundColor,
     title: "Finance Flow AI",
     focusable: true,
+    ...(resolveAppIconPath() ? { icon: resolveAppIconPath() } : {}),
     webPreferences: {
       preload: resolvePreloadPath(),
       contextIsolation: true,

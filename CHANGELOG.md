@@ -1,7 +1,7 @@
 ---
 version: 1.0.0
 created: 2026-06-14
-last_updated: 2026-09-05T11:57:00+10:00
+last_updated: 2026-09-06T15:45:00+10:00
 ---
 
 # Changelog
@@ -12,6 +12,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+### Added
+
+- **Application icon (pure-icon mark)** (`assets/icon.svg`, `assets/icon.png`, `assets/icon.ico`, `src/renderer/public/icon.png`, `scripts/generate-icon-assets.py`, `src/main/main.ts`, `src/renderer/index.html`, `package.json`). New Finance Flow AI mark: dark rounded square, indigo border, white flow line + green trend with node dot — no lettermark, pure paths. `BrowserWindow` uses `assets/icon.png` at runtime (dev + packaged via `extraResources`), renderer shell links `icon.png` as favicon, and `electron-builder` `win.icon` points at the multi-size `assets/icon.ico` so `npm run package:local` ships it.
 
 ### Administrative
 

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Finance Flow AI — pure icon master (no text, pure paths) -->
+  <!-- Dark #252526 · indigo #6366f1 · white #f8fafc · green #4ade80 -->
+  <rect x="70" y="70" width="372" height="372" rx="111" fill="#252526" stroke="#6366f1" stroke-width="22"/>
+  <path d="M119 350 L205 273 L256 303 L393 179" stroke="#f8fafc" stroke-width="34" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M119 384 L213 307 L265 337 L393 213" stroke="#4ade80" stroke-width="21" fill="none" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"/>
+  <circle cx="393" cy="179" r="26" fill="#4ade80"/>
+</svg>
