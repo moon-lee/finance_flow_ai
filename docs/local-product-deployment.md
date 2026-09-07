@@ -40,7 +40,7 @@ By default this copies `release\win-unpacked\` to `D:\Finance Flow Product`. You
 npm run deploy:local -- --target="E:\MyApp"
 ```
 
-The script preserves any existing `data` directory so your database is not overwritten during updates.
+The script preserves any existing `data` directory so your database is not overwritten during updates. It also preserves the product-folder `AGENTS.md` (your finance report agent prompt) — both are moved aside with `renameSync` before the target is replaced, then moved back after the copy.
 
 ## What gets packaged
 

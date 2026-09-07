@@ -19,6 +19,14 @@ function isDirectory(path) {
   }
 }
 
+function isFile(path) {
+  try {
+    return statSync(path).isFile();
+  } catch {
+    return false;
+  }
+}
+
 if (!existsSync(SOURCE)) {
   console.error(`Source folder not found: ${SOURCE}`);
   console.error('Run "npm run package:local" first.');
@@ -43,14 +51,22 @@ if (existsSync(TARGET)) {
     );
   }
 
-  // Preserve existing data
+  // Preserve existing data + product AGENTS.md (finance report agent prompt)
   const dataDir = join(TARGET, 'data');
   const tempDataDir = `${TARGET}.data-temp`;
+  const agentsFile = join(TARGET, 'AGENTS.md');
+  const tempAgentsFile = `${TARGET}.AGENTS-temp.md`;
 
   if (isDirectory(dataDir)) {
     console.log('Preserving existing data directory...');
     rmSync(tempDataDir, { recursive: true, force: true });
     renameSync(dataDir, tempDataDir);
+  }
+
+  if (isFile(agentsFile)) {
+    console.log('Preserving existing AGENTS.md...');
+    rmSync(tempAgentsFile, { force: true });
+    renameSync(agentsFile, tempAgentsFile);
   }
 
   console.log(`Removing existing target: ${TARGET}`);
@@ -64,6 +80,13 @@ if (existsSync(TARGET)) {
     console.log('Restoring existing data directory...');
     rmSync(join(TARGET, 'data'), { recursive: true, force: true });
     renameSync(tempDataDir, join(TARGET, 'data'));
+  }
+
+  // Restore AGENTS.md
+  if (existsSync(tempAgentsFile)) {
+    console.log('Restoring existing AGENTS.md...');
+    rmSync(join(TARGET, 'AGENTS.md'), { force: true });
+    renameSync(tempAgentsFile, join(TARGET, 'AGENTS.md'));
   }
 } else {
   console.log(`Copying ${SOURCE} -> ${TARGET}`);
