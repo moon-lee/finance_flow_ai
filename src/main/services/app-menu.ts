@@ -1,6 +1,6 @@
 import { Menu, type MenuItemConstructorOptions, app } from 'electron';
 import { spawn } from 'node:child_process';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { accessSync, constants } from 'node:fs';
 
 /**
@@ -71,10 +71,17 @@ function openLocalTerminal(cwd: string): void {
   spawnCmd(cwd);
 }
 
-/** Default working directory for "New Terminal". */
+/** Default working directory for "New Terminal".
+ *
+ * Dev (`npm run dev` / `npm start`): the project directory Electron was
+ * launched from (`process.cwd()`). `app.getPath('exe')` is NOT used here —
+ * in dev the exe is Electron's own binary inside `node_modules`, not the app.
+ * Packaged (`Finance Flow AI.exe`): the folder containing the exe
+ * (`dirname(app.getPath('exe'))`), so the terminal lands beside `data\`.
+ */
 export function defaultTerminalCwd(): string {
-  if (!app.isPackaged && process.cwd()) return process.cwd();
-  return app.getPath('documents');
+  if (app.isPackaged) return dirname(app.getPath('exe'));
+  return process.cwd();
 }
 
 function buildTemplate(): MenuItemConstructorOptions[] {

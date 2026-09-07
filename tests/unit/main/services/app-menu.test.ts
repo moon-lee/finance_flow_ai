@@ -12,11 +12,14 @@ vi.mock('electron', () => ({
   },
   app: {
     isPackaged: false,
-    getPath: vi.fn(() => 'documents'),
+    getPath: vi.fn((name: string) =>
+      name === 'exe' ? 'D:\\Finance Flow Product\\Finance Flow AI.exe' : 'documents',
+    ),
   },
 }));
 
 import { installApplicationMenu, defaultTerminalCwd } from '../../../../src/main/services/app-menu';
+import { app } from 'electron';
 
 describe('app-menu', () => {
   beforeEach(() => {
@@ -45,5 +48,13 @@ describe('app-menu', () => {
 
   it('defaults the terminal cwd to process.cwd() in dev', () => {
     expect(defaultTerminalCwd()).toBe(process.cwd());
+  });
+
+  it('defaults the terminal cwd to the exe folder when packaged', async () => {
+    const electron = await import('electron');
+    const electronApp = electron.app as unknown as { isPackaged: boolean };
+    electronApp.isPackaged = true;
+    expect(defaultTerminalCwd()).toBe('D:\\Finance Flow Product');
+    electronApp.isPackaged = false;
   });
 });

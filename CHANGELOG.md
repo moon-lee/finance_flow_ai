@@ -1,7 +1,7 @@
 ---
-version: 1.0.1
+version: 1.0.2
 created: 2026-06-14
-last_updated: 2026-09-07T10:56:59+10:00
+last_updated: 2026-09-07T11:43:31+10:00
 ---
 
 # Changelog
@@ -12,6 +12,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [1.0.2] - 2026-09-07
+
+### Fixed
+
+- **New Terminal opens in exe folder when packaged** (`src/main/services/app-menu.ts`, `tests/unit/main/services/app-menu.test.ts`). `defaultTerminalCwd()` now returns `dirname(app.getPath('exe'))` when `app.isPackaged`, so `Terminal → New Terminal` (``Ctrl+` ``) lands beside the deployed `Finance Flow AI.exe` (next to `data\`) instead of Documents. Dev still returns `process.cwd()` (the exe in dev is Electron's own binary, not the app). Added packaged-branch unit test.
 
 ## [1.0.1] - 2026-09-07
 
