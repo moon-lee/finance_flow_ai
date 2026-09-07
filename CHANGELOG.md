@@ -1,7 +1,7 @@
 ---
-version: 1.0.0
+version: 1.0.1
 created: 2026-06-14
-last_updated: 2026-09-06T15:45:00+10:00
+last_updated: 2026-09-07T10:56:59+10:00
 ---
 
 # Changelog
@@ -12,6 +12,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [1.0.1] - 2026-09-07
+
+### Fixed
+
+- **Dashboard CSS copy-paste revert — keep `.view-scroll` only** (`extensions/dashboard/src/styles/ext-layout.css`, `extensions/dashboard/src/styles/ext-tokens.css`). Commit `89575b2` had overwritten both dashboard stylesheets byte-identical with salary-history (same SHA hashes, 315/84 lines), wiping dashboard-original `.grid`/`.card`/`.ytd-table`/`.reorder-btn`/`.fy-select`/modal styles and dashboard scrollbar tokens. Restored both files from `89575b2^` (227/73 lines) then re-applied only the `.view-scroll` scrollable wrapper (+ `:host { height: 100% }`) using dashboard's own scrollbar tokens (`#334155`/`#475569`). `ext-tokens.css` is now identical to pre-copy; `ext-layout.css` diff vs pre-copy is only the `.view-scroll` block.
 
 ### Added
 
