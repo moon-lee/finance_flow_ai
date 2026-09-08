@@ -24,11 +24,11 @@ function makeContainer(): HTMLElement {
   return el;
 }
 
-/** Panel-style finance: db reads work, services.invoke resolves null. */
-function makePanelFinance(accounts: Array<Record<string, unknown>> = []): FinanceApi {
+/** Panel-style finance: services.invoke resolves null. */
+function makePanelFinance(): FinanceApi {
   return {
     db: {
-      table: vi.fn().mockReturnValue({ find: vi.fn().mockResolvedValue(accounts) }),
+      table: vi.fn().mockReturnValue({ find: vi.fn().mockResolvedValue([]) }),
     },
     services: {
       register: vi.fn(),
@@ -53,49 +53,19 @@ function makeFyFinance(fyValues: Record<string, string>): FinanceApi {
 }
 
 const HOST_AGGREGATOR = {
-  netWorth: {
-    totalBalance: 20000,
-    totalNetPayLast12Months: 4500,
-    currency: 'AUD',
-  },
   ytdSalary: {
     summary: {
       gross: 60000,
       net: 45000,
       payg: 12000,
-      superannuation_guarantee: 6000,
       count: 12,
-      shift_allowance: 0,
-      overtime_1_5x: 0,
-      overtime_2_0x: 0,
-      personal_leave: 0,
-      holiday_leave_loading: 0,
-      holiday_pay: 0,
-      public_holiday: 0,
-    },
-    currentRate: {
-      base_hourly_rate: 50,
-      standard_hours_per_week: 38,
-      shift_allowance_multiplier: 0,
-      effective_from: '2026-01-01',
     },
     financialYearStart: '07-01',
   },
-  lastPayslip: {
-    id: 42,
-    pay_date: '2026-07-15',
-    gross: 6000,
-    net: 4500,
-    currency: 'AUD',
-    account_id: 1,
-  },
-  accountsSummary: {
-    count: 2,
-    accounts: [
-      { id: 1, name: 'Checking', institution: null },
-      { id: 2, name: 'Savings', institution: null },
-    ],
-    totalBalance: 20000,
+  todos: {
+    total: 5,
+    active: 2,
+    done: 3,
   },
 };
 
@@ -108,7 +78,7 @@ describe('DashboardOrchestrator mount data', () => {
     const container = makeContainer();
     const orch = new DashboardOrchestrator(makePanelFinance(), container, {
       aggregator: HOST_AGGREGATOR,
-      cardOrder: ['net-worth', 'ytd-salary', 'last-payslip', 'accounts-summary'],
+      cardOrder: ['pay-summary', 'todo-summary'],
     });
     await orch.init();
 
@@ -125,13 +95,13 @@ describe('DashboardOrchestrator mount data', () => {
     const container = makeContainer();
     const orch = new DashboardOrchestrator(makePanelFinance(), container, {
       aggregator: HOST_AGGREGATOR,
-      cardOrder: ['net-worth', 'ytd-salary', 'last-payslip', 'accounts-summary'],
+      cardOrder: ['pay-summary', 'todo-summary'],
     });
     await orch.init();
 
     container.dispatchEvent(
       new CustomEvent('card-order-change', {
-        detail: ['last-payslip', 'net-worth', 'ytd-salary', 'accounts-summary'],
+        detail: ['todo-summary', 'pay-summary'],
         bubbles: true,
         composed: true,
       }),
@@ -147,17 +117,19 @@ describe('DashboardOrchestrator mount data', () => {
 
   it('falls back to a local aggregator rebuild when mountData has none', async () => {
     const container = makeContainer();
-    const orch = new DashboardOrchestrator(makePanelFinance([{ id: 1, balance: 1000 }]), container, {
-      cardOrder: ['net-worth', 'ytd-salary', 'last-payslip', 'accounts-summary'],
+    const orch = new DashboardOrchestrator(makePanelFinance(), container, {
+      cardOrder: ['pay-summary', 'todo-summary'],
     });
     await orch.init();
 
     await vi.waitFor(() => {
       const view = container.firstElementChild as HTMLElement & {
-        aggregator: { netWorth: { totalBalance: number | null } };
+        aggregator: { ytdSalary: { summary: unknown }; todos: unknown };
       };
       expect(view.tagName.toLowerCase()).toBe('dashboard-view');
-      expect(view.aggregator.netWorth.totalBalance).toBe(1000);
+      // Panel invoke resolves null → both cards degrade to null placeholders.
+      expect(view.aggregator.ytdSalary.summary).toBeNull();
+      expect(view.aggregator.todos).toEqual({ total: null, active: null, done: null });
     });
   });
 
@@ -170,7 +142,7 @@ describe('DashboardOrchestrator mount data', () => {
       }),
       container,
       {
-        cardOrder: ['net-worth', 'ytd-salary', 'last-payslip', 'accounts-summary'],
+        cardOrder: ['pay-summary', 'todo-summary'],
       },
     );
     await orch.init();
@@ -189,7 +161,7 @@ describe('DashboardOrchestrator mount data', () => {
   it('passes empty financialYearCurrent to the view when no override is set', async () => {
     const container = makeContainer();
     const orch = new DashboardOrchestrator(makePanelFinance(), container, {
-      cardOrder: ['net-worth', 'ytd-salary', 'last-payslip', 'accounts-summary'],
+      cardOrder: ['pay-summary', 'todo-summary'],
     });
     await orch.init();
 

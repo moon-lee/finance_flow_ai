@@ -4,8 +4,9 @@
  * The Dashboard is the default-landing aggregator extension (Decision 2).
  * It arrives at `onStartup` activation and:
  *   1. Reads `dashboard.financialYearStart` setting.
- *   2. Calls `buildAggregator` to fetch data from `accounts` (shared table)
- *      and `finance.services.pay.*` (cross-extension contract).
+ *   2. Calls `buildAggregator` to fetch data from
+ *      `finance.services.pay.*` + `finance.services.todo-list.*`
+ *      (cross-extension contracts).
  *   3. Instantiates a `DashboardOrchestrator` to own card-order state and
  *      navigation between the dashboard view and the reorder modal.
  *   4. Registers the `dashboard.refresh` command (re-runs the aggregator).

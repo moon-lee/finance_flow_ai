@@ -231,8 +231,8 @@
 | `extensions/salary-history/src/services/public-pay-adapter.ts` | new | Consumer-driven public surface (4 methods) wrapping the internal `PayService`; returns JSON-safe values and `null` on error. |
 | `extensions/salary-history/src/ui/index.ts` | modified | Exports a bundle-local orchestrator (new or moved from `salary-history-view.ts`) that owns navigation state and dispatches to the panel runtime. |
 | `extensions/dashboard/package.json` | new | Manifest for the Dashboard extension: `activationEvents: ["onStartup"]`, `views` (with `dashboard-view.openCommand: "dashboard.refresh"`), `commands`, `navigation`, `allowedCommands`, `allowedUiEvents`. |
-| `extensions/dashboard/src/main.ts` | modified | Entry point: reads settings, builds aggregator via `finance.services.pay.*` + `finance.db.table('accounts')`, requests mount of `dashboard-view`. Modified to load saved card order from settings for persistence. |
-| `extensions/dashboard/src/services/aggregator-service.ts` | new | Orchestrates cross-extension reads and Shared Financial Data reads into a `DashboardData` object. |
+| `extensions/dashboard/src/main.ts` | modified | Entry point: reads settings, builds aggregator via `finance.services.pay.*` + `finance.services.todo-list.*`, requests mount of `dashboard-view`. Modified to load saved card order from settings for persistence. |
+| `extensions/dashboard/src/services/aggregator-service.ts` | new | Orchestrates cross-extension service reads (`pay` YTD/stats + `todo-list` counts) into a `DashboardData` object (pay-summary + todo-summary cards only; no shared-table reads). |
 | `extensions/dashboard/src/ui/dashboard-view.ts` | new | 4-card layout host; renders cards in `cardOrder`. |
 | `extensions/dashboard/src/ui/{net-worth-card,ytd-salary-card,last-payslip-card,accounts-summary-card}.ts` | new | Individual Lit card components. |
 | `extensions/dashboard/src/ui/shared-styles.ts` | new | Palette tokens + shared card/table/button styles. |

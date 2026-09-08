@@ -1,7 +1,7 @@
 ---
-version: 1.0.3
+version: 1.0.4
 created: 2026-06-14
-last_updated: 2026-09-08T12:22:37+10:00
+last_updated: 2026-09-08T13:02:48+10:00
 ---
 
 # Changelog
@@ -13,9 +13,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.4] - 2026-09-08
+
 ### Added
 
 - **Dashboard Todo Summary card via `todo-list` domain service** (`extensions/dashboard/src/services/aggregator-service.ts`, `extensions/dashboard/src/ui/dashboard-view.ts`, `extensions/dashboard/src/orchestrator.ts`, `extensions/dashboard/src/ui/reorder-cards-modal.ts`). Aggregator invokes `finance.services.invoke('todo-list', 'counts')` (returns `{ total, active, done }`, `null` when todo-list not installed/active) and exposes `DashboardData.todos`; new `todo-summary` card renders Total/Active/Done with `Install Todo List to see this card` placeholder. Added to `CANONICAL_CARD_ORDER` + reorder labels. No hard dependency on `todo-list`; lazy `onView:todo-list` activation preserved (placeholder until first open, then `dashboard.refresh` shows counts).
+
+### Changed
+
+- **Dashboard aggregator trimmed to rendered cards** (`extensions/dashboard/src/services/aggregator-service.ts`, `extensions/dashboard/src/main.ts`, `tests/unit/extensions/dashboard/aggregator-service.test.ts`, `tests/unit/extensions/dashboard/orchestrator.test.ts`). Removed wasted fetches the view never renders: `accounts` table read, `pay.getLastPayslip`, `pay.getCurrentRate`. `DashboardData` drops `netWorth`/`lastPayslip`/`accountsSummary`; `ytdSalary` keeps only `gross`/`net`/`payg`/`count` used by the pay-summary card. Aggregator now invokes only `pay.getYearToDateSummary`, `pay.getPayslipStats`, `todo-list.counts`. Tests rewritten for the trimmed payload including a no-wasted-fetch assertion.
 
 ## [1.0.3] - 2026-09-07
 
