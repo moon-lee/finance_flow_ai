@@ -1049,6 +1049,9 @@ app.whenReady().then(async () => {
       onMountRequested: (extensionId, viewId, mountData) => {
         webviewPanelManager?.mount(extensionId, viewId, mountData);
       },
+      onDataPush: (extensionId, viewId, mountData) => {
+        webviewPanelManager?.pushMountData(extensionId, viewId, mountData);
+      },
       onFocusRequested: (panelId) => {
         webviewPanelManager?.focus(panelId);
       },
@@ -1148,6 +1151,9 @@ app.whenReady().then(async () => {
     webviewPanelManager.setUIHandler({
       onMountRequested: (extensionId, viewId, mountData) => {
         webviewPanelManager?.mount(extensionId, viewId, mountData);
+      },
+      onDataPush: (extensionId, viewId, mountData) => {
+        webviewPanelManager?.pushMountData(extensionId, viewId, mountData);
       },
       onFocusRequested: (panelId) => {
         webviewPanelManager?.focus(panelId);

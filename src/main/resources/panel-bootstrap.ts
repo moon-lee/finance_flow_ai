@@ -136,6 +136,13 @@ function createPanelFinanceApi(extensionId: string): FinanceApi {
       requestMount: async (_viewId: string, _mountData?: object) => {
         panelLogger.warn(`[panel] requestMount: ${_viewId} — panel already mounted, ignoring`);
       },
+      // Todo auto-refresh (Option A) — panels never push; the Host does.
+      // Present (as a warn) so panel-side `finance.ui.pushData?.()` calls
+      // typecheck against the canonical `UiApi` without crashing at runtime.
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      pushData: async (_viewId: string, _mountData?: object) => {
+        panelLogger.warn(`[panel] pushData: ${_viewId} — panels cannot push, ignoring`);
+      },
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       navigatePanel: async (_view: string, _mountData?: object) => {
         financeShell.extensions.uiEvent(extensionId, `navigate:${_view}`, {});

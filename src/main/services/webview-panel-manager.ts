@@ -48,6 +48,15 @@ export interface WebviewPanelUIHandler {
   onSetDirty(extensionId: string, dirty: boolean): void;
   onAutoSaveDraft(extensionId: string): Promise<void>;
   onBeforeUnmount(extensionId: string): Promise<void>;
+  /**
+   * Todo auto-refresh (Option A) — silent data push. Optional so existing
+   * `setUIHandler` call sites without it keep compiling.
+   */
+  onDataPush?: (
+    extensionId: string,
+    viewId: string,
+    mountData?: object,
+  ) => void;
 }
 
 interface MountRequest {
@@ -493,6 +502,27 @@ export class WebviewPanelManager {
       return this.mount(extensionId, viewId, mountData);
     }
     return null;
+  }
+
+  /**
+   * Todo auto-refresh (Option A) — deliver fresh mountData to an
+   * already-mounted panel WITHOUT showing or focusing it. Sends
+   * `panel:mount-update`; the panel's bootstrap re-dispatches it as a
+   * DOM `mount-update` CustomEvent which the view's existing listener
+   * applies in place. Returns `false` when no such panel is mounted
+   * (caller should `requestMount` for first mount instead).
+   */
+  pushMountData(
+    extensionId: string,
+    viewId: string,
+    mountData?: object,
+  ): boolean {
+    const panelId = `panel-${extensionId}-${viewId}`;
+    const handle = this.findByPanelId(panelId);
+    if (!handle) return false;
+    if (handle.view.webContents.isDestroyed()) return false;
+    handle.view.webContents.send('panel:mount-update', { mountData });
+    return true;
   }
 
   resize(

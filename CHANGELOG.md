@@ -1,7 +1,7 @@
 ---
-version: 1.0.4
+version: 1.0.5
 created: 2026-06-14
-last_updated: 2026-09-08T13:02:48+10:00
+last_updated: 2026-09-09T01:17:33+10:00
 ---
 
 # Changelog
@@ -12,6 +12,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [1.0.5] - 2026-09-09
+
+### Added
+
+- **Todo auto-refresh: dashboard card updates without manual refresh (Option A)** (`src/main/services/extension-ipc.ts`, `src/main/services/webview-panel-manager.ts`, `src/main/main.ts`, `src/main/resources/panel-bootstrap.ts`, `src/extension-host/api/ui.ts`, `src/shared/json-rpc-methods.ts`, `src/types/finance.d.ts`, `scripts/sdk/types/finance.d.ts`, `extensions/dashboard/src/main.ts`, `vitest.config.ts`, `tests/unit/main/services/extension-ipc-db-changed.test.ts`, `tests/unit/extensions/dashboard/todo-auto-refresh.test.ts`, `docs/extension-api.md`, `docs/decisions/0010-todo-auto-refresh.md`). Core publishes `db-changed { extensionId, table, op }` on the global event bus after every extension-table write (all origins: Host commands + panel UI funnel through `handleWriteTable`); new `event.publish` Host→Main route (`handleEventPublish`) fills the ADR-0008 gap that returned `Unknown method from Host`. Dashboard subscribes Host-side, filters to `todo_list_items`, debounces 300 ms, rebuilds, and silent-pushes via new `finance.ui.pushData` → `extension.ui-push` → `pushMountData` (`panel:mount-update` WITHOUT `showPanel`, so focus stays on Todo List). Zero changes to the external `todo-list` extension. Bonus: `vitest.config.ts` gains the `finance-logger` alias (mirrors `vite.extensions.config.ts`), fixing the pre-existing `orchestrator.test.ts` suite failure.
 
 ## [1.0.4] - 2026-09-08
 

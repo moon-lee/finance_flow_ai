@@ -126,6 +126,14 @@ Remove this extension's service registration. Called in `deactivate()`.
 
 Request that Main mount this extension's view as a WebviewPanel. Called from `activate()` for `onStartup` extensions, or from command handlers for lazy views. `mountData` is an opaque object forwarded to the panel via `panel:init`.
 
+### `finance.ui.pushData(viewId, mountData)` (Todo auto-refresh)
+
+Push fresh `mountData` to an already-mounted panel WITHOUT showing or focusing it. Main sends `panel:mount-update` to the existing view only; if the panel was never mounted the push is dropped (use `requestMount` for first mount). Optional on all surfaces (Host `UiApi`, panel bootstrap stub, SDK types) so legacy mocks keep compiling. Used by the dashboard's `db-changed` auto-refresh to update its card while the user stays on the Todo List view.
+
+### `finance.events.on(topic, handler)` / `finance.events.emit(topic, payload)` (Phase 7 Task 8)
+
+Subscribe/publish on the global event bus. Host `emit` routes via the `event.publish` Host→Main RPC (`ExtensionIPC.handleEventPublish`); panel-side `finance` has no `events` (mutations there reach Core through the `extensions:write-table` IPC instead). Core-owned topics: `host:log`, `panel.lazy-unmount`, `panel.auto-save-failed`, `extension.host-status`, `settings.changed`, and `db-changed` (`{ extensionId, table, op }` after every extension-table write — consumers filter on `table`).
+
 ### `finance.ui.setDirty(dirty)` (Phase 5)
 
 Tell Main that this panel has unsaved changes. Main shows the dirty indicator in the tab bar and defers auto-unmount.

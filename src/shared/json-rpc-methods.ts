@@ -72,6 +72,12 @@ export const RPC_METHOD = {
   EventSubscribe: 'event.subscribe',
   EventPublish: 'event.publish',
 
+  // Todo auto-refresh (Option A) — silent data push. Host asks Main to
+  // deliver fresh mountData to an already-mounted panel WITHOUT
+  // showing/focusing it (unlike `extension.ui-mount`, which shows).
+  // Payload: { extensionId: string, viewId: string, mountData?: object }
+  ExtensionUiPush: 'extension.ui-push',
+
   // Phase 7 Task 10 — graceful shutdown protocol.
   HostShutdown: 'host.shutdown',
   HostShutdownComplete: 'host.shutdown.complete',

@@ -26,6 +26,49 @@ const logger = new ExtensionLogger('dashboard');
 
 const DEFAULT_FINANCIAL_YEAR_START = '07-01';
 
+/**
+ * Todo auto-refresh (Option A) — tables whose writes should trigger a
+ * silent dashboard rebuild. Scoped to todo tables only so unrelated
+ * writes (salary, accounts, settings) never cause a rebuild.
+ */
+const TODO_REFRESH_TABLES = new Set(['todo_list_items']);
+
+/** Debounce window for rapid successive writes (e.g. clear-completed). */
+const REFRESH_DEBOUNCE_MS = 300;
+
+let _unsubscribeDbChanged: (() => void) | null = null;
+let _refreshTimer: ReturnType<typeof setTimeout> | null = null;
+
+async function rebuildAndPush(finance: FinanceApi): Promise<void> {
+  try {
+    const settings = await readSettings(finance);
+    const data = await buildAggregator(finance, settings);
+    await finance.ui?.pushData?.('dashboard-view', {
+      aggregator: data,
+      cardOrder: settings.cardOrder,
+      financialYearCurrent: settings.financialYearCurrent,
+      financialYearStart: settings.financialYearStart,
+      financeYearFilter: settings.financeYearFilter,
+    });
+  } catch (err) {
+    logger.error('auto-refresh failed:', err);
+  }
+}
+
+function subscribeTodoRefresh(finance: FinanceApi): void {
+  if (!finance.events?.on) return;
+  if (_unsubscribeDbChanged) return;
+  _unsubscribeDbChanged = finance.events.on('db-changed', (payload) => {
+    const table = (payload as { table?: unknown } | null)?.table;
+    if (typeof table !== 'string' || !TODO_REFRESH_TABLES.has(table)) return;
+    if (_refreshTimer) clearTimeout(_refreshTimer);
+    _refreshTimer = setTimeout(() => {
+      _refreshTimer = null;
+      void rebuildAndPush(finance);
+    }, REFRESH_DEBOUNCE_MS);
+  });
+}
+
 export async function registerUIComponents(): Promise<void> {
   if (typeof HTMLElement === 'undefined') return;
   await import('./ui/index.js');
@@ -71,6 +114,12 @@ export async function activate(finance: FinanceApi, hostMountData?: Record<strin
   const settings = await readSettings(finance);
   const aggregator = await buildAggregator(finance, settings);
 
+  // Todo auto-refresh: rebuild + silent-push when todo tables change.
+  // Host context only (`finance.events` is undefined in panels); the
+  // push path (`pushData` → `panel:mount-update`) updates the mounted
+  // view in place without stealing focus from the Todo List panel.
+  subscribeTodoRefresh(finance);
+
   finance.commands.registerCommand('dashboard.refresh', 'View: Refresh Dashboard', async () => {
     try {
       const settings = await readSettings(finance);
@@ -114,5 +163,16 @@ export async function activate(finance: FinanceApi, hostMountData?: Record<strin
 }
 
 export function deactivate(): void {
-  // No persistent subscriptions; nothing to tear down.
+  if (_unsubscribeDbChanged) {
+    try {
+      _unsubscribeDbChanged();
+    } catch (err) {
+      logger.error('failed to unsubscribe db-changed:', err);
+    }
+    _unsubscribeDbChanged = null;
+  }
+  if (_refreshTimer) {
+    clearTimeout(_refreshTimer);
+    _refreshTimer = null;
+  }
 }

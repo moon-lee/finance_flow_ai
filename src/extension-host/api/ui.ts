@@ -12,6 +12,14 @@ import { RPC_METHOD } from '../../shared/json-rpc-methods';
 export interface UiApi {
   requestMount: (viewId: string, mountData?: object) => Promise<void>;
   navigatePanel: (view: string, mountData?: object) => Promise<void>;
+  /**
+   * Todo auto-refresh (Option A) — push fresh mountData to an
+   * already-mounted panel WITHOUT showing/focusing it. Main delivers a
+   * `panel:mount-update` to the existing view only; if the panel was
+   * never mounted, the push is dropped (use `requestMount` for first
+   * mount). Optional for legacy/test mocks.
+   */
+  pushData?: (viewId: string, mountData?: object) => Promise<void>;
   setDirty: (dirty: boolean) => void;
   autoSaveDraft: () => Promise<void>;
   onBeforeUnmount: (callback: () => Promise<void>) => void;
@@ -49,6 +57,14 @@ export function createUi(extensionId: string, rpc: RpcClient): UiApi {
       await rpc.request(RPC_METHOD.ExtensionNavigatePanel, {
         extensionId,
         view,
+        mountData
+      });
+    },
+
+    async pushData(viewId: string, mountData?: object): Promise<void> {
+      await rpc.request(RPC_METHOD.ExtensionUiPush, {
+        extensionId,
+        viewId,
         mountData
       });
     },

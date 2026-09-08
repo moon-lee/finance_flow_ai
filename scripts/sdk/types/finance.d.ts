@@ -16,7 +16,7 @@ export interface FinanceApi {
     };
   };
   services: { register(serviceName: string, impl: Record<string, (...args: unknown[]) => unknown>): void; unregister(serviceName: string): void; invoke<T = unknown>(serviceName: string, method: string, params?: unknown): Promise<T | null> };
-  ui?: { requestMount(viewId: string, mountData?: object): Promise<void>; navigatePanel(view: string, mountData?: object): Promise<void>; setDirty(dirty: boolean): void; autoSaveDraft(): Promise<void>; onBeforeUnmount(cb: () => Promise<unknown>): void };
+  ui?: { requestMount(viewId: string, mountData?: object): Promise<void>; navigatePanel(view: string, mountData?: object): Promise<void>; pushData?(viewId: string, mountData?: object): Promise<void>; setDirty(dirty: boolean): void; autoSaveDraft(): Promise<void>; onBeforeUnmount(cb: () => Promise<unknown>): void };
   events?: { on(topic: string, handler: (payload: unknown) => void): () => void; off(topic: string, handler: (payload: unknown) => void): void; emit(topic: string, payload: unknown): Promise<void> };
   settings?: { get(key: string): Promise<unknown>; set(key: string, value: unknown): Promise<void> };
 }

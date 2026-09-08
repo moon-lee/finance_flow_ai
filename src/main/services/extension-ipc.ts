@@ -86,6 +86,22 @@ export interface ExtensionSettingRequest {
   value?: unknown;
 }
 
+/**
+ * Todo auto-refresh (Option A) — UI-handler contract shared by the
+ * `uiHandler` field and the `setUIHandler` parameter. `onDataPush` is
+ * optional so legacy/test call sites without it keep compiling;
+ * `handleUiPush` no-ops (with a warn) when absent.
+ */
+export interface ExtensionUIHandler {
+  onMountRequested(extensionId: string, viewId: string, mountData?: object): void;
+  onFocusRequested(panelId: string): void;
+  onUiEvent(webContentsId: number, eventName: string, detail: unknown): void;
+  onSetDirty(extensionId: string, dirty: boolean): void;
+  onAutoSaveDraft(extensionId: string): Promise<void>;
+  onBeforeUnmount(extensionId: string): Promise<void>;
+  onDataPush?: (extensionId: string, viewId: string, mountData?: object) => void;
+}
+
 export class ExtensionIPC {
   private process: UtilityProcess | null = null;
   private readonly pending = new Map<number, PendingRequest>();
@@ -105,14 +121,7 @@ export class ExtensionIPC {
    * mount (`extension.ui-mount`). Main registers this so it can forward the
    * request to the Renderer over `webContents.send('extensions:ui-mount')`.
    */
-  private uiHandler: {
-    onMountRequested(extensionId: string, viewId: string, mountData?: object): void;
-    onFocusRequested(panelId: string): void;
-    onUiEvent(webContentsId: number, eventName: string, detail: unknown): void;
-    onSetDirty(extensionId: string, dirty: boolean): void;
-    onAutoSaveDraft(extensionId: string): Promise<void>;
-    onBeforeUnmount(extensionId: string): Promise<void>;
-  } | null = null;
+  private uiHandler: ExtensionUIHandler | null = null;
   private panelNavigateHandler: {
     onNavigate(extensionId: string, view: string, mountData?: object): void;
   } | null = null;
@@ -395,6 +404,27 @@ export class ExtensionIPC {
   }
 
   /**
+   * Todo auto-refresh (Option A) — handle `event.publish` requests from
+   * the Host. Routes the topic through the Main-side `EventBus` so Host
+   * extensions can publish to subscribers on any side (Host/renderer).
+   * Without this case, `finance.events.emit()` from Host code falls into
+   * `dispatchHostRequest`'s default branch and returns
+   * `Unknown method from Host: event.publish`.
+   */
+  handleEventPublish(params: unknown): { published: boolean } {
+    const { topic, payload } = params as {
+      topic: string;
+      payload: unknown;
+    };
+    if (!this.eventBus) {
+      getLogger().warn('[extension-ipc] handleEventPublish: eventBus is null — dropped', { topic });
+      return { published: false };
+    }
+    this.eventBus.publish(topic, payload);
+    return { published: true };
+  }
+
+  /**
    * Handle `extension.navigatePanel` from the Host. Finds the panel by
    * extensionId and sends a `panel:navigate` IPC to its WebContentsView.
    */
@@ -418,14 +448,7 @@ export class ExtensionIPC {
    * that when an extension requests a mount (`extension.ui-mount`), Main
    * can forward it to `WebviewPanelManager`. Returns an unsubscribe function.
    */
-  setUIHandler(handler: {
-    onMountRequested(extensionId: string, viewId: string, mountData?: object): void;
-    onFocusRequested(panelId: string): void;
-    onUiEvent(webContentsId: number, eventName: string, detail: unknown): void;
-    onSetDirty(extensionId: string, dirty: boolean): void;
-    onAutoSaveDraft(extensionId: string): Promise<void>;
-    onBeforeUnmount(extensionId: string): Promise<void>;
-  } | null): () => void {
+  setUIHandler(handler: ExtensionUIHandler | null): () => void {
     this.uiHandler = handler;
     return () => {
       if (this.uiHandler === handler) this.uiHandler = null;
@@ -626,23 +649,65 @@ export class ExtensionIPC {
       payload?: Record<string, unknown>;
       where?: QueryObject;
     };
+    let result: unknown;
     switch (op) {
       case 'insert':
-        return {
+        result = {
           row: this.dao.insert(extensionId, table, payload ?? {}),
           affected: 1
         };
+        break;
       case 'update':
-        return {
+        result = {
           affected: this.dao.update(extensionId, table, where ?? {}, payload ?? {})
         };
+        break;
       case 'delete':
-        return {
+        result = {
           affected: this.dao.delete(extensionId, table, where ?? {})
         };
+        break;
       default:
         throw new Error(`ExtensionIPC.handleWriteTable: unknown op '${op}'`);
     }
+    // Todo auto-refresh (Option A) — every extension-table write, from any
+    // origin (Host commands, panel UI via `extensions:write-table`), fans
+    // out a `db-changed` event on the global bus. Consumers (e.g. the
+    // dashboard's todo-summary card) filter on `table` and refresh only
+    // when their data actually changed. Fire-and-forget: a throwing
+    // subscriber must never fail the write (EventBus already guards each
+    // handler, belt-and-suspenders try/catch here).
+    try {
+      this.eventBus?.publish('db-changed', { extensionId, table, op });
+    } catch (err) {
+      getLogger().warn('[extension-ipc] db-changed publish failed:', err);
+    }
+    return result;
+  }
+
+  /**
+   * Todo auto-refresh (Option A) — handle `extension.ui-push` from the
+   * Host. Unlike `handleUiMount` (which shows/focuses the panel via
+   * `showPanel`), a push delivers fresh `mountData` to an already-mounted
+   * panel WITHOUT changing visibility or focus — the user stays on the
+   * Todo List view while the background Dashboard card updates.
+   */
+  handleUiPush(params: unknown): { pushed: boolean } {
+    const { extensionId, viewId, mountData } = params as {
+      extensionId: string;
+      viewId: string;
+      mountData?: object;
+    };
+    if (!this.uiHandler) {
+      getLogger().warn('[extension-ipc] handleUiPush: uiHandler is null — dropped');
+      return { pushed: false };
+    }
+    if (!this.uiHandler.onDataPush) {
+      getLogger().warn('[extension-ipc] handleUiPush: onDataPush not wired — dropped');
+      return { pushed: false };
+    }
+    this.uiHandler.onDataPush(extensionId, viewId, mountData);
+    return { pushed: true };
   }
 
   /**
@@ -697,6 +762,12 @@ export class ExtensionIPC {
           break;
         case RPC_METHOD.ExtensionNavigatePanel:
           result = await this.handleNavigatePanel(req.params);
+          break;
+        case RPC_METHOD.EventPublish:
+          result = this.handleEventPublish(req.params);
+          break;
+        case RPC_METHOD.ExtensionUiPush:
+          result = this.handleUiPush(req.params);
           break;
         case RPC_METHOD.ExtensionUiSetDirty:
           result = await this.handleUiSetDirty(req.params);

@@ -191,4 +191,10 @@ export interface PackageJsonFinanceExtension extends Omit<FinanceExtensionManife
  * `settings.changed`
  *   Published after a setting is persisted via `financeShell.settings.set`.
  *   Payload: `{ key }` where `key` is the settings key that was saved.
+ *
+ * `db-changed`
+ *   Published by Core after every extension-table write (insert/update/
+ *   delete), regardless of origin (Host commands, panel UI). Payload:
+ *   `{ extensionId, table, op }`. Consumers filter on `table` (e.g. the
+ *   dashboard refreshes its todo card only for `todo_list_items`).
  */
