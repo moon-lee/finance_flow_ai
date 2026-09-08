@@ -64,11 +64,18 @@ export interface AccountsSummaryCard {
   totalBalance: number | null;
 }
 
+export interface TodoSummaryCard {
+  total: number | null;
+  active: number | null;
+  done: number | null;
+}
+
 export interface DashboardData {
   netWorth: NetWorthCard;
   ytdSalary: YtdSalaryCard;
   lastPayslip: LastPayslipCard;
   accountsSummary: AccountsSummaryCard;
+  todos: TodoSummaryCard;
   estimatedYtd?: {
     gross: number;
     net: number;
@@ -91,12 +98,13 @@ export async function buildAggregator(
   finance: FinanceApi,
   settings: DashboardSettings
 ): Promise<DashboardData> {
-  const [accountsRow, lastPayslipRow, ytdSummaryRaw, currentRateRaw, payslipStats] = await Promise.all([
+  const [accountsRow, lastPayslipRow, ytdSummaryRaw, currentRateRaw, payslipStats, todoCountsRaw] = await Promise.all([
     finance.db.table('accounts').find({}),
     finance.services?.invoke<unknown>('pay', 'getLastPayslip'),
     finance.services?.invoke<unknown>('pay', 'getYearToDateSummary', [settings.financialYearStart, undefined, settings.financialYearCurrent]),
     finance.services?.invoke<unknown>('pay', 'getCurrentRate'),
     finance.services?.invoke<unknown>('pay', 'getPayslipStats'),
+    finance.services?.invoke<unknown>('todo-list', 'counts'),
   ]);
 
   const accounts = (accountsRow as Array<Record<string, unknown>>) ?? [];
@@ -104,6 +112,7 @@ export async function buildAggregator(
   const ytdSummary = ytdSummaryRaw as Record<string, unknown> | null;
   const currentRate = currentRateRaw as Record<string, unknown> | null;
   const stats = payslipStats as { avgGross: number; avgNet: number; avgPayg: number; totalCount: number } | null;
+  const todoCounts = todoCountsRaw as { total?: unknown; active?: unknown; done?: unknown } | null;
 
   const totalBalance = accounts.reduce((sum, a) => {
     const bal = Number(a.balance ?? a.current_balance ?? 0);
@@ -161,6 +170,11 @@ export async function buildAggregator(
       })),
       totalBalance: totalBalance || null
     },
+    todos: todoCounts ? {
+      total: Number(todoCounts.total ?? 0),
+      active: Number(todoCounts.active ?? 0),
+      done: Number(todoCounts.done ?? 0),
+    } : { total: null, active: null, done: null },
     // Full-year projection: historical per-payslip avg × 52 (weekly pay)
     // Only when FY has data (count>0); empty/post FY with 0 payslips shows no
     // estimated (avoids showing 52×avg for future FY with no history).

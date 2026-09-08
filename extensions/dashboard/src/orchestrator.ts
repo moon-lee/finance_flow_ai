@@ -14,12 +14,14 @@ const logger = new ExtensionLogger('dashboard');
 
 export const CANONICAL_CARD_ORDER = [
   'pay-summary',
+  'todo-summary',
 ] as const;
 
 export type CardId = (typeof CANONICAL_CARD_ORDER)[number];
 
 const CARD_LABELS: Record<string, string> = {
   'pay-summary': 'Pay Summary',
+  'todo-summary': 'Todo Summary',
 };
 
 export class DashboardOrchestrator {

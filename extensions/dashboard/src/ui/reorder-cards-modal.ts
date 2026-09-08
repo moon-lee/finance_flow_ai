@@ -20,6 +20,8 @@ const CARD_LABELS: Record<string, string> = {
   'ytd-salary': 'Year-to-Date Salary',
   'last-payslip': 'Last Payslip',
   'accounts-summary': 'Accounts Summary',
+  'pay-summary': 'Pay Summary',
+  'todo-summary': 'Todo Summary',
 };
 
 @customElement('reorder-cards-modal')

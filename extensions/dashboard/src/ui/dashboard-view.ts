@@ -169,9 +169,45 @@ export class DashboardView extends LitElement {
     );
   };
 
+  private _renderTodoSummaryCard(): unknown {
+    const todos = this.aggregator?.todos;
+
+    return html`
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Todo Summary</span>
+        </div>
+
+        <table class="ytd-table">
+          <thead>
+            <tr>
+              <th></th>
+              <th class="num">TOTAL</th>
+              <th class="num">ACTIVE</th>
+              <th class="num">DONE</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${todos && todos.total !== null ? html`
+              <tr>
+                <td>Todos</td>
+                <td class="num actual">${todos.total}</td>
+                <td class="num actual">${todos.active}</td>
+                <td class="num actual">${todos.done}</td>
+              </tr>
+            ` : html`
+              <tr><td colspan="4">Install Todo List to see this card</td></tr>
+            `}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+
   render() {
     const cards = this.cardOrder.map(id => {
       if (id === 'pay-summary') return this._renderPaySummaryCard();
+      if (id === 'todo-summary') return this._renderTodoSummaryCard();
       return null;
     });
     const fyOptions = this._fyOptions();

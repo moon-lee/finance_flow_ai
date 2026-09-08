@@ -1,7 +1,7 @@
 ---
 version: 1.0.3
 created: 2026-06-14
-last_updated: 2026-09-07T12:09:43+10:00
+last_updated: 2026-09-08T12:22:37+10:00
 ---
 
 # Changelog
@@ -12,6 +12,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+### Added
+
+- **Dashboard Todo Summary card via `todo-list` domain service** (`extensions/dashboard/src/services/aggregator-service.ts`, `extensions/dashboard/src/ui/dashboard-view.ts`, `extensions/dashboard/src/orchestrator.ts`, `extensions/dashboard/src/ui/reorder-cards-modal.ts`). Aggregator invokes `finance.services.invoke('todo-list', 'counts')` (returns `{ total, active, done }`, `null` when todo-list not installed/active) and exposes `DashboardData.todos`; new `todo-summary` card renders Total/Active/Done with `Install Todo List to see this card` placeholder. Added to `CANONICAL_CARD_ORDER` + reorder labels. No hard dependency on `todo-list`; lazy `onView:todo-list` activation preserved (placeholder until first open, then `dashboard.refresh` shows counts).
 
 ## [1.0.3] - 2026-09-07
 
