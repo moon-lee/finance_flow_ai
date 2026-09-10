@@ -12,7 +12,7 @@
     "themeColor": "#6366F1",
     "activationEvents": ["onView:{{ID}}"],
     "contributions": {
-      "views": [{ "id": "{{ID}}", "name": "{{DISPLAY_NAME}}", "icon": "{{ICON}}" }],
+      "views": [{ "id": "{{ID}}", "name": "{{DISPLAY_NAME}}", "icon": "assets/icon.svg" }],
       "commands": [{ "id": "{{ID}}.hello", "title": "{{DISPLAY_NAME}}: Hello" }],
       "navigation": [{ "id": "{{ID}}-main", "label": "{{DISPLAY_NAME}}", "command": "{{ID}}.hello", "group": "{{DISPLAY_NAME}}" }],
       "configuration": [

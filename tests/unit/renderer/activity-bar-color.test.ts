@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { ActivityBar } from '../../../src/renderer/components/activity-bar';
 
 describe('ActivityBar extension colors', () => {
-  it('renders the extension color only on the active icon background', async () => {
+  it('applies no extension color background to Activity Bar buttons', async () => {
     if (!customElements.get('activity-bar')) customElements.define('activity-bar', ActivityBar);
     const element = document.createElement('activity-bar') as ActivityBar;
     document.body.appendChild(element);
@@ -16,7 +16,7 @@ describe('ActivityBar extension colors', () => {
 
     const activeButton = element.shadowRoot?.querySelector('button[data-view-id="salary"]');
     const inactiveButton = element.shadowRoot?.querySelector('button[data-view-id="dashboard"]');
-    expect(activeButton?.getAttribute('style')).toContain('background: #F59E0B');
-    expect(inactiveButton?.getAttribute('style')).toBe('');
+    expect(activeButton?.getAttribute('style')).toBe(null);
+    expect(inactiveButton?.getAttribute('style')).toBe(null);
   });
 });

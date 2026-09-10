@@ -13,6 +13,7 @@ scripts/sdk/
   templates/
     AGENTS.md.template             # agent entrypoint (rendered on init)
     package.json.template          # financeExtension manifest + tables example
+    assets/icon.svg                # default Activity Bar icon copied by init
     tsconfig.json.template
     vite.config.ts.template
     index.html.template
@@ -31,9 +32,11 @@ scripts/sdk/
 
 ## 2. `init` vs `refresh`
 
-- **`init <id> [dir]`** — copies **all** templates + `finance.d.ts` + `tokens.css`/`ext-layout.css` → new project (`<dir>/<id>/`). The new project is fully standalone (no need to open `D:\finance_flow_ai\extensions\...`).
+- **`init <id> [dir]`** — copies **all** templates + `finance.d.ts` + `tokens.css`/`ext-layout.css` → new project (`<dir>/<id>/`). The new project is fully standalone (no need to open `D:\finance_flow_ai\extensions\...`). `init` creates `assets/icon.svg` and points the generated manifest at it.
 
-- **`refresh <project>`** — overwrites **only** `src/finance.d.ts` + `src/vendor/logger.ts` + `src/styles/*` (`cli.mjs:87` `cmdRefresh`), **never** `src/main.ts`/`src/ui/*`/`AGENTS.md`/`package.json` — author code is safe. Run after the app updates `src/types/finance.d.ts`.
+- **`refresh <project>`** — overwrites **only** `src/finance.d.ts` + `src/vendor/logger.ts` + `src/styles/*` (`cli.mjs` `cmdRefresh`), **never** `src/main.ts`/`src/ui/*`/`AGENTS.md`/`package.json` — author code is safe. Run after the app updates `src/types/finance.d.ts`. `refresh` updates vendored types/styles/logger but does not overwrite a custom icon or `package.json`.
+
+Existing extensions must add `assets/icon.svg` and change their manifest `icon` value manually.
 
 ## 3. Maintenance workflow (when you change a template)
 

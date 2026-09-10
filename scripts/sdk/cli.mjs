@@ -46,6 +46,8 @@ async function cmdInit(idRaw, targetDir) {
   writeFileSync(join(out, 'src', 'vite-env.d.ts'), render('vite-env.d.ts.template', vars));
   writeFileSync(join(out, 'AGENTS.md'), render('AGENTS.md.template', vars));
   writeFileSync(join(out, '.gitignore'), render('.gitignore.template', vars));
+  mkdirSync(join(out, 'assets'), { recursive: true });
+  writeFileSync(join(out, 'assets', 'icon.svg'), readFileSync(join(TEMPLATES, 'assets', 'icon.svg'), 'utf8'));
   // git init (best-effort, no fail if git missing)
   try {
     const { execSync } = await import('node:child_process');
@@ -62,8 +64,8 @@ async function cmdInit(idRaw, targetDir) {
 
 async function cmdBuild(projectDirRaw) {
   const { build: viteBuild } = await import('vite');
-  const { mkdirSync: mk, readFileSync: rf, cpSync } = await import('node:fs');
-  const { join: j, resolve: rs } = await import('node:path');
+  const { mkdirSync: mk, readFileSync: rf, cpSync, existsSync: ex, cpSync: cp } = await import('node:fs');
+  const { join: j, resolve: rs, dirname: dn } = await import('node:path');
   const projectDir = rs(projectDirRaw ?? '.');
   const pkg = JSON.parse(rf(j(projectDir, 'package.json'), 'utf8'));
   const manifest = pkg.financeExtension;
@@ -90,6 +92,27 @@ async function cmdBuild(projectDirRaw) {
     }
   });
   cpSync(j(projectDir, 'package.json'), j(outDir, 'package.json'));
+  // Copy declared Activity Bar icon assets (e.g. assets/icon.svg) so the
+  // install artifact serves them via finance-shell://extensions/<id>/<asset>.
+  // Only validated relative .svg/.png paths are copied; legacy glyphs skip.
+  for (const view of manifest?.contributions?.views ?? []) {
+    const icon = view?.icon;
+    if (typeof icon !== 'string') continue;
+    if (!/^(?!.*\.\.)[A-Za-z0-9_-]+(?:\/[A-Za-z0-9._-]+)*\.(?:svg|png)$/.test(icon)) continue;
+    try {
+      const src = j(projectDir, icon);
+      if (!ex(src)) {
+        console.warn(`[build] missing icon asset for "${id}": ${src}`);
+        continue;
+      }
+      const dest = j(outDir, icon);
+      mk(dn(dest), { recursive: true });
+      cp(src, dest);
+      console.log(`[build] copied icon asset ${icon}`);
+    } catch (err) {
+      console.warn(`[build] could not copy icon asset "${icon}": ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
   console.log(`Built ${id} -> ${outDir}`);
   console.log('Install it in the app: Extensions > Install > pick this folder (or zip it first).');
 }

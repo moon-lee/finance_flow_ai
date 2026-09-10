@@ -29,7 +29,8 @@ function discoverEntries() {
   const extRoot = join(process.cwd(), EXTENSIONS_DIR);
   const entries = [];
   for (const name of readdirSync(extRoot)) {
-    const pkgPath = join(extRoot, name, 'package.json');
+    const dir = join(extRoot, name);
+    const pkgPath = join(dir, 'package.json');
     let pkg;
     try {
       pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
@@ -41,7 +42,8 @@ function discoverEntries() {
     if (!id) continue;
     const entryRel = pkg.financeExtension.main ?? 'src/main.ts';
     const entryStem = basename(entryRel, extname(entryRel));
-    entries.push({ id, entryStem });
+    const icon = pkg.financeExtension?.contributions?.views?.[0]?.icon;
+    entries.push({ id, dir, entryStem, icon });
   }
   return entries;
 }
@@ -183,6 +185,24 @@ function renameInDir() {
         renamed++;
       }
     }
+  }
+
+  // Copy declared Activity Bar icon assets (`assets/icon.svg`) next to the
+  // built bundles so `finance-shell://extensions/<id>/<asset>` serves them
+  // from `dist/extensions/<id>/...` in dev and packaged builds alike.
+  const ICON_ASSET_RE = /^(?!.*\.\.)[A-Za-z0-9_-]+(?:\/[A-Za-z0-9._-]+)*\.(?:svg|png)$/;
+  for (const entry of entries) {
+    if (typeof entry.icon !== 'string' || !ICON_ASSET_RE.test(entry.icon)) continue;
+    const src = join(entry.dir, entry.icon);
+    if (!existsSync(src)) {
+      console.warn(`[icon-copy] missing icon asset for "${entry.id}": ${src}`);
+      continue;
+    }
+    const dest = join(OUT_DIR, entry.id, entry.icon);
+    mkdirSync(join(dest, '..'), { recursive: true });
+    copyFileSync(src, dest);
+    console.log(`[icon-copy] ${entry.id}/${entry.icon}`);
+    renamed++;
   }
 
   if (renamed === 0) {

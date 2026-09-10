@@ -2,6 +2,32 @@
 
 ## Application Icon
 
+## Activity Bar Extension Icons
+
+| File | Status | Purpose |
+|------|--------|---------|
+| `src/shared/extension-icon.ts` | new | Shared icon asset contract: validated relative `.svg`/`.png` paths and `finance-shell://extensions/<id>/<asset>` URL builder. |
+| `src/renderer/components/activity-bar.ts` | modified | Renders `iconUrl` image assets at 28px or legacy glyphs; built-in Settings gear image; shared button styling with no extension background. |
+| `src/renderer/index.ts` | modified | Resolves manifest icon paths to safe renderer asset URLs and passes `iconUrl` to the Activity Bar. |
+| `src/renderer/public/icons/settings.svg` | new | Built-in neutral Settings gear (28px-friendly, no text). |
+| `src/extension-host/manifest-schema.ts` | modified | Validates legacy glyph or safe relative SVG/PNG icon asset paths. |
+| `src/main/services/panel-protocol.ts` | modified | Serves validated `<extensionId>/<asset>` SVG/PNG icons with traversal prevention and image MIME types. |
+| `extensions/dashboard/assets/icon.svg` | new | Dashboard Activity Bar icon (teal grid + trend). |
+| `extensions/salary-history/assets/icon.svg` | new | Salary History Activity Bar icon (amber receipt + check). |
+| `scripts/sdk/templates/assets/icon.svg` | new | Default SDK scaffold icon copied by `init`. |
+| `scripts/sdk/templates/package.json.template` | modified | Scaffold manifest points at `assets/icon.svg`. |
+| `scripts/sdk/cli.mjs` | modified | `init` copies the default icon; `build` copies declared icon assets. |
+| `scripts/rename-extension-bundles.mjs` | modified | Copies declared built-in icon assets into `dist/extensions/<id>/...`. |
+| `tests/unit/renderer/activity-bar-icons.test.ts` | new | Asset/glyph and Settings gear rendering tests. |
+| `tests/unit/main/services/panel-protocol.test.ts` | new | Icon MIME, traversal rejection, and URL helper tests. |
+
+## Extension Icon Preview
+
+| File | Status | Purpose |
+|------|--------|---------|
+| `docs/design/finance-extension-icons-preview.svg` | new | Design preview for Dashboard, Salary History, Todo List, and Settings Activity Bar icons using the approved rounded two-tone style. |
+| `docs/superpowers/plans/2026-09-10-activity-bar-extension-icons.md` | new | Implementation plan for Activity Bar-only extension SVG/PNG icons, safe asset serving, legacy glyph fallback, Settings gear, and SDK updates. |
+
 | File | Status | Purpose |
 |------|--------|---------|
 | `assets/icon.svg` | new | Vector master for the pure-icon mark (dark square, indigo border, white flow + green trend, no lettermark). |

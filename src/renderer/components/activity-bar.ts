@@ -5,6 +5,7 @@ export interface ActivityView {
   id: string;
   name: string;
   icon: string;
+  iconUrl?: string;
   color?: string;
 }
 
@@ -58,6 +59,14 @@ export class ActivityBar extends LitElement {
       margin-top: auto;
     }
 
+    .activity-icon {
+      width: 28px;
+      height: 28px;
+      display: block;
+      object-fit: contain;
+      pointer-events: none;
+    }
+
     .empty-hint {
 
     .empty-hint {
@@ -92,9 +101,10 @@ export class ActivityBar extends LitElement {
         title="${view.name}"
         aria-label="${view.name}"
         data-view-id="${view.id}"
-        style="${this.activeView === view.id && view.color ? `background: ${view.color}; color: #ffffff;` : ''}"
         @click="${(e: MouseEvent) => { if (e.isTrusted) this._selectView(view.id); }}"
-      >${view.icon}</button>
+      >${view.iconUrl
+        ? html`<img class="activity-icon" data-view-id="${view.id}" src="${view.iconUrl}" alt="" aria-hidden="true" />`
+        : view.icon}</button>
     `);
     return html`
       ${buttons}
@@ -104,7 +114,12 @@ export class ActivityBar extends LitElement {
         title="Settings"
         aria-label="Settings"
         @click="${(e: MouseEvent) => { if (e.isTrusted) this._selectView('__settings__'); }}"
-      >S</button>
+      ><img
+        class="activity-icon"
+        src="./icons/settings.svg"
+        alt=""
+        aria-hidden="true"
+      /></button>
     `;
   }
 }

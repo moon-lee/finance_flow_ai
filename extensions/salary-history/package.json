@@ -16,7 +16,7 @@
         {
           "id": "payslip-list",
           "name": "Pay History",
-          "icon": "P"
+          "icon": "assets/icon.svg"
         }
       ],
       "commands": [

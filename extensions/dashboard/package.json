@@ -18,7 +18,7 @@
         {
           "id": "dashboard-view",
           "name": "Dashboard",
-          "icon": "D",
+          "icon": "assets/icon.svg",
           "openCommand": "dashboard.refresh"
         }
       ],

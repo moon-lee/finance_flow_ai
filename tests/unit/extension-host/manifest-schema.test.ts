@@ -112,6 +112,36 @@ describe('validateManifest', () => {
       expect(result.ok).toBe(false);
     }
   });
+
+  it('accepts a relative SVG icon asset path', () => {
+    const result = validateManifest({
+      ...validManifest,
+      contributions: { views: [{ id: 'salary-history', name: 'Salary', icon: 'assets/icon.svg' }] },
+    });
+    expect(result.ok).toBe(true);
+  });
+
+  it('accepts a relative PNG icon asset path', () => {
+    const result = validateManifest({
+      ...validManifest,
+      contributions: { views: [{ id: 'salary-history', name: 'Salary', icon: 'icons/salary.png' }] },
+    });
+    expect(result.ok).toBe(true);
+  });
+
+  it('keeps accepting a legacy one-character icon', () => {
+    expect(validateManifest(validManifest).ok).toBe(true);
+  });
+
+  it('rejects unsafe or unsupported icon paths', () => {
+    for (const icon of ['../icon.svg', '/icon.svg', 'C:\\icon.svg', 'https://example/icon.svg', 'assets/icon.js', 'assets/icon.svg?x=1']) {
+      const result = validateManifest({
+        ...validManifest,
+        contributions: { views: [{ id: 'salary-history', name: 'Salary', icon }] },
+      });
+      expect(result.ok).toBe(false);
+    }
+  });
 });
 
 // Phase 4 Task 8.4 — `tables[]` block validation (Decision 3).

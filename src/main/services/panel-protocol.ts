@@ -27,23 +27,127 @@
  *      loading the JS bundle, ensuring `:root` custom properties are defined
  *      before any component renders.
  *
+ *   5. `finance-shell://extensions/<extensionId>/<relativeAssetPath>`
+ *      An extension-declared icon asset (Activity Bar only, e.g.
+ *      `assets/icon.svg`). Only relative `.svg`/`.png` paths without `..`
+ *      traversal are served, resolved user-extension-first under the
+ *      matching extension directory, with `image/svg+xml` / `image/png`
+ *      MIME types. Tab icons are unaffected.
+ *
  * All other paths return 404.
  */
 
 import { protocol } from 'electron';
-import { join } from 'node:path';
+import { join, normalize, sep } from 'node:path';
 import { readFile } from 'node:fs/promises';
 import { existsSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { getLogger } from './logger';
 import { resolveExtensionBundlePath } from '../../shared/extension-paths';
+import { isIconAssetPath } from '../../shared/extension-icon';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const DEV_EXTENSIONS_DIR = join(__dirname, '..', 'extensions');
-const PROD_EXTENSIONS_DIR = join(process.resourcesPath, 'dist', 'extensions');
+// `process.resourcesPath` only exists inside Electron; Vitest/Node imports
+// of this module must not throw at load time.
+const PROD_EXTENSIONS_DIR =
+  typeof process.resourcesPath === 'string'
+    ? join(process.resourcesPath, 'dist', 'extensions')
+    : join(__dirname, '..', '__no_prod_extensions__');
+const DEV_EXTENSIONS_ROOT = join(__dirname, '..', '..', 'extensions');
 const DIST_EXTENSIONS_DIR = existsSync(PROD_EXTENSIONS_DIR) ? PROD_EXTENSIONS_DIR : DEV_EXTENSIONS_DIR;
+const BUILTIN_SOURCE_ROOTS = [DIST_EXTENSIONS_DIR, DEV_EXTENSIONS_ROOT];
 const PANEL_TEMPLATE_PATH = join(__dirname, '..', 'resources', 'panel-template.html');
 const PANEL_BOOTSTRAP_PATH = join(__dirname, '..', 'resources', 'panel-bootstrap.js');
+
+/** Extension ids are lowercase alphanumeric/hyphen (manifest schema). */
+export const EXTENSION_ID_RE = /^[a-z0-9-]+$/;
+
+export interface ParsedExtensionAsset {
+  extensionId: string;
+  assetPath: string;
+}
+
+/**
+ * Parse an `/extensions/` subpath of the form `<extensionId>/<assetPath>`.
+ * Returns `null` for bundle/CSS filenames, legacy glyphs, and anything that
+ * is not a validated relative `.svg`/`.png` asset path (absolute paths,
+ * protocol URLs, `..` traversal, query strings, unsupported extensions).
+ */
+export function parseExtensionAssetPath(extPath: string): ParsedExtensionAsset | null {
+  const slash = extPath.indexOf('/');
+  if (slash <= 0 || slash === extPath.length - 1) return null;
+  const extensionId = decodeURIComponent(extPath.slice(0, slash));
+  const assetPath = extPath
+    .slice(slash + 1)
+    .split('/')
+    .map((seg) => {
+      try {
+        return decodeURIComponent(seg);
+      } catch {
+        return '';
+      }
+    })
+    .join('/');
+  if (!EXTENSION_ID_RE.test(extensionId)) return null;
+  if (!isIconAssetPath(assetPath)) return null;
+  return { extensionId, assetPath };
+}
+
+/** MIME type for a validated icon asset path, or `null` when unsupported. */
+export function extensionAssetMime(assetPath: string): string | null {
+  if (assetPath.endsWith('.svg')) return 'image/svg+xml';
+  if (assetPath.endsWith('.png')) return 'image/png';
+  return null;
+}
+
+/**
+ * Resolve a validated `<extensionId>/<assetPath>` to an absolute file inside
+ * one of the extension roots (user-extension-first). Built-in extensions are
+ * checked in both `dist/extensions/<id>/...` (built artifacts) and
+ * `extensions/<id>/...` (authored source, covers dev before `build`).
+ * Returns `null` when the file does not exist or the path escapes its root.
+ */
+export function resolveExtensionAssetPath(
+  extensionId: string,
+  assetPath: string,
+  roots: readonly string[]
+): string | null {
+  const allRoots = [...roots, ...BUILTIN_SOURCE_ROOTS.filter((r) => !roots.includes(r))];
+  for (const root of allRoots) {
+    if (!root) continue;
+    const base = join(root, extensionId);
+    const candidate = normalize(join(base, assetPath));
+    if (candidate !== base && !candidate.startsWith(base + sep)) continue;
+    if (existsSync(candidate)) return candidate;
+  }
+  return null;
+}
+
+/**
+ * Serve a validated extension icon asset with the correct image MIME type.
+ * Unvalidated paths and missing files return 404 (never a JS/CSS fallback).
+ */
+export async function serveExtensionIconAsset(
+  extPath: string,
+  roots: readonly string[]
+): Promise<Response> {
+  const parsed = parseExtensionAssetPath(extPath);
+  const mime = parsed ? extensionAssetMime(parsed.assetPath) : null;
+  if (!parsed || !mime) return new Response('Not Found', { status: 404 });
+  const absolutePath = resolveExtensionAssetPath(parsed.extensionId, parsed.assetPath, roots);
+  if (!absolutePath) return new Response('Not Found', { status: 404 });
+  try {
+    const data = await readFile(absolutePath);
+    return new Response(data, {
+      status: 200,
+      headers: { 'Content-Type': `${mime}; charset=utf-8`, 'Cache-Control': 'no-cache' }
+    });
+  } catch (err) {
+    getLogger().warn(`[panel-protocol] icon asset not found for ${extPath}`, err as Error);
+    return new Response('Not Found', { status: 404 });
+  }
+}
 
 /**
  * Register `finance-shell://` as a custom Electron protocol handler.
@@ -68,6 +172,16 @@ export function registerPanelProtocol(userExtensionsRoot = ''): void {
     }
     if (pathname.startsWith('/extensions/')) {
       const extPath = pathname.slice('/extensions/'.length);
+      // Icon assets (`<extensionId>/assets/icon.svg`) resolve only under the
+      // matching extension directory with validated SVG/PNG paths. Any nested
+      // subpath must either serve as a validated icon or 404 here — never
+      // fall through to the bundle/CSS handlers or the generic file lookup
+      // below (which joins unvalidated paths).
+      const roots = userExtensionsRoot ? [userExtensionsRoot, DIST_EXTENSIONS_DIR] : [DIST_EXTENSIONS_DIR];
+      if (extPath.includes('/')) {
+        const iconResponse = await serveExtensionIconAsset(extPath, roots);
+        return iconResponse;
+      }
       // Try direct file lookup for code-split chunks (e.g. ui-*.js) first — scan user dirs
       const candidates: string[] = [];
       if (userExtensionsRoot && existsSync(userExtensionsRoot)) {

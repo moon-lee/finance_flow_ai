@@ -1,7 +1,7 @@
 ---
-version: 1.0.7
+version: 1.0.8
 created: 2026-06-14
-last_updated: 2026-09-10T12:24:41+10:00
+last_updated: 2026-09-11T02:24:13+10:00
 ---
 
 # Changelog
@@ -11,7 +11,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.0.8] - 2026-09-11
+
+### Added
+
+- **Activity Bar extension icons** (`src/shared/extension-icon.ts`, `src/extension-host/manifest-schema.ts`, `src/renderer/components/activity-bar.ts`, `src/renderer/index.ts`, `src/renderer/public/icons/settings.svg`, `src/main/services/panel-protocol.ts`, `extensions/dashboard/assets/icon.svg`, `extensions/salary-history/assets/icon.svg`, `d:/finance_flow_ext/todo-list/assets/icon.svg`, `scripts/rename-extension-bundles.mjs`). Extension views accept a relative SVG/PNG asset path or a legacy one/two-character glyph; asset icons render at 28px in the Activity Bar with traversal-safe `finance-shell://extensions/<id>/<asset>` serving and shared button styling (no extension background), legacy values render as text, tabs are unchanged, and Settings uses a neutral built-in gear.
+
+### Administrative
+
+- **Activity Bar icon SDK/docs updates** (`docs/extension-api.md`, `docs/sdk-templates.md`, `docs/file-reference.md`, `scripts/sdk/templates/package.json.template`, `scripts/sdk/templates/assets/icon.svg`, `scripts/sdk/templates/AGENTS.md.template`, `scripts/sdk/cli.mjs`). `init` scaffolds `assets/icon.svg` with the manifest pointed at it, `build` copies declared icon assets into the install artifact, and `refresh` never overwrites an author-owned icon or `package.json`.
+- **Saved extension icon design preview** (`docs/design/finance-extension-icons-preview.svg`). Includes Dashboard, Salary History, Todo List, and Settings icon concepts in the approved rounded two-tone style; no Activity Bar runtime changes yet.
+- **Activity Bar extension icon implementation plan** (`docs/superpowers/plans/2026-09-10-activity-bar-extension-icons.md`). Plan covers SVG/PNG manifest assets, safe protocol serving, legacy letter fallback, built-in Settings gear, SDK scaffolding, tests, and Activity Bar-only manual verification; implementation is intentionally deferred.
 
 ## [1.0.7] - 2026-09-10
 

@@ -15,6 +15,7 @@ import type { HostLogEntry, HostStatus } from '../types/finance-shell';
 import type { NavigationPanel } from './components/navigation-panel';
 import { rendererLogger } from './logger';
 import { resolveThemeColor } from '../shared/theme-color';
+import { buildExtensionIconUrl } from '../shared/extension-icon';
 
 const commandPalette = document.querySelector<HTMLElement & { focusInput(): void; extensionCommands: PaletteCommand[] }>('#command-palette');
 const navigationPanel = document.querySelector<NavigationPanel>('#navigation-panel');
@@ -131,6 +132,10 @@ async function toggleTheme(): Promise<void> {
   window.financeShell?.panel?.broadcastTheme?.(isLight ? 'light' : 'dark');
 }
 
+export function extensionIconUrl(extensionId: string, icon: string): string | undefined {
+  return buildExtensionIconUrl(extensionId, icon);
+}
+
 async function loadExtensionContributions(): Promise<void> {
   try {
     const contributions = await window.financeShell?.extensions.list();
@@ -148,7 +153,8 @@ async function loadExtensionContributions(): Promise<void> {
           setting,
           manifest: contributions.themeColors?.[v.extensionId] ?? undefined,
         });
-        return { id: v.view.id, name: v.view.name, icon: v.view.icon, color };
+        const iconUrl = extensionIconUrl(v.extensionId, v.view.icon);
+        return { id: v.view.id, name: v.view.name, icon: v.view.icon, iconUrl, color };
       }));
     }
     if (commandPalette) {

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { FinanceExtensionManifest, TableManifest, ColumnManifest } from '../types/finance';
+import { ICON_ASSET_PATH_RE } from '../shared/extension-icon';
 
 const activationEventSchema = z.union([
   z.literal('*'),
@@ -8,10 +9,17 @@ const activationEventSchema = z.union([
   z.string().regex(/^onCommand:[a-z0-9.-]+$/, 'must match onCommand:<id>')
 ]);
 
+export const legacyIconSchema = z.string().min(1).max(2);
+export const assetIconSchema = z.string().regex(
+  ICON_ASSET_PATH_RE,
+  'icon asset must be a relative .svg or .png path without traversal'
+);
+export const iconSchema = z.union([legacyIconSchema, assetIconSchema]);
+
 export const viewContributionSchema = z.object({
   id: z.string().regex(/^[a-z0-9-]+$/, 'view id must be lowercase alphanumeric/hyphen'),
   name: z.string().min(1),
-  icon: z.string().min(1).max(2),
+  icon: iconSchema,
   // Phase 5 Fix 3 — a Host-executed command that opens this view with current
   // data (see ManifestViewContribution.openCommand). Cross-checked against
   // commands[] in manifestContributionsSchema below.

@@ -49,7 +49,11 @@ export interface ManifestViewContribution {
   id: string;
   /** Human-readable label shown in the Activity Bar tooltip and Navigation Panel header. */
   name: string;
-  /** Single-character or short icon label rendered in the Activity Bar button. */
+  /**
+   * Legacy one/two-character glyph or a relative extension asset path such as
+   * `assets/icon.svg` / `assets/icon.png`. Activity Bar renders asset icons;
+   * legacy values remain supported as text. Tab icons are unaffected.
+   */
   icon: string;
   /**
    * Optional command (executed in the Host with real service bindings) that

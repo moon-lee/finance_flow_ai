@@ -6,20 +6,20 @@
 - Standalone extension `{{ID}}` (`package.json` `financeExtension.id`). Runs in two processes:
   - **Host (Node `utilityProcess`)** — `src/main.ts` `activate(finance, ctx)` registers commands/services, owns DB access.
   - **Panel (WebContentsView)** — `src/ui/sample-view.ts` (`{{ID}}-view` Lit element) renders inside `finance-shell://panel/{{ID}}/bootstrap.js` (`src/main/resources/panel-bootstrap.ts` in main app).
-- `src/finance.d.ts`, `vite-env.d.ts`, `src/vendor/logger.ts`, `src/styles/tokens.css`/`ext-layout.css`/`shared-styles.ts` are **vendored snapshots** from `D:\finance_flow_ai` at `init` time. Re-synced by `node D:/finance_flow_ai/scripts/sdk/cli.mjs refresh .` (overwrites only `src/finance.d.ts`/`vendor/logger.ts`/`styles/*`, never your code).
+- `src/finance.d.ts`, `vite-env.d.ts`, `src/vendor/logger.ts`, `src/styles/tokens.css`/`ext-layout.css`/`shared-styles.ts` are **vendored snapshots** from `D:\finance_flow_ai` at `init` time. Re-synced by `node D:/finance_flow_ai/scripts/sdk/cli.mjs refresh .` (overwrites only `src/finance.d.ts`/`vendor/logger.ts`/`styles/*`, never your code). `assets/icon.svg` is author-owned after `init`; `refresh` never overwrites it.
 
 ## 2. How to work
 ```bash
 npm run dev    # Vite http://localhost:5173 with src/mock/finance-mock.ts (in-memory FinanceApi, HMR)
 npm run build  # node D:/finance_flow_ai/scripts/sdk/cli.mjs build . → build/extension/{{ID}}.js + package.json
 # then in app: Extensions → Install Folder/Zip → pick build/extension → restart (all lifecycle actions auto-restart)
-node D:/finance_flow_ai/scripts/sdk/cli.mjs refresh .  # after app updates finance.d.ts
+node D:/finance_flow_ai/scripts/sdk/cli.mjs refresh .  # after app updates finance.d.ts (types/styles/logger only; your icon and package.json are untouched)
 ```
 - `dev` mock DB is ephemeral; real SQLite (`better-sqlite3`, `TableSchemaRegistry`) only after Install+restart.
 - Install artifact = folder with `package.json` (`financeExtension`) + `{{ID}}.js` (+ `ui-*.js` if code-split). Validated by `ExtensionInstaller` (`src/main/services/extension-installer.ts:62`).
 
 ## 3. Key files & constraints (self-contained — no need to open other extensions)
-- `package.json` `financeExtension` is source of truth: `id` lowercase `a-z0-9-`, `version` semver, `activationEvents`, `contributions.views/commands/navigation`, `tables`, `allowedCommands`/`allowedUiEvents`, `main: "src/main.ts"`. Scaffold starts with **no** `tables` (in-memory only). To add persistence, edit `package.json` and add:
+- `package.json` `financeExtension` is source of truth: `id` lowercase `a-z0-9-`, `version` semver, `activationEvents`, `contributions.views/commands/navigation`, `tables`, `allowedCommands`/`allowedUiEvents`, `main: "src/main.ts"`. Views accept a legacy one/two-character `icon` or a relative `assets/*.svg`/`assets/*.png` path (`assets/icon.svg` is scaffolded by `init` and copied by `build` into `build/extension`). Scaffold starts with **no** `tables` (in-memory only). To add persistence, edit `package.json` and add:
   ```json
   "financeExtension": {
     "id": "{{ID}}",

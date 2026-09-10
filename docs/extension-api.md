@@ -39,6 +39,15 @@ effective color before importing the extension bundle.
 
 Each view contributes one Activity Bar button. Phase 3 renders the icon as a single character; the renderer ignores any CSS-class suggestion.
 
+### Activity Bar icons
+
+`contributes.views[].icon` accepts either a legacy one/two-character fallback or
+an extension-relative `assets/*.svg` / `assets/*.png` path. Asset paths are
+served only from the extension package and are rejected if they contain `..`,
+absolute paths, protocols, or unsupported file types. Activity Bar renders the
+asset at 28px; tabs are not affected by this setting. Activity Bar buttons
+retain shared styling with no extension `themeColor` background.
+
 ### `contributes.commands`
 
 Each command registers a Palette entry. Phase 3 wires execution end-to-end; the renderer invokes commands via `window.financeShell.extensions.executeCommand(id, ...args)`.
