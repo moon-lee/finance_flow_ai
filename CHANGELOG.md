@@ -1,7 +1,7 @@
 ---
-version: 1.0.6
+version: 1.0.7
 created: 2026-06-14
-last_updated: 2026-09-10T12:15:08+10:00
+last_updated: 2026-09-10T12:24:41+10:00
 ---
 
 # Changelog
@@ -12,6 +12,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [1.0.7] - 2026-09-10
+
+### Changed
+
+- **Enlarged the application icon artwork** (`assets/icon.svg`, `assets/icon.png`, `assets/icon.ico`, `src/renderer/public/icon.png`, `scripts/generate-icon-assets.py`). Reduced transparent padding so the mark occupies more of the canvas while preserving its proportions.
 
 ## [1.0.6] - 2026-09-10
 

@@ -13,6 +13,8 @@ from pathlib import Path
 from PIL import Image, ImageDraw
 
 SIZE = 512
+MARK_SCALE = 432 / 372
+MARK_CENTER = SIZE / 2
 DARK = (37, 37, 38, 255)
 INDIGO = (99, 102, 241, 255)
 WHITE = (248, 250, 252, 255)
@@ -27,31 +29,38 @@ PUBLIC_ICON = (
 
 
 def draw_mark(draw: ImageDraw.ImageDraw, s: float) -> None:
+    def coordinate(value: float) -> float:
+        return (MARK_CENTER + (value - MARK_CENTER) * MARK_SCALE) * s
+
+    def point(x: float, y: float) -> tuple[float, float]:
+        return coordinate(x), coordinate(y)
+
     # Rounded-square body with indigo border.
     draw.rounded_rectangle(
-        [70 * s, 70 * s, (70 + 372) * s, (70 + 372) * s],
-        radius=111 * s,
+        [coordinate(70), coordinate(70), coordinate(442), coordinate(442)],
+        radius=111 * MARK_SCALE * s,
         fill=DARK,
         outline=INDIGO,
-        width=max(1, round(22 * s)),
+        width=max(1, round(22 * MARK_SCALE * s)),
     )
     # White flow line rising to the top-right.
     draw.line(
-        [(119 * s, 350 * s), (205 * s, 273 * s), (256 * s, 303 * s), (393 * s, 179 * s)],
+        [point(119, 350), point(205, 273), point(256, 303), point(393, 179)],
         fill=WHITE,
-        width=max(1, round(34 * s)),
+        width=max(1, round(34 * MARK_SCALE * s)),
         joint="curve",
     )
     # Green trend echo + node dot.
     draw.line(
-        [(119 * s, 384 * s), (213 * s, 307 * s), (265 * s, 337 * s), (393 * s, 213 * s)],
+        [point(119, 384), point(213, 307), point(265, 337), point(393, 213)],
         fill=GREEN[:3] + (230,),
-        width=max(1, round(21 * s)),
+        width=max(1, round(21 * MARK_SCALE * s)),
         joint="curve",
     )
-    r = 26 * s
+    r = 26 * MARK_SCALE * s
+    node_x, node_y = point(393, 179)
     draw.ellipse(
-        [393 * s - r, 179 * s - r, 393 * s + r, 179 * s + r],
+        [node_x - r, node_y - r, node_x + r, node_y + r],
         fill=GREEN,
     )
 
