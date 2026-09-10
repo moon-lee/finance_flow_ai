@@ -125,7 +125,10 @@ export class TabBar extends LitElement {
                role="tab"
                aria-selected="${tab.panelId === this.activePanelId}"
                @click="${() => tab.panelId && this._onTabClick(tab.panelId)}">
-            <span class="tab-icon">${tab.label.split(' ')[1]?.charAt(0).toUpperCase() ?? tab.label.charAt(0).toUpperCase()}</span>
+            <span
+              class="tab-icon"
+              style="${tab.panelId === this.activePanelId && tab.color ? `background: ${tab.color}; color: #ffffff;` : ''}"
+            >${tab.label.split(' ')[1]?.charAt(0).toUpperCase() ?? tab.label.charAt(0).toUpperCase()}</span>
             <span class="tab-label">${tab.label}</span>
             ${tab.panelId ? html`<span class="tab-close" @click="${(e: Event) => this._onTabClose(e, tab.panelId)}">\u00d7</span>` : ''}
           </div>

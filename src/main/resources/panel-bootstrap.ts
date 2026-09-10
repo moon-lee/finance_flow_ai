@@ -21,6 +21,7 @@
 
 import type { FinanceApi } from '../../types/finance';
 import type { PanelFinanceShellApi } from '../../types/finance-shell';
+import { darkenHex, isThemeColor } from '../../shared/theme-color';
 
 declare const financeShell: PanelFinanceShellApi;
 
@@ -61,6 +62,7 @@ interface PanelPayload {
   extensionId: string;
   viewId: string;
   mountData?: Record<string, unknown>;
+  themeColor?: string;
 }
 
 /**
@@ -164,6 +166,7 @@ function createPanelFinanceApi(extensionId: string): FinanceApi {
 
 async function mountPanelComponent(payload: PanelPayload): Promise<void> {
   const { extensionId, viewId, mountData } = payload;
+  let themeColor = isThemeColor(payload.themeColor) ? payload.themeColor : undefined;
   panelLogger.log('[panel bootstrap] mountPanelComponent', { extensionId, viewId, hasMountData: !!mountData });
 
   const theme = await financeShell.theme.get();
@@ -212,6 +215,11 @@ async function mountPanelComponent(payload: PanelPayload): Promise<void> {
     root.style.setProperty('--ff-danger', '#f48771');
   }
 
+  if (themeColor) {
+    root.style.setProperty('--ff-accent', themeColor);
+    root.style.setProperty('--ff-accent-hover', darkenHex(themeColor));
+  }
+
   financeShell.theme.onChange((newTheme: string) => {
     if (newTheme === 'light') {
       document.body.classList.add('light-theme');
@@ -255,6 +263,10 @@ async function mountPanelComponent(payload: PanelPayload): Promise<void> {
       root.style.setProperty('--ff-teal', '#4ec9b0');
       root.style.setProperty('--ff-teal-hover', '#6fdec0');
       root.style.setProperty('--ff-danger', '#f48771');
+    }
+    if (themeColor) {
+      root.style.setProperty('--ff-accent', themeColor);
+      root.style.setProperty('--ff-accent-hover', darkenHex(themeColor));
     }
   });
 
@@ -303,7 +315,20 @@ async function mountPanelComponent(payload: PanelPayload): Promise<void> {
 
     // --- Mount updates from Host (e.g. Dashboard refresh) ---
     financeShell.onMountUpdate((payload: unknown) => {
-      const { mountData } = payload as { mountData?: Record<string, unknown> };
+      const { mountData: nextMountData, themeColor: nextThemeColor } = payload as {
+        mountData?: Record<string, unknown>;
+        themeColor?: string;
+      };
+      if (isThemeColor(nextThemeColor)) {
+        themeColor = nextThemeColor;
+        root.style.setProperty('--ff-accent', themeColor);
+        root.style.setProperty('--ff-accent-hover', darkenHex(themeColor));
+      } else if (nextThemeColor === undefined) {
+        themeColor = undefined;
+        root.style.setProperty('--ff-accent', '#007acc');
+        root.style.setProperty('--ff-accent-hover', '#1188dd');
+      }
+      const mountData = nextMountData;
       if (!mountData) return;
       const app = document.getElementById('app');
       if (app) {

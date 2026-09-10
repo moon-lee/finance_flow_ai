@@ -95,6 +95,23 @@ describe('validateManifest', () => {
     const result = validateManifest({ ...validManifest, version: 'latest' });
     expect(result.ok).toBe(false);
   });
+
+  it('accepts a valid themeColor', () => {
+    const result = validateManifest({ ...validManifest, themeColor: '#4EC9B0' });
+    expect(result.ok).toBe(true);
+  });
+
+  it('accepts a missing themeColor', () => {
+    const result = validateManifest({ ...validManifest });
+    expect(result.ok).toBe(true);
+  });
+
+  it('rejects malformed themeColor values', () => {
+    for (const themeColor of ['red', '#FFF', '#GGGGGG', '123456', '#12345']) {
+      const result = validateManifest({ ...validManifest, themeColor });
+      expect(result.ok).toBe(false);
+    }
+  });
 });
 
 // Phase 4 Task 8.4 — `tables[]` block validation (Decision 3).

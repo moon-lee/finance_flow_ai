@@ -89,6 +89,15 @@ const SLIPS: PaySlip[] = [
 ];
 
 describe('PayslipList (Task 11.2)', () => {
+  it('uses the extension accent for the YTD footer and info-note code', () => {
+    const elementClass = customElements.get('payslip-list') as typeof import('../../../../../extensions/salary-history/src/ui/payslip-list').PayslipList | undefined;
+    const styles = String(elementClass?.styles ?? '');
+    expect(styles).toContain('border-top: 2px solid var(--ff-accent)');
+    expect(styles).toContain('color: var(--ff-accent, #007acc)');
+    expect(styles).not.toContain('border-top: 2px solid var(--ff-teal)');
+    expect(styles).not.toContain('color: var(--ff-teal, #4ec9b0)');
+  });
+
   it('renders the payslip table', async () => {
     const el = makeEl();
     el.payslips = SLIPS;

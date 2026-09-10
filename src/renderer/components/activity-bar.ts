@@ -5,6 +5,7 @@ export interface ActivityView {
   id: string;
   name: string;
   icon: string;
+  color?: string;
 }
 
 @customElement('activity-bar')
@@ -91,6 +92,7 @@ export class ActivityBar extends LitElement {
         title="${view.name}"
         aria-label="${view.name}"
         data-view-id="${view.id}"
+        style="${this.activeView === view.id && view.color ? `background: ${view.color}; color: #ffffff;` : ''}"
         @click="${(e: MouseEvent) => { if (e.isTrusted) this._selectView(view.id); }}"
       >${view.icon}</button>
     `);

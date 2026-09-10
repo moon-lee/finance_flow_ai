@@ -34,6 +34,21 @@ describe('tab-bar', () => {
     document.body.removeChild(el);
   });
 
+  it('applies extension color only to the active tab icon', async () => {
+    const el = document.createElement('tab-bar') as TabBar;
+    el.tabs = [
+      { panelId: 'panel-1', label: 'Dashboard', color: '#4EC9B0' },
+      { panelId: 'panel-2', label: 'Pay History', color: '#F59E0B' },
+    ];
+    el.activePanelId = 'panel-2';
+    document.body.appendChild(el);
+    await el.updateComplete;
+    const icons = Array.from(el.shadowRoot!.querySelectorAll('.tab-icon'));
+    expect(icons[0].getAttribute('style')).toBe('');
+    expect(icons[1].getAttribute('style')).toContain('background: #F59E0B');
+    document.body.removeChild(el);
+  });
+
   it('dispatches tab-focus on click', async () => {
     const el = document.createElement('tab-bar') as TabBar;
     el.tabs = [{ panelId: 'panel-1', label: 'Dashboard' }];

@@ -14,6 +14,7 @@ import type { PaletteCommand } from './components/command-palette';
 import type { HostLogEntry, HostStatus } from '../types/finance-shell';
 import type { NavigationPanel } from './components/navigation-panel';
 import { rendererLogger } from './logger';
+import { resolveThemeColor } from '../shared/theme-color';
 
 const commandPalette = document.querySelector<HTMLElement & { focusInput(): void; extensionCommands: PaletteCommand[] }>('#command-palette');
 const navigationPanel = document.querySelector<NavigationPanel>('#navigation-panel');
@@ -71,6 +72,12 @@ if (window.financeShell?.extensions?.onHostStatus) {
 }
 
 if (window.financeShell?.events?.on) {
+  window.financeShell.events.on('settings.changed', (payload: unknown) => {
+    const key = (payload as { key?: unknown })?.key;
+    if (typeof key !== 'string' || !key.endsWith('.themeColor')) return;
+    void loadExtensionContributions();
+    void (workspace as HTMLElement & { refreshThemeColors?: () => Promise<void> })?.refreshThemeColors?.();
+  });
   ['error', 'warn', 'info', 'debug'].forEach((level) => {
     window.financeShell.events.on(`log.${level}`, (payload: unknown) => {
       const p = payload as Record<string, unknown>;
@@ -129,10 +136,20 @@ async function loadExtensionContributions(): Promise<void> {
     const contributions = await window.financeShell?.extensions.list();
     if (!contributions) return;
     if (activityBar) {
-      activityBar.views = contributions.views.map((v) => {
+      activityBar.views = await Promise.all(contributions.views.map(async (v) => {
         viewToExtension.set(v.view.id, v.extensionId);
-        return { id: v.view.id, name: v.view.name, icon: v.view.icon };
-      });
+        let setting: unknown;
+        try {
+          setting = await window.financeShell?.settings?.get?.(`${v.extensionId}.themeColor`);
+        } catch {
+          setting = undefined;
+        }
+        const color = resolveThemeColor({
+          setting,
+          manifest: contributions.themeColors?.[v.extensionId] ?? undefined,
+        });
+        return { id: v.view.id, name: v.view.name, icon: v.view.icon, color };
+      }));
     }
     if (commandPalette) {
       commandPalette.extensionCommands = contributions.commands.map((c) => ({

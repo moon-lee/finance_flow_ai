@@ -251,3 +251,59 @@ describe('SettingsScreen formatted input validation', () => {
     expect(error).not.toBeNull();
   });
 });
+
+describe('SettingsScreen theme color control', () => {
+  beforeEach(() => {
+    document.body.innerHTML = '';
+    vi.restoreAllMocks();
+    mockShell();
+  });
+
+  it('renders a native picker and synced hex text field', async () => {
+    const el = document.createElement('settings-screen') as any;
+    document.body.appendChild(el);
+    await el.updateComplete;
+    el._sections = [{
+      extensionId: 'todo-list',
+      displayName: 'Todo List',
+      items: [{
+        key: 'todo-list.themeColor',
+        type: 'string',
+        label: 'Accent color',
+        default: '#6366F1',
+        pattern: '^#[0-9A-Fa-f]{6}$',
+        formatHint: '#RRGGBB',
+      }],
+    }];
+    el._values = new Map([['todo-list.themeColor', '#4EC9B0']]);
+    el._loading = false;
+    el.requestUpdate();
+    await el.updateComplete;
+
+    const picker = el.shadowRoot!.querySelector('input[type="color"]') as HTMLInputElement | null;
+    const text = el.shadowRoot!.querySelector('input[data-testid="input-todo-list.themeColor"]') as HTMLInputElement | null;
+    expect(picker?.value).toBe('#4ec9b0');
+    expect(text?.value).toBe('#4EC9B0');
+  });
+
+  it('blocks an invalid theme color text value', async () => {
+    const el = document.createElement('settings-screen') as any;
+    document.body.appendChild(el);
+    await el.updateComplete;
+    el._sections = [{
+      extensionId: 'todo-list',
+      displayName: 'Todo List',
+      items: [{ key: 'todo-list.themeColor', type: 'string', label: 'Accent color', default: '#6366F1', formatHint: '#RRGGBB' }],
+    }];
+    el._values = new Map([['todo-list.themeColor', '#4EC9B0']]);
+    el._loading = false;
+    el.requestUpdate();
+    await el.updateComplete;
+
+    const text = el.shadowRoot!.querySelector('input[data-testid="input-todo-list.themeColor"]') as HTMLInputElement;
+    text.value = 'red';
+    text.dispatchEvent(new Event('change'));
+    await el.updateComplete;
+    expect(el.shadowRoot!.querySelector('.setting-error')).not.toBeNull();
+  });
+});

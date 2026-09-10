@@ -24,6 +24,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { toAccelerator } from './shortcut-registry';
 import { getSetting } from './settings-service';
+import { resolveThemeColor } from '../../shared/theme-color';
 import { EventBus } from './event-bus';
 import { getLogger } from './logger';
 
@@ -106,6 +107,22 @@ export class WebviewPanelManager {
 
   setUIHandler(handler: WebviewPanelUIHandler | null): void {
     this.uiHandler = handler;
+  }
+
+  private getManifest: ((id: string) => { themeColor?: string } | undefined) | null = null;
+
+  setManifestProvider(provider: (id: string) => { themeColor?: string } | undefined): void {
+    this.getManifest = provider;
+  }
+
+  private resolveThemeColor(extensionId: string): string | undefined {
+    let setting: unknown;
+    try {
+      setting = getSetting<string>(`${extensionId}.themeColor`);
+    } catch {
+      setting = undefined;
+    }
+    return resolveThemeColor({ setting, manifest: this.getManifest?.(extensionId)?.themeColor });
   }
 
   setDirty(panelId: string, dirty: boolean): void {
@@ -294,7 +311,10 @@ export class WebviewPanelManager {
         panelsCount: this.panels.size,
       });
       if (!existing.view.webContents.isDestroyed()) {
-        existing.view.webContents.send("panel:mount-update", { mountData });
+        existing.view.webContents.send("panel:mount-update", {
+          mountData,
+          themeColor: this.resolveThemeColor(extensionId),
+        });
       }
       if (!this.overlayActive) {
         this.showPanel(panelId);
@@ -321,6 +341,7 @@ export class WebviewPanelManager {
         extensionId,
         viewId,
         mountData,
+        themeColor: this.resolveThemeColor(extensionId),
       });
     });
 
@@ -521,8 +542,19 @@ export class WebviewPanelManager {
     const handle = this.findByPanelId(panelId);
     if (!handle) return false;
     if (handle.view.webContents.isDestroyed()) return false;
-    handle.view.webContents.send('panel:mount-update', { mountData });
+    handle.view.webContents.send('panel:mount-update', {
+      mountData,
+      themeColor: this.resolveThemeColor(extensionId),
+    });
     return true;
+  }
+
+  refreshThemeColor(extensionId: string): void {
+    const themeColor = this.resolveThemeColor(extensionId);
+    for (const handle of this.panels.values()) {
+      if (handle.extensionId !== extensionId || handle.view.webContents.isDestroyed()) continue;
+      handle.view.webContents.send('panel:mount-update', { themeColor });
+    }
   }
 
   resize(

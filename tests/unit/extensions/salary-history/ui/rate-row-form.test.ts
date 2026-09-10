@@ -8,7 +8,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import '../../../../../extensions/salary-history/src/ui/rate-row-form';
+import { RateRowForm } from '../../../../../extensions/salary-history/src/ui/rate-row-form';
 import type { RateRow } from '../../../../../extensions/salary-history/src/dao/pay-rate-history';
 import type { UiEl } from './test-types';
 
@@ -52,6 +52,12 @@ function todayISO(): string {
 }
 
 describe('RateRowForm (Task 11.5)', () => {
+  it('uses the extension accent for info-note code', () => {
+    const styles = String(RateRowForm.styles);
+    expect(styles).toMatch(/\.info-note code\s*\{\s*color: var\(--ff-accent, #007acc\);/);
+    expect(styles).not.toMatch(/\.info-note code\s*\{\s*color: var\(--ff-teal, #4ec9b0\);/);
+  });
+
   it('renders the form fields immediately with no confirm panel', async () => {
     const el = makeEl();
     el.rate = CURRENT;

@@ -16,6 +16,7 @@ export class SampleView extends Base {
         <div class="view-container-inner">
           <h1>{{DISPLAY_NAME}}</h1>
           <p>Your extension screen is ready — uses <code>ext-tokens.css</code> + <code>ext-layout.css</code> (<code>.topbar</code> / <code>.view-scroll</code> / <code>.view-container</code>).</p>
+          <p>Accents (<code>.btn-primary</code>, <code>.crumb-link</code>, focus rings) follow <code>var(--ff-accent)</code>. Core sets it from <code>themeColor</code>; users can override it with <code>{{ID}}.themeColor</code>. Do not hardcode accent hex values.</p>
           <p style="opacity:0.6;font-size:12px">DB: add <code>{{ID_SNAKE}}_records</code> in <code>package.json</code> for persistence — see AGENTS.md §3.</p>
         </div>
       </div>

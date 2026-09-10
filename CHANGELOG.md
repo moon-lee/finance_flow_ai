@@ -1,7 +1,7 @@
 ---
-version: 1.0.5
+version: 1.0.6
 created: 2026-06-14
-last_updated: 2026-09-09T01:17:33+10:00
+last_updated: 2026-09-10T12:15:08+10:00
 ---
 
 # Changelog
@@ -12,6 +12,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [1.0.6] - 2026-09-10
+
+### Added
+
+- **Per-extension theme color** (`src/shared/theme-color.ts`, `src/main/services/webview-panel-manager.ts`, `src/main/resources/panel-bootstrap.ts`, `src/renderer/components/activity-bar.ts`, `src/renderer/components/tab-bar.ts`, `src/renderer/components/settings-screen.ts`, `scripts/sdk/templates/package.json.template`, `extensions/dashboard/package.json`, `extensions/salary-history/package.json`, `d:/finance_flow_ext/todo-list/package.json`). Extensions can declare a `#RRGGBB` `themeColor`, users can override it through a native Settings picker, and the effective color styles Activity Bar icons, tabs, panel topbar actions, and in-view `--ff-accent` controls.
+
+### Fixed
+
+- **Salary History pay-rate view now uses the extension accent** (`extensions/salary-history/src/ui/pay-rate-history-view.ts`, `tests/unit/extensions/salary-history/ui/pay-rate-history-view.test.ts`). Internal pay-rate highlights previously used the static teal token, so the Salary History `themeColor` did not appear in that view; accent-driven highlights now consume `--ff-accent`.
+- **Per-extension color now applies to Activity Bar backgrounds and internal Salary History tabs** (`src/renderer/components/activity-bar.ts`, `src/renderer/components/workspace.ts`, `tests/unit/renderer/activity-bar-color.test.ts`). Activity Bar icons use the extension color as their background, and internal views such as Pay Rate History resolve the owning extension's color instead of requiring a contributed Activity Bar view.
+- **Pay Rate History tab icon resolves Salary History color from internal panel IDs** (`src/renderer/components/workspace.ts`, `tests/unit/renderer/workspace.test.ts`). Persisted and internal `panel-salary-history-*` tabs now inherit the Salary History extension color even though the internal view is not separately contributed to the Activity Bar.
+- **Pay History YTD footer and info-note code use the extension accent** (`extensions/salary-history/src/ui/payslip-list.ts`, `tests/unit/extensions/salary-history/ui/payslip-list.test.ts`). The YTD footer top border/label and inline documentation code now follow `--ff-accent` instead of the static teal token.
+- **Only the active tab icon uses the extension color** (`src/renderer/components/tab-bar.ts`, `tests/unit/renderer/tab-bar.test.ts`). Inactive tab icons now retain the existing shared inactive-tab styling.
+- **Only the active Activity Bar icon uses the extension color** (`src/renderer/components/activity-bar.ts`, `tests/unit/renderer/activity-bar-color.test.ts`). Inactive Activity Bar icons now retain the existing shared styling.
+- **Rate History form info-note code uses the extension accent** (`extensions/salary-history/src/ui/rate-row-form.ts`, `tests/unit/extensions/salary-history/ui/rate-row-form.test.ts`). The internal form no longer uses teal for inline service/code references.
+
+### Administrative
+
+- **Per-extension theme color spec + implementation plan** (`docs/superpowers/specs/2026-09-10-extension-theme-color-design.md`, `docs/superpowers/plans/2026-09-10-extension-theme-color.md`). Design covers extension-level `themeColor` (`#RRGGBB`, author default + `<id>.themeColor` user override) across Activity Bar icons, tab icons, panel topbar/in-view accents (single `--ff-accent` override via `panel:init`), Settings native picker + text + reset, and SDK template updates. Plan has 7 tasks (shared helper, manifest schema, Main wiring, renderer icons, panel bootstrap, Settings UI, SDK/docs/verification). No runtime code changed.
 
 ## [1.0.5] - 2026-09-09
 

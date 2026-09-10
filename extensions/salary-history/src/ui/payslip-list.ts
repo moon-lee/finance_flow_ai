@@ -137,7 +137,7 @@ export class PayslipList extends LitElement {
       .ytd-footer {
         background: var(--ff-bg-panel);
         border: 1px solid var(--ff-border);
-        border-top: 2px solid var(--ff-teal);
+        border-top: 2px solid var(--ff-accent);
         border-radius: 0 0 6px 6px;
         padding: 14px 16px;
         display: flex;
@@ -155,7 +155,7 @@ export class PayslipList extends LitElement {
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.5px;
-        color: var(--ff-teal);
+        color: var(--ff-accent);
       }
       .ytd-breakdown {
         display: grid;
@@ -237,7 +237,7 @@ export class PayslipList extends LitElement {
         border-radius: 3px;
       }
       .info-note code {
-        color: var(--ff-teal, #4ec9b0);
+        color: var(--ff-accent, #007acc);
         font-style: normal;
       }
     `,

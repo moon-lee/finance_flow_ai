@@ -263,6 +263,10 @@ function registerIpcHandlers(): void {
       if (eventBus) {
         eventBus.publish('settings.changed', { key });
       }
+      const separator = key.indexOf('.');
+      if (separator > 0 && key.endsWith('.themeColor')) {
+        webviewPanelManager?.refreshThemeColor(key.slice(0, separator));
+      }
     } catch (err) {
       logger.error(`settings:set failed for key "${key}":`, err);
       throw err;
@@ -270,12 +274,15 @@ function registerIpcHandlers(): void {
   });
 
   ipcMain.handle("extensions:list", () => {
-    if (!extensionRegistry) return { views: [], commands: [], navigation: [], configuration: [] };
+    if (!extensionRegistry) return { views: [], commands: [], navigation: [], configuration: [], themeColors: {} };
     return {
       views: extensionRegistry.views(),
       commands: extensionRegistry.commands(),
       navigation: extensionRegistry.navigation(),
       configuration: extensionRegistry.configuration(),
+      themeColors: Object.fromEntries(
+        extensionRegistry.getAllManifests().map((manifest) => [manifest.id, manifest.themeColor ?? null]),
+      ),
     };
   });
 
@@ -1125,6 +1132,8 @@ app.whenReady().then(async () => {
     // flush automatically when setMainWindow() is called after createWindow().
     webviewPanelManager = new WebviewPanelManager();
     logger.info("[main] WebviewPanelManager created:", webviewPanelManager);
+    const activeExtensionRegistry = extensionRegistry;
+    webviewPanelManager.setManifestProvider((id) => activeExtensionRegistry.get(id));
 
     // Phase 7 Task 13 — register each extension's keepAlive hint so the
     // lazy-unmount timer can honor it.

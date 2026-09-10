@@ -183,6 +183,7 @@ export const financeExtensionManifestSchema = z.object({
   displayName: z.string().min(1),
   version: z.string().regex(/^\d+\.\d+\.\d+/, 'version must be semver'),
   description: z.string().optional(),
+  themeColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'themeColor must be hex #RRGGBB').optional(),
   dependencies: z.array(z.string()).optional(),
   activationEvents: z.array(activationEventSchema).min(1, 'at least one activation event is required'),
   contributions: manifestContributionsSchema,

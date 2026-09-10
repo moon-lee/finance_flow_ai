@@ -182,7 +182,7 @@ export class RateRowForm extends LitElement {
         color: var(--ff-teal, #4ec9b0);
       }
       .info-note code {
-        color: var(--ff-teal, #4ec9b0);
+        color: var(--ff-accent, #007acc);
       }
     `,
   ];

@@ -9,11 +9,15 @@
     "displayName": "{{DISPLAY_NAME}}",
     "version": "0.1.0",
     "description": "{{DESCRIPTION}}",
+    "themeColor": "#6366F1",
     "activationEvents": ["onView:{{ID}}"],
     "contributions": {
       "views": [{ "id": "{{ID}}", "name": "{{DISPLAY_NAME}}", "icon": "{{ICON}}" }],
       "commands": [{ "id": "{{ID}}.hello", "title": "{{DISPLAY_NAME}}: Hello" }],
       "navigation": [{ "id": "{{ID}}-main", "label": "{{DISPLAY_NAME}}", "command": "{{ID}}.hello", "group": "{{DISPLAY_NAME}}" }],
+      "configuration": [
+        { "key": "{{ID}}.themeColor", "type": "string", "label": "Accent color for icons, topbar actions, and in-view highlights (hex).", "default": "#6366F1", "pattern": "^#[0-9A-Fa-f]{6}$", "formatHint": "#RRGGBB", "placeholder": "#6366F1" }
+      ],
       "allowedCommands": ["{{ID}}.hello"],
       "allowedUiEvents": []
     },

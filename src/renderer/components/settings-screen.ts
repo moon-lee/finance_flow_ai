@@ -352,6 +352,24 @@ export class SettingsScreen extends LitElement {
       color: var(--danger-color);
     }
 
+    .color-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .color-row input[type="color"] {
+      width: 36px;
+      height: 28px;
+      padding: 0;
+      border: 1px solid var(--input-border);
+      border-radius: 3px;
+      background: var(--input-bg);
+      cursor: pointer;
+    }
+    .color-row input[type="text"] {
+      flex: 1;
+    }
+
     .setting-control input.invalid,
     .setting-control textarea.invalid {
       border-color: var(--danger-color);
@@ -526,6 +544,61 @@ export class SettingsScreen extends LitElement {
     const helperId = `helper-${item.key}`;
     const errorId = `error-${item.key}`;
     const helperText = isFormatted && item.formatHint ? `Format: ${item.formatHint}` : '';
+
+    if (item.key.endsWith('.themeColor') || item.formatHint === '#RRGGBB') {
+      const raw = value !== undefined ? String(value) : String(item.default ?? '#6366F1');
+      const fallback = String(item.default ?? '#6366F1');
+      const pickerValue = /^#[0-9A-Fa-f]{6}$/.test(raw) ? raw : fallback;
+      return html`
+        <div class="color-row">
+          <input
+            type="color"
+            .value=${pickerValue}
+            aria-label="Pick color for ${item.key}"
+            @input=${(e: Event) => {
+              const color = (e.target as HTMLInputElement).value;
+              const text = this.renderRoot.querySelector(`#${fieldId}`) as HTMLInputElement | null;
+              if (text) text.value = color;
+              this._clearError(item.key);
+              this._commit(item.key, color);
+            }}
+          />
+          <input
+            id="${fieldId}"
+            data-testid="${fieldId}"
+            type="text"
+            .value=${raw || fallback}
+            placeholder="#RRGGBB"
+            aria-invalid=${error !== null ? 'true' : undefined}
+            class=${error !== null ? 'invalid' : ''}
+            @input=${() => this._clearError(item.key)}
+            @change=${(e: Event) => {
+              const target = e.target as HTMLInputElement;
+              const color = target.value.trim();
+              if (!/^#[0-9A-Fa-f]{6}$/.test(color)) {
+                this._setError(item.key, 'Value must match format #RRGGBB');
+                return;
+              }
+              const picker = this.renderRoot.querySelector(`input[type="color"][aria-label="Pick color for ${item.key}"]`) as HTMLInputElement | null;
+              if (picker) picker.value = color;
+              this._clearError(item.key);
+              this._commit(item.key, color);
+            }}
+          />
+          <button
+            class="action-btn"
+            type="button"
+            title="Reset to manifest default"
+            @click=${() => {
+              this._clearError(item.key);
+              this._commit(item.key, '');
+            }}
+          >Reset</button>
+        </div>
+        ${helperText ? html`<div class="setting-helper" id="${helperId}">${helperText}</div>` : ''}
+        ${error ? html`<div class="setting-helper setting-error invalid" id="${errorId}" role="alert">${error}</div>` : ''}
+      `;
+    }
 
     if (item.type === 'boolean') {
       return html`

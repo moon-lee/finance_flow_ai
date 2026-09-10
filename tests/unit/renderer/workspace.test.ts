@@ -152,6 +152,16 @@ describe('workspace-panel', () => {
     document.body.removeChild(document.querySelector('workspace-panel')!);
   });
 
+  it('resolves the Salary History color for internal pay-rate panels', () => {
+    const el = makeEl() as unknown as {
+      _extensionIdToColor: Map<string, string>;
+      _colorForPanelId: (panelId: string) => string | undefined;
+    };
+    el._extensionIdToColor.set('salary-history', '#F59E0B');
+    expect(el._colorForPanelId('panel-salary-history-pay-rate-history-view')).toBe('#F59E0B');
+    document.body.removeChild(document.querySelector('workspace-panel')!);
+  });
+
   it('keeps the restored activePanelId when tabs are re-activated', async () => {
     // Saved layout has 2 tabs; the ACTIVE tab is the first one (Dashboard).
     const saved = {

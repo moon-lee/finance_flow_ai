@@ -8,6 +8,7 @@
     "id": "dashboard",
     "displayName": "Dashboard",
     "version": "0.1.0",
+    "themeColor": "#4EC9B0",
     "main": "src/main.ts",
     "description": "Default landing view aggregating net worth, YTD salary, last payslip, and accounts.",
     "dependencies": ["salary-history"],
@@ -53,7 +54,9 @@
       ],
       "allowedCommands": ["dashboard.refresh", "dashboard.open-net-worth-detail"],
       "allowedUiEvents": ["dashboard-refresh", "card-order-change"],
-      "configuration": []
+      "configuration": [
+        { "key": "dashboard.themeColor", "type": "string", "label": "Accent color for Dashboard icons and panel highlights (hex).", "default": "#4EC9B0", "pattern": "^#[0-9A-Fa-f]{6}$", "formatHint": "#RRGGBB", "placeholder": "#4EC9B0" }
+      ]
     }
   }
 }

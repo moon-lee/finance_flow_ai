@@ -12,8 +12,28 @@ Every extension declares a `financeExtension` block in its `package.json`. The c
 | `displayName` | `string` | Human-readable name shown in the Extension Manager. |
 | `version` | `string` | Semver (e.g. `0.1.0`). |
 | `activationEvents` | `ActivationEvent[]` | At least one. `*` activates on startup; `onStartup` activates on startup and triggers a UI mount; `onView:<id>` and `onCommand:<id>` are lazy. |
+| `themeColor` | `string` | Optional shared `#RRGGBB` accent for extension icons and panel accents. |
 | `contributions` | `ManifestContributions` | `views`, `commands`, `menus`, `configuration`, `navigation`, `allowedCommands`, `allowedUiEvents`. |
 | `main` | `string` | Path to the bundled ESM entry (relative to package root). |
+
+### `themeColor`
+
+Extensions may declare an optional shared accent color in `#RRGGBB` form:
+
+```json
+"themeColor": "#4EC9B0"
+```
+
+The color applies to the Activity Bar icon, tab icon, panel topbar actions, and
+in-view accents already bound to `var(--ff-accent)`. An extension can declare
+`<extensionId>.themeColor` in `contributes.configuration` with the same hex
+pattern so users can override the author default from Settings. Resolution is
+user setting, then manifest value, then the global accent. Missing or invalid
+values fall back without throwing.
+
+Panel extensions should use `var(--ff-accent)` for buttons, links, and focus
+rings rather than hardcoding an accent hex. The panel bootstrap applies the
+effective color before importing the extension bundle.
 
 ### `contributes.views`
 

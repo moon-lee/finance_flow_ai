@@ -12,6 +12,17 @@
 | `src/renderer/index.html` | modified | Links `icon.png` as favicon. |
 | `package.json` | modified | `extraResources` ships `assets/icon.*`; `win.icon` points at `assets/icon.ico`. |
 
+## Per-Extension Theme Color
+
+| File | Status | Purpose |
+|------|--------|---------|
+| `src/shared/theme-color.ts` | new | Validates and resolves `#RRGGBB` colors and derives panel hover colors. |
+| `src/types/finance.d.ts` / `scripts/sdk/types/finance.d.ts` | modified | Adds the optional manifest-level `themeColor` contract. |
+| `src/main/services/webview-panel-manager.ts` / `src/main/resources/panel-bootstrap.ts` | modified | Delivers the effective color through existing panel lifecycle payloads and applies `--ff-accent`. |
+| `src/renderer/components/activity-bar.ts` / `tab-bar.ts` / `workspace.ts` | modified | Applies the extension color to Activity Bar and workspace tab icons. |
+| `src/renderer/components/settings-screen.ts` | modified | Provides native color picker, hex text input, validation, and reset. |
+| `scripts/sdk/templates/package.json.template` / `src/ui/sample-view.ts.template` | modified | New scaffolds declare the color and document `var(--ff-accent)` usage. |
+
 ## Local Product Deployment (ADR-0007)
 
 | File | Status | Purpose |

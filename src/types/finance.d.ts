@@ -123,6 +123,8 @@ export interface FinanceExtensionManifest {
   version: string;
   /** Short description, shown in the Extension Manager UI (Phase 8). */
   description?: string;
+  /** Shared icon and panel accent color in `#RRGGBB` form. */
+  themeColor?: string;
   /** Optional list of other extension ids this extension depends on. */
   dependencies?: string[];
   /**

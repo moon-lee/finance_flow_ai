@@ -8,6 +8,7 @@
     "id": "salary-history",
     "displayName": "Salary History",
     "version": "0.1.0",
+    "themeColor": "#F59E0B",
     "description": "Payslip entry, derived breakdown, and effective-dated rate history tracking.",
     "activationEvents": ["onStartup", "onView:payslip-list"],
     "contributions": {
@@ -63,6 +64,7 @@
         "section-order-change"
       ],
       "configuration": [
+        { "key": "salary-history.themeColor", "type": "string", "label": "Accent color for Salary History icons and panel highlights (hex).", "default": "#F59E0B", "pattern": "^#[0-9A-Fa-f]{6}$", "formatHint": "#RRGGBB", "placeholder": "#F59E0B" },
         { "key": "salary-history.paygToleranceDollars", "type": "number", "label": "PAYG Tolerance ($)", "default": 5.0 }
       ]
     },

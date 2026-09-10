@@ -34,6 +34,7 @@ const shellApi = {
       commands: Array<{ extensionId: string; command: { id: string; title: string; keybinding?: string } }>;
       navigation: Array<{ extensionId: string; navigation: { id: string; label: string; command: string; group?: string; icon?: string } }>;
       configuration: Array<{ extensionId: string; configuration: { key: string; type: string; label: string; default?: unknown; enumOptions?: string[] } }>;
+      themeColors: Record<string, string | null>;
     }> => ipcRenderer.invoke('extensions:list'),
     managerList: (): Promise<Array<{ id: string; displayName: string; version: string; description?: string; enabled: boolean; source: 'built-in' | 'user'; dependencies?: string[] }>> => ipcRenderer.invoke('extensions:manager-list'),
     pickFolder: (): Promise<string | null> => ipcRenderer.invoke('extensions:pick-folder'),

@@ -46,6 +46,7 @@ export interface ExtensionsApi {
     commands: Array<{ extensionId: string; command: ManifestCommandContribution }>;
     navigation: Array<{ extensionId: string; navigation: ManifestNavigationContribution }>;
     configuration: Array<{ extensionId: string; configuration: ManifestConfigurationContribution }>;
+    themeColors: Record<string, string | null>;
   }>;
   activateView: (viewId: string) => Promise<{ activated: boolean; reason?: string }>;
   executeCommand: (commandId: string, ...args: unknown[]) => Promise<{ executed: boolean; reason?: string; result?: unknown }>;

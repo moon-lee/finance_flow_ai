@@ -3,6 +3,7 @@ import { customElement, property, state } from 'lit/decorators.js';
 import './tab-bar';
 import type { Tab } from './types';
 import { rendererLogger } from '../logger';
+import { resolveThemeColor } from '../../shared/theme-color';
 export type { Tab };
 
 interface PersistedLayout {
@@ -61,6 +62,8 @@ export class WorkspacePanel extends LitElement {
   hideTabStrip = false;
 
   private _viewIdToLabel = new Map<string, string>();
+  private _viewIdToColor = new Map<string, string>();
+  private _extensionIdToColor = new Map<string, string>();
   private _unmountedPanelViewIds = new Map<string, string>();
 
   private _saveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -120,6 +123,17 @@ export class WorkspacePanel extends LitElement {
   private _restorePending = false;
   private _restoredActivePanelId = '';
 
+  private _colorForPanelId(panelId: string): string | undefined {
+    const exactColor = this._extensionIdToColor.get(panelId);
+    if (exactColor) return exactColor;
+
+    for (const [extensionId, color] of this._extensionIdToColor) {
+      if (panelId.startsWith(`panel-${extensionId}-`)) return color;
+    }
+
+    return undefined;
+  }
+
   private async _onPanelMounted(panelId: string): Promise<void> {
     const isRestoredTab = this._tabs.some(t => t.panelId === panelId);
     if (this._restoringTabs || (this._restorePending && isRestoredTab)) {
@@ -131,7 +145,14 @@ export class WorkspacePanel extends LitElement {
       const panels = await window.financeShell?.panel?.list?.() as Array<{ panelId: string; extensionId: string; viewId: string }> | undefined;
       const live = panels?.find(p => p.panelId === panelId);
       if (live) {
-        this._addPanel(panelId, this._viewIdToLabel.get(live.viewId) ?? live.viewId, this._pendingCommandId ?? undefined);
+        this._addPanel(
+          panelId,
+          this._viewIdToLabel.get(live.viewId) ?? live.viewId,
+          this._pendingCommandId ?? undefined,
+          this._extensionIdToColor.get(live.extensionId) ??
+            this._viewIdToColor.get(live.viewId) ??
+            this._colorForPanelId(panelId),
+        );
       } else {
         rendererLogger.warn(`_onPanelMounted panel not in tabs panelId=${panelId} availableTabs=${this._tabs.map(t => t.panelId).join(',')}`, 'workspace');
       }
@@ -177,14 +198,50 @@ export class WorkspacePanel extends LitElement {
     try {
       const contributions = await window.financeShell?.extensions?.list?.();
       if (!contributions?.views) return;
+      for (const [extensionId, manifestColor] of Object.entries(contributions.themeColors ?? {})) {
+        let setting: unknown;
+        try {
+          setting = await window.financeShell?.settings?.get?.(`${extensionId}.themeColor`);
+        } catch {
+          setting = undefined;
+        }
+        const color = resolveThemeColor({ setting, manifest: manifestColor ?? undefined });
+        if (color) this._extensionIdToColor.set(extensionId, color);
+        else this._extensionIdToColor.delete(extensionId);
+      }
       // Record contributed view labels so _onPanelMounted can resolve a
       // freshly mounted panel's tab label without hitting the live list.
       for (const v of contributions.views) {
         this._viewIdToLabel.set(v.view.id, v.view.name);
+        let setting: unknown;
+        try {
+          setting = await window.financeShell?.settings?.get?.(`${v.extensionId}.themeColor`);
+        } catch {
+          setting = undefined;
+        }
+        const color = resolveThemeColor({
+          setting,
+          manifest: contributions.themeColors?.[v.extensionId] ?? undefined,
+        });
+        if (color) this._viewIdToColor.set(v.view.id, color);
+        else this._viewIdToColor.delete(v.view.id);
       }
       this._viewIdToLabel.set('pay-rate-history-view', 'Pay Rate History');
       const contributedLabels = new Map(
         contributions.views.map(v => [`panel-${v.extensionId}-${v.view.id}`, v.view.name])
+      );
+      const contributedColors = new Map(
+        contributions.views.map(v => [
+          `panel-${v.extensionId}-${v.view.id}`,
+          this._viewIdToColor.get(v.view.id),
+        ])
+      );
+      const livePanels = await window.financeShell?.panel?.list?.() as Array<{
+        panelId: string;
+        extensionId: string;
+      }> | undefined;
+      const livePanelColors = new Map(
+        (livePanels ?? []).map(panel => [panel.panelId, this._extensionIdToColor.get(panel.extensionId)])
       );
       // Tabs are open panels only; contributed views become tabs when their
       // panel mounts (_onPanelMounted). Reconcile labels here so a renamed
@@ -193,7 +250,12 @@ export class WorkspacePanel extends LitElement {
       // listed in the activity bar).
       this._tabs = this._tabs.map(t => {
         const label = contributedLabels.get(t.panelId);
-        return label && label !== t.label ? { ...t, label } : t;
+        const color = contributedColors.get(t.panelId) ??
+          livePanelColors.get(t.panelId) ??
+          this._colorForPanelId(t.panelId);
+        if (label && label !== t.label) return { ...t, label, color };
+        if (color !== t.color) return { ...t, color };
+        return t;
       });
       if (this._tabs.length > 0 && !this._tabs.some(t => t.panelId === this._activePanelId)) {
         this._activePanelId = this._tabs[0].panelId;
@@ -204,6 +266,11 @@ export class WorkspacePanel extends LitElement {
     } catch {
       // ignore
     }
+  }
+
+  async refreshThemeColors(): Promise<void> {
+    await this._refreshPanels();
+    this.requestUpdate();
   }
 
   private _restoreLayout() {
@@ -357,9 +424,9 @@ export class WorkspacePanel extends LitElement {
     });
   }
 
-  private _addPanel(panelId: string, label: string, commandId?: string) {
+  private _addPanel(panelId: string, label: string, commandId?: string, color?: string) {
     if (this._tabs.some(t => t.panelId === panelId)) return;
-    this._tabs = [...this._tabs, { panelId, label, commandId }];
+    this._tabs = [...this._tabs, { panelId, label, commandId, color }];
     this._activePanelId = panelId;
     this._scheduleSave();
     this.requestUpdate();

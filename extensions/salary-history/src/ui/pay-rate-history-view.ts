@@ -53,7 +53,7 @@ export class PayRateHistoryView extends LitElement {
         color: var(--ff-text);
       }
       .info-banner strong {
-        color: var(--ff-teal);
+        color: var(--ff-accent);
       }
       table {
         width: 100%;
@@ -82,14 +82,14 @@ export class PayRateHistoryView extends LitElement {
       }
       tr.current {
         background: var(--ff-border);
-        box-shadow: inset 3px 0 0 var(--ff-teal);
+        box-shadow: inset 3px 0 0 var(--ff-accent);
       }
       tr.current:hover {
         background: #233023;
       }
       .badge {
         display: inline-block;
-        background: var(--ff-teal);
+        background: var(--ff-accent);
         color: var(--ff-bg-base);
         font-size: var(--ff-font-sm);
         font-weight: 700;
@@ -116,7 +116,7 @@ export class PayRateHistoryView extends LitElement {
         text-decoration: underline;
       }
       .empty-effective_to {
-        color: var(--ff-teal);
+        color: var(--ff-accent);
         font-weight: 700;
       }
       .info-note {
@@ -129,7 +129,7 @@ export class PayRateHistoryView extends LitElement {
         border-radius: 3px;
       }
       .info-note code {
-        color: var(--ff-teal);
+        color: var(--ff-accent);
         font-style: normal;
       }
     `,

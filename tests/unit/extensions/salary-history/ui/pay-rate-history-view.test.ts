@@ -8,7 +8,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import '../../../../../extensions/salary-history/src/ui/pay-rate-history-view';
+import { PayRateHistoryView } from '../../../../../extensions/salary-history/src/ui/pay-rate-history-view';
 import type { RateRow } from '../../../../../extensions/salary-history/src/dao/pay-rate-history';
 import type { UiEl } from './test-types';
 
@@ -56,6 +56,12 @@ const RATES: RateRow[] = [
 ];
 
 describe('PayRateHistoryView (Task 11.4)', () => {
+  it('uses the extension accent token for internal pay-rate highlights', () => {
+    const styles = String(PayRateHistoryView.styles);
+    expect(styles).toContain('var(--ff-accent)');
+    expect(styles).not.toContain('box-shadow: inset 3px 0 0 var(--ff-teal)');
+  });
+
   // The component renders rows in the order provided (load() sorts DESC
   // from the DB); feed a DESC-sorted copy so the newest rate is first.
   const DESC = RATES.slice().sort((a, b) =>
