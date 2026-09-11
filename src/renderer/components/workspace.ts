@@ -325,7 +325,6 @@ export class WorkspacePanel extends LitElement {
     try {
       for (const tab of this._tabs) {
         const viewId = panelIdToViewId.get(tab.panelId);
-        rendererLogger.log(`_activateRestoredTabs: tab panelId=${tab.panelId} -> viewId=${viewId ?? '(internal)'} commandId=${tab.commandId}`, 'workspace');
         if (viewId) {
           try {
             await window.financeShell.extensions.activateView(viewId);
@@ -334,7 +333,6 @@ export class WorkspacePanel extends LitElement {
           }
         } else if (tab.commandId) {
           // Internal view with saved commandId - execute it to restore
-          rendererLogger.debug(`_activateRestoredTabs: executing command for internal view ${tab.commandId}`, 'workspace');
           try {
             await window.financeShell.extensions.executeCommand(tab.commandId);
           } catch {
@@ -342,7 +340,6 @@ export class WorkspacePanel extends LitElement {
           }
         } else {
           // Tab for an internal view without commandId - will be mounted on-demand
-          rendererLogger.log(`_activateRestoredTabs: skipping internal view panelId=${tab.panelId}`, 'workspace');
         }
       }
     } finally {

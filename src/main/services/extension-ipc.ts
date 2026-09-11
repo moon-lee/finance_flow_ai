@@ -156,7 +156,6 @@ export class ExtensionIPC {
    * Safe to call on first start and to drive automatic re-spawn after a crash.
    */
   async start(initialManifests: FinanceExtensionManifest[]): Promise<void> {
-    getLogger().log('[extension-ipc] start() called', { manifestCount: initialManifests.length, isRunning: this.isRunning() });
     if (this.process && !this.crashed) return;
     if (this.restartPromise) return this.restartPromise;
 
@@ -165,7 +164,6 @@ export class ExtensionIPC {
     this.emitStatus({ status: 'starting' });
 
     const doStart = async (): Promise<void> => {
-      getLogger().log('[extension-ipc] forking host process');
       this.process = utilityProcess.fork(this.hostPath, [], {
         serviceName: 'finance-extension-host',
         stdio: 'inherit'
@@ -180,10 +178,6 @@ export class ExtensionIPC {
       // `UtilityProcess.pid` asynchronously — the handle is returned
       // synchronously by `fork()` but `pid` is undefined until the child
       // actually starts. Logging here would otherwise print `pid=undefined`.
-      this.process.once('spawn', () => {
-        getLogger().log(`[extension-ipc] host spawned, pid=${this.process!.pid}`);
-      });
-
       this.process.on('message', (msg: unknown) => this.handleMessage(msg));
       this.process.on('exit', (code) => this.handleExit(code));
 
@@ -467,7 +461,6 @@ export class ExtensionIPC {
     }
     const { extensionId, viewId, componentTag, mountData } = params as UiMountRequest;
     const resolvedViewId = viewId ?? componentTag ?? 'unknown';
-    getLogger().log('[extension-ipc] handleUiMount: resolvedViewId:', resolvedViewId, 'extensionId:', extensionId);
     this.uiHandler.onMountRequested(extensionId, resolvedViewId, mountData as object | undefined);
   }
 

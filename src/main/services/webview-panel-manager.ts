@@ -98,7 +98,6 @@ export class WebviewPanelManager {
   }
 
   setMainWindow(window: BrowserWindow): void {
-    getLogger().log('[setMainWindow] window:', window);
     this.mainWindow = window;
     this.flushMountBuffer();
     this.startLazyUnmountTimer();
@@ -199,8 +198,6 @@ export class WebviewPanelManager {
     if (this.dirtyPanelIds.has(panelId)) return;
     if (handle.keepAlive) return;
 
-    getLogger().log(`[webview-panel] lazy unmounting ${panelId}`);
-
     if (this.eventBus) {
       this.eventBus.publish('panel.lazy-unmount', { panelId, viewId: handle.viewId });
     }
@@ -259,7 +256,6 @@ export class WebviewPanelManager {
   }
 
   async autoSaveDraft(panelId: string): Promise<void> {
-    getLogger().log(`[webview-panel] autoSaveDraft called: ${panelId}`);
     const handle = this.findByPanelId(panelId);
     if (!handle) {
       getLogger().warn(`[webview-panel] autoSaveDraft: panel not found for ${panelId}`);
@@ -300,16 +296,9 @@ export class WebviewPanelManager {
     }
 
     const panelId = `panel-${extensionId}-${viewId}`;
-
     const existing = this.findByPanelId(panelId);
+
     if (existing) {
-      getLogger().log('[webview-panel] mount() called (existing)', {
-        extensionId,
-        viewId,
-        hasMainWindow: !!this.mainWindow,
-        activePanelId: this.activePanelId,
-        panelsCount: this.panels.size,
-      });
       if (!existing.view.webContents.isDestroyed()) {
         existing.view.webContents.send("panel:mount-update", {
           mountData,
@@ -373,14 +362,6 @@ export class WebviewPanelManager {
 
     const handle: PanelHandle = { panelId, extensionId, viewId, view, keepAlive: this.keepAliveExtensionIds.has(extensionId) };
     this.panels.set(webContentsId, handle);
-
-      getLogger().log('[webview-panel] mount() called (new)', {
-      extensionId,
-      viewId,
-      hasMainWindow: !!this.mainWindow,
-      activePanelId: this.activePanelId,
-      panelsCount: this.panels.size,
-    });
 
     // Apply any pending resize that arrived before the view was created
     const pending = this.pendingResizes.get(panelId);
@@ -580,7 +561,6 @@ export class WebviewPanelManager {
     if (timer) {
       clearTimeout(timer);
       this.mountShowTimers.delete(panelId);
-        getLogger().log('[webview-panel] cancelled fallback timer for', panelId);
       if (!this.overlayActive && (!this.activePanelId || this.activePanelId === panelId)) {
         this.showPanel(panelId);
       }

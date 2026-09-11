@@ -1,7 +1,7 @@
 ---
-version: 1.0.9
+version: 1.1.0
 created: 2026-06-14
-last_updated: 2026-09-11T23:32:00+10:00
+last_updated: 2026-09-12T15:10:00+10:00
 ---
 
 # Changelog
@@ -10,6 +10,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [1.1.0] - 2026-09-12
+
+### Added
+
+- **Application menu Tools entry with Run Log Viewer** (`src/main/services/app-menu.ts`). Replaced the top-level Terminal menu with a Tools menu containing New Terminal and Run Log Viewer; the log viewer launches `finance-flow-log-viewer.exe` in a detached child process.
+
+### Changed
+
+- **Removed noisy routine lifecycle logs** (`src/main/main.ts`, `src/main/services/webview-panel-manager.ts`, `src/main/services/extension-ipc.ts`, `src/extension-host/host.ts`, `src/renderer/components/workspace.ts`). Removed high-frequency `info` logs for panel mount/no-op lifecycle, startup boot sequence, UI-mount routing, and workspace restore tracing that do not convey actionable state changes.
 
 ## [1.0.9] - 2026-09-11
 

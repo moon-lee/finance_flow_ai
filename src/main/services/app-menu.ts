@@ -84,6 +84,18 @@ export function defaultTerminalCwd(): string {
   return process.cwd();
 }
 
+function openLogViewer(): void {
+  const exe = 'C:\\Users\\Moon\\AppData\\Local\\finance_flow_log_viewer\\finance-flow-log-viewer.exe';
+  const child = spawn(exe, [], {
+    detached: true,
+    stdio: 'ignore',
+    windowsHide: false,
+  });
+  child.on('error', (err) => {
+    console.error('[menu] failed to spawn log viewer:', err);
+  });
+  child.unref();
+}
 function buildTemplate(): MenuItemConstructorOptions[] {
   const isMac = process.platform === 'darwin';
 
@@ -98,12 +110,16 @@ function buildTemplate(): MenuItemConstructorOptions[] {
     { role: 'editMenu' },
     { role: 'viewMenu' },
     {
-      label: 'Terminal',
+      label: 'Tools',
       submenu: [
         {
           label: 'New Terminal',
           accelerator: 'Ctrl+`',
           click: () => openLocalTerminal(defaultTerminalCwd()),
+        },
+        {
+          label: 'Run Log Viewer',
+          click: () => openLogViewer(),
         },
         { type: 'separator' },
         { role: 'quit' },

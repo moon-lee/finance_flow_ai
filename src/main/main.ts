@@ -1108,18 +1108,11 @@ app.whenReady().then(async () => {
       },
       onAutoSaveDraft: async (extensionId) => {
         const panel = webviewPanelManager?.findByExtensionId(extensionId);
-        if (!panel) {
-          logger.warn(`[panels] autoSaveDraft: no panel found for extension ${extensionId}`);
-          return;
-        }
-        logger.log(`[panels] onAutoSaveDraft for ${panel.panelId} (no-op in Phase 5)`);
+        if (!panel) return;
       },
       onBeforeUnmount: async (extensionId) => {
         const panel = webviewPanelManager?.findByExtensionId(extensionId);
         if (!panel) return;
-        // Phase 5: no timer, so onBeforeUnmount is only called explicitly
-        // from destroyAll() / unmount() when we add that wiring later.
-        logger.log(`[panels] onBeforeUnmount for ${panel.panelId} (no-op in Phase 5)`);
       },
     });
 
@@ -1131,7 +1124,6 @@ app.whenReady().then(async () => {
     // the handler first, mount requests buffer (no mainWindow yet) and
     // flush automatically when setMainWindow() is called after createWindow().
     webviewPanelManager = new WebviewPanelManager();
-    logger.info("[main] WebviewPanelManager created:", webviewPanelManager);
     const activeExtensionRegistry = extensionRegistry;
     webviewPanelManager.setManifestProvider((id) => activeExtensionRegistry.get(id));
 
@@ -1214,17 +1206,14 @@ app.whenReady().then(async () => {
       onAutoSaveDraft: async (extensionId) => {
         const panel = webviewPanelManager?.findByExtensionId(extensionId);
         if (!panel) {
-          logger.warn(`[panels] autoSaveDraft: no panel found for extension ${extensionId}`);
           return;
         }
-        logger.log(`[panels] onAutoSaveDraft for ${panel.panelId} (no-op in Phase 5)`);
       },
       onBeforeUnmount: async (extensionId) => {
         const panel = webviewPanelManager?.findByExtensionId(extensionId);
         if (!panel) return;
         // Phase 5: no timer, so onBeforeUnmount is only called explicitly
         // from destroyAll() / unmount() when we add that wiring later.
-        logger.log(`[panels] onBeforeUnmount for ${panel.panelId} (no-op in Phase 5)`);
       },
     });
 

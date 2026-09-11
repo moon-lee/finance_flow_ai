@@ -4,7 +4,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 /**
  * Increment an `A.B.C` version using the project's dev build-counter scheme:
  * the patch segment (C) is a counter running 0-99 (two-digit range, plain
- * integers); when it exceeds 99 it wraps to 0 and the minor segment (B,
+ * integers); when it exceeds 9 it wraps to 0 and the minor segment (B,
  * range 0-9) increments; when minor exceeds 9 it wraps to 0 and the major
  * segment (A) increments.
  */
@@ -17,7 +17,7 @@ export function bumpVersion(version) {
   let minor = Number(match[2]);
   let patch = Number(match[3]);
   patch += 1;
-  if (patch > 99) {
+  if (patch > 9) {
     patch = 0;
     minor += 1;
   }

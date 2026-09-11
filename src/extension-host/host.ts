@@ -164,7 +164,6 @@ async function handleRequest(req: JsonRpcRequest): Promise<void> {
       case 'host.initialize': {
         const { manifests, userExtensionsRoot: incomingRoot } = req.params as { manifests: FinanceExtensionManifest[]; userExtensionsRoot?: string };
         if (incomingRoot) userExtensionsRoot = incomingRoot;
-        hostLogger.info(`received host.initialize with ${manifests.length} manifests (id=${req.id})`);
         for (const manifest of manifests) {
           activeExtensions.set(manifest.id, { manifest });
         }
@@ -185,7 +184,6 @@ async function handleRequest(req: JsonRpcRequest): Promise<void> {
           await activateExtension(manifest.id, 'onStartup');
         }
         respond(req.id, { accepted: manifests.length });
-        hostLogger.info(`responded to host.initialize (id=${req.id})`);
         return;
       }
       case 'extension.activate': {
@@ -304,7 +302,6 @@ async function activateExtension(extensionId: string, reason: string): Promise<b
     return false;
   }
   if (ext.moduleUrl) {
-    hostLogger.info('activate: extension already active', { extensionId });
     return true; // already active
   }
   if (!ext.manifest.activationEvents.some((evt) => evt === '*' || evt === reason)) {
@@ -314,7 +311,6 @@ async function activateExtension(extensionId: string, reason: string): Promise<b
     return false;
   }
 
-  hostLogger.info('activate: loading bundle for', extensionId);
   try {
     const path = await import('node:path');
     const url = await import('node:url');
@@ -327,8 +323,7 @@ async function activateExtension(extensionId: string, reason: string): Promise<b
     const roots = userExtensionsRoot ? [userExtensionsRoot, extensionsBundleRoot] : [extensionsBundleRoot];
     const entryPath = resolveExtensionBundlePath(extensionId, roots) ?? path.join(extensionsBundleRoot, `${extensionId}.js`);
 
-    hostLogger.info('activate: importing bundle from', entryPath);
-    const extModule = await import(url.pathToFileURL(entryPath).href);
+     const extModule = await import(url.pathToFileURL(entryPath).href);
     if (typeof extModule?.activate === 'function') {
       const perExtensionFinance = createFinance(extensionId, {
         request: <T>(method: string, params?: unknown): Promise<T> =>
@@ -336,7 +331,6 @@ async function activateExtension(extensionId: string, reason: string): Promise<b
         notify: (method: string, params?: unknown): void =>
           notify(method, params)
       });
-      hostLogger.info('activate: calling extModule.activate for', extensionId);
       await extModule.activate(perExtensionFinance);
       hostLogger.info('activate: extModule.activate returned for', extensionId);
     }
@@ -434,5 +428,3 @@ parentPort.on('message', (event: { data: unknown; ports?: unknown[] }) => {
 
 // Signal readiness so Main can send the manifest list.
 notify('host.ready', { pid: process.pid, requestId: makeRequestId() });
-
-hostLogger.info(`Extension Host process started (pid ${process.pid})`);
