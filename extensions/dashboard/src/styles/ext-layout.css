@@ -118,7 +118,6 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 12px;
-  padding: 0 12px;
 }
 .card-title {
   font-size: var(--ff-font-lg, 15px);
@@ -126,6 +125,7 @@
   color: var(--ff-text-strong, #d4d4d4);
   text-transform: uppercase;
   letter-spacing: 0.3px;
+  padding: 0 12px;
 }
 .card-title-group {
   display: flex;
