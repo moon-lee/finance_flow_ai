@@ -70,6 +70,7 @@ export class DashboardOrchestrator {
     on('card-order-change', this._onCardOrderChange);
     on('card-order-cancel', this._onReorderCancel);
     on('fy-changed', this._onFyChanged);
+    on('card-source-open', this._onCardSourceOpen);
   }
 
   private _unbindEvents(): void {
@@ -214,6 +215,48 @@ export class DashboardOrchestrator {
     if (child) {
       (child as unknown as Record<string, unknown>).aggregator = this._aggregator;
       (child as unknown as Record<string, unknown>).financialYearCurrent = settings.financialYearCurrent;
+    }
+  };
+
+  private readonly _CARD_SOURCES: Record<string, { viewId: string; commandId: string }> = {
+    'pay-summary': { viewId: 'payslip-list', commandId: 'salary.show-pay-history' },
+    'todo-summary': { viewId: 'todo-list', commandId: 'todo-list.hello' },
+  };
+
+  private _onCardSourceOpen = async (e: Event): Promise<void> => {
+    const detail = (e as CustomEvent).detail as { cardId?: string };
+    const cardId = detail?.cardId;
+    if (!cardId) return;
+    const source = this._CARD_SOURCES[cardId];
+    if (!source) return;
+    const shell = (globalThis as unknown as {
+      financeShell?: {
+        extensions: {
+          executeCommand?: (id: string, ...args: unknown[]) => Promise<{ executed: boolean; reason?: string }>;
+          activateView?: (viewId: string) => Promise<{ activated: boolean; reason?: string }>;
+        };
+      };
+    }).financeShell;
+    if (!shell?.extensions) {
+      logger.warn(`card-source-open for ${cardId}: no panel shell bridge available`);
+      return;
+    }
+    try {
+      if (shell.extensions.executeCommand) {
+        const res = await shell.extensions.executeCommand(source.commandId);
+        if (res?.executed) return;
+        logger.warn(`command ${source.commandId} not executed (${res?.reason ?? 'unknown reason'}), falling back to activateView(${source.viewId})`);
+      }
+      if (shell.extensions.activateView) {
+        const res = await shell.extensions.activateView(source.viewId);
+        if (!res?.activated) {
+          logger.warn(`activateView(${source.viewId}) failed: ${res?.reason ?? 'unknown reason'}`);
+        }
+      } else {
+        logger.warn(`card-source-open for ${cardId}: executeCommand declined and no activateView bridge`);
+      }
+    } catch (err) {
+      logger.error(`failed to open source for ${cardId}:`, err);
     }
   };
 }

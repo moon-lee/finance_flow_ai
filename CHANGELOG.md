@@ -1,7 +1,7 @@
 ---
-version: 1.1.0
+version: 1.1.1
 created: 2026-06-14
-last_updated: 2026-09-12T15:10:00+10:00
+last_updated: 2026-09-12T02:56:33+10:00
 ---
 
 # Changelog
@@ -10,6 +10,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [1.1.1] - 2026-09-12
+
+### Fixed
+
+- **Dashboard card ⋮ buttons now open the source extension** (`extensions/dashboard/src/ui/dashboard-view.ts`, `extensions/dashboard/src/orchestrator.ts`, `src/preload/panel-preload.ts`, `src/types/finance-shell.d.ts`). The delegated click handler read `event.target` from outside the Lit shadow root, where the target is retargeted to `<dashboard-view>` so the button was never found and `card-source-open` never fired; buttons now dispatch directly via `@click`. The orchestrator checks the `executeCommand` result and falls back to the newly exposed panel `activateView(viewId)` bridge, so the Todo card also opens when `todo-list` has not been activated yet this session.
+
+### Changed
+
+- **Dashboard FY badge moved next to the card title** (`extensions/dashboard/src/ui/dashboard-view.ts`, `extensions/dashboard/src/styles/ext-layout.css`). The pay-summary header wraps the title and badge in `.card-title-group` (flex, 8px gap) so the badge sits beside `YTD Pay Summary`; the `⋮` button stays right-aligned in `.card-header-actions`.
 
 ## [1.1.0] - 2026-09-12
 
@@ -20,6 +30,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **Removed noisy routine lifecycle logs** (`src/main/main.ts`, `src/main/services/webview-panel-manager.ts`, `src/main/services/extension-ipc.ts`, `src/extension-host/host.ts`, `src/renderer/components/workspace.ts`). Removed high-frequency `info` logs for panel mount/no-op lifecycle, startup boot sequence, UI-mount routing, and workspace restore tracing that do not convey actionable state changes.
+
+### Fixed
+
+- **Dashboard card ⋮ buttons now open the source extension** (`extensions/dashboard/src/ui/dashboard-view.ts`, `extensions/dashboard/src/orchestrator.ts`, `src/preload/panel-preload.ts`, `src/types/finance-shell.d.ts`). The delegated click handler read `event.target` from outside the Lit shadow root, where the target is retargeted to `<dashboard-view>` so the button was never found and `card-source-open` never fired; buttons now dispatch directly via `@click`. The orchestrator checks the `executeCommand` result and falls back to the newly exposed panel `activateView(viewId)` bridge, so the Todo card also opens when `todo-list` has not been activated yet this session.
 
 ## [1.0.9] - 2026-09-11
 

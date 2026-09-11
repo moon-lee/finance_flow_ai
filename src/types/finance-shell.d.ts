@@ -157,6 +157,7 @@ export interface PanelFinanceShellApi {
       navigation: Array<{ extensionId: string; navigation: { id: string; label: string; command: string; group?: string } }>;
     }>;
     executeCommand: (commandId: string, ...args: unknown[]) => Promise<{ executed: boolean; reason?: string }>;
+    activateView: (viewId: string) => Promise<{ activated: boolean; reason?: string }>;
     uiEvent: (extensionId: string, eventName: string, detail: unknown) => void;
     readTable: (params: unknown) => Promise<unknown>;
     writeTable: (params: unknown) => Promise<unknown>;

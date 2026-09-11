@@ -122,13 +122,17 @@ export class DashboardView extends LitElement {
   private _renderPaySummaryCard(): unknown {
     const data = this.aggregator;
     const fyLabel = this._fyDisplay(this._currentFyValue());
-    const currentFy = this._currentFyValue();
 
     return html`
       <div class="card">
         <div class="card-header">
-          <span class="card-title">YTD Pay Summary</span>
-          <span class="card-badge">${fyLabel}</span>
+          <span class="card-title-group">
+            <span class="card-title">YTD Pay Summary</span>
+            <span class="card-badge">${fyLabel}</span>
+          </span>
+          <span class="card-header-actions">
+            <button class="card-action-btn" data-card-id="pay-summary" title="Open Salary History" @click=${() => this._emitCardSourceOpen('pay-summary')}>⋮</button>
+          </span>
         </div>
 
         <table class="ytd-table">
@@ -169,6 +173,17 @@ export class DashboardView extends LitElement {
     );
   };
 
+  private _emitCardSourceOpen(cardId: string): void {
+    if (!cardId) return;
+    this.dispatchEvent(
+      new CustomEvent('card-source-open', {
+        detail: { cardId },
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  };
+
   private _renderTodoSummaryCard(): unknown {
     const todos = this.aggregator?.todos;
 
@@ -176,6 +191,9 @@ export class DashboardView extends LitElement {
       <div class="card">
         <div class="card-header">
           <span class="card-title">Todo Summary</span>
+          <span class="card-header-actions">
+            <button class="card-action-btn" data-card-id="todo-summary" title="Open Todo List" @click=${() => this._emitCardSourceOpen('todo-summary')}>⋮</button>
+          </span>
         </div>
 
         <table class="ytd-table">

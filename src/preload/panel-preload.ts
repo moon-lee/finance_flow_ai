@@ -46,6 +46,8 @@ const panelApi = {
     }> => ipcRenderer.invoke('extensions:list'),
     executeCommand: (commandId: string, ...args: unknown[]): Promise<{ executed: boolean; reason?: string }> =>
       ipcRenderer.invoke('extensions:execute-command', commandId, ...args),
+    activateView: (viewId: string): Promise<{ activated: boolean; reason?: string }> =>
+      ipcRenderer.invoke('extensions:activate-view', viewId),
     uiEvent: (extensionId: string, eventName: string, detail: unknown): void => {
       ipcRenderer.send('extensions:ui-event', extensionId, eventName, detail);
     },

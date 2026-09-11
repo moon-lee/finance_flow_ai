@@ -116,8 +116,9 @@
 .card-header {
   display: flex;
   justify-content: space-between;
-  align-items: baseline;
+  align-items: center;
   margin-bottom: 12px;
+  padding: 0 12px;
 }
 .card-title {
   font-size: var(--ff-font-lg, 15px);
@@ -125,6 +126,16 @@
   color: var(--ff-text-strong, #d4d4d4);
   text-transform: uppercase;
   letter-spacing: 0.3px;
+}
+.card-title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.card-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
 }
 .card-badge {
   font-size: var(--ff-font-md, 13px);
@@ -137,6 +148,20 @@
 .card-badge.muted {
   background: var(--ff-bg-input, #3c3c3c);
   color: var(--ff-text-muted, #858585);
+}
+.card-action-btn {
+  background: transparent;
+  border: none;
+  color: var(--ff-text-muted, #858585);
+  cursor: pointer;
+  font-size: 16px;
+  padding: 4px 10px;
+  line-height: 1;
+  border-radius: 3px;
+}
+.card-action-btn:hover {
+  color: var(--ff-text, #d4d4d4);
+  background: var(--ff-bg-input, #3c3c3c);
 }
 .section-title {
   font-size: var(--ff-font-base, 14px);
