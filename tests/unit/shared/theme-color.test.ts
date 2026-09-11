@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { darkenHex, isThemeColor, resolveThemeColor } from '../../../src/shared/theme-color';
+import { darkenHex, hexToRgba, isThemeColor, mixWithWhite, resolveThemeColor } from '../../../src/shared/theme-color';
 
 describe('theme-color helper', () => {
   it('accepts valid hex colors', () => {
@@ -32,5 +32,16 @@ describe('theme-color helper', () => {
   it('darkens a hex color for hover states', () => {
     expect(darkenHex('#FFFFFF', 0.2)).toBe('#cccccc');
     expect(darkenHex('#007ACC', 0.2)).toBe('#0061a3');
+  });
+
+  it('converts a hex color to a soft translucent tint', () => {
+    expect(hexToRgba('#F59E0B')).toBe('rgba(245, 158, 11, 0.25)');
+    expect(hexToRgba('#4EC9B0', 0.5)).toBe('rgba(78, 201, 176, 0.5)');
+    expect(hexToRgba('red')).toBe('red');
+  });
+
+  it('mixes a hex color toward white for the active background', () => {
+    expect(mixWithWhite('#F59E0B', 0.65)).toBe('#fcddaa');
+    expect(mixWithWhite('red')).toBe('red');
   });
 });

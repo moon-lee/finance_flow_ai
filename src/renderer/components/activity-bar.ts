@@ -1,5 +1,6 @@
 import { LitElement, css, html } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import { mixWithWhite } from '../../shared/theme-color';
 
 export interface ActivityView {
   id: string;
@@ -50,9 +51,9 @@ export class ActivityBar extends LitElement {
       top: 6px;
       bottom: 6px;
       width: 3px;
-      background: var(--accent);
+      background: var(--active-indicator, var(--accent));
       border-radius: 0 4px 4px 0;
-      box-shadow: 0 0 8px var(--accent);
+      box-shadow: 0 0 8px var(--active-indicator, var(--accent));
     }
 
     .settings {
@@ -101,6 +102,7 @@ export class ActivityBar extends LitElement {
         title="${view.name}"
         aria-label="${view.name}"
         data-view-id="${view.id}"
+        style="${this.activeView === view.id ? `background: rgba(255, 255, 255, 0.35);${view.color ? ` --active-indicator: ${mixWithWhite(view.color, 0.35)};` : ''}` : ''}"
         @click="${(e: MouseEvent) => { if (e.isTrusted) this._selectView(view.id); }}"
       >${view.iconUrl
         ? html`<img class="activity-icon" data-view-id="${view.id}" src="${view.iconUrl}" alt="" aria-hidden="true" />`
