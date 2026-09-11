@@ -1,7 +1,7 @@
 ---
-version: 1.0.8
+version: 1.0.9
 created: 2026-06-14
-last_updated: 2026-09-11T02:24:13+10:00
+last_updated: 2026-09-11T23:32:00+10:00
 ---
 
 # Changelog
@@ -10,6 +10,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [1.0.9] - 2026-09-11
+
+### Administrative
+
+- **Mortgage view design** (`docs/superpowers/specs/2026-09-11-mortgage-views-design.md`). 4-view design from `docs/Tax Brackets_2025_2026.xlsx` Mortgage sheet: Overview (setup + targets + yearly cards + daily interest snapshot), Repayment Ledger (point-in-time snapshots, flexible backdated `entry_date`, one per calendar month `YYYY-MM` upsert), Offsets (8 accounts, read-only, edits via combined form), editable Rate History. Extension id `mortgage` (tables `mortgage_*`, 5 tables: `mortgage_loans`, `mortgage_rate_history`, `mortgage_repayments` with auto `finance_year` and `offset_saving_fy` column D, `mortgage_accounts`, `mortgage_offset_balances`; verified flag in settings `mortgage.verified.<fy>`). Snapshot uses rate-from-history lookup and actual-days-in-month. Navigation: 1 Activity Bar view + 4 sidebar commands/nav items + month-end/rate/target/verify/`fy-changed` UI events. Platform note: Main auto-creates `id`/`created_at`/`updated_at` (`table-ddl.ts`); DAO strips them from writes (`dao-schema.ts`).
+- **SDK vite-env template trim** (`scripts/sdk/templates/vite-env.d.ts.template`). Removed stale inline `declare module 'finance'` / `'finance-logger'` subsets; template now emits only `vite/client` + `*.css?raw`. Real types resolve via `src/finance.d.ts` + `src/vendor/logger.ts`.
 
 ## [1.0.8] - 2026-09-11
 

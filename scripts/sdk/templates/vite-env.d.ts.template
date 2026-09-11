@@ -4,37 +4,3 @@ declare module '*.css?raw' {
   const content: string;
   export default content;
 }
-
-declare module 'finance' {
-  export interface FinanceApi {
-    commands: {
-      registerCommand(id: string, title: string, handler: (...args: unknown[]) => unknown, keybinding?: string): void;
-      execute(id: string, ...args: unknown[]): Promise<unknown>;
-    };
-    ai: { registerTool(def: { name: string; description: string; handler: (args: unknown) => Promise<unknown> }): void };
-    db: {
-      table(name: string): {
-        find(filter?: Record<string, unknown>, options?: Record<string, unknown>): Promise<Array<Record<string, unknown>>>;
-        findOne(filter?: Record<string, unknown>): Promise<Record<string, unknown> | null>;
-        insert(row: Record<string, unknown>): Promise<{ id: number }>;
-        update(filter: Record<string, unknown>, patch: Record<string, unknown>): Promise<{ affected: number }>;
-        delete(filter: Record<string, unknown>): Promise<{ affected: number }>;
-        count(filter?: Record<string, unknown>): Promise<number>;
-      };
-    };
-    services: { register(name: string, impl: Record<string, (params?: unknown) => unknown>): void; unregister(name: string): void; invoke(name: string, method: string, params?: unknown): Promise<unknown> };
-    ui?: { requestMount(viewId: string, mountData?: Record<string, unknown>): Promise<void>; setDirty(dirty: boolean): void; autoSaveDraft(): Promise<void>; onBeforeUnmount(cb: () => Promise<unknown>): void };
-    events?: { on(topic: string, handler: (payload: unknown) => void): () => void; emit(topic: string, payload?: unknown): Promise<void> };
-    settings?: { get(key: string): Promise<unknown>; set(key: string, value: unknown): Promise<void> };
-  }
-}
-
-declare module 'finance-logger' {
-  export class ExtensionLogger {
-    constructor(context: string);
-    info(...args: unknown[]): void;
-    warn(...args: unknown[]): void;
-    error(...args: unknown[]): void;
-    debug(...args: unknown[]): void;
-  }
-}
