@@ -1,8 +1,8 @@
 /**
  * Phase 5 Task 9 — Dashboard aggregator service.
  *
- * Reads salary-history (`pay`) + todo-list domain services and combines
- * them into the 2 Dashboard card payloads (pay-summary, todo-summary).
+ * Reads salary-history (`pay`) + todo-list + mortgage domain services and combines
+ * them into the 3 Dashboard card payloads (pay-summary, todo-summary, mortgage-summary).
  *
  * Each card gracefully degrades: if its data source is missing or empty,
  * the card receives `null` values and the UI shows an
@@ -35,9 +35,17 @@ export interface TodoSummaryCard {
   done: number | null;
 }
 
+export interface MortgageCard {
+  entry_date: string | null;
+  loan_balance: number;
+  offset_balance: number;
+  net_loan: number;
+}
+
 export interface DashboardData {
   ytdSalary: YtdSalaryCard;
   todos: TodoSummaryCard;
+  mortgage: MortgageCard | null;
   estimatedYtd?: {
     gross: number;
     net: number;
@@ -60,10 +68,11 @@ export async function buildAggregator(
   finance: FinanceApi,
   settings: DashboardSettings
 ): Promise<DashboardData> {
-  const [ytdSummaryRaw, payslipStats, todoCountsRaw] = await Promise.all([
+  const [ytdSummaryRaw, payslipStats, todoCountsRaw, mortgageSummaryRaw] = await Promise.all([
     finance.services?.invoke<unknown>('pay', 'getYearToDateSummary', [settings.financialYearStart, undefined, settings.financialYearCurrent]),
     finance.services?.invoke<unknown>('pay', 'getPayslipStats'),
     finance.services?.invoke<unknown>('todo-list', 'counts'),
+    finance.services?.invoke<unknown>('mortgage', 'summary'),
   ]);
 
   const ytdSummary = ytdSummaryRaw as Record<string, unknown> | null;
@@ -85,6 +94,17 @@ export async function buildAggregator(
       active: Number(todoCounts.active ?? 0),
       done: Number(todoCounts.done ?? 0),
     } : { total: null, active: null, done: null },
+    mortgage: (() => {
+      const m = mortgageSummaryRaw as Record<string, unknown> | null;
+      if (!m) return null;
+      const entry = m.entry_date;
+      return {
+        entry_date: typeof entry === 'string' ? entry : null,
+        loan_balance: Number(m.loan_balance ?? 0),
+        offset_balance: Number(m.offset_balance ?? 0),
+        net_loan: Number(m.net_loan ?? 0),
+      };
+    })(),
     // Full-year projection: historical per-payslip avg × 52 (weekly pay)
     // Only when FY has data (count>0); empty/post FY with 0 payslips shows no
     // estimated (avoids showing 52×avg for future FY with no history).

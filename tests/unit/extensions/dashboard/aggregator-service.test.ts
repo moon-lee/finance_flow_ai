@@ -5,6 +5,7 @@ function makeMockFinance(overrides: {
   ytdSummary?: unknown;
   payslipStats?: unknown;
   todoCounts?: unknown;
+  mortgageSummary?: unknown;
 } = {}): Partial<import('finance').FinanceApi> {
   return {
     db: {
@@ -19,6 +20,7 @@ function makeMockFinance(overrides: {
         if (serviceName === 'pay' && method === 'getYearToDateSummary') return overrides.ytdSummary ?? null;
         if (serviceName === 'pay' && method === 'getPayslipStats') return overrides.payslipStats ?? null;
         if (serviceName === 'todo-list' && method === 'counts') return overrides.todoCounts ?? null;
+        if (serviceName === 'mortgage' && method === 'summary') return overrides.mortgageSummary ?? null;
         return null;
       })
     }
@@ -105,8 +107,22 @@ describe('Dashboard aggregator service', () => {
       ([serviceName, method]) => `${serviceName}.${method}`
     );
     expect(calls.sort()).toEqual(
-      ['pay.getPayslipStats', 'pay.getYearToDateSummary', 'todo-list.counts'].sort()
+      ['pay.getPayslipStats', 'pay.getYearToDateSummary', 'todo-list.counts', 'mortgage.summary'].sort()
     );
     expect(finance.db!.table).not.toHaveBeenCalled();
+  });
+
+  it('populates mortgage card from mortgage.summary', async () => {
+    const finance = makeMockFinance({
+      mortgageSummary: { entry_date: '2026-08-31', loan_balance: 599047.14, offset_balance: 98759.17, net_loan: 500287.97 },
+    });
+    const result = await buildAggregator(finance as Parameters<typeof buildAggregator>[0], defaultSettings);
+    expect(result.mortgage).toEqual({ entry_date: '2026-08-31', loan_balance: 599047.14, offset_balance: 98759.17, net_loan: 500287.97 });
+  });
+
+  it('mortgage card is null when service is missing', async () => {
+    const finance = makeMockFinance();
+    const result = await buildAggregator(finance as Parameters<typeof buildAggregator>[0], defaultSettings);
+    expect(result.mortgage).toBeNull();
   });
 });
