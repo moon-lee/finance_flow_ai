@@ -239,6 +239,11 @@ export class RateRowForm extends LitElement {
   }
 
   willUpdate(changed: PropertyValues): void {
+    // Orchestrator assigns rate after connect; rebuild field defaults on late arrival.
+    if (changed.has('rate')) {
+      this._values = { fields: this._buildDefaults() };
+      this._errors = [];
+    }
     if (changed.has('confirmDelete')) {
       this._deleteMode = this.confirmDelete;
     }

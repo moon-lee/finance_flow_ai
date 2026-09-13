@@ -360,6 +360,14 @@ export class PayslipForm extends LitElement {
   @property({ attribute: false })
   editPaySlip: PaySlip | null = null;
 
+  willUpdate(changed: PropertyValues): void {
+    // Orchestrator assigns editPaySlip after connect; rebuild values on late arrival.
+    if (changed.has('editPaySlip') && this.editPaySlip) {
+      this._prefillFromEdit();
+      void this.recompute();
+    }
+  }
+
   @state()
   _values: FormValues = { ...EMPTY_VALUES };
 

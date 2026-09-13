@@ -184,4 +184,15 @@ describe('RateRowForm (Task 11.5)', () => {
     expect(detail.id).toBe(2);
     expect(detail.input.base_hourly_rate).toBe(40);
   });
+
+  it('rebuilds field defaults when rate arrives after connect (orchestrator late inject)', async () => {
+    const el = makeEl();
+    await el.updateComplete;
+    // Connect happened with no rate (add defaults); orchestrator assigns the row later.
+    expect(el._values.fields.effective_from).toBe(todayISO());
+    el.rate = CURRENT;
+    await el.updateComplete;
+    expect(el._values.fields.effective_from).toBe('2025-07-01');
+    expect(el._values.fields.base_hourly_rate).toBe('40');
+  });
 });

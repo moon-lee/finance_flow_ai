@@ -291,4 +291,17 @@ describe('PayslipForm (Task 11.1)', () => {
       expect(input.step).toBe('0.01');
     }
   });
+
+  it('prefills when editPaySlip arrives after connect (orchestrator late inject)', async () => {
+    const el = makeEl();
+    await el.updateComplete;
+    // Connect happened with no editPaySlip; orchestrator assigns it later.
+    el.editPaySlip = { pay_date: '2026-07-09', finance_year: '2025-26', gross: 423.69, net: 350 } as never;
+    await el.updateComplete;
+    const values = el._values as Record<string, unknown>;
+    expect(values.pay_date).toBe('2026-07-09');
+    expect(values.gross).toBe('423.69');
+    const title = el.shadowRoot.querySelector('[data-testid="form-title"]')?.textContent?.trim();
+    expect(title).toBe('Edit Payslip');
+  });
 });
