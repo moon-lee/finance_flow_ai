@@ -276,6 +276,12 @@ export class PayslipList extends LitElement {
   /** Fetch payslips + accounts when `finance` is provided. */
   async load(): Promise<void> {
     if (!this.finance || this._loaded) return;
+    await this.reload();
+  }
+
+  /** Re-fetch payslips + accounts (used after create/update/delete). */
+  async reload(): Promise<void> {
+    if (!this.finance) return;
     await this._loadCoreFinancialYear();
     const rows = (await this.finance.db
       .table('salary_history_pay_slips')

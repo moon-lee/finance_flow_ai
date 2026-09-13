@@ -1,7 +1,7 @@
 ---
 version: 1.1.6
 created: 2026-06-14
-last_updated: 2026-09-13T18:57:29+10:00
+last_updated: 2026-09-13T19:10:00+10:00
 ---
 
 # Changelog
@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **Payslip/rate edit forms prefill when data arrives after connect** (`extensions/salary-history/src/ui/payslip-form.ts`, `extensions/salary-history/src/ui/rate-row-form.ts`). The Lit orchestrator assigns `editPaySlip`/`rate` after the child connects, but both forms only built values in `connectedCallback`/setter; added `willUpdate` rebuilds so Edit opens populated.
+- **Salary lists refresh after create/update/delete** (`extensions/salary-history/src/ui/payslip-list.ts`, `extensions/salary-history/src/ui/pay-rate-history-view.ts`, `extensions/salary-history/src/ui/salary-orchestrator.ts`). List `load()` was one-shot (`_loaded` guard), so rows deleted in the DB stayed visible until reload; added `reload()` and orchestrator `_refreshList()` after every mutation.
 
 ## [1.1.6] - 2026-09-13
 

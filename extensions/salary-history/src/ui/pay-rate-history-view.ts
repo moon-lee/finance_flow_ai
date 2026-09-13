@@ -146,6 +146,12 @@ export class PayRateHistoryView extends LitElement {
 
   async load(): Promise<void> {
     if (!this.finance || this._loaded) return;
+    await this.reload();
+  }
+
+  /** Re-fetch rate rows (used after create/update/delete/replace). */
+  async reload(): Promise<void> {
+    if (!this.finance) return;
     const rows = (await this.finance.db
       .table('salary_history_rate_history')
       .find({}) as unknown) as RateRow[];

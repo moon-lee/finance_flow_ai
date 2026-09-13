@@ -64,6 +64,20 @@ export class SalaryOrchestrator extends Base {
     void this.pushFinance();
   }
 
+  private async _refreshList(): Promise<void> {
+    try {
+      await (this as any).updateComplete;
+    } catch { /* non-Lit context */ }
+    const c = this.child() as any;
+    if (c && typeof c.reload === 'function') {
+      try {
+        await c.reload();
+      } catch (e: any) {
+        this.error = String(e?.message || e);
+      }
+    }
+  }
+
   override connectedCallback(): void {
     (super.connectedCallback as (() => void) | undefined)?.call(this);
     const on = (name: string, handler: EventListener): void => {
@@ -190,6 +204,7 @@ export class SalaryOrchestrator extends Base {
       return;
     }
     this.navigate(this._returnTo);
+    await this._refreshList();
   };
 
   private _onEditRequest = async (e: Event): Promise<void> => {
@@ -211,6 +226,7 @@ export class SalaryOrchestrator extends Base {
       return;
     }
     this.navigate(this._returnTo);
+    await this._refreshList();
   };
 
   private _onCancelForm = (): void => {
@@ -226,6 +242,7 @@ export class SalaryOrchestrator extends Base {
       return;
     }
     this.navigate(this._returnTo);
+    await this._refreshList();
   };
 
   // ── Section reorder events ─────────────────────────────────────────
@@ -313,6 +330,7 @@ export class SalaryOrchestrator extends Base {
       return;
     }
     this.navigate(this._returnTo);
+    await this._refreshList();
   };
 
   private _onRateEdit = async (e: Event): Promise<void> => {
@@ -324,6 +342,7 @@ export class SalaryOrchestrator extends Base {
       return;
     }
     this.navigate(this._returnTo);
+    await this._refreshList();
   };
 
   private async _failRateWrite(err: unknown, rateId: number | undefined): Promise<void> {
@@ -382,6 +401,7 @@ export class SalaryOrchestrator extends Base {
       logger.error('rate delete failed:', err);
     }
     this.navigate(this._returnTo);
+    await this._refreshList();
   };
 
   private _onRateReplaceRequest = async (e: Event): Promise<void> => {
@@ -413,6 +433,7 @@ export class SalaryOrchestrator extends Base {
       return;
     }
     this.navigate(this._returnTo);
+    await this._refreshList();
   };
 
   private _onRateCancel = (): void => {
