@@ -269,9 +269,9 @@
 | `extensions/salary-history/src/ui/index.ts` | modified | Exports a bundle-local orchestrator (new or moved from `salary-history-view.ts`) that owns navigation state and dispatches to the panel runtime. |
 | `extensions/salary-history/src/ui/salary-orchestrator.ts` | new | Lit host, owns navigation + mountData, injects finance into child views (single `salary` panel; `view` state + `pushFinance` + caller `returnTo`, mirroring `mortgage`). |
 | `extensions/dashboard/package.json` | new | Manifest for the Dashboard extension: `activationEvents: ["onStartup"]`, `views` (with `dashboard-view.openCommand: "dashboard.refresh"`), `commands`, `navigation`, `allowedCommands`, `allowedUiEvents`. |
-| `extensions/dashboard/src/main.ts` | modified | Entry point: reads settings, builds aggregator via `finance.services.pay.*` + `finance.services.todo-list.*`, requests mount of `dashboard-view`. Modified to load saved card order from settings for persistence. |
-| `extensions/dashboard/src/services/aggregator-service.ts` | new | Orchestrates cross-extension service reads (`pay` YTD/stats + `todo-list` counts) into a `DashboardData` object (pay-summary + todo-summary cards only; no shared-table reads). |
-| `extensions/dashboard/src/ui/dashboard-view.ts` | new | 4-card layout host; renders cards in `cardOrder`. |
+| `extensions/dashboard/src/main.ts` | modified | Entry point: reads settings, builds aggregator via `finance.services.pay.*` + `finance.services.todo-list.*` + `mortgage.summary`, requests mount of `dashboard-view`. Modified to load saved card order (`pay-summary`, `todo-summary`, `mortgage-summary`) from settings for persistence. |
+| `extensions/dashboard/src/services/aggregator-service.ts` | new | Orchestrates cross-extension service reads (`pay` YTD/stats + `todo-list` counts + `mortgage.summary` with graceful null) into a `DashboardData` object (pay-summary + todo-summary + mortgage-summary cards; no shared-table reads). |
+| `extensions/dashboard/src/ui/dashboard-view.ts` | new | 4-card layout host; renders cards in `cardOrder` (`pay-summary`, `todo-summary`, `mortgage-summary` third with loan/offset/net + snapshot-date badge). |
 | `extensions/dashboard/src/ui/{net-worth-card,ytd-salary-card,last-payslip-card,accounts-summary-card}.ts` | new | Individual Lit card components. |
 | `extensions/dashboard/src/ui/shared-styles.ts` | new | Palette tokens + shared card/table/button styles. |
 | `docs/extension-api.md` | modified | Documents Phase 5 API additions: `onStartup`, `contributes.navigation`, `allowedCommands`/`allowedUiEvents`, `finance.services.*`, WebviewPanel hosting model. |
@@ -309,8 +309,9 @@
 | `tests/unit/extensions/dashboard/ui/dashboard-view.test.ts` | new | 5 tests covering the dashboard view's financial-year label (Task 2.5): `financeYear` override, `YYYY-YY`→`YYYY-YYYY` display expansion, topbar subtitle rendering, auto-compute fallback, and `mount-update` propagation. |
 | `extensions/dashboard/package.json` | modified | Adds `dashboard.financialYearStart` (string, default `07-01`) and `dashboard.financeYear` (string, default `''`) to `contributes.configuration` (Task 2.5). |
 | `extensions/dashboard/src/ui/dashboard-view.ts` | modified | Adds `financeYear` property and uses it as a manual override for the topbar FY label; accepts it via `mount-update` (Task 2.5). |
-| `extensions/dashboard/src/orchestrator.ts` | modified | Reads `dashboard.financeYear` and forwards `financialYearStart` + `financeYear` to the view (Task 2.5). |
+| `extensions/dashboard/src/orchestrator.ts` | modified | Reads `dashboard.financeYear` and forwards `financialYearStart` + `financeYear` to the view (Task 2.5). `CANONICAL_CARD_ORDER` is `pay-summary`, `todo-summary`, `mortgage-summary` (third); `_CARD_SOURCES['mortgage-summary']` points at Mortgage Overview (`mortgage` / `mortgage.show-overview`). |
 | `extensions/dashboard/src/main.ts` | modified | Reads `dashboard.financeYear` in `readSettings` (Task 2.5). |
+| `extensions/dashboard/src/ui/reorder-cards-modal.ts` | modified | `CARD_LABELS` includes `mortgage-summary` → `Mortgage Summary` for the reorder modal. |
 
 ## Phase 8 — Extension Ecosystem: SDK + Installer (Implemented; v0.10.0)
 

@@ -1,7 +1,7 @@
 ---
 version: 1.1.5
 created: 2026-06-14
-last_updated: 2026-09-13T15:28:46+10:00
+last_updated: 2026-09-13T17:57:58+10:00
 ---
 
 # Changelog
@@ -10,6 +10,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+### Added
+
+- **Dashboard Mortgage Summary card** (`extensions/dashboard/src/services/aggregator-service.ts`, `extensions/dashboard/src/ui/dashboard-view.ts`, `extensions/dashboard/src/orchestrator.ts`, `extensions/dashboard/src/ui/reorder-cards-modal.ts`). Third card (`mortgage-summary`) showing loan/offset/net + snapshot-date badge from the `mortgage.summary` domain service; same card/table style as pay/todo; `⋮` opens Mortgage Overview with `activateView` fallback; placeholder when Mortgage is missing; order persisted via `dashboard.cardOrder`.
 
 ## [1.1.5] - 2026-09-13
 
