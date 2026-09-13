@@ -17,10 +17,11 @@ import type { FinanceApi, DomainServiceImpl } from 'finance';
 import { ExtensionLogger } from 'finance-logger';
 import './styles/ext-tokens.css';
 import { createPublicPayAdapter } from './services/public-pay-adapter.js';
+import type { SalaryOrchestrator } from './ui/salary-orchestrator.js';
 
 const logger = new ExtensionLogger('salary-history');
 
-let _orchestrator: import('./orchestrator.js').Orchestrator | null = null;
+let _orchestrator: SalaryOrchestrator | null = null;
 
 /**
  * Register the extension's custom elements. The Extension Host runs in a
@@ -126,15 +127,24 @@ export async function activate(
     // The Orchestrator is dynamic-imported so the Host bundle stays DOM-free
     // (no top-level ui/orchestrator import); mirrors mortgage/src/main.ts.
     if (typeof window !== 'undefined') await import('./ui/index.js');
-    if (typeof document !== 'undefined' && document.getElementById('app')) {
-      await registerUIComponents();
+    if (ctx.viewId && typeof document !== 'undefined') {
       const app = document.getElementById('app');
       if (app) {
-        const { Orchestrator } = await import('./orchestrator.js');
-        // Merge: Host-provided mountData takes precedence over settings-derived
-        const mountData = { ...settingsMountData, ...ctx };
-        _orchestrator = new Orchestrator(finance, app, mountData);
-        await _orchestrator.init();
+        const { SalaryOrchestrator } = await import('./ui/salary-orchestrator.js');
+        const el = document.createElement('salary-orchestrator') as unknown as SalaryOrchestrator;
+        void SalaryOrchestrator;
+        app.innerHTML = '';
+        app.appendChild(el as unknown as Node);
+        const baseData = { viewId: ctx.viewId, ...(ctx as Record<string, unknown>) };
+        queueMicrotask(() => void el.init(finance, baseData));
+        setTimeout(() => {
+          if ((el as unknown as { finance: unknown }).finance == null) void el.setFinance(finance);
+        }, 50);
+        app.addEventListener('mount-update', (e: Event) => {
+          const detail = (e as CustomEvent).detail as Record<string, unknown>;
+          void el.init(finance, { ...baseData, ...(detail ?? {}) });
+        });
+        _orchestrator = el;
       }
       return;
     }
@@ -145,10 +155,7 @@ export async function activate(
 let _registeredFinance: FinanceApi | null = null;
 
 export function deactivate(finance?: FinanceApi): void {
-  if (_orchestrator) {
-    _orchestrator.destroy();
-    _orchestrator = null;
-  }
+  _orchestrator = null;
 
   const api = finance ?? _registeredFinance;
   if (api) {

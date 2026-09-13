@@ -64,4 +64,9 @@ describe('salary-orchestrator', () => {
     await new Promise((r) => setTimeout(r, 20));
     expect(el.view).toBe('pay-rate-history-view');
   });
+
+  it('has no legacy plain-class orchestrator module', async () => {
+    const fs = await import('node:fs');
+    expect(fs.existsSync('extensions/salary-history/src/orchestrator.ts')).toBe(false);
+  });
 });
