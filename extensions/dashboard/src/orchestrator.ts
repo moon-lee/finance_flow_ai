@@ -219,7 +219,7 @@ export class DashboardOrchestrator {
   };
 
   private readonly _CARD_SOURCES: Record<string, { viewId: string; commandId: string }> = {
-    'pay-summary': { viewId: 'payslip-list', commandId: 'salary.show-pay-history' },
+    'pay-summary': { viewId: 'salary', commandId: 'salary.show-pay-history' },
     'todo-summary': { viewId: 'todo-list', commandId: 'todo-list.hello' },
   };
 

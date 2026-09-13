@@ -173,4 +173,16 @@ describe('DashboardOrchestrator mount data', () => {
       expect(view.financialYearCurrent).toBe('');
     });
   });
+
+  it('pay-summary card points at the single salary view', async () => {
+    const container = makeContainer();
+    const orch = new DashboardOrchestrator(makePanelFinance(), container, {});
+    const sources = (
+      orch as unknown as {
+        _CARD_SOURCES?: Record<string, { viewId: string; commandId: string }>;
+      }
+    )._CARD_SOURCES;
+    expect(sources?.['pay-summary']?.viewId).toBe('salary');
+    expect(sources?.['pay-summary']?.commandId).toBe('salary.show-pay-history');
+  });
 });

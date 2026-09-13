@@ -20,7 +20,7 @@ test.afterAll(async () => {
 
 test.describe('Phase 3 Extension Host', () => {
   test('Activity Bar shows a button for the salary-history extension view', async () => {
-    const buttons = page.locator('activity-bar button[data-view-id="salary-history"]');
+    const buttons = page.locator('activity-bar button[data-view-id="salary"]');
     await expect(buttons).toHaveCount(1);
     await expect(buttons).toHaveAttribute('title', 'Salary');
   });
@@ -49,7 +49,7 @@ test.describe('Phase 3 Extension Host', () => {
     // an unrelated reason. The IPC contract (`activateView()` returns
     // `{ activated: boolean }`) is the stable public surface this test pins.
     const result = await page.evaluate(async () => {
-      return await window.financeShell.extensions.activateView('salary-history');
+      return await window.financeShell.extensions.activateView('salary');
     });
 
     expect(result).toMatchObject({ activated: true });
