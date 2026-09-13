@@ -57,23 +57,26 @@ finance.events.on/off/emit
   ```
   src/
     main.ts              # activate → registers commands + services, seeds data
-    orchestrator.ts      # Lit host, owns navigation + mountData, injects finance into child views
+    ui/{{ID}}-orchestrator.ts  # Lit host, owns view state + mountData, injects finance into child views
     dao/<table>.ts       # typed wrapper: table('{{ID}}_items').find/insert/update/delete + validation
     services/<domain>.ts # business logic: validate, aggregate, sum/count (wraps dao)
     ui/<view>.ts         # Lit element, thin: calls service.list()/create(), dispatches CustomEvent to orchestrator
   ```
-  Start with `src/ui/{{ID}}-view.ts` in-view DB; extract to `dao`/`services` when you add validation/derived fields; add `orchestrator` when you need 2+ views or `finance.ui.requestMount` navigation. `extensions/salary-history/src/orchestrator.ts` + `dao/pay-slips.ts` + `services/pay-service.ts` are the reference — copy that layout only when needed.
+  Start with `src/ui/{{ID}}-view.ts` in-view DB; extract to `dao`/`services` when you add validation/derived fields; add an orchestrator when you need 2+ child views under ONE tab (see §5b) or `finance.ui.requestMount` navigation. `extensions/salary-history/src/ui/salary-orchestrator.ts` + `dao/pay-slips.ts` + `services/pay-service.ts` are the reference — copy that layout only when needed.
 
-## 5b. Adding a second view (e.g. `{{ID}}-detail`)
+## 5b. Adding a second child view under the SAME tab (e.g. `{{ID}}-detail`)
+
+Single-tab rule: `package.json` keeps ONE `views[]` entry (`{{ID}}` → one Activity Bar button, one tab). Extra screens are child views inside the tab, driven by a Lit orchestrator — never extra `views[]` entries (extra entries open extra tabs).
 
 ### Files to touch
 
 | File | Change |
 |------|--------|
-| `package.json` `financeExtension.contributions` | Add to `views[]`, `commands[]`, `navigation[]`, `allowedCommands[]`, `allowedUiEvents[]` |
+| `package.json` `financeExtension.contributions` | Add to `commands[]`, `navigation[]`, `allowedCommands[]`, `allowedUiEvents[]` — do NOT add to `views[]` |
 | `src/ui/{{ID}}-detail-view.ts` | New Lit element (copy `{{ID}}-view.ts` as starter) |
-| `src/ui/index.ts` | Import + `customElements.define('{{ID}}-detail-view', ...)` |
-| `src/main.ts` | Register the new command: `finance.commands.registerCommand('{{ID}}.open-detail', ...)` calling `finance.ui?.requestMount('{{ID}}-detail')` |
+| `src/ui/{{ID}}-orchestrator.ts` | New Lit host: `view` state + `init(f, mount)` mapping `mount.view` → child tag + `pushFinance()` injecting `finance` into `#child` + `connectedCallback` event listeners; `render()` switches on `view` (see `extensions/salary-history/src/ui/salary-orchestrator.ts`) |
+| `src/ui/index.ts` | Import detail view + orchestrator; `customElements.define` for both |
+| `src/main.ts` | Commands call `finance.ui?.requestMount('{{ID}}', { view: '<child-tag>' })` (single panel identity; child rides in `mountData.view`); panel branch creates `{{ID}}-orchestrator` and listens for `mount-update` → `el.init(finance, {...base, ...detail})` for in-place retarget |
 | `index.html` | Add entry to the `VIEWS` array (dropdown auto-populates) |
 
 ### Dev mode — switch views with the dropdown

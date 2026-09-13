@@ -7,9 +7,11 @@ let _finance: FinanceApi | null = null;
 export async function activate(finance: FinanceApi, ctx: { viewId?: string } & Record<string, unknown> = {}): Promise<void> {
   _finance = finance;
   logger.info('activate {{ID}}', { viewId: ctx.viewId });
-  finance.commands.registerCommand('{{ID}}.hello', '{{DISPLAY_NAME}}: Hello', () => {
-    finance.ui?.requestMount('{{ID}}', { greeting: 'Hello from {{ID}}' });
-  });
+  // Single panel identity ('{{ID}}' → tab always "{{DISPLAY_NAME}}"); extra screens ride as mountData.view.
+  const openView = (childTag: string): (() => Promise<void>) => async () => {
+    await finance.ui?.requestMount('{{ID}}', { view: childTag });
+  };
+  finance.commands.registerCommand('{{ID}}.hello', '{{DISPLAY_NAME}}: Hello', () => openView('{{ID}}-view')());
   // Example Domain Service — other extensions can call finance.services.invoke('{{ID}}','hello')
   // When you add tables (e.g. {{ID_SNAKE}}_items), add methods that use finance.db.table('{{ID_SNAKE}}_items').find/count/insert
   finance.services.register('{{ID}}', {
@@ -19,6 +21,9 @@ export async function activate(finance: FinanceApi, ctx: { viewId?: string } & R
   if (ctx.viewId && typeof document !== 'undefined') {
     const app = document.getElementById('app');
     if (app) {
+      // Without an orchestrator, mount the single view directly. When you add a
+      // second child view (AGENTS.md §5b), replace this with a '{{ID}}-orchestrator'
+      // element that maps mount.view → child tag and handles 'mount-update' retargets.
       const viewEl = document.createElement('{{ID}}-view') as any;
       app.innerHTML = '';
       app.appendChild(viewEl);

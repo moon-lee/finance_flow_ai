@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **Salary History unified into a single Salary tab** (`extensions/salary-history/package.json`, `extensions/salary-history/src/main.ts`, `extensions/salary-history/src/ui/salary-orchestrator.ts`, `extensions/salary-history/src/ui/index.ts`, `extensions/dashboard/src/orchestrator.ts`). One Activity Bar view (`salary`, title `Salary`); both `Pay History` / `Pay Rate History` commands retarget the open panel via `mount-update` instead of opening separate tabs; plain `src/orchestrator.ts` replaced by Lit `salary-orchestrator` (view state + `pushFinance` + caller `returnTo`), mirroring `mortgage`. Activation keeps `onStartup` alongside `onView:salary` so the `pay` service registers before dashboard `buildAggregator` at cold start. Stale `orchestrator.test.ts` seed-modal expectations removed with the legacy suite (seed modal deleted in Phase 7; first-run accounts are now Core-owned).
+- **SDK single-tab multi-view pattern** (`scripts/sdk/templates/AGENTS.md.template`, `scripts/sdk/templates/src/main.ts.template`, `docs/extension-api.md`). Scaffold `main.ts` mounts via single panel identity with `mountData.view`; AGENTS §5b rewritten so second screens are orchestrator child views (one `views[]` entry, `mount-update` retarget) with `salary-orchestrator` as reference; stale `src/orchestrator.ts` reference and multi-`views[]` guidance removed.
 
 ## [1.1.4] - 2026-09-12
 

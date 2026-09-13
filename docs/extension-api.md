@@ -37,7 +37,7 @@ effective color before importing the extension bundle.
 
 ### `contributes.views`
 
-Each view contributes one Activity Bar button. Phase 3 renders the icon as a single character; the renderer ignores any CSS-class suggestion.
+Each view contributes one Activity Bar button — and one tab. Extensions that need multiple screens keep ONE `views[]` entry and host extra screens as child views inside a Lit orchestrator (see `extensions/salary-history/src/ui/salary-orchestrator.ts`): commands call `finance.ui.requestMount('<viewId>', { view: '<child-tag>' })` and the panel branch retargets in place via the `mount-update` event. Adding a second `views[]` entry opens a second tab — only do that for genuinely separate workspaces.
 
 ### Activity Bar icons
 
@@ -234,7 +234,7 @@ node D:/finance_flow_ai/scripts/sdk/cli.mjs refresh D:\my-extensions\todo-list  
 
 **Working example**
 
-See [`extensions/salary-history/`](../extensions/salary-history/) — the Phase 4 implementation declares one view (`salary-history`), two commands (`salary.show-pay-history`, `salary.show-pay-rate-history`), and activates on `onView:salary-history`. Phase 5 adds `allowedCommands`, `allowedUiEvents`, and a `finance.services.pay.*` public adapter registered in `activate()`.
+See [`extensions/salary-history/`](../extensions/salary-history/) — declares one view (`salary`), two commands (`salary.show-pay-history`, `salary.show-pay-rate-history`), and activates on `onStartup` + `onView:salary`. Both nav items retarget the single `salary` panel in place via `mount-update`; child views (`payslip-list`, `pay-rate-history-view`, forms) are hosted by a Lit `salary-orchestrator`. Phase 5 adds `allowedCommands`, `allowedUiEvents`, and a `finance.services.pay.*` public adapter registered in `activate()`.
 
 **SDK template reference:** `docs/sdk-templates.md` documents the full template inventory and `init` vs `refresh` maintenance workflow.
 

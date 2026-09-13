@@ -339,10 +339,10 @@
 | `src/renderer/components/navigation-panel.ts` | modified | Add `__extensions__` nav item. |
 | `src/renderer/index.ts` | modified | Mount `extension-manager` for `view === '__extensions__'`. |
 | `scripts/sdk/cli.mjs` | new | SDK CLI: `init` (renders `AGENTS.md`+`.gitignore`+`git init`), `build` (Vite lib, `finance` external), `refresh` (re-syncs `finance.d.ts`/`vendor/logger.ts`/`styles/*`); `ID_SNAKE` (`-`→`_`) for `tables` names. |
-| `scripts/sdk/templates/AGENTS.md.template` | new | Agent entrypoint for standalone projects (§1–§11): independent tables/UI/service patterns, `{{ID_SNAKE}}` prefix rule, Domain Service `register`/`invoke` example, growth to `orchestrator`/`dao`/`services`, version bump `+0.0.1` + `git commit`, out-of-scope fallback. |
+| `scripts/sdk/templates/AGENTS.md.template` | modified | Agent entrypoint for standalone projects (§1–§11): §5b rewritten for single-tab child views (one `views[]` entry, orchestrator + `mount-update` retarget, `salary-orchestrator` reference); growth to `ui/<id>-orchestrator`/`dao`/`services`. |
 | `scripts/sdk/templates/.gitignore.template` | new | Scaffold `.gitignore` (`node_modules/`, `dist/`, `build/`). |
 | `scripts/sdk/templates/package.json.template` | new | Manifest with `{{ID_SNAKE}}_items` table example (`title`/`amount`/`created_at`) + `allowedCommands`/`allowedUiEvents`. |
-| `scripts/sdk/templates/src/main.ts.template` | new | Isomorphic `activate` (`await import('./ui/index.js')` guarded, `setFinance` via `queueMicrotask`), `registerUIComponents` async, Domain Service `count`/`sum` example with `{{ID_SNAKE}}`. |
+| `scripts/sdk/templates/src/main.ts.template` | modified | Single panel identity (`openView(childTag)` → `requestMount(id, { view })`); panel branch notes orchestrator replacement for second child views. |
 | `scripts/sdk/templates/src/ui/sample-view.ts.template` | new | Generates `{{ID}}-view.ts` (topbar + `view-container`/`view-container-inner`, `sharedStyles`, `crumb-current` + `{{DISPLAY_NAME}}`). |
 | `scripts/sdk/templates/src/ui/index.ts.template` | new | `import './{{ID}}-view'` + `customElements.define('{{ID}}-view')`. |
 | `scripts/sdk/templates/src/mock/finance-mock.ts.template` | new | In-memory `Map` DB + `globalThis.__mockServices` registry for `services.register`/`invoke` (`count`/`sum`) in `npm run dev`. |
