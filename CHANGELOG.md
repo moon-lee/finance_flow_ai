@@ -1,7 +1,7 @@
 ---
 version: 1.1.4
 created: 2026-06-14
-last_updated: 2026-09-12T14:14:33+10:00
+last_updated: 2026-09-13T14:29:07+10:00
 ---
 
 # Changelog
@@ -10,6 +10,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+### Changed
+
+- **Salary History unified into a single Salary tab** (`extensions/salary-history/package.json`, `extensions/salary-history/src/main.ts`, `extensions/salary-history/src/ui/salary-orchestrator.ts`, `extensions/salary-history/src/ui/index.ts`, `extensions/dashboard/src/orchestrator.ts`). One Activity Bar view (`salary`, title `Salary`, `onView:salary`); both `Pay History` / `Pay Rate History` commands retarget the open panel via `mount-update` instead of opening separate tabs; plain `src/orchestrator.ts` replaced by Lit `salary-orchestrator` (view state + `pushFinance` + caller `returnTo`), mirroring `mortgage`.
 
 ## [1.1.4] - 2026-09-12
 
