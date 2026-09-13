@@ -99,4 +99,36 @@ describe('salary-history activate (Task 12)', () => {
       'salary.show-pay-rate-history',
     ]);
   });
+
+  it('commands requestMount the single salary panel with child view', async () => {
+    const { finance } = makeFinance();
+    const mounts: { tag: string; data: Record<string, unknown> }[] = [];
+    (finance as unknown as { ui: unknown }).ui = {
+      requestMount: async (tag: string, data: Record<string, unknown>) => {
+        mounts.push({ tag, data });
+      },
+    };
+    (finance as unknown as { settings: unknown }).settings = {
+      get: async (k: string) =>
+        k === 'core.defaultCurrency' ? 'AUD' : k === 'core.financialYear.start' ? '07-01' : '',
+    };
+    const handlers = new Map<string, () => Promise<void> | void>();
+    (finance as unknown as { commands: unknown }).commands = {
+      registerCommand: (id: string, _t: string, h: () => Promise<void> | void) => {
+        handlers.set(id, h);
+      },
+      execute: async () => null,
+    };
+    (finance as unknown as { services: unknown }).services = {
+      register: () => {},
+      unregister: () => {},
+    };
+    await activate(finance);
+    await handlers.get('salary.show-pay-history')!();
+    await handlers.get('salary.show-pay-rate-history')!();
+    expect(mounts[0].tag).toBe('salary');
+    expect(mounts[0].data.view).toBe('payslip-list');
+    expect(mounts[1].tag).toBe('salary');
+    expect(mounts[1].data.view).toBe('pay-rate-history-view');
+  });
 });

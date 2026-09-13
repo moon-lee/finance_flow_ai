@@ -17,11 +17,10 @@ import type { FinanceApi, DomainServiceImpl } from 'finance';
 import { ExtensionLogger } from 'finance-logger';
 import './styles/ext-tokens.css';
 import { createPublicPayAdapter } from './services/public-pay-adapter.js';
-import { Orchestrator } from './orchestrator.js';
 
 const logger = new ExtensionLogger('salary-history');
 
-let _orchestrator: Orchestrator | null = null;
+let _orchestrator: import('./orchestrator.js').Orchestrator | null = null;
 
 /**
  * Register the extension's custom elements. The Extension Host runs in a
@@ -38,21 +37,38 @@ export async function registerUIComponents(): Promise<void> {
 }
 
 /**
- * Ask the Renderer to mount one of this extension's custom elements. The
- * Host cannot render, so this is an IPC request — not a DOM operation.
+ * Ask the Renderer to mount the single `salary` panel. The Host cannot
+ * render, so this is an IPC request — not a DOM operation. The target
+ * child rides in `mountData.view`; settings are re-read fresh per command
+ * so Host-context mounts carry current defaults.
  */
-function openView(finance: FinanceApi, tag: string, mountData: Record<string, unknown> = {}): void {
-  void finance.ui?.requestMount(tag, mountData);
-}
-
-/**
- * Open the primary Pay History view (payslip list).
- */
-async function openPayHistory(
-  finance: FinanceApi,
-  mountData: Record<string, unknown>
-): Promise<void> {
-  openView(finance, 'payslip-list', mountData);
+function openView(childTag: string): () => Promise<void> {
+  return async () => {
+    const finance = _registeredFinance;
+    if (!finance) return;
+    let financialYearStart = '07-01';
+    let financialYearCurrent = '';
+    let defaultCurrency = 'AUD';
+    try {
+      const s = await finance.settings?.get('core.financialYear.start');
+      if (typeof s === 'string') financialYearStart = s;
+    } catch { /* default */ }
+    try {
+      const c = await finance.settings?.get('core.financialYear.current');
+      if (typeof c === 'string') financialYearCurrent = c;
+    } catch { /* default */ }
+    try {
+      const d = await finance.settings?.get('core.defaultCurrency');
+      if (typeof d === 'string') defaultCurrency = d;
+    } catch { /* default */ }
+    // Single panel identity ('salary' -> tab always "Salary"); target child rides in mountData.view.
+    await finance.ui?.requestMount('salary', {
+      view: childTag,
+      defaultCurrency,
+      financialYearStart,
+      financialYearCurrent,
+    });
+  };
 }
 
 /**
@@ -65,13 +81,14 @@ async function openPayHistory(
  *    the Orchestrator, and render the initial view directly in the DOM.
  *
  * @param finance  Per-extension FinanceApi surface.
- * @param hostMountData  Optional mount data from the Host (via panel:init IPC).
- *                       Used in the panel renderer context; the Host context
- *                       derives its own mountData from settings.
+ * @param ctx  Optional mount context from the Host (via panel:init IPC:
+ *               `{ viewId, ...mountData }`). Used in the panel renderer
+ *               context; the Host context derives its own mountData from
+ *               settings.
  */
 export async function activate(
   finance: FinanceApi,
-  hostMountData?: Record<string, unknown>
+  ctx: { viewId?: string } & Record<string, unknown> = {}
 ): Promise<void> {
   // Capture the finance reference so deactivate() can use it as a fallback
   // when called without arguments (Task 7.3 — _registeredFinance bug fix).
@@ -90,14 +107,14 @@ export async function activate(
    const payAdapter = createPublicPayAdapter(finance);
    finance.services?.register('pay', payAdapter as unknown as DomainServiceImpl);
 
-    finance.commands.registerCommand('salary.show-pay-history', 'View: Pay History', () =>
-      openPayHistory(finance, settingsMountData).catch((e) =>
+    finance.commands.registerCommand('salary.show-pay-history', 'View: Pay History', (..._args: unknown[]) =>
+      openView('payslip-list')().catch((e) =>
          logger.error('openPayHistory failed', e),
       ),
     );
-    finance.commands.registerCommand('salary.show-pay-rate-history', 'View: Pay Rate History', () => {
+    finance.commands.registerCommand('salary.show-pay-rate-history', 'View: Pay Rate History', (..._args: unknown[]) => {
       logger.info('mounting pay-rate-history-view');
-      finance.ui?.requestMount('pay-rate-history-view', settingsMountData).catch((e) =>
+      return openView('pay-rate-history-view')().catch((e) =>
          logger.error('requestMount pay-rate-history-view failed', e),
       );
     });
@@ -106,13 +123,20 @@ export async function activate(
     // Distinguished from the Host (Node) context by the presence of the panel's
     // `<div id="app">` container element. The Host has no DOM; happy-dom test
     // environments define HTMLElement but lack the panel's DOM structure.
-     if (typeof HTMLElement !== 'undefined' && document.getElementById('app')) {
-       await registerUIComponents();
-      const container = document.getElementById('app');
-      if (container) {
+    // The Orchestrator is dynamic-imported so the Host bundle stays DOM-free
+    // (no top-level ui/orchestrator import); mirrors mortgage/src/main.ts.
+    if (typeof window !== 'undefined') await import('./ui/index.js');
+    if (ctx && typeof (ctx as Record<string, unknown>).viewId === 'string') {
+      // keep Host-context mountData merge compatible; panel branch below uses ctx
+    }
+    if (typeof document !== 'undefined' && document.getElementById('app')) {
+      await registerUIComponents();
+      const app = document.getElementById('app');
+      if (app) {
+        const { Orchestrator } = await import('./orchestrator.js');
         // Merge: Host-provided mountData takes precedence over settings-derived
-        const mountData = { ...settingsMountData, ...hostMountData };
-        _orchestrator = new Orchestrator(finance, container, mountData);
+        const mountData = { ...settingsMountData, ...ctx };
+        _orchestrator = new Orchestrator(finance, app, mountData);
         await _orchestrator.init();
       }
       return;
