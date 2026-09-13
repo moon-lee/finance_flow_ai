@@ -10,12 +10,12 @@
     "version": "0.1.0",
     "themeColor": "#F59E0B",
     "description": "Payslip entry, derived breakdown, and effective-dated rate history tracking.",
-    "activationEvents": ["onStartup", "onView:payslip-list"],
+    "activationEvents": ["onView:salary"],
     "contributions": {
       "views": [
         {
-          "id": "payslip-list",
-          "name": "Pay History",
+          "id": "salary",
+          "name": "Salary",
           "icon": "assets/icon.svg"
         }
       ],

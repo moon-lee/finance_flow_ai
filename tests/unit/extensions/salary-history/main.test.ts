@@ -83,4 +83,20 @@ describe('salary-history activate (Task 12)', () => {
 
     expect(store['salary_history_rate_history']).toHaveLength(1);
   });
+
+  it('declares a single salary view activated onView:salary', async () => {
+    const pkg = (await import('node:fs')).readFileSync(
+      'extensions/salary-history/package.json',
+      'utf8',
+    );
+    const manifest = JSON.parse(pkg).financeExtension;
+    expect(manifest.contributions.views).toEqual([
+      { id: 'salary', name: 'Salary', icon: 'assets/icon.svg' },
+    ]);
+    expect(manifest.activationEvents).toEqual(['onView:salary']);
+    expect(manifest.contributions.commands.map((c: { id: string }) => c.id)).toEqual([
+      'salary.show-pay-history',
+      'salary.show-pay-rate-history',
+    ]);
+  });
 });
