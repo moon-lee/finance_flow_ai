@@ -15,6 +15,7 @@ const logger = new ExtensionLogger('dashboard');
 export const CANONICAL_CARD_ORDER = [
   'pay-summary',
   'todo-summary',
+  'mortgage-summary',
 ] as const;
 
 export type CardId = (typeof CANONICAL_CARD_ORDER)[number];
@@ -22,6 +23,7 @@ export type CardId = (typeof CANONICAL_CARD_ORDER)[number];
 const CARD_LABELS: Record<string, string> = {
   'pay-summary': 'Pay Summary',
   'todo-summary': 'Todo Summary',
+  'mortgage-summary': 'Mortgage Summary',
 };
 
 export class DashboardOrchestrator {
@@ -221,6 +223,7 @@ export class DashboardOrchestrator {
   private readonly _CARD_SOURCES: Record<string, { viewId: string; commandId: string }> = {
     'pay-summary': { viewId: 'salary', commandId: 'salary.show-pay-history' },
     'todo-summary': { viewId: 'todo-list', commandId: 'todo-list.hello' },
+    'mortgage-summary': { viewId: 'mortgage', commandId: 'mortgage.show-overview' },
   };
 
   private _onCardSourceOpen = async (e: Event): Promise<void> => {

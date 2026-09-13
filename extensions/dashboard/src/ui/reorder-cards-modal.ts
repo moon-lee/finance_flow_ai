@@ -22,6 +22,7 @@ const CARD_LABELS: Record<string, string> = {
   'accounts-summary': 'Accounts Summary',
   'pay-summary': 'Pay Summary',
   'todo-summary': 'Todo Summary',
+  'mortgage-summary': 'Mortgage Summary',
 };
 
 @customElement('reorder-cards-modal')

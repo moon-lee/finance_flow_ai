@@ -222,10 +222,54 @@ export class DashboardView extends LitElement {
     `;
   }
 
+  private _renderMortgageSummaryCard(): unknown {
+    const m = this.aggregator?.mortgage;
+
+    return html`
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title-group">
+            <span class="card-title">Mortgage Summary</span>
+            ${m?.entry_date
+              ? html`<span class="card-badge">${m.entry_date}</span>`
+              : html`<span class="card-badge muted">No data</span>`}
+          </span>
+          <span class="card-header-actions">
+            <button class="card-action-btn" data-card-id="mortgage-summary" title="Open Mortgage" @click=${() => this._emitCardSourceOpen('mortgage-summary')}>⋮</button>
+          </span>
+        </div>
+
+        <table class="ytd-table">
+          <thead>
+            <tr>
+              <th></th>
+              <th class="num">LOAN</th>
+              <th class="num">OFFSET</th>
+              <th class="num">NET</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${m ? html`
+              <tr>
+                <td>Mortgage</td>
+                <td class="num actual">${this._formatCurrency(m.loan_balance)}</td>
+                <td class="num actual">${this._formatCurrency(m.offset_balance)}</td>
+                <td class="num actual">${this._formatCurrency(m.net_loan)}</td>
+              </tr>
+            ` : html`
+              <tr><td colspan="4">Install Mortgage to see this card</td></tr>
+            `}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+
   render() {
     const cards = this.cardOrder.map(id => {
       if (id === 'pay-summary') return this._renderPaySummaryCard();
       if (id === 'todo-summary') return this._renderTodoSummaryCard();
+      if (id === 'mortgage-summary') return this._renderMortgageSummaryCard();
       return null;
     });
     const fyOptions = this._fyOptions();
