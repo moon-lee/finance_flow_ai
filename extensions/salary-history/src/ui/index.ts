@@ -15,6 +15,7 @@ import './payslip-list.js';
 import './pay-rate-history-view.js';
 import './rate-row-form.js';
 import './reorder-sections-modal.js';
+import './salary-orchestrator.js';
 
 export function registerUIComponents(): void {
   // Custom elements are defined as a side effect of the imports above.
