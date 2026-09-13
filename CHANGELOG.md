@@ -1,7 +1,7 @@
 ---
-version: 1.1.5
+version: 1.1.6
 created: 2026-06-14
-last_updated: 2026-09-13T17:57:58+10:00
+last_updated: 2026-09-13T18:14:51+10:00
 ---
 
 # Changelog
@@ -11,7 +11,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.1.6] - 2026-09-13
 
 ### Added
 
