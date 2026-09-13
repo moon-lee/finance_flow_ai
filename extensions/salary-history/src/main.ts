@@ -107,11 +107,11 @@ export async function activate(
    const payAdapter = createPublicPayAdapter(finance);
    finance.services?.register('pay', payAdapter as unknown as DomainServiceImpl);
 
-    finance.commands.registerCommand('salary.show-pay-history', 'View: Pay History', (..._args: unknown[]) =>
-      openView('payslip-list')().catch((e) =>
+    finance.commands.registerCommand('salary.show-pay-history', 'View: Pay History', (..._args: unknown[]) => {
+      return openView('payslip-list')().catch((e) =>
          logger.error('openPayHistory failed', e),
-      ),
-    );
+      );
+    });
     finance.commands.registerCommand('salary.show-pay-rate-history', 'View: Pay Rate History', (..._args: unknown[]) => {
       logger.info('mounting pay-rate-history-view');
       return openView('pay-rate-history-view')().catch((e) =>
@@ -126,9 +126,6 @@ export async function activate(
     // The Orchestrator is dynamic-imported so the Host bundle stays DOM-free
     // (no top-level ui/orchestrator import); mirrors mortgage/src/main.ts.
     if (typeof window !== 'undefined') await import('./ui/index.js');
-    if (ctx && typeof (ctx as Record<string, unknown>).viewId === 'string') {
-      // keep Host-context mountData merge compatible; panel branch below uses ctx
-    }
     if (typeof document !== 'undefined' && document.getElementById('app')) {
       await registerUIComponents();
       const app = document.getElementById('app');
