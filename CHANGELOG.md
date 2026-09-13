@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Salary History unified into a single Salary tab** (`extensions/salary-history/package.json`, `extensions/salary-history/src/main.ts`, `extensions/salary-history/src/ui/salary-orchestrator.ts`, `extensions/salary-history/src/ui/index.ts`, `extensions/dashboard/src/orchestrator.ts`). One Activity Bar view (`salary`, title `Salary`, `onView:salary`); both `Pay History` / `Pay Rate History` commands retarget the open panel via `mount-update` instead of opening separate tabs; plain `src/orchestrator.ts` replaced by Lit `salary-orchestrator` (view state + `pushFinance` + caller `returnTo`), mirroring `mortgage`.
+- **Salary History unified into a single Salary tab** (`extensions/salary-history/package.json`, `extensions/salary-history/src/main.ts`, `extensions/salary-history/src/ui/salary-orchestrator.ts`, `extensions/salary-history/src/ui/index.ts`, `extensions/dashboard/src/orchestrator.ts`). One Activity Bar view (`salary`, title `Salary`); both `Pay History` / `Pay Rate History` commands retarget the open panel via `mount-update` instead of opening separate tabs; plain `src/orchestrator.ts` replaced by Lit `salary-orchestrator` (view state + `pushFinance` + caller `returnTo`), mirroring `mortgage`. Activation keeps `onStartup` alongside `onView:salary` so the `pay` service registers before dashboard `buildAggregator` at cold start.
 
 ## [1.1.4] - 2026-09-12
 

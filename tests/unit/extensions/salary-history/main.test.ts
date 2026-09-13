@@ -84,7 +84,7 @@ describe('salary-history activate (Task 12)', () => {
     expect(store['salary_history_rate_history']).toHaveLength(1);
   });
 
-  it('declares a single salary view activated onView:salary', async () => {
+  it('declares a single salary view with startup pay provider', async () => {
     const pkg = (await import('node:fs')).readFileSync(
       'extensions/salary-history/package.json',
       'utf8',
@@ -93,7 +93,8 @@ describe('salary-history activate (Task 12)', () => {
     expect(manifest.contributions.views).toEqual([
       { id: 'salary', name: 'Salary', icon: 'assets/icon.svg' },
     ]);
-    expect(manifest.activationEvents).toEqual(['onView:salary']);
+    // onStartup keeps the pay service registered before dashboard buildAggregator (cold-start).
+    expect(manifest.activationEvents).toEqual(['onStartup', 'onView:salary']);
     expect(manifest.contributions.commands.map((c: { id: string }) => c.id)).toEqual([
       'salary.show-pay-history',
       'salary.show-pay-rate-history',
