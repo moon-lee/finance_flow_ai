@@ -125,7 +125,9 @@ export class SalaryOrchestrator extends Base {
 
   private async pushFinance(): Promise<void> {
     (this as any).requestUpdate?.();
-    await Promise.resolve();
+    try {
+      await (this as any).updateComplete;
+    } catch { /* non-Lit context */ }
     const c = this.child() as any;
     if (c && this.finance) {
       try {
@@ -150,6 +152,21 @@ export class SalaryOrchestrator extends Base {
       if (typeof c.setFinance === 'function') {
         try {
           await c.setFinance(this.finance);
+        } catch (e: any) {
+          this.error = String(e?.message || e);
+        }
+      } else if (typeof c.load === 'function') {
+        // payslip-list / pay-rate-history-view expose load(), not setFinance():
+        // their connectedCallback fetch is skipped when finance arrives late.
+        try {
+          await c.load();
+        } catch (e: any) {
+          this.error = String(e?.message || e);
+        }
+      } else if (typeof c.loadReferenceData === 'function') {
+        // payslip-form exposes loadReferenceData(), not setFinance()/load().
+        try {
+          await c.loadReferenceData();
         } catch (e: any) {
           this.error = String(e?.message || e);
         }
