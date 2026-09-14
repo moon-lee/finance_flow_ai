@@ -396,6 +396,11 @@ export class SettingsScreen extends LitElement {
   @state()
   private _errors = new Map<string, string>();
 
+  /** Manifest-declared themeColor per extension id (from `extensions:list` `themeColors`).
+   *  Used as the true fallback for `.themeColor` controls so Reset shows the
+   *  manifest value instead of the hand-kept `configuration[].default` copy. */
+  private _manifestThemeColors = new Map<string, string>();
+
   private _debounceTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
   connectedCallback() {
@@ -460,6 +465,9 @@ export class SettingsScreen extends LitElement {
         }
         keys.push(item.configuration.key);
       }
+      this._manifestThemeColors = new Map(
+        Object.entries(list?.themeColors ?? {}).filter((e): e is [string, string] => typeof e[1] === 'string'),
+      );
       this._sections = [CORE_SETTINGS, ...Array.from(grouped.values())];
       await this._loadValues([
         ...CORE_SETTINGS.items.map((item) => item.key),
@@ -536,7 +544,7 @@ export class SettingsScreen extends LitElement {
     }
   }
 
-  private _renderControl(item: { key: string; type: string; label: string; default?: unknown; enumOptions?: string[]; format?: (raw: string) => string; pattern?: RegExp | string; formatHint?: string; placeholder?: string }) {
+  private _renderControl(item: { key: string; type: string; label: string; default?: unknown; enumOptions?: string[]; format?: (raw: string) => string; pattern?: RegExp | string; formatHint?: string; placeholder?: string }, extensionId?: string) {
     const value = this._currentValue(item.key);
     const isFormatted = Boolean(item.format || item.pattern || item.formatHint);
     const placeholder = isFormatted && item.formatHint ? this._defaultPlaceholder(item) : '';
@@ -547,8 +555,10 @@ export class SettingsScreen extends LitElement {
     const helperText = isFormatted && item.formatHint ? `Format: ${item.formatHint}` : '';
 
     if (item.key.endsWith('.themeColor') || item.formatHint === '#RRGGBB') {
-      const raw = value !== undefined ? String(value) : String(item.default ?? '#6366F1');
-      const fallback = String(item.default ?? '#6366F1');
+      // Prefer the live manifest color over the hand-kept config default copy.
+      const manifestColor = extensionId ? this._manifestThemeColors.get(extensionId) : undefined;
+      const raw = value !== undefined && value !== '' ? String(value) : String(manifestColor ?? item.default ?? '#6366F1');
+      const fallback = String(manifestColor ?? item.default ?? '#6366F1');
       const pickerValue = /^#[0-9A-Fa-f]{6}$/.test(raw) ? raw : fallback;
       return html`
         <div class="color-row">
@@ -778,10 +788,10 @@ export class SettingsScreen extends LitElement {
                 <div class="setting-info">
                   <div class="setting-key">${item.key}</div>
                   ${item.label ? html`<div class="setting-desc">${item.label}</div>` : ''}
-                  ${item.default !== undefined ? html`<div class="setting-default">Default: <code>${JSON.stringify(item.default)}</code></div>` : ''}
+                  ${item.default !== undefined || (item.key.endsWith('.themeColor') && this._manifestThemeColors.get(section.extensionId) !== undefined) ? html`<div class="setting-default">Default: <code>${JSON.stringify(item.key.endsWith('.themeColor') && this._manifestThemeColors.get(section.extensionId) !== undefined ? this._manifestThemeColors.get(section.extensionId) : item.default)}</code></div>` : ''}
                 </div>
                 <div class="setting-control">
-                  ${this._renderControl(item)}
+                  ${this._renderControl(item, section.extensionId)}
                 </div>
               </div>
             `)}
