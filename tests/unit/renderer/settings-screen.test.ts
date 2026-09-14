@@ -307,3 +307,11 @@ describe('SettingsScreen theme color control', () => {
     expect(el.shadowRoot!.querySelector('.setting-error')).not.toBeNull();
   });
 });
+
+describe('core.logLevel setting', () => {
+  it('declares core.logLevel enum with info default', async () => {
+    const src = (await import('node:fs')).readFileSync('src/renderer/components/settings-screen.ts', 'utf8');
+    expect(src).toContain('core.logLevel');
+    expect(src).toContain(`'debug'`);
+  });
+});

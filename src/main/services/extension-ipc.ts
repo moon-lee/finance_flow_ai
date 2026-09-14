@@ -34,13 +34,18 @@ export type HostStatus =
   | { status: 'restart-failed'; error: string };
 
 /**
- * [Fix] One log entry forwarded from the Host. Mirrors the producer shape
- * in `src/extension-host/host.ts` (the wrapper there stringifies each arg
- * before posting, so consumers can rely on `args` being an array of strings).
+ * One log entry forwarded from the Host. Produced by `ExtensionLogger.write`
+ * (`src/extension-host/api/logger.ts`) as a structured `LogPayload` so level,
+ * context, and timestamp survive the hop. The legacy `{ level: 'log', args }
+ * shape is still accepted on receipt for backward compatibility.
  */
 export interface HostLogEntry {
-  level: 'log' | 'error' | 'warn';
-  args: string[];
+  level: 'debug' | 'info' | 'warn' | 'error' | 'log';
+  message?: string;
+  context?: string;
+  error?: string;
+  timestamp?: number;
+  args?: string[];
   file?: string;
   line?: number;
 }
@@ -872,8 +877,18 @@ export class ExtensionIPC {
     // reserved for app-level notifications like `extension.activated`.
     if (typeof msg === 'object' && msg !== null && (msg as { method?: string }).method === 'host.log') {
       const params = (msg as { params: HostLogEntry }).params;
-      if (params && (params.level === 'log' || params.level === 'error' || params.level === 'warn') && Array.isArray(params.args)) {
-        this.emitLog({ level: params.level, args: params.args, file: params.file, line: params.line });
+      const validLevel = params && (params.level === 'log' || params.level === 'error' || params.level === 'warn' || params.level === 'info' || params.level === 'debug');
+      if (validLevel) {
+        this.emitLog({
+          level: params.level,
+          message: params.message,
+          context: params.context,
+          error: params.error,
+          timestamp: params.timestamp,
+          args: params.args,
+          file: params.file,
+          line: params.line,
+        });
       }
       return;
     }

@@ -84,5 +84,24 @@ describe('LoggerImpl', () => {
       expect.stringMatching(/:(\d+)$/),
       '',
     );
+    spy.mockRestore();
+  });
+
+  it('emits canonical line with timestamp + level and publishes preserved fields', () => {
+    const published: Array<{ topic: string; payload: unknown }> = [];
+    const fakeBus = { publish: (t: string, p: unknown) => { published.push({ topic: t, payload: p }); } };
+    const logger = new LoggerImpl(fakeBus as never, 'debug');
+    const spy = vi.spyOn(console, 'info').mockImplementation(() => {});
+    logger.info('hello', 'myctx');
+    expect(spy).toHaveBeenCalledTimes(1);
+    const [line] = spy.mock.calls[0];
+    expect(line as string).toMatch(/\d{4}-\d{2}-\d{2}T.*\[INFO\].*\[myctx\].*hello/);
+    spy.mockRestore();
+    expect(published.length).toBe(1);
+    expect(published[0].topic).toBe('log.info');
+    const p = published[0].payload as Record<string, unknown>;
+    expect(p.message).toBe('hello');
+    expect(p.context).toBe('myctx');
+    expect(typeof p.timestamp).toBe('number');
   });
 });

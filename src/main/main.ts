@@ -263,6 +263,14 @@ function registerIpcHandlers(): void {
       if (eventBus) {
         eventBus.publish('settings.changed', { key });
       }
+      if (key === 'core.logLevel' && typeof value === 'string'
+        && (value === 'debug' || value === 'info' || value === 'warn' || value === 'error')) {
+        logger.setMinLevel(value);
+        if (eventBus) {
+          eventBus.publish('log.level-changed', { level: value }, null);
+        }
+        extensionIPC?.notify('host.set-log-level', { level: value });
+      }
       const separator = key.indexOf('.');
       if (separator > 0 && key.endsWith('.themeColor')) {
         webviewPanelManager?.refreshThemeColor(key.slice(0, separator));
@@ -923,6 +931,13 @@ app.whenReady().then(async () => {
     initializeSettings();
     registerSettingDefault('core.workspace.autoSaveTimeout', 500);
     registerSettingDefault('core.workspace.lazyUnmountTimeout', 300_000);
+    registerSettingDefault('core.logLevel', 'info');
+    {
+      const bootLevel = getSetting<string>('core.logLevel');
+      if (bootLevel === 'debug' || bootLevel === 'info' || bootLevel === 'warn' || bootLevel === 'error') {
+        logger.setMinLevel(bootLevel);
+      }
+    }
     accountService = new AccountManagementService();
 
     // Boot extensions BEFORE the window so the renderer can fetch contributions on first paint.
@@ -1251,11 +1266,22 @@ app.whenReady().then(async () => {
 
     extensionIPC.onHostLog((entry) => {
       if (eventBus) {
-        const level = entry.level === 'log' ? 'info' : entry.level;
-        const message = `[host] ${entry.args.join(' ')}`;
+        const raw = entry as unknown as Record<string, unknown>;
+        const level = (raw.level === 'log' ? 'info' : raw.level) as 'debug' | 'info' | 'warn' | 'error';
+        const message = typeof raw.message === 'string'
+          ? String(raw.message)
+          : `[host] ${Array.isArray(raw.args) ? (raw.args as string[]).join(' ') : ''}`;
         eventBus.publish(
           `log.${level}`,
-          { level, message, context: 'host', timestamp: Date.now(), file: entry.file, line: entry.line },
+          {
+            level,
+            message,
+            context: (raw.context as string) ?? 'host',
+            error: raw.error as string | undefined,
+            timestamp: (raw.timestamp as number) ?? Date.now(),
+            file: raw.file as string | undefined,
+            line: raw.line as number | undefined,
+          },
           'host',
         );
       }

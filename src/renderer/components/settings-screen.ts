@@ -85,6 +85,7 @@ const CORE_SETTINGS: ExtensionSettings = {
     { key: 'core.financeYear.filter', type: 'number', label: 'Number of past financial years to show in the Dashboard FY filter dropdown (including current).', default: 5, placeholder: '5' },
     { key: 'core.defaultCurrency', type: 'string', label: 'Default currency code for new payslips and monetary display.', default: 'AUD', pattern: /^[A-Z]{3}$/, formatHint: 'AAA', placeholder: 'AUD' },
     { key: 'core.theme', type: 'enum', label: 'Application color theme.', default: 'dark', enumOptions: ['dark', 'light'] },
+    { key: 'core.logLevel', type: 'enum', label: 'Minimum log level. Lower levels are hidden everywhere (terminal, DevTools, log file). Takes effect immediately without restart.', default: 'info', enumOptions: ['debug', 'info', 'warn', 'error'] },
     { key: 'core.workspace.defaultView', type: 'string', label: 'Extension view to activate on startup. Requires the extension to declare onStartup.', default: 'dashboard' },
     { key: 'core.workspace.autoSaveTimeout', type: 'number', label: 'Auto-save draft timeout (milliseconds). Maximum time to wait for an extension to persist draft state before timing out. (1 second = 1000 ms)', default: 500, placeholder: '500' },
     { key: 'core.workspace.lazyUnmountTimeout', type: 'number', label: 'Lazy unmount timeout (milliseconds). Inactive panels are destroyed after this duration. Lower values free memory faster but cause more remounts when switching tabs. (1 second = 1000 ms). Set to 0 to disable.', default: 300000, placeholder: '300000' }

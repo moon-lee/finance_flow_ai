@@ -100,11 +100,19 @@ export interface LogEntry {
   timestamp: number;
 }
 
-/** [Fix] One log entry forwarded from the Extension Host. See
- *  `src/main/services/extension-ipc.ts#HostLogEntry` for the producer side. */
+/** One log entry forwarded from the Extension Host. See
+ *  `src/main/services/extension-ipc.ts#HostLogEntry` for the producer side.
+ *  New producers send the structured `message/context/error/timestamp` fields;
+ *  `args` remains for legacy senders and is rendered as a fallback. */
 export interface HostLogEntry {
-  level: 'log' | 'error' | 'warn';
-  args: string[];
+  level: 'debug' | 'info' | 'warn' | 'error' | 'log';
+  message?: string;
+  context?: string;
+  error?: string;
+  timestamp?: number;
+  args?: string[];
+  file?: string;
+  line?: number;
 }
 
 /**

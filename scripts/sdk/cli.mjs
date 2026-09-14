@@ -28,6 +28,7 @@ async function cmdInit(idRaw, targetDir) {
   mkdirSync(join(out, 'src', 'ui'), { recursive: true });
   mkdirSync(join(out, 'src', 'mock'), { recursive: true });
   mkdirSync(join(out, 'src', 'vendor'), { recursive: true });
+  mkdirSync(join(out, 'src', 'shared'), { recursive: true });
   mkdirSync(join(out, 'src', 'styles'), { recursive: true });
   writeFileSync(join(out, 'package.json'), render('package.json.template', vars));
   writeFileSync(join(out, 'tsconfig.json'), render('tsconfig.json.template', vars));
@@ -37,6 +38,7 @@ async function cmdInit(idRaw, targetDir) {
   writeFileSync(join(out, 'src', 'main.ts'), render('src/main.ts.template', vars));
   writeFileSync(join(out, 'src', 'finance.d.ts'), readFileSync(join(__dirname, 'types', 'finance.d.ts'), 'utf8'));
   writeFileSync(join(out, 'src', 'vendor', 'logger.ts'), render('src/vendor/logger.ts.template', vars));
+  writeFileSync(join(out, 'src', 'shared', 'base-logger.ts'), render('src/shared/base-logger.ts.template', vars));
   writeFileSync(join(out, 'src', 'styles', 'ext-tokens.css'), readFileSync(join(__dirname, '..', '..', 'extensions', 'salary-history', 'src', 'styles', 'ext-tokens.css'), 'utf8'));
   writeFileSync(join(out, 'src', 'styles', 'ext-layout.css'), readFileSync(join(__dirname, '..', '..', 'extensions', 'salary-history', 'src', 'styles', 'ext-layout.css'), 'utf8'));
   writeFileSync(join(out, 'src', 'styles', 'shared-styles.ts'), render('src/styles/shared-styles.ts.template', vars));
@@ -127,7 +129,9 @@ function cmdRefresh(projectDirRaw) {
     process.exit(1);
   }
   writeFileSync(typesPath, readFileSync(join(__dirname, 'types', 'finance.d.ts'), 'utf8'));
+  mkdirSync(join(projectDir, 'src', 'shared'), { recursive: true });
   writeFileSync(join(projectDir, 'src', 'vendor', 'logger.ts'), readFileSync(join(TEMPLATES, 'src/vendor/logger.ts.template'), 'utf8'));
+  writeFileSync(join(projectDir, 'src', 'shared', 'base-logger.ts'), readFileSync(join(TEMPLATES, 'src/shared/base-logger.ts.template'), 'utf8'));
   writeFileSync(join(projectDir, 'src', 'styles', 'ext-tokens.css'), readFileSync(join(__dirname, '..', '..', 'extensions', 'salary-history', 'src', 'styles', 'ext-tokens.css'), 'utf8'));
   writeFileSync(join(projectDir, 'src', 'styles', 'ext-layout.css'), readFileSync(join(__dirname, '..', '..', 'extensions', 'salary-history', 'src', 'styles', 'ext-layout.css'), 'utf8'));
   const mainTsPath = join(projectDir, manifest.main ?? 'src/main.ts');
@@ -136,7 +140,7 @@ function cmdRefresh(projectDirRaw) {
     writeFileSync(mainTsPath, mainTs.replace("import { ExtensionLogger } from 'finance-logger';\n", "import { ExtensionLogger } from 'finance-logger';\nimport './styles/ext-tokens.css';\n"));
     console.log(`[refresh] injected tokens.css import into ${mainTsPath}`);
   }
-  console.log(`Refreshed ${typesPath} + vendor/logger.ts + styles/*`);
+  console.log(`Refreshed ${typesPath} + vendor/logger.ts + shared/base-logger.ts + styles/*`);
   console.log('Fix any new type errors the editor shows, rebuild, and reinstall.');
 }
 

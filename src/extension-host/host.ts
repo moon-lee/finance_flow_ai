@@ -361,6 +361,13 @@ async function handleNotification(notification: JsonRpcNotification): Promise<vo
     hostLogger.info('ui-event received:', JSON.stringify(notification.params));
     return;
   }
+  if (notification.method === 'host.set-log-level') {
+    const level = (notification.params as { level?: unknown })?.level;
+    if (level === 'debug' || level === 'info' || level === 'warn' || level === 'error') {
+      hostLogger.setMinLevel(level);
+    }
+    return;
+  }
   if (notification.method === RPC_METHOD.HostShutdown) {
     hostLogger.info('shutdown request received, draining requests...');
     shuttingDown = true;

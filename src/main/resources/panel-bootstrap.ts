@@ -22,41 +22,23 @@
 import type { FinanceApi } from '../../types/finance';
 import type { PanelFinanceShellApi } from '../../types/finance-shell';
 import { darkenHex, isThemeColor } from '../../shared/theme-color';
+import { BaseLogger, type LogPayload } from '../../shared/base-logger';
 
 declare const financeShell: PanelFinanceShellApi;
 
-function getPanelCallerInfo(): { file: string; line: number } | null {
-  const stack = new Error().stack;
-  if (!stack) return null;
-  const lines = stack.split('\n').slice(2);
-  for (const line of lines) {
-    const match = line.match(/\(([^)]+):(\d+):\d+\)/);
-    if (!match) continue;
-    const fullPath = match[1];
-    if (fullPath.endsWith('panel-bootstrap.ts')) continue;
-    const file = fullPath.split(/[\\/]/).pop() ?? fullPath;
-    return { file, line: parseInt(match[2], 10) };
+class PanelLogger extends BaseLogger {
+  constructor(viewId = 'bootstrap') {
+    super(`panel:${viewId}`, 'info');
   }
-  return null;
+
+  protected write(entry: LogPayload, line: string, errorArg?: Error): void {
+    if (entry.level === 'error') console.error(line, errorArg ?? '');
+    else if (entry.level === 'warn') console.warn(line, errorArg ?? '');
+    else console.log(line, errorArg ?? '');
+  }
 }
 
-const panelLogger = {
-  log: (message: string, ...args: unknown[]) => {
-    const callerInfo = getPanelCallerInfo();
-    const suffix = callerInfo ? `  ${callerInfo.file}:${callerInfo.line}` : '';
-    console.log(`[panel] ${message}${suffix}`, ...args);
-  },
-  warn: (message: string, ...args: unknown[]) => {
-    const callerInfo = getPanelCallerInfo();
-    const suffix = callerInfo ? `  ${callerInfo.file}:${callerInfo.line}` : '';
-    console.warn(`[panel] ${message}${suffix}`, ...args);
-  },
-  error: (message: string, ...args: unknown[]) => {
-    const callerInfo = getPanelCallerInfo();
-    const suffix = callerInfo ? `  ${callerInfo.file}:${callerInfo.line}` : '';
-    console.error(`[panel] ${message}${suffix}`, ...args);
-  },
-};
+const panelLogger = new PanelLogger();
 
 interface PanelPayload {
   extensionId: string;
@@ -166,6 +148,7 @@ function createPanelFinanceApi(extensionId: string): FinanceApi {
 
 async function mountPanelComponent(payload: PanelPayload): Promise<void> {
   const { extensionId, viewId, mountData } = payload;
+  panelLogger.setContext(`panel:${viewId}`);
   let themeColor = isThemeColor(payload.themeColor) ? payload.themeColor : undefined;
   panelLogger.log('[panel bootstrap] mountPanelComponent', { extensionId, viewId, hasMountData: !!mountData });
 

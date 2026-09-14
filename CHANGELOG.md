@@ -1,7 +1,7 @@
 ---
-version: 1.1.7
+version: 1.1.8
 created: 2026-06-14
-last_updated: 2026-09-13T19:45:26+10:00
+last_updated: 2026-09-15T12:00:00+10:00
 ---
 
 # Changelog
@@ -10,6 +10,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [1.1.8] - 2026-09-15
+
+### Changed
+
+- **Unified logging under shared BaseLogger** (`src/shared/base-logger.ts`, `src/main/services/logger.ts`, `src/extension-host/api/logger.ts`, `src/renderer/logger.ts`, `src/main/resources/panel-bootstrap.ts`). One upper class owns types, `normalizeArgs`, `formatLine` (`ISO-timestamp [LEVEL] [context] message  file:line`), and the variadic API; four thin adapters implement transport only. Host `host.log` envelope preserves level/context/timestamp end-to-end into `logs/app.log`; `info`/`debug` no longer collapse. New `core.logLevel` setting applies restart-free across Main/Host/Renderer. SDK `refresh` re-syncs `vendor/logger.ts` + `shared/base-logger.ts`.
 
 ## [1.1.7] - 2026-09-13
 

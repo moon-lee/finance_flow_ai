@@ -179,6 +179,17 @@ Register a hook that Main drains before unmounting the panel. Use to persist for
 
 Stores the tool definition and forwards it to Main. Phase 6 wires execution.
 
+## Logging
+
+All tiers share one upper class, `BaseLogger` (`src/shared/base-logger.ts`): `LogLevel` (`debug|info|warn|error`), `LogPayload`, `normalizeArgs(...args)`, `formatLine(entry)`, and variadic `info/warn/error/debug/log(...args)` (`log` aliases `info`). Canonical console line: `ISO-timestamp [LEVEL] [context] message  file:line`. JSONL file shape stays `{ level, message, context, error, timestamp, file, line }`.
+
+- **Main** — `LoggerImpl extends BaseLogger` (`src/main/services/logger.ts`): `write` → `console.*` + `eventBus.publish('log.<level>')`, which feeds `LogFileService` (`<userData>/logs/app.log`).
+- **Host + extensions** — `ExtensionLogger extends BaseLogger` (`src/extension-host/api/logger.ts`, vendored as `src/vendor/logger.ts`): `write` → `console` + `parentPort.postMessage({ method: 'host.log', params: entry })`; Main republishes to `log.<level>` preserving level/context/timestamp. `info`/`debug` stay distinct end-to-end.
+- **Renderer** — `rendererLogger` (`src/renderer/logger.ts`): `write` → `console.*` + `financeShell.events.emit('log.<level>')`.
+- **Panels** — `PanelLogger extends BaseLogger` (`src/main/resources/panel-bootstrap.ts`, context `panel:<viewId>`): `write` → `console.*`.
+- **Level control** — `core.logLevel` setting (`debug|info|warn|error`, default `info`); changing it in Settings applies immediately without restart across Main/Host/Renderer.
+- **SDK** — `refresh` re-syncs `src/vendor/logger.ts` + `src/shared/base-logger.ts`; author code untouched.
+
 ## Lifecycle hooks
 
 - `activate(finance)` — called when an activation event fires. Required export.

@@ -14,6 +14,7 @@ import type { PaletteCommand } from './components/command-palette';
 import type { HostLogEntry, HostStatus } from '../types/finance-shell';
 import type { NavigationPanel } from './components/navigation-panel';
 import { rendererLogger } from './logger';
+import { formatLine } from '../shared/base-logger';
 import { resolveThemeColor } from '../shared/theme-color';
 import { buildExtensionIconUrl } from '../shared/extension-icon';
 
@@ -33,15 +34,22 @@ const viewToExtension = new Map<string, string>();
 // `DOMContentLoaded`) ensures early Host startup logs are captured too.
 if (window.financeShell?.extensions?.onHostLog) {
   window.financeShell.extensions.onHostLog((entry: HostLogEntry) => {
-    const tag = `[host ${entry.level}]`;
+    const level = (entry.level === 'log' ? 'info' : entry.level) as 'debug' | 'info' | 'warn' | 'error';
+    const line = formatLine({
+      level,
+      message: entry.message ?? (entry.args ?? []).join(' '),
+      context: entry.context ?? `host`,
+      error: entry.error,
+      timestamp: entry.timestamp ?? Date.now(),
+      file: entry.file,
+      line: entry.line,
+    });
     // Use the matching console method so severity styling + DevTools
-    // filtering works correctly. `entry.args` are already stringified on
-    // the Host side (see `src/extension-host/host.ts`), so passing them
-    // through as a single spread preserves any spacing the original
-    // `console.log('a', 'b')` call intended.
-    if (entry.level === 'error') console.error(tag, ...entry.args);
-    else if (entry.level === 'warn') console.warn(tag, ...entry.args);
-    else console.log(tag, ...entry.args);
+    // filtering works correctly.
+    if (level === 'error') console.error(line);
+    else if (level === 'warn') console.warn(line);
+    else if (level === 'info') console.info(line);
+    else console.debug(line);
   });
 }
 
@@ -75,19 +83,35 @@ if (window.financeShell?.extensions?.onHostStatus) {
 if (window.financeShell?.events?.on) {
   window.financeShell.events.on('settings.changed', (payload: unknown) => {
     const key = (payload as { key?: unknown })?.key;
-    if (typeof key !== 'string' || !key.endsWith('.themeColor')) return;
-    void loadExtensionContributions();
-    void (workspace as HTMLElement & { refreshThemeColors?: () => Promise<void> })?.refreshThemeColors?.();
+    if (typeof key !== 'string') return;
+    if (key.endsWith('.themeColor')) {
+      void loadExtensionContributions();
+      void (workspace as HTMLElement & { refreshThemeColors?: () => Promise<void> })?.refreshThemeColors?.();
+      return;
+    }
+  });
+  window.financeShell.events.on('log.level-changed', (payload: unknown) => {
+    const level = (payload as { level?: unknown })?.level;
+    if (level === 'debug' || level === 'info' || level === 'warn' || level === 'error') {
+      rendererLogger.setMinLevel(level);
+    }
   });
   ['error', 'warn', 'info', 'debug'].forEach((level) => {
     window.financeShell.events.on(`log.${level}`, (payload: unknown) => {
-      const p = payload as Record<string, unknown>;
-      const tag = `[${(p.context as string) ?? 'renderer'}]`;
-      const message = (p.message as string) ?? '';
-      if (level === 'error') console.error(tag, message);
-      else if (level === 'warn') console.warn(tag, message);
-      else if (level === 'info') console.info(tag, message);
-      else console.debug(tag, message);
+      const p = payload as { level: 'debug' | 'info' | 'warn' | 'error'; message?: string; context?: string; error?: string; timestamp?: number; file?: string; line?: number };
+      const line = formatLine({
+        level: (p.level ?? level) as 'debug' | 'info' | 'warn' | 'error',
+        message: p.message ?? '',
+        context: p.context ?? 'renderer',
+        error: p.error,
+        timestamp: p.timestamp ?? Date.now(),
+        file: p.file,
+        line: p.line,
+      });
+      if (level === 'error') console.error(line);
+      else if (level === 'warn') console.warn(line);
+      else if (level === 'info') console.info(line);
+      else console.debug(line);
     });
   });
 }

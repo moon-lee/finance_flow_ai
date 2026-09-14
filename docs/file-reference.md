@@ -1,5 +1,29 @@
 # File Reference
 
+## Logging Tidy-Up (Unreleased)
+
+| File | Status | Purpose |
+|------|--------|---------|
+| `src/shared/base-logger.ts` | new | `BaseLogger` upper class: `LogLevel`/`LogPayload`, `normalizeArgs`, `formatLine` (`ISO-timestamp [LEVEL] [context] message  file:line`), `getCallerInfo`, variadic `info/warn/error/debug/log`. |
+| `src/main/services/logger.ts` | modified | `LoggerImpl extends BaseLogger`; `write` → `console.*` + `eventBus.publish('log.<level>')`. |
+| `src/extension-host/api/logger.ts` | modified | `ExtensionLogger extends BaseLogger`; `write` → console + structured `host.log` envelope (level/message/context/error/timestamp). |
+| `src/renderer/logger.ts` | modified | `RendererLogger extends BaseLogger`; `write` → `console.*` + `financeShell.events.emit('log.<level>')`. |
+| `src/main/resources/panel-bootstrap.ts` | modified | `PanelLogger extends BaseLogger` (context `panel:<viewId>`); replaces inline `panelLogger` object. |
+| `src/main/main.ts` | modified | Field-preserving `onHostLog` republish; `core.logLevel` boot read + restart-free `settings:set` hook (`setMinLevel` + `log.level-changed` + `host.set-log-level` notify). |
+| `src/main/services/extension-ipc.ts` | modified | `HostLogEntry` structured shape + legacy `{ level: 'log', args }` acceptance. |
+| `src/types/finance-shell.d.ts` | modified | `HostLogEntry` structured shape. |
+| `src/renderer/index.ts` | modified | Host-log + `log.*` subscribers use `formatLine`; `log.level-changed` flips renderer threshold. |
+| `src/renderer/components/settings-screen.ts` | modified | `CORE_SETTINGS` gains `core.logLevel` enum. |
+| `src/extension-host/host.ts` | modified | Handles `host.set-log-level` notify. |
+| `scripts/sdk/templates/src/shared/base-logger.ts.template` | new | Vendored upper class for standalone projects. |
+| `scripts/sdk/templates/src/vendor/logger.ts.template` | modified | `ExtensionLogger extends BaseLogger`. |
+| `scripts/sdk/cli.mjs` | modified | `init`/`refresh` copy `src/shared/base-logger.ts`. |
+| `docs/extension-api.md` | modified | New Logging section. |
+| `docs/superpowers/specs/2026-09-14-logging-tidyup-design.md` | new | Tidy-up design (§1–§3 + self-review). |
+| `docs/superpowers/plans/2026-09-14-logging-tidyup.md` | new | Implementation plan (Tasks 1–6). |
+| `tests/unit/shared/base-logger.test.ts` | new | Normalize/format/filter/alias coverage. |
+| `tests/unit/renderer/logger.test.ts` | new | Renderer format parity. |
+
 ## Application Icon
 
 ## Activity Bar Extension Icons
@@ -339,7 +363,7 @@
 | `src/types/finance-shell.d.ts` | modified | Add manager methods + `ManagedExtension` type + `restartApp`. |
 | `src/renderer/components/navigation-panel.ts` | modified | Add `__extensions__` nav item. |
 | `src/renderer/index.ts` | modified | Mount `extension-manager` for `view === '__extensions__'`. |
-| `scripts/sdk/cli.mjs` | new | SDK CLI: `init` (renders `AGENTS.md`+`.gitignore`+`git init`), `build` (Vite lib, `finance` external), `refresh` (re-syncs `finance.d.ts`/`vendor/logger.ts`/`styles/*`); `ID_SNAKE` (`-`→`_`) for `tables` names. |
+| `scripts/sdk/cli.mjs` | modified | SDK CLI: `init` (renders `AGENTS.md`+`.gitignore`+`git init` + `src/shared/base-logger.ts`), `build` (Vite lib, `finance` external), `refresh` (re-syncs `finance.d.ts`/`vendor/logger.ts`/`shared/base-logger.ts`/`styles/*`); `ID_SNAKE` (`-`→`_`) for `tables` names. |
 | `scripts/sdk/templates/AGENTS.md.template` | modified | Agent entrypoint for standalone projects (§1–§11): §5b rewritten for single-tab child views (one `views[]` entry, orchestrator + `mount-update` retarget, `salary-orchestrator` reference); growth to `ui/<id>-orchestrator`/`dao`/`services`. |
 | `scripts/sdk/templates/.gitignore.template` | new | Scaffold `.gitignore` (`node_modules/`, `dist/`, `build/`). |
 | `scripts/sdk/templates/package.json.template` | new | Manifest with `{{ID_SNAKE}}_items` table example (`title`/`amount`/`created_at`) + `allowedCommands`/`allowedUiEvents`. |
@@ -347,7 +371,7 @@
 | `scripts/sdk/templates/src/ui/sample-view.ts.template` | new | Generates `{{ID}}-view.ts` (topbar + `view-container`/`view-container-inner`, `sharedStyles`, `crumb-current` + `{{DISPLAY_NAME}}`). |
 | `scripts/sdk/templates/src/ui/index.ts.template` | new | `import './{{ID}}-view'` + `customElements.define('{{ID}}-view')`. |
 | `scripts/sdk/templates/src/mock/finance-mock.ts.template` | new | In-memory `Map` DB + `globalThis.__mockServices` registry for `services.register`/`invoke` (`count`/`sum`) in `npm run dev`. |
-| `scripts/sdk/templates/*` (other) | new | `tsconfig.json.template`, `vite.config.ts.template`, `index.html.template`, `README.md.template`, `src/vendor/logger.ts.template`, `src/styles/shared-styles.ts.template`, `tokens.css`/`ext-layout.css` copies. |
+| `scripts/sdk/templates/*` (other) | modified | `tsconfig.json.template`, `vite.config.ts.template`, `index.html.template`, `README.md.template`, `src/vendor/logger.ts.template` (`ExtensionLogger extends BaseLogger`), `src/shared/base-logger.ts.template` (vendored upper class), `src/styles/shared-styles.ts.template`, `tokens.css`/`ext-layout.css` copies. |
 | `scripts/sdk/types/finance.d.ts` | new | Vendored, self-contained SDK type surface for standalone projects (parity guard). |
 | `vite.main.config.ts` | modified | `external` now `extract-zip`/`yauzl`/`fd-slicer`/`get-stream` + `/^node:.*/` + `fs`/`util`/`stream`/`events`/`zlib` — fixes `r.inherits is not a function` on `install .zip`. |
 | `vite.config.ts` | modified | Suppress `externalized for browser compatibility` warning for renderer. |
@@ -362,7 +386,7 @@
 | `tests/unit/sdk/sdk-init.test.ts` | new | `init` renders `AGENTS.md` + `{{ID}}-view.ts`. |
 | `tests/unit/sdk/sdk-build.test.ts` | new | `build` end-to-end (`<id>.js` + `package.json`, no `from "finance"`). |
 | `tests/unit/sdk/sdk-type-parity.test.ts` + `fixtures/parity-check.ts` | new | Types compile + assignable. |
-| `tests/unit/sdk/sdk-refresh.test.ts` | new | `refresh` re-syncs `finance.d.ts`/`vendor/logger.ts`/`styles/*`. |
+| `tests/unit/sdk/sdk-refresh.test.ts` | modified | `refresh` re-syncs `finance.d.ts`/`vendor/logger.ts`/`shared/base-logger.ts`/`styles/*`. |
 
 ## Dev Tooling (post-1.0.0)
 
