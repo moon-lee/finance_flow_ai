@@ -124,6 +124,9 @@ export class PayslipList extends LitElement {
         color: #686868;
         font-size: var(--ff-font-sm);
       }
+      td.pay-date {
+        font-size: var(--ff-font-sm);
+      }
       td.actions {
         text-align: right;
         white-space: nowrap;
@@ -511,7 +514,7 @@ export class PayslipList extends LitElement {
                   ${rows.map(
                     (p) => html`
                       <tr data-testid="payslip-row" data-id="${p.id}">
-                        <td class="fy">${p.pay_date}</td>
+                        <td class="pay-date">${p.pay_date}</td>
                         <td class="fy">${this._fyDisplay(p.finance_year)}</td>
                         <td class="num">${this._money(p.gross)}</td>
                         <td class="num">${this._money(p.net)}</td>
