@@ -345,6 +345,14 @@ function registerIpcHandlers(): void {
   ipcMain.handle("app:restart", async () => {
     logger.log('[main] app:restart requested');
     if (mainWindow) mainWindow.webContents.send('app:restarting');
+    // Graceful Host shutdown first: stop() sets shuttingDown so the
+    // Host's exit(0) is not misreported as "exited unexpectedly (code 0)"
+    // by handleExit. Falls back to immediate relaunch on failure.
+    try {
+      await extensionIPC?.stop();
+    } catch (err) {
+      logger.warn('[main] app:restart host stop failed, relaunching anyway:', err as Error);
+    }
     app.relaunch();
     app.exit(0);
     return { ok: true };

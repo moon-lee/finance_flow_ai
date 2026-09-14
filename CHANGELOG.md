@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.1.8] - 2026-09-15
 
+### Fixed
+
+- **Graceful Host shutdown on app restart** (`src/main/main.ts`). `app:restart` now awaits `extensionIPC.stop()` before `app.relaunch()`, so the Host's clean exit(0) is no longer misreported as `Extension Host exited unexpectedly (code 0)`.
+
 ### Changed
 
 - **Unified logging under shared BaseLogger** (`src/shared/base-logger.ts`, `src/main/services/logger.ts`, `src/extension-host/api/logger.ts`, `src/renderer/logger.ts`, `src/main/resources/panel-bootstrap.ts`). One upper class owns types, `normalizeArgs`, `formatLine` (`ISO-timestamp [LEVEL] [context] message  file:line`), and the variadic API; four thin adapters implement transport only. Host `host.log` envelope preserves level/context/timestamp end-to-end into `logs/app.log`; `info`/`debug` no longer collapse. New `core.logLevel` setting applies restart-free across Main/Host/Renderer. SDK `refresh` re-syncs `vendor/logger.ts` + `shared/base-logger.ts`.
