@@ -205,7 +205,7 @@ export class WorkspacePanel extends LitElement {
         } catch {
           setting = undefined;
         }
-        const color = resolveThemeColor({ setting, manifest: manifestColor ?? undefined });
+        const color = resolveThemeColor({ setting, manifest: manifestColor ?? undefined, report: (message, value) => rendererLogger.warn(`${message}:`, value as string) });
         if (color) this._extensionIdToColor.set(extensionId, color);
         else this._extensionIdToColor.delete(extensionId);
       }
@@ -222,6 +222,7 @@ export class WorkspacePanel extends LitElement {
         const color = resolveThemeColor({
           setting,
           manifest: contributions.themeColors?.[v.extensionId] ?? undefined,
+          report: (message, value) => rendererLogger.warn(`${message}:`, value as string),
         });
         if (color) this._viewIdToColor.set(v.view.id, color);
         else this._viewIdToColor.delete(v.view.id);

@@ -29,6 +29,18 @@ describe('theme-color helper', () => {
     expect(resolveThemeColor({ setting: 'nope', manifest: 'nope' })).toBeUndefined();
   });
 
+  it('treats empty-string setting as unset without reporting', () => {
+    const reported: unknown[] = [];
+    expect(resolveThemeColor({ setting: '', manifest: '#00FF00', report: (_m, v) => { reported.push(v); } })).toBe('#00FF00');
+    expect(reported).toEqual([]);
+  });
+
+  it('routes invalid values through report instead of console', () => {
+    const reported: Array<{ message: string; value: unknown }> = [];
+    expect(resolveThemeColor({ setting: 'red', manifest: '#00FF00', report: (message, value) => { reported.push({ message, value }); } })).toBe('#00FF00');
+    expect(reported).toEqual([{ message: '[theme-color] ignoring invalid user theme color', value: 'red' }]);
+  });
+
   it('darkens a hex color for hover states', () => {
     expect(darkenHex('#FFFFFF', 0.2)).toBe('#cccccc');
     expect(darkenHex('#007ACC', 0.2)).toBe('#0061a3');

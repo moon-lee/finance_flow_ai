@@ -6,13 +6,19 @@ export function isThemeColor(value: unknown): value is string {
 }
 
 /** Resolve the user setting first, then the extension manifest default. */
-export function resolveThemeColor(options: { setting?: unknown; manifest?: unknown }): string | undefined {
-  if (options.setting !== undefined && !isThemeColor(options.setting)) {
-    console.warn('[theme-color] ignoring invalid user theme color', options.setting);
+export function resolveThemeColor(options: { setting?: unknown; manifest?: unknown; report?: (message: string, value: unknown) => void }): string | undefined {
+  // Empty/reset values are treated as unset (fall through to manifest, no warning).
+  // The Settings Reset button commits '' to clear the override; warning on it
+  // would flag a value the app itself wrote.
+  const setting = options.setting === '' ? undefined : options.setting;
+  if (setting !== undefined && !isThemeColor(setting)) {
+    if (options.report) options.report('[theme-color] ignoring invalid user theme color', setting);
+    else console.warn('[theme-color] ignoring invalid user theme color', setting);
   }
-  if (isThemeColor(options.setting)) return options.setting;
+  if (isThemeColor(setting)) return setting;
   if (options.manifest !== undefined && !isThemeColor(options.manifest)) {
-    console.warn('[theme-color] ignoring invalid manifest theme color', options.manifest);
+    if (options.report) options.report('[theme-color] ignoring invalid manifest theme color', options.manifest);
+    else console.warn('[theme-color] ignoring invalid manifest theme color', options.manifest);
   }
   if (isThemeColor(options.manifest)) return options.manifest;
   return undefined;

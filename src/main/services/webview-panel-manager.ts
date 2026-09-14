@@ -121,7 +121,11 @@ export class WebviewPanelManager {
     } catch {
       setting = undefined;
     }
-    return resolveThemeColor({ setting, manifest: this.getManifest?.(extensionId)?.themeColor });
+    return resolveThemeColor({
+      setting,
+      manifest: this.getManifest?.(extensionId)?.themeColor,
+      report: (message, value) => getLogger().warn(`${message}:`, value as string),
+    });
   }
 
   setDirty(panelId: string, dirty: boolean): void {

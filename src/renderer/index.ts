@@ -176,6 +176,7 @@ async function loadExtensionContributions(): Promise<void> {
         const color = resolveThemeColor({
           setting,
           manifest: contributions.themeColors?.[v.extensionId] ?? undefined,
+          report: (message, value) => rendererLogger.warn(`${message}:`, value as string),
         });
         const iconUrl = extensionIconUrl(v.extensionId, v.view.icon);
         return { id: v.view.id, name: v.view.name, icon: v.view.icon, iconUrl, color };

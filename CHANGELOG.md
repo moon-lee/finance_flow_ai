@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Theme-color warnings routed through proper loggers; empty reset no longer warns** (`src/shared/theme-color.ts`, `src/main/services/webview-panel-manager.ts`, `src/renderer/index.ts`, `src/renderer/components/workspace.ts`). `resolveThemeColor` takes an optional `report` callback (Main → `getLogger().warn`, Renderer → `rendererLogger.warn`) instead of raw `console.warn`; `''` from the Settings Reset button is treated as unset and falls through to the manifest default silently.
 - **Graceful Host shutdown on app restart** (`src/main/main.ts`). `app:restart` now awaits `extensionIPC.stop()` before `app.relaunch()`, so the Host's clean exit(0) is no longer misreported as `Extension Host exited unexpectedly (code 0)`.
 
 ### Changed
