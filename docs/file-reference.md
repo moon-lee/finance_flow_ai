@@ -1,11 +1,18 @@
 # File Reference
 
+## Budget Extension Install-Verified (1.1.9)
+
+| File | Status | Purpose |
+|------|--------|---------|
+| `docs/superpowers/specs/2026-09-13-budget-design.md` | modified | Archive-event amendment: `pot/flow-archive-request` added to `allowedUiEvents` (18 total); implementation lives in `D:/finance_flow_ext/budget` (own repo). |
+| `docs/superpowers/plans/2026-09-13-budget-plan.md` | modified | Same archive-event sync + install-verified note. |
+
 ## Budget Design + SDK Init Folders (Unreleased)
 
 | File | Status | Purpose |
 |------|--------|---------|
 | `docs/superpowers/specs/2026-09-13-budget-design.md` | modified | Amendment 2026-09-15: new §4.0 `budget_accounts` master (`account_key`+`bank`+`label`+`sort_order`+`is_active`, 11 seeds); `budget_pots`/`budget_flows` free-text bank/suffix → nullable `account_id` FK; income renumbered §4.4; §3/§5/§8/§9 + self-review updated. |
-| `docs/superpowers/plans/2026-09-13-budget-plan.md` | modified | Amendment 2026-09-15: 4-table manifest, `budget.show-accounts` command/nav, accounts-first seed, new `dao/accounts.ts`, FK validation, `budget-accounts-view` + dropdowns, 16 `allowedUiEvents`, 7 tags. |
+| `docs/superpowers/plans/2026-09-13-budget-plan.md` | modified | Amendment 2026-09-15: 4-table manifest, `budget.show-accounts` command/nav, accounts-first seed, new `dao/accounts.ts`, FK validation, `budget-accounts-view` + dropdowns, 18 `allowedUiEvents` (incl. archive requests), 7 tags. |
 | `scripts/sdk/cli.mjs` | modified | `init` creates `docs/superpowers/plans/` + `docs/superpowers/specs/` with `.gitkeep` placeholders. |
 | `docs/sdk-templates.md` | modified | `init` output description covers the new docs folders. |
 | `docs/extension-api.md` | modified | `init` command example lists the new docs folders. |

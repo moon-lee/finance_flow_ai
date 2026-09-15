@@ -1,7 +1,7 @@
 ---
 version: 1.1.9
 created: 2026-06-14
-last_updated: 2026-09-15T11:48:24+10:00
+last_updated: 2026-09-15T13:00:00+10:00
 ---
 
 # Changelog
@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Budget extension install-verified in dev profile** (`docs/superpowers/specs/2026-09-13-budget-design.md`, plan `docs/superpowers/plans/2026-09-13-budget-plan.md`). Standalone `budget` 0.1.0 (plan diary with re-allocation history: `budget_accounts` + `budget_pots` + `budget_flows` + `budget_income`, single-tab orchestrator + 3 views + 3 forms) activates cleanly on boot and seeds 11/20/13 rows. No version bump here — budget has its own `0.1.x`.
 - **SDK `init` scaffolds `docs/superpowers/{plans,specs}` folders** (`scripts/sdk/cli.mjs`). New standalone extension projects get both folders with `.gitkeep` placeholders so they survive `git init`; authors drop design docs and implementation plans there (mirrors `todo-list` / `mortgage` layout).
 - **Budget spec gains `budget_accounts` lookup table** (`docs/superpowers/specs/2026-09-13-budget-design.md` §4.0, plan `docs/superpowers/plans/2026-09-13-budget-plan.md` Task 1). Stable master list (`account_key` + `bank` + `label` + `sort_order` + `is_active`, 11 seed rows from the CashFlow sheet) replaces free-text `bank`/`suffix` on `budget_pots`/`budget_flows` with a nullable `account_id` FK; mirrors the `mortgage_accounts` precedent. Spec-only change, no version bump.
 
