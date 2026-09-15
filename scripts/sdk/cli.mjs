@@ -30,6 +30,8 @@ async function cmdInit(idRaw, targetDir) {
   mkdirSync(join(out, 'src', 'vendor'), { recursive: true });
   mkdirSync(join(out, 'src', 'shared'), { recursive: true });
   mkdirSync(join(out, 'src', 'styles'), { recursive: true });
+  mkdirSync(join(out, 'docs', 'superpowers', 'plans'), { recursive: true });
+  mkdirSync(join(out, 'docs', 'superpowers', 'specs'), { recursive: true });
   writeFileSync(join(out, 'package.json'), render('package.json.template', vars));
   writeFileSync(join(out, 'tsconfig.json'), render('tsconfig.json.template', vars));
   writeFileSync(join(out, 'vite.config.ts'), render('vite.config.ts.template', vars));
@@ -50,6 +52,8 @@ async function cmdInit(idRaw, targetDir) {
   writeFileSync(join(out, '.gitignore'), render('.gitignore.template', vars));
   mkdirSync(join(out, 'assets'), { recursive: true });
   writeFileSync(join(out, 'assets', 'icon.svg'), readFileSync(join(TEMPLATES, 'assets', 'icon.svg'), 'utf8'));
+  writeFileSync(join(out, 'docs', 'superpowers', 'plans', '.gitkeep'), '');
+  writeFileSync(join(out, 'docs', 'superpowers', 'specs', '.gitkeep'), '');
   // git init (best-effort, no fail if git missing)
   try {
     const { execSync } = await import('node:child_process');

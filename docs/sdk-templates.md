@@ -32,7 +32,7 @@ scripts/sdk/
 
 ## 2. `init` vs `refresh`
 
-- **`init <id> [dir]`** — copies **all** templates + `finance.d.ts` + `tokens.css`/`ext-layout.css` → new project (`<dir>/<id>/`). The new project is fully standalone (no need to open `D:\finance_flow_ai\extensions\...`). `init` creates `assets/icon.svg` and points the generated manifest at it.
+- **`init <id> [dir]`** — copies **all** templates + `finance.d.ts` + `tokens.css`/`ext-layout.css` → new project (`<dir>/<id>/`). The new project is fully standalone (no need to open `D:\finance_flow_ai\extensions\...`). `init` creates `assets/icon.svg` and points the generated manifest at it. `init` also creates `docs/superpowers/plans/` + `docs/superpowers/specs/` (with `.gitkeep` placeholders) for design docs and implementation plans, mirroring the `todo-list` / `mortgage` layout.
 
 - **`refresh <project>`** — overwrites **only** `src/finance.d.ts` + `src/vendor/logger.ts` + `src/styles/*` (`cli.mjs` `cmdRefresh`), **never** `src/main.ts`/`src/ui/*`/`AGENTS.md`/`package.json` — author code is safe. Run after the app updates `src/types/finance.d.ts`. `refresh` updates vendored types/styles/logger but does not overwrite a custom icon or `package.json`.
 

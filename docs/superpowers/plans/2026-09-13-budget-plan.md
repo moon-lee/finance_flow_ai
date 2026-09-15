@@ -58,24 +58,26 @@ In `D:/finance_flow_ext/budget/package.json`, set `financeExtension` to:
     "views": [{ "id": "budget", "name": "Budget", "icon": "assets/icon.svg" }],
     "commands": [
       { "id": "budget.show-overview", "title": "Budget: Overview" },
-      { "id": "budget.show-flows", "title": "Budget: Flow Planner" }
+      { "id": "budget.show-flows", "title": "Budget: Flow Planner" },
+      { "id": "budget.show-accounts", "title": "Budget: Accounts" }
     ],
     "navigation": [
       { "id": "budget-overview", "label": "Overview", "command": "budget.show-overview", "group": "Budget" },
-      { "id": "budget-flows", "label": "Flow Planner", "command": "budget.show-flows", "group": "Budget" }
+      { "id": "budget-flows", "label": "Flow Planner", "command": "budget.show-flows", "group": "Budget" },
+      { "id": "budget-accounts", "label": "Accounts", "command": "budget.show-accounts", "group": "Budget" }
     ],
     "configuration": [
       { "key": "budget.themeColor", "type": "string", "label": "Accent color (hex).", "default": "#22C55E", "pattern": "^#[0-9A-Fa-f]{6}$", "formatHint": "#RRGGBB", "placeholder": "#22C55E" }
     ],
-    "allowedCommands": ["budget.show-overview", "budget.show-flows"],
-    "allowedUiEvents": ["pot-add-request", "pot-create", "pot-edit-request", "pot-edit", "pot-form-cancel", "flow-add-request", "flow-create", "flow-edit-request", "flow-edit", "flow-form-cancel", "realloc-request", "realloc-save", "realloc-cancel"]
+    "allowedCommands": ["budget.show-overview", "budget.show-flows", "budget.show-accounts"],
+    "allowedUiEvents": ["pot-add-request", "pot-create", "pot-edit-request", "pot-edit", "pot-form-cancel", "flow-add-request", "flow-create", "flow-edit-request", "flow-edit", "flow-form-cancel", "realloc-request", "realloc-save", "realloc-cancel", "account-create", "account-edit", "account-toggle"]
   },
-  "tables": [<spec §4.1 budget_pots JSON>, <spec §4.2 budget_flows JSON>, <spec §4.3 budget_income JSON>],
+  "tables": [<spec §4.0 budget_accounts JSON>, <spec §4.1 budget_pots JSON>, <spec §4.2 budget_flows JSON>, <spec §4.4 budget_income JSON>],
   "main": "src/main.ts"
 }
 ```
 
-(Paste the three table blocks verbatim from `docs/superpowers/specs/2026-09-13-budget-design.md` §4.)
+(Paste the four table blocks verbatim from `docs/superpowers/specs/2026-09-13-budget-design.md` §4: §4.0 `budget_accounts`, §4.1 `budget_pots`, §4.2 `budget_flows`, §4.4 `budget_income`.)
 
 - [ ] **Step 3: Write activate + seed + service skeleton**
 
@@ -98,6 +100,7 @@ const openView = (finance: FinanceApi, childTag: string): (() => Promise<void>) 
 export async function activate(finance: FinanceApi, ctx: { viewId?: string } & Record<string, unknown> = {}): Promise<void> {
   finance.commands.registerCommand('budget.show-overview', 'Budget: Overview', () => openView(finance, 'budget-overview')());
   finance.commands.registerCommand('budget.show-flows', 'Budget: Flow Planner', () => openView(finance, 'budget-flows')());
+  finance.commands.registerCommand('budget.show-accounts', 'Budget: Accounts', () => openView(finance, 'budget-accounts')());
   finance.services.register('budget', {
     potYearly: async (p: any) => (await import('./services/budget-service.js')).potYearly(finance as any, p?.key),
     flowYearly: async (p: any) => (await import('./services/budget-service.js')).flowYearly(finance as any, p?.key),
@@ -125,7 +128,7 @@ export async function activate(finance: FinanceApi, ctx: { viewId?: string } & R
 export function deactivate(): void {}
 ```
 
-Seed file `src/services/seed.ts`: inserts the 20 `budget_pots` + 13 `budget_flows` rows from spec §2 with `effective_from` = first plan date, guarded by `count({}) === 0` per table (never re-seed).
+Seed file `src/services/seed.ts`: inserts the 11 `budget_accounts` rows (spec §4.0) first, then the 20 `budget_pots` + 13 `budget_flows` rows from spec §2 with `account_id` resolved by `account_key` lookup (`NULL` where §2 names no account) and `effective_from` = first plan date, guarded by `count({}) === 0` per table (never re-seed).
 
 - [ ] **Step 4: Build the artifact**
 
@@ -143,13 +146,13 @@ cd D:/finance_flow_ext/budget && git add -A && git commit -m "feat(budget): scaf
 ### Task 2: DAO + services (dated rows, re-allocate, totals)
 
 **Files:**
-- Create: `D:/finance_flow_ext/budget/src/dao/pots.ts`, `src/dao/flows.ts`, `src/dao/income.ts`
+- Create: `D:/finance_flow_ext/budget/src/dao/accounts.ts`, `src/dao/pots.ts`, `src/dao/flows.ts`, `src/dao/income.ts`
 - Create: `D:/finance_flow_ext/budget/src/services/budget-service.ts`
 - Test: `npm run dev` manual list check (or vitest if scaffolded)
 
 **Interfaces:**
-- Consumes: `finance.db.table('budget_pots' | 'budget_flows' | 'budget_income')`, `finance.services.invoke('pay', ...)`.
-- Produces: `listCurrentPots()`, `savePot()` (close+insert), `listCurrentFlows()`, `saveFlow()`, `reallocate()`, `balanceCheck()`, `potYearly()`, `flowYearly()`, `totals()`, `incomeWeekly()` consumed by orchestrator + `budget` service.
+- Consumes: `finance.db.table('budget_accounts' | 'budget_pots' | 'budget_flows' | 'budget_income')`, `finance.services.invoke('pay', ...)`.
+- Produces: `listActiveAccounts()`, `createAccount()`, `renameAccount()`, `setAccountActive()` (blocked while referenced by a current pot/flow row), `resolveAccountLabel()` join helper, `listCurrentPots()`, `savePot()` (close+insert), `listCurrentFlows()`, `saveFlow()`, `reallocate()`, `balanceCheck()`, `potYearly()`, `flowYearly()`, `totals()`, `incomeWeekly()` consumed by orchestrator + `budget` service.
 
 - [ ] **Step 1: Write DAO wrappers**
 
@@ -169,6 +172,8 @@ export async function savePot(finance: any, key: string, patch: Record<string, u
 ```
 
 Mirror for `dao/flows.ts` (`flow_key`, `budget_flows`) and `dao/income.ts` (`finance_year`, `budget_income`).
+
+`dao/accounts.ts` (mortgage `dao/accounts.ts` shape + `bank`): `listAccounts()` (sorted by `sort_order`), `listActiveAccounts()`, `createAccount({account_key, bank, label})` (reject duplicate key), `renameAccount(id, label)`, `setAccountActive(id, active)` — deactivation throws when any current `budget_pots`/`budget_flows` row (`effective_to IS NULL`) references the id; history rows keep the FK. `savePot`/`saveFlow` reject `account_id` values with no matching `budget_accounts` row.
 
 - [ ] **Step 2: Write services**
 
@@ -221,10 +226,10 @@ git add src/dao src/services && git commit -m "feat(budget): dao and plan-histor
 
 ---
 
-### Task 3: UI (orchestrator + 2 views + 3 forms)
+### Task 3: UI (orchestrator + 3 views + 3 forms)
 
 **Files:**
-- Create: `D:/finance_flow_ext/budget/src/ui/budget-orchestrator.ts`, `src/ui/budget-overview-view.ts`, `src/ui/budget-flows-view.ts`, `src/ui/budget-pot-form.ts`, `src/ui/budget-flow-form.ts`, `src/ui/budget-realloc-form.ts`
+- Create: `D:/finance_flow_ext/budget/src/ui/budget-orchestrator.ts`, `src/ui/budget-overview-view.ts`, `src/ui/budget-flows-view.ts`, `src/ui/budget-accounts-view.ts`, `src/ui/budget-pot-form.ts`, `src/ui/budget-flow-form.ts`, `src/ui/budget-realloc-form.ts`
 - Modify: `D:/finance_flow_ext/budget/src/ui/index.ts`
 - Test: `npm run dev` visual check
 
@@ -234,20 +239,21 @@ git add src/dao src/services && git commit -m "feat(budget): dao and plan-histor
 
 - [ ] **Step 1: Write the orchestrator**
 
-Mirror `extensions/salary-history/src/ui/salary-orchestrator.ts`: `BudgetOrchestrator extends Base`, `view: 'budget-overview' | 'budget-flows' | 'budget-pot-form' | 'budget-flow-form' | 'budget-realloc-form'`, `init` mapping `mount.view ?? mount.viewId` (default `budget-overview`), `pushFinance` injecting `finance` + calling child `load()`, `connectedCallback` listeners for the 13 `allowedUiEvents`, handlers calling Task 2 services then `navigate(returnTo)` + refresh. Re-allocate handler calls `reallocate()` (pair-write, §5 atomicity).
+Mirror `extensions/salary-history/src/ui/salary-orchestrator.ts`: `BudgetOrchestrator extends Base`, `view: 'budget-overview' | 'budget-flows' | 'budget-accounts' | 'budget-pot-form' | 'budget-flow-form' | 'budget-realloc-form'`, `init` mapping `mount.view ?? mount.viewId` (default `budget-overview`), `pushFinance` injecting `finance` + calling child `load()`, `connectedCallback` listeners for the 16 `allowedUiEvents`, handlers calling Task 2 services then `navigate(returnTo)` + refresh. Re-allocate handler calls `reallocate()` (pair-write, §5 atomicity). Account handlers call `createAccount` / `renameAccount` / `setAccountActive` from `dao/accounts.ts`.
 
 - [ ] **Step 2: Write the views**
 
-`budget-overview-view.ts`: income card (live `pay` weekly or fallback + tag), savings table (label, bank, suffix, weekly, yearly `×52`, dates, Edit), expenses table (same), balance card (in/out/balance, green/red), plan-trace section (closed rows per key). Thin: `load()` reads via services; dispatches `pot-*-request` / `realloc-request`.
-`budget-flows-view.ts`: Friday table + Sunday table (label, amount, to-bank/suffix, dates, Edit). Same layout classes (`.topbar`, `.view-container`, `.table-wrap`, `.section`).
+`budget-overview-view.ts`: income card (live `pay` weekly or fallback + tag), savings table (label, account, weekly, yearly `×52`, dates, Edit), expenses table (same), balance card (in/out/balance, green/red), plan-trace section (closed rows per key). Account column resolves `account_id` → label/bank via Task 2 join helper. Thin: `load()` reads via services; dispatches `pot-*-request` / `realloc-request`.
+`budget-flows-view.ts`: Friday table + Sunday table (label, amount, account, dates, Edit). Same layout classes (`.topbar`, `.view-container`, `.table-wrap`, `.section`).
+`budget-accounts-view.ts` (mortgage accounts-view shape): table (bank, key, label, active toggle) + Add / Rename inline + Deactivate button; dispatches `account-create` / `account-edit` / `account-toggle`.
 
 - [ ] **Step 3: Write the forms**
 
-Pot/flow forms: fields per table columns; submit dispatches `pot-create`/`pot-edit`/`flow-create`/`flow-edit` with `{key, patch, start}`. Re-alloc form: source select, target select, amount/week, start date → `realloc-save`.
+Pot/flow forms: fields per table columns with an account `<select>` sourced from active `budget_accounts` rows (empty option = no account); submit dispatches `pot-create`/`pot-edit`/`flow-create`/`flow-edit` with `{key, patch, start}` where `patch.account_id` is a number or `null`. Re-alloc form: source select, target select, amount/week, start date → `realloc-save`.
 
 - [ ] **Step 4: Register + verify**
 
-`src/ui/index.ts`: import + `customElements.define` for all 6 tags. `npm run dev` → switch views via dropdown, forms dispatch events (check console).
+`src/ui/index.ts`: import + `customElements.define` for all 7 tags. `npm run dev` → switch views via dropdown, forms dispatch events (check console).
 
 - [ ] **Step 5: Commit**
 
@@ -272,7 +278,7 @@ App: Extensions → Install Folder → pick `build/extension` → restart.
 
 - [ ] **Step 2: Verify in app**
 
-Checklist: Budget tab appears; Overview shows income + 10 pots + 10 lines + balance green; edit a pot → new dated row, old closed; re-allocate Child→Emergency $10 → both rows change with linked notes; Flow Planner Friday/Sunday editable; disable Salary → income falls back to manual; `SELECT * FROM budget_pots` shows history rows.
+Checklist: Budget tab appears; Overview shows income + 10 pots + 10 lines + balance green; edit a pot → new dated row, old closed; re-allocate Child→Emergency $10 → both rows change with linked notes; Flow Planner Friday/Sunday editable; Accounts view lists 11 seeded accounts + Add/Rename/Deactivate works (deactivate blocked while referenced); pot/flow forms use the account dropdown; disable Salary → income falls back to manual; `SELECT * FROM budget_pots` shows history rows.
 
 - [ ] **Step 3: App-repo docs**
 
@@ -288,6 +294,7 @@ cd D:/finance_flow_ext/budget && git add -A && git commit -m "feat(budget): inst
 
 ## Self-Review
 
-- **Spec coverage:** main rule (§1) → Tasks 2–3 (dated rows + re-allocate pair); sheet map (§2) → Task 1 seeds; 2 views (§3) → Task 3; tables (§4) → Task 1; history rules (§5) → Task 2; income (§6) + sharing (§7) → Task 2 services; navigation (§8) → Tasks 1+3; SDK path (§9) → Tasks 1+4. All covered.
+- **Spec coverage:** main rule (§1) → Tasks 2–3 (dated rows + re-allocate pair); sheet map (§2) → Task 1 seeds; 3 screens (§3) → Task 3; tables (§4.0–§4.4 incl. accounts master + FK) → Tasks 1–2; history rules (§5, incl. accounts stable-master rule) → Task 2; income (§6) + sharing (§7) → Task 2 services; navigation (§8, 3 commands + account events) → Tasks 1+3; SDK path (§9) → Tasks 1+4. All covered.
+- **Amendment 2026-09-15:** `budget_accounts` master + `account_id` FK (spec §4.0, pots/flows §4.1–§4.2, income renumbered §4.4); Task 1 manifest/seed, Task 2 `dao/accounts.ts` + FK validation, Task 3 `budget-accounts-view` + dropdowns, Task 4 checklist updated.
 - **Placeholder scan:** no TBD/TODO; every step has exact paths, code, commands, expected output.
 - **Type consistency:** `pot_key`/`flow_key`/`finance_year` keys, `weekly_amount` numbers, `MortgageCard`-style per-item returns consistent across tasks.

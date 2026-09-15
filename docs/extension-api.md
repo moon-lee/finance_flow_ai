@@ -222,7 +222,7 @@ Extension entries are bundled to `dist/extensions/<id>.js` by `vite.extensions.c
 **Create / Edit / Preview / Build:**
 
 ```bash
-node scripts/sdk/cli.mjs init todo-list [D:\my-extensions]  # → D:\my-extensions\todo-list\ (package.json, src/main.ts, src/ui/<id>-view.ts, src/mock/finance-mock.ts, AGENTS.md)
+node scripts/sdk/cli.mjs init todo-list [D:\my-extensions]  # → D:\my-extensions\todo-list\ (package.json, src/main.ts, src/ui/<id>-view.ts, src/mock/finance-mock.ts, AGENTS.md, docs/superpowers/{plans,specs}/)
 cd D:\my-extensions\todo-list
 npm install
 npm run dev    # http://localhost:5173 with mock FinanceApi + HMR (in-memory Map + __mockServices)
