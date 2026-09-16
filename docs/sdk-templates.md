@@ -12,7 +12,8 @@ scripts/sdk/
   types/finance.d.ts               # vendored FinanceApi (re-synced on init+refresh)
   templates/
     AGENTS.md.template             # agent entrypoint (rendered on init)
-    package.json.template          # financeExtension manifest + tables example
+    package.json.template          # financeExtension manifest + tables example (`version:bump` script included)
+    scripts/version-bump.mjs.template # per-project version bumper (copied verbatim on init → scripts/version-bump.mjs)
     assets/icon.svg                # default Activity Bar icon copied by init
     tsconfig.json.template
     vite.config.ts.template
@@ -32,7 +33,8 @@ scripts/sdk/
 
 ## 2. `init` vs `refresh`
 
-- **`init <id> [dir]`** — copies **all** templates + `finance.d.ts` + `tokens.css`/`ext-layout.css` → new project (`<dir>/<id>/`). The new project is fully standalone (no need to open `D:\finance_flow_ai\extensions\...`). `init` creates `assets/icon.svg` and points the generated manifest at it. `init` also creates `docs/superpowers/plans/` + `docs/superpowers/specs/` (with `.gitkeep` placeholders) for design docs and implementation plans, mirroring the `todo-list` / `mortgage` layout.
+- **`init <id> [dir]`** — copies **all** templates + `finance.d.ts` + `tokens.css`/`ext-layout.css` → new project (`<dir>/<id>/`). The new project is fully standalone (no need to open `D:\finance_flow_ai\extensions\...`). `init` creates `assets/icon.svg` and points the generated manifest at it. `init` also creates `docs/superpowers/plans/` + `docs/superpowers/specs/` (with `.gitkeep` placeholders) for design docs and implementation plans, mirroring the `todo-list` / `mortgage` layout. `init` also creates `scripts/version-bump.mjs` (from `scripts/version-bump.mjs.template`, copied verbatim — no `{{}}` substitution) so authors run `npm run version:bump` to bump `version` + `financeExtension.version` in sync.
+- **`build [dir] [--bump]`** — bumps both version fields first when `--bump` is passed (reuses the core `bumpVersion`; plain `build` never touches the version), then bundles so `build/extension/package.json` ships the new version. Scaffold shortcut: `npm run release` (bump + build) or `npm run build -- --bump`.
 
 - **`refresh <project>`** — overwrites **only** `src/finance.d.ts` + `src/vendor/logger.ts` + `src/styles/*` (`cli.mjs` `cmdRefresh`), **never** `src/main.ts`/`src/ui/*`/`AGENTS.md`/`package.json` — author code is safe. Run after the app updates `src/types/finance.d.ts`. `refresh` updates vendored types/styles/logger but does not overwrite a custom icon or `package.json`.
 

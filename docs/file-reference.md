@@ -1,5 +1,15 @@
 # File Reference
 
+## SDK Extension Version Bump (Unreleased)
+
+| File | Status | Purpose |
+|------|--------|---------|
+| `scripts/sdk/templates/scripts/version-bump.mjs.template` | new | Per-project version bumper copied verbatim by `init` → `scripts/version-bump.mjs`; same counter scheme as core `scripts/version-bump.mjs`, keeps `version` + `financeExtension.version` in sync, updates `package-lock.json` when present. |
+| `scripts/sdk/cli.mjs` | modified | `init` creates `scripts/` and copies the version-bump template; `build` accepts `--bump` (reuses core `bumpVersion`, bumps before bundling). |
+| `scripts/sdk/templates/package.json.template` | modified | Scaffold gains `"version:bump": "node scripts/version-bump.mjs"` + `"release"` (bump then build). |
+| `scripts/sdk/templates/AGENTS.md.template` | modified | §9 versioning rule documents `npm run release` / `npm run build -- --bump`. |
+| `docs/sdk-templates.md` | modified | Template inventory + `init` description cover the new version-bump script. |
+
 ## Budget Extension Install-Verified (1.1.9)
 
 | File | Status | Purpose |

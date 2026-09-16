@@ -229,6 +229,8 @@ npm run dev    # http://localhost:5173 with mock FinanceApi + HMR (in-memory Map
 # edit src/main.ts (activate + finance.services.register) and src/ui/<id>-view.ts (Lit + sharedStyles)
 node D:/finance_flow_ai/scripts/sdk/cli.mjs build .  # → build/extension/<id>.js (+ ui-*.js if code-split)
 # or from the app folder: node scripts/sdk/cli.mjs build D:\my-extensions\todo-list
+# bump version + build in one step (both version fields, artifact ships the new version):
+npm run release  # or: npm run build -- --bump
 ```
 
 - `tables` in `package.json` `financeExtension` must be `{{ID_SNAKE}}_items` (`{{ID}}` with `-`→`_`, e.g. `todo-list`→`todo_list_items`) with columns `{ name, type, nullable, default, min, max }` (see `src/finance.d.ts` `ColumnManifest`). Validated by `manifest-schema.ts:177` `^[a-z][a-z0-9_]*$` and `extension-installer.ts:80` prefix check.

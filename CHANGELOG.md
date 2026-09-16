@@ -1,7 +1,7 @@
 ---
 version: 1.1.9
 created: 2026-06-14
-last_updated: 2026-09-16T13:20:00+10:00
+last_updated: 2026-09-17T00:28:59+10:00
 ---
 
 # Changelog
@@ -19,6 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Budget spec §4 seed accounts use real suffixes** (`docs/superpowers/specs/2026-09-13-budget-design.md` §4.0). Placeholder slugs replaced (`nab-offset`→`0390`, `boq`→`2730`, `macquarie`→`3804`, `ubank`→`9282`), banks filled in throughout, Emergency 3 → Private Fund. Implementation + idempotent key migration live in the budget repo (`D:/finance_flow_ext/budget`, own versioning).
 - **Budget extension install-verified in dev profile** (`docs/superpowers/specs/2026-09-13-budget-design.md`, plan `docs/superpowers/plans/2026-09-13-budget-plan.md`). Standalone `budget` 0.1.0 (plan diary with re-allocation history: `budget_accounts` + `budget_pots` + `budget_flows` + `budget_income`, single-tab orchestrator + 3 views + 3 forms) activates cleanly on boot and seeds 11/20/13 rows. No version bump here — budget has its own `0.1.x`.
 - **SDK `init` scaffolds `docs/superpowers/{plans,specs}` folders** (`scripts/sdk/cli.mjs`). New standalone extension projects get both folders with `.gitkeep` placeholders so they survive `git init`; authors drop design docs and implementation plans there (mirrors `todo-list` / `mortgage` layout).
+- **SDK `init` scaffolds per-project `scripts/version-bump.mjs`** (`scripts/sdk/templates/scripts/version-bump.mjs.template`, `scripts/sdk/cli.mjs`, `scripts/sdk/templates/package.json.template`). New standalone extension projects get `npm run version:bump`, mirroring the core `scripts/version-bump.mjs` counter scheme (patch 0-9 rolls to minor, minor 0-9 rolls to major) while keeping `package.json#version` and `package.json#financeExtension.version` in sync; `package-lock.json` is updated when present and skipped when absent.
+- **SDK `build` accepts `--bump`; scaffold gains `npm run release`** (`scripts/sdk/cli.mjs`, `scripts/sdk/templates/package.json.template`, `scripts/sdk/templates/AGENTS.md.template`). `node scripts/sdk/cli.mjs build [dir] --bump` (or `npm run build -- --bump` from the project) bumps both version fields first so the `build/extension/package.json` artifact ships the new version, then builds; `npm run release` is the same bump+build in one shortcut. Plain `build` never touches the version. The flag reuses the core `bumpVersion` (single source of truth, no duplicated counter).
 - **Budget spec gains `budget_accounts` lookup table** (`docs/superpowers/specs/2026-09-13-budget-design.md` §4.0, plan `docs/superpowers/plans/2026-09-13-budget-plan.md` Task 1). Stable master list (`account_key` + `bank` + `label` + `sort_order` + `is_active`, 11 seed rows from the CashFlow sheet) replaces free-text `bank`/`suffix` on `budget_pots`/`budget_flows` with a nullable `account_id` FK; mirrors the `mortgage_accounts` precedent. Spec-only change, no version bump.
 
 ## [1.1.8] - 2026-09-15

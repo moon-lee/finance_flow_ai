@@ -25,7 +25,9 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "node {{APP_SDK}} build ."
+    "build": "node {{APP_SDK}} build .",
+    "version:bump": "node scripts/version-bump.mjs",
+    "release": "node scripts/version-bump.mjs && node {{APP_SDK}} build ."
   },
   "devDependencies": {
     "vite": "^5.4.0",

@@ -2,6 +2,7 @@
 import { mkdirSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { bumpVersion } from '../version-bump.mjs';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const TEMPLATES = join(__dirname, 'templates');
@@ -32,6 +33,7 @@ async function cmdInit(idRaw, targetDir) {
   mkdirSync(join(out, 'src', 'styles'), { recursive: true });
   mkdirSync(join(out, 'docs', 'superpowers', 'plans'), { recursive: true });
   mkdirSync(join(out, 'docs', 'superpowers', 'specs'), { recursive: true });
+  mkdirSync(join(out, 'scripts'), { recursive: true });
   writeFileSync(join(out, 'package.json'), render('package.json.template', vars));
   writeFileSync(join(out, 'tsconfig.json'), render('tsconfig.json.template', vars));
   writeFileSync(join(out, 'vite.config.ts'), render('vite.config.ts.template', vars));
@@ -50,6 +52,7 @@ async function cmdInit(idRaw, targetDir) {
   writeFileSync(join(out, 'src', 'vite-env.d.ts'), render('vite-env.d.ts.template', vars));
   writeFileSync(join(out, 'AGENTS.md'), render('AGENTS.md.template', vars));
   writeFileSync(join(out, '.gitignore'), render('.gitignore.template', vars));
+  writeFileSync(join(out, 'scripts', 'version-bump.mjs'), readFileSync(join(TEMPLATES, 'scripts', 'version-bump.mjs.template'), 'utf8'));
   mkdirSync(join(out, 'assets'), { recursive: true });
   writeFileSync(join(out, 'assets', 'icon.svg'), readFileSync(join(TEMPLATES, 'assets', 'icon.svg'), 'utf8'));
   writeFileSync(join(out, 'docs', 'superpowers', 'plans', '.gitkeep'), '');
@@ -68,12 +71,38 @@ async function cmdInit(idRaw, targetDir) {
   console.log(`  node ${vars.APP_SDK} build ${out}`);
 }
 
-async function cmdBuild(projectDirRaw) {
+async function cmdBuild(args) {
   const { build: viteBuild } = await import('vite');
   const { mkdirSync: mk, readFileSync: rf, cpSync, existsSync: ex, cpSync: cp } = await import('node:fs');
   const { join: j, resolve: rs, dirname: dn } = await import('node:path');
+  const argv = Array.isArray(args) ? args : [args];
+  // `--bump` (canonical; `-bump` accepted as an alias) bumps version + build
+  // in one step. `npm run build -- --bump` forwards the flag through npm.
+  const wantBump = argv.includes('--bump') || argv.includes('-bump');
+  const projectDirRaw = argv.find((a) => a !== '--bump' && a !== '-bump');
   const projectDir = rs(projectDirRaw ?? '.');
-  const pkg = JSON.parse(rf(j(projectDir, 'package.json'), 'utf8'));
+  const pkgPath = j(projectDir, 'package.json');
+  const pkg = JSON.parse(rf(pkgPath, 'utf8'));
+  if (wantBump) {
+    const current = pkg.version;
+    const next = bumpVersion(current);
+    pkg.version = next;
+    if (pkg.financeExtension && typeof pkg.financeExtension === 'object') {
+      pkg.financeExtension.version = next;
+    }
+    const pkgRaw = rf(pkgPath, 'utf8');
+    writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + (pkgRaw.endsWith('\n') ? '\n' : ''));
+    // Fresh scaffolds have no lockfile until `npm install` — skip silently.
+    const lockPath = j(projectDir, 'package-lock.json');
+    if (ex(lockPath)) {
+      const lock = JSON.parse(rf(lockPath, 'utf8'));
+      lock.version = next;
+      if (lock.packages?.['']) lock.packages[''].version = next;
+      const lockRaw = rf(lockPath, 'utf8');
+      writeFileSync(lockPath, JSON.stringify(lock, null, 2) + (lockRaw.endsWith('\n') ? '\n' : ''));
+    }
+    console.log(`[build] version bumped: ${current} -> ${next}`);
+  }
   const manifest = pkg.financeExtension;
   if (!manifest?.id) {
     console.error(`no financeExtension.id in ${projectDir}/package.json`);
@@ -150,9 +179,9 @@ function cmdRefresh(projectDirRaw) {
 
 const [cmd, ...rest] = process.argv.slice(2);
 if (cmd === 'init') await cmdInit(rest[0], rest[1]);
-else if (cmd === 'build') await cmdBuild(rest[0]);
+else if (cmd === 'build') await cmdBuild(rest);
 else if (cmd === 'refresh') cmdRefresh(rest[0]);
 else {
-  console.log('usage: node scripts/sdk/cli.mjs init <extension-id> [dir] | build <project-dir> | refresh <project-dir>');
+  console.log('usage: node scripts/sdk/cli.mjs init <extension-id> [dir] | build [project-dir] [--bump] | refresh <project-dir>');
   process.exit(1);
 }
