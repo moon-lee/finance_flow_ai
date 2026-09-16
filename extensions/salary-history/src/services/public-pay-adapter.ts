@@ -103,6 +103,7 @@ export interface PublicPayService {
   getLastPayslip(): Promise<PublicPaySlip | null>;
   getCurrentRate(): Promise<PublicRateRow | null>;
   getPayslipStats(): Promise<{ avgGross: number; avgNet: number; avgPayg: number; totalCount: number } | null>;
+  getLatestNet(): Promise<{ net: number; pay_date: string } | null>;
 }
 
 // ---------------------------------------------------------------------------
@@ -163,6 +164,21 @@ export function createPublicPayAdapter(finance: FinanceApi): PublicPayService {
         };
       } catch (err) {
         logger.error('getPayslipStats failed:', err);
+        return null;
+      }
+    },
+
+    async getLatestNet(): Promise<{ net: number; pay_date: string } | null> {
+      try {
+        const payslips = (await listPaySlips(finance, {})) as unknown as PublicPaySlip[];
+        if (!payslips.length) return null;
+        payslips.sort((a, b) => b.pay_date.localeCompare(a.pay_date));
+        const latest = payslips[0];
+        const net = Number(latest.net ?? NaN);
+        if (!Number.isFinite(net)) return null;
+        return { net: Math.round(net * 100) / 100, pay_date: latest.pay_date };
+      } catch (err) {
+        logger.error('getLatestNet failed:', err);
         return null;
       }
     }
