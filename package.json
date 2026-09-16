@@ -1,7 +1,7 @@
 {
   "name": "finance_flow_ai",
   "productName": "Finance Flow AI",
-  "version": "1.1.9",
+  "version": "1.2.0",
   "description": "",
   "main": "dist/main/main.js",
   "scripts": {
@@ -15,7 +15,7 @@
     "dev:panel-resources": "vite build --config vite.panel-resources.config.ts --watch",
     "dev:renderer": "vite --config vite.config.ts",
     "start:dev": "wait-on http://127.0.0.1:5173 dist/main/main.js dist/preload/preload.cjs dist/extension-host/host.js dist/extensions/salary-history.js dist/resources/panel-bootstrap.js && cross-env ELECTRON_RENDERER_URL=http://127.0.0.1:5173 nodemon --watch dist/main/main.js --watch dist/preload/preload.cjs --watch dist/extension-host/host.js --exec \"electron dist/main/main.js\"",
-    "start": "npm run build && electron dist/main/main.js",
+    "start": "node scripts/start.mjs",
     "build": "npm run build:main && npm run build:resources && npm run build:preload && npm run build:extension-host && npm run build:extensions && npm run build:renderer",
     "build:main": "vite build --config vite.main.config.ts",
     "build:resources": "vite build --config vite.panel-resources.config.ts && node -e \"require('node:fs').cpSync('src/main/resources/panel-template.html','dist/resources/panel-template.html')\"",

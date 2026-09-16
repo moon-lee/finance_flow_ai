@@ -8,6 +8,11 @@
 | `scripts/sdk/cli.mjs` | modified | `init` creates `scripts/` and copies the version-bump template; `build` accepts `--bump` (reuses core `bumpVersion`, bumps before bundling). |
 | `scripts/sdk/templates/package.json.template` | modified | Scaffold gains `"version:bump": "node scripts/version-bump.mjs"` + `"release"` (bump then build). |
 | `scripts/sdk/templates/AGENTS.md.template` | modified | §9 versioning rule documents `npm run release` / `npm run build -- --bump`. |
+| `scripts/start.mjs` | new | `npm start [-- bump]` wrapper: opt-in bump first, then build + run Electron; plain `start` untouched. Bare `bump` because npm rejects `--bump` without `--` (EUNKNOWNCONFIG). Reuses `bumpProject()`. |
+| `scripts/version-bump.mjs` | modified | Adds `bumpProject()` (package + lock + CHANGELOG sync, shared by CLI and start wrapper) and pure `syncChangelog()`/`localTimestamp()`; `bumpVersion` untouched. |
+| `tests/unit/scripts/changelog-sync.test.ts` | new | `syncChangelog` rename/no-op/no-header cases + timestamp format. |
+| `package.json` | modified | `start` points at `scripts/start.mjs`. |
+| `tests/unit/scripts/start-flags.test.ts` | new | Flag parsing tests (`--bump`/`-bump`/passthrough). |
 | `docs/sdk-templates.md` | modified | Template inventory + `init` description cover the new version-bump script. |
 
 ## Budget Extension Install-Verified (1.1.9)

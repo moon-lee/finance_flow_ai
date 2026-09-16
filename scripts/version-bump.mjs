@@ -34,7 +34,60 @@ function writeJson(file, data) {
   writeFileSync(file, JSON.stringify(data, null, 2) + trailing);
 }
 
-function main() {
+/** `YYYY-MM-DDTHH:mm:ss±HH:MM` in local time (matches the CHANGELOG convention). */
+export function localTimestamp(date = new Date()) {
+  const pad = (n) => String(n).padStart(2, '0');
+  const off = -date.getTimezoneOffset();
+  const sign = off >= 0 ? '+' : '-';
+  const abs = Math.abs(off);
+  return (
+    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}` +
+    `T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}` +
+    `${sign}${pad(Math.floor(abs / 60))}:${pad(abs % 60)}`
+  );
+}
+
+function escapeRegExp(s) {
+  return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Sync a CHANGELOG.md document with a version bump (AGENTS.md rule 5, step 2):
+ * frontmatter `version` + `last_updated` always follow the new version, and
+ * the rolling top `## [from]` header is renamed to `## [to]` (date suffix
+ * preserved). Headers are left alone when the top section is not `from`
+ * (already synced, or history that must not be rewritten) — pure function,
+ * never throws on unexpected shapes (patterns simply don't match).
+ */
+export function syncChangelog(content, { from, to, now }) {
+  let out = String(content);
+
+  const fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(out);
+  if (fm) {
+    const block = fm[1]
+      .replace(/^version:\s*\S+/m, `version: ${to}`)
+      .replace(/^last_updated:\s*\S+/m, `last_updated: ${now}`);
+    out = out.slice(0, fm.index) + '---\n' + block + '\n---' + out.slice(fm.index + fm[0].length);
+  }
+
+  const firstHeader = /^## \[(.+?)\]/m.exec(out);
+  if (firstHeader && firstHeader[1] === from) {
+    out = out.replace(
+      new RegExp(`^(## \\[)${escapeRegExp(from)}(\\])`, 'm'),
+      `$1${to}$2`
+    );
+  }
+  return out;
+}
+
+/**
+ * Bump the project version everywhere it lives: `package.json`,
+ * `package-lock.json`, and (best-effort) `CHANGELOG.md`. Shared by the
+ * `version:bump` CLI and `scripts/start.mjs -- bump` so both paths behave
+ * identically. A version bump never fails because of the changelog — sync
+ * problems degrade to a warning.
+ */
+export function bumpProject() {
   const jsonPath = 'package.json';
   const pkg = JSON.parse(readFileSync(jsonPath, 'utf8'));
   const current = pkg.version;
@@ -48,6 +101,27 @@ function main() {
   if (lock.packages?.['']) lock.packages[''].version = next;
   writeJson(lockPath, lock);
 
+  try {
+    const changelogPath = 'CHANGELOG.md';
+    writeFileSync(
+      changelogPath,
+      syncChangelog(readFileSync(changelogPath, 'utf8'), {
+        from: current,
+        to: next,
+        now: localTimestamp(),
+      })
+    );
+  } catch (err) {
+    console.warn(
+      `[version-bump] CHANGELOG.md not synced: ${err instanceof Error ? err.message : String(err)}`
+    );
+  }
+
+  return { current, next };
+}
+
+function main() {
+  const { current, next } = bumpProject();
   console.log(`version bumped: ${current} -> ${next}`);
 }
 

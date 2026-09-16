@@ -76,10 +76,12 @@ async function cmdBuild(args) {
   const { mkdirSync: mk, readFileSync: rf, cpSync, existsSync: ex, cpSync: cp } = await import('node:fs');
   const { join: j, resolve: rs, dirname: dn } = await import('node:path');
   const argv = Array.isArray(args) ? args : [args];
-  // `--bump` (canonical; `-bump` accepted as an alias) bumps version + build
-  // in one step. `npm run build -- --bump` forwards the flag through npm.
-  const wantBump = argv.includes('--bump') || argv.includes('-bump');
-  const projectDirRaw = argv.find((a) => a !== '--bump' && a !== '-bump');
+  // `--bump` (canonical; `-bump` or bare `bump` accepted as aliases) bumps
+  // version + build in one step. `npm run build -- --bump` (or the dash-free
+  // `npm run build -- bump`, since npm rejects `--bump` without the `--`
+  // separator with EUNKNOWNCONFIG) forwards the flag through npm.
+  const wantBump = argv.includes('--bump') || argv.includes('-bump') || argv.includes('bump');
+  const projectDirRaw = argv.find((a) => a !== '--bump' && a !== '-bump' && a !== 'bump');
   const projectDir = rs(projectDirRaw ?? '.');
   const pkgPath = j(projectDir, 'package.json');
   const pkg = JSON.parse(rf(pkgPath, 'utf8'));
