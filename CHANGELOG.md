@@ -1,7 +1,7 @@
 ---
 version: 1.1.9
 created: 2026-06-14
-last_updated: 2026-09-16T10:00:00+10:00
+last_updated: 2026-09-16T13:20:00+10:00
 ---
 
 # Changelog
@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Pay service gains `getLatestNet()`** (`extensions/salary-history/src/services/public-pay-adapter.ts`). Consumer-driven addition (spec `docs/superpowers/specs/2026-09-16-pay-latest-net-design.md`, plan `docs/superpowers/plans/2026-09-16-pay-latest-net.md`): returns the newest payslip's `{ net, pay_date }`, `null` when empty/invalid/on error — same graceful contract as its siblings. No registration, manifest, or consumer changes; Budget will wire it into `incomeWeekly` in a follow-up.
 - **Budget spec §4 seed accounts use real suffixes** (`docs/superpowers/specs/2026-09-13-budget-design.md` §4.0). Placeholder slugs replaced (`nab-offset`→`0390`, `boq`→`2730`, `macquarie`→`3804`, `ubank`→`9282`), banks filled in throughout, Emergency 3 → Private Fund. Implementation + idempotent key migration live in the budget repo (`D:/finance_flow_ext/budget`, own versioning).
 - **Budget extension install-verified in dev profile** (`docs/superpowers/specs/2026-09-13-budget-design.md`, plan `docs/superpowers/plans/2026-09-13-budget-plan.md`). Standalone `budget` 0.1.0 (plan diary with re-allocation history: `budget_accounts` + `budget_pots` + `budget_flows` + `budget_income`, single-tab orchestrator + 3 views + 3 forms) activates cleanly on boot and seeds 11/20/13 rows. No version bump here — budget has its own `0.1.x`.
 - **SDK `init` scaffolds `docs/superpowers/{plans,specs}` folders** (`scripts/sdk/cli.mjs`). New standalone extension projects get both folders with `.gitkeep` placeholders so they survive `git init`; authors drop design docs and implementation plans there (mirrors `todo-list` / `mortgage` layout).

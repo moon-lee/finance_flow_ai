@@ -306,7 +306,7 @@
 | `src/types/finance-shell.d.ts` | modified | Adds `PanelFinanceShell` interface (subset of `FinanceShellApi` for the panel context). |
 | `extensions/salary-history/package.json` | modified | Adds `contributes.navigation`, `allowedCommands`, `allowedUiEvents`; keeps existing `views`, `commands`, `configuration`, `tables`. |
 | `extensions/salary-history/src/main.ts` | modified | Registers `finance.services.pay.*` public adapter in `activate()`; unregisters in `deactivate()`; command handlers migrate to use the extension bundle's own `finance.db` proxy. |
-| `extensions/salary-history/src/services/public-pay-adapter.ts` | new | Consumer-driven public surface (4 methods) wrapping the internal `PayService`; returns JSON-safe values and `null` on error. |
+| `extensions/salary-history/src/services/public-pay-adapter.ts` | new | Consumer-driven public surface (5 methods) wrapping the internal `PayService`; returns JSON-safe values and `null` on error. Adds `getLatestNet()` returning the newest payslip's `{ net, pay_date }` (spec `docs/superpowers/specs/2026-09-16-pay-latest-net-design.md`). |
 | `extensions/salary-history/src/ui/index.ts` | modified | Exports a bundle-local orchestrator (new or moved from `salary-history-view.ts`) that owns navigation state and dispatches to the panel runtime. |
 | `extensions/salary-history/src/ui/salary-orchestrator.ts` | new | Lit host, owns navigation + mountData, injects finance into child views (single `salary` panel; `view` state + `pushFinance` + caller `returnTo`, mirroring `mortgage`). |
 | `extensions/dashboard/package.json` | new | Manifest for the Dashboard extension: `activationEvents: ["onStartup"]`, `views` (with `dashboard-view.openCommand: "dashboard.refresh"`), `commands`, `navigation`, `allowedCommands`, `allowedUiEvents`. |
@@ -330,7 +330,7 @@
 | `tests/unit/renderer/navigation-panel.test.ts` | new | 5 tests covering grouped items, click → command-selected, active extension switch. |
 | `tests/unit/renderer/workspace.test.ts` | new | 13 tests covering the flat tab model: default Dashboard tab, idempotent add, focus rules (existing vs unknown panel), close-refocus (neighbour, new last, empty), persistence round-trip (`version`, tabs, activePanelId), legacy `{type:'tab'}` migration, no split-pane render, contributed views do not open tabs until their panel mounts. |
 | `tests/unit/renderer/tab-bar.test.ts` | new | 4 tests covering tab strip, active tab, tab-focus on click, tabs not draggable (DnD removed). |
-| `tests/unit/extensions/salary-history/public-pay-adapter.test.ts` | new | 8 tests covering the 4 public methods + null-on-error. |
+| `tests/unit/extensions/salary-history/public-pay-adapter.test.ts` | new | 3 tests covering `getLatestNet()` (newest selection, null on empty, null on non-numeric net). |
 | `tests/unit/extensions/dashboard/aggregator-service.test.ts` | new | 6 tests covering `buildAggregator` with mocked `FinanceApi`. |
 | `tests/unit/extensions/dashboard/ui/dashboard-view.test.ts` | new | 5 tests covering card rendering and missing-data placeholders. |
 | `tests/e2e/multi-extension-workspace.spec.ts` | new | 6 E2E tests (gated by Phase 3 Playwright-electron blocker). |
