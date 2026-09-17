@@ -396,7 +396,7 @@
 | `src/renderer/components/navigation-panel.ts` | modified | Add `__extensions__` nav item. |
 | `src/renderer/index.ts` | modified | Mount `extension-manager` for `view === '__extensions__'`. |
 | `scripts/sdk/cli.mjs` | modified | SDK CLI: `init` (renders `AGENTS.md`+`.gitignore`+`git init` + `src/shared/base-logger.ts`), `build` (Vite lib, `finance` external), `refresh` (re-syncs `finance.d.ts`/`vendor/logger.ts`/`shared/base-logger.ts`/`styles/*`); `ID_SNAKE` (`-`→`_`) for `tables` names. |
-| `scripts/sdk/templates/AGENTS.md.template` | modified | Agent entrypoint for standalone projects (§1–§11): §5b rewritten for single-tab child views (one `views[]` entry, orchestrator + `mount-update` retarget, `salary-orchestrator` reference); growth to `ui/<id>-orchestrator`/`dao`/`services`. |
+| `scripts/sdk/templates/AGENTS.md.template` | modified | Agent entrypoint for standalone projects (§1–§11): §5b rewritten for single-tab child views (one `views[]` entry, orchestrator + `mount-update` retarget, `salary-orchestrator` reference); growth to `ui/<id>-orchestrator`/`dao`/`services`; §10 checklist step 6 requires `prettier --check --single-quote` over author-owned sources before `git commit` (vendored snapshots excluded). |
 | `scripts/sdk/templates/.gitignore.template` | new | Scaffold `.gitignore` (`node_modules/`, `dist/`, `build/`). |
 | `scripts/sdk/templates/package.json.template` | new | Manifest with `{{ID_SNAKE}}_items` table example (`title`/`amount`/`created_at`) + `allowedCommands`/`allowedUiEvents`. |
 | `scripts/sdk/templates/src/main.ts.template` | modified | Single panel identity (`openView(childTag)` → `requestMount(id, { view })`); panel branch notes orchestrator replacement for second child views. |

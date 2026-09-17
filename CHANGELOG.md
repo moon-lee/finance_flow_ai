@@ -1,7 +1,7 @@
 ---
 version: 1.2.0
 created: 2026-06-14
-last_updated: 2026-09-17T01:53:08+10:00
+last_updated: 2026-09-17T11:56:51+10:00
 ---
 
 # Changelog
@@ -10,6 +10,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+### Changed
+
+- **SDK `AGENTS.md.template` §10 gains a Prettier-format checklist step** (`scripts/sdk/templates/AGENTS.md.template`). Future `init` projects get step 6: run `npx prettier --check --single-quote` over author-owned sources before `git commit` (fix with `--write`); vendored snapshots (`src/finance.d.ts`, `src/vite-env.d.ts`, `src/vendor/**`, `src/styles/**`) stay untouched by `refresh` overwrite rule.
 
 ## [1.2.0] - 2026-09-15
 
