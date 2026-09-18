@@ -125,3 +125,12 @@ Never format vendored snapshots (`src/finance.d.ts`, `src/vite-env.d.ts`, `src/v
 
 ## 11. Out of scope — what to do
 If this file doesn't cover your case: check `D:\finance_flow_ai\docs/extension-api.md` + `D:\finance_flow_ai\src/types/finance.d.ts` (canonical API/types), and `extensions/salary-history` / `extensions/dashboard` as working references. For product decisions (new `tables`, cross-extension `services.invoke`, breaking changes after `refresh`), ask the owner — don't guess the table/service contract.
+
+## 12. Never edit `refresh` files (they get overwritten)
+`node D:/finance_flow_ai/scripts/sdk/cli.mjs refresh .` overwrites these files. Any edit you make is lost on the next refresh:
+- `src/finance.d.ts`, `src/vite-env.d.ts`
+- `src/vendor/**`
+- `src/styles/**` (`tokens.css`, `ext-layout.css`, `ext-tokens.css`, `shared-styles.ts`)
+Rules:
+- Need custom styles? Especially never touch the vendored style files. Create a NEW file in `src/styles/` (e.g. `src/styles/{{ID}}-styles.ts`) or write `static styles` inside your own view file.
+- Need type or logger changes? They come from the main app via `refresh`. Never edit them locally.

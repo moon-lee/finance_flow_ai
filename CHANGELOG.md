@@ -1,7 +1,7 @@
 ---
 version: 1.2.0
 created: 2026-06-14
-last_updated: 2026-09-18T01:12:35+10:00
+last_updated: 2026-09-19T02:33:44+10:00
 ---
 
 # Changelog
@@ -18,6 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Taskflow extension design spec** (`docs/superpowers/specs/2026-09-17-taskflow-design.md`, plan `docs/superpowers/plans/2026-09-17-taskflow.md`). Standalone `taskflow` SDK extension (BP Diary view + Todo List view) porting the `D:/MyProjects/bp_diary` Flutter app (Core scope: inline entry + history on one screen, status) to local `taskflow_bp_readings` tables, plus `taskflow_todos` (title, done, due date, priority; filters, inline rename, clear-completed) absorbing the retired `todo-list` extension via a same-name `todo-list` service alias for the dashboard; Shelf/Postgres backend dropped, PDF export and settings deferred.
 
 - **SDK `AGENTS.md.template` §10 gains a Prettier-format checklist step** (`scripts/sdk/templates/AGENTS.md.template`). Future `init` projects get step 6: run `npx prettier --check --single-quote` over author-owned sources before `git commit` (fix with `--write`); vendored snapshots (`src/finance.d.ts`, `src/vite-env.d.ts`, `src/vendor/**`, `src/styles/**`) stay untouched by `refresh` overwrite rule.
+
+- **TaxFlow extension design spec** (`docs/superpowers/specs/2026-09-19-taxflow-design.md`, plan `docs/superpowers/plans/2026-09-19-taxflow.md`). Standalone `taxflow` SDK extension porting the `2026-2027 Tax Summary` sheet: single `taxflow` tab with Tax Summary view (year switch + 7 cards: income, deductions, spouse, family MLS, result, forecast, super top-up planner) + Tax Rates view (per-year brackets, flat 2% Medicare, MLS tiers, reference links, copy-last-year, locks); 6 `taxflow_*` tables with data-driven `taxflow_item_types`; wages via `pay` service with typed fallback; `tax` domain service (`getEstimate`/`getEstimateWithSuper`/`getMls`); card reorder via `taxflow.cardOrder`. 2026-27 rates verified (15% brackets, ATO MLS tiers + child shift, sheet F-block refund 2,681).
+
+- **SDK `AGENTS.md.template` gains §12: never edit `refresh` files** (`scripts/sdk/templates/AGENTS.md.template`). Future `init` projects get an explicit rule: `refresh` overwrites `src/finance.d.ts`, `src/vite-env.d.ts`, `src/vendor/**`, `src/styles/**` — custom styles go in a new `src/styles/<id>-styles.ts` or the author's own view file, never the vendored files.
 
 ## [1.2.0] - 2026-09-15
 
