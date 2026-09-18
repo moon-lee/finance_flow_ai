@@ -1,7 +1,7 @@
 ---
 version: 1.2.0
 created: 2026-06-14
-last_updated: 2026-09-17T11:56:51+10:00
+last_updated: 2026-09-18T01:12:35+10:00
 ---
 
 # Changelog
@@ -13,7 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Changed
+### Added
+
+- **Taskflow extension design spec** (`docs/superpowers/specs/2026-09-17-taskflow-design.md`, plan `docs/superpowers/plans/2026-09-17-taskflow.md`). Standalone `taskflow` SDK extension (BP Diary view + Todo List view) porting the `D:/MyProjects/bp_diary` Flutter app (Core scope: inline entry + history on one screen, status) to local `taskflow_bp_readings` tables, plus `taskflow_todos` (title, done, due date, priority; filters, inline rename, clear-completed) absorbing the retired `todo-list` extension via a same-name `todo-list` service alias for the dashboard; Shelf/Postgres backend dropped, PDF export and settings deferred.
 
 - **SDK `AGENTS.md.template` §10 gains a Prettier-format checklist step** (`scripts/sdk/templates/AGENTS.md.template`). Future `init` projects get step 6: run `npx prettier --check --single-quote` over author-owned sources before `git commit` (fix with `--write`); vendored snapshots (`src/finance.d.ts`, `src/vite-env.d.ts`, `src/vendor/**`, `src/styles/**`) stay untouched by `refresh` overwrite rule.
 
