@@ -1,7 +1,7 @@
 ---
-version: 1.2.0
+version: 1.2.1
 created: 2026-06-14
-last_updated: 2026-09-22T12:00:00+10:00
+last_updated: 2026-09-22T11:23:08+10:00
 ---
 
 # Changelog
