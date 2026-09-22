@@ -53,11 +53,15 @@ function escapeRegExp(s) {
 
 /**
  * Sync a CHANGELOG.md document with a version bump (AGENTS.md rule 5, step 2):
- * frontmatter `version` + `last_updated` always follow the new version, and
- * the rolling top `## [from]` header is renamed to `## [to]` (date suffix
- * preserved). Headers are left alone when the top section is not `from`
- * (already synced, or history that must not be rewritten) — pure function,
- * never throws on unexpected shapes (patterns simply don't match).
+ * frontmatter `version` + `last_updated` always follow the new version. For
+ * headers: a non-empty top `## [Unreleased]` section is promoted to
+ * `## [<to>] - <date>` (date from `now`) with a fresh empty `## [Unreleased]`
+ * inserted above it; otherwise the rolling top `## [from]` header is renamed
+ * to `## [to]` (date suffix preserved). Headers are left alone when the top
+ * section is an empty `[Unreleased]`, is not `from`, or `now` carries no date
+ * (already synced, nothing pending, or history that must not be rewritten) —
+ * pure function, never throws on unexpected shapes (patterns simply don't
+ * match).
  */
 export function syncChangelog(content, { from, to, now }) {
   let out = String(content);
@@ -71,7 +75,16 @@ export function syncChangelog(content, { from, to, now }) {
   }
 
   const firstHeader = /^## \[(.+?)\]/m.exec(out);
-  if (firstHeader && firstHeader[1] === from) {
+  if (firstHeader && firstHeader[1] === 'Unreleased') {
+    const date = /^\d{4}-\d{2}-\d{2}/.exec(String(now ?? ''))?.[0];
+    const headEnd = firstHeader.index + firstHeader[0].length;
+    const afterHead = out.slice(headEnd);
+    const nextIdx = afterHead.search(/\r?\n## \[/);
+    const sectionBody = nextIdx === -1 ? afterHead : afterHead.slice(0, nextIdx);
+    if (date && sectionBody.trim() !== '') {
+      out = out.slice(0, headEnd) + `\n\n## [${to}] - ${date}` + afterHead;
+    }
+  } else if (firstHeader && firstHeader[1] === from) {
     out = out.replace(
       new RegExp(`^(## \\[)${escapeRegExp(from)}(\\])`, 'm'),
       `$1${to}$2`

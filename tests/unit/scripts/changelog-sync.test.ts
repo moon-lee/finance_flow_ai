@@ -31,6 +31,44 @@ last_updated: 2026-09-16T13:20:00+10:00
 - Something older.
 `;
 
+const UNRELEASED_FIXTURE = `---
+version: 1.2.1
+created: 2026-06-14
+last_updated: 2026-09-22T11:23:08+10:00
+---
+
+# Changelog
+
+## [Unreleased]
+
+### Added
+
+- Something pending.
+
+## [1.2.1] - 2026-09-22
+
+### Added
+
+- Something shipped.
+`;
+
+const EMPTY_UNRELEASED_FIXTURE = `---
+version: 1.2.1
+created: 2026-06-14
+last_updated: 2026-09-22T11:23:08+10:00
+---
+
+# Changelog
+
+## [Unreleased]
+
+## [1.2.1] - 2026-09-22
+
+### Added
+
+- Something shipped.
+`;
+
 describe('syncChangelog (AGENTS.md rule 5, step 2)', () => {
   it('syncs frontmatter version + last_updated and renames the rolling top header', () => {
     const out = syncChangelog(FIXTURE, { from: '1.1.9', to: '1.2.0', now: NOW });
@@ -62,6 +100,22 @@ describe('syncChangelog (AGENTS.md rule 5, step 2)', () => {
       now: NOW,
     });
     expect(out).toContain('No headers yet.');
+  });
+
+  it('promotes a non-empty [Unreleased] to the next version and adds a fresh one', () => {
+    const out = syncChangelog(UNRELEASED_FIXTURE, { from: '1.2.1', to: '1.2.2', now: NOW });
+    expect(out).toContain('version: 1.2.2');
+    expect(out).toContain('## [Unreleased]\n\n## [1.2.2] - 2026-09-17');
+    expect(out).toContain('- Something pending.');
+    expect(out).toContain('## [1.2.1] - 2026-09-22');
+    expect(out).toContain('- Something shipped.');
+  });
+
+  it('leaves an empty [Unreleased] alone (no empty version section)', () => {
+    const out = syncChangelog(EMPTY_UNRELEASED_FIXTURE, { from: '1.2.1', to: '1.2.2', now: NOW });
+    expect(out).toContain('version: 1.2.2');
+    expect(out).not.toContain('## [1.2.2]');
+    expect(out).toContain('## [Unreleased]');
   });
 });
 

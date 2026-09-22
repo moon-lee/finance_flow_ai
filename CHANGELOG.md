@@ -13,6 +13,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Activity Bar icons are reorderable by drag-and-drop + keyboard** (`src/renderer/components/activity-bar.ts`, `src/renderer/index.ts`, `tests/unit/renderer/activity-bar-icons.test.ts`, design `docs/superpowers/specs/2026-09-22-activity-reorder-design.md`, plan `docs/superpowers/plans/2026-09-22-activity-reorder.md`). Extension buttons carry `draggable="true"` with an `activity-reorder` intent event (accent indicator) plus `Ctrl+Up/Down` `activity-move`; order persists in the new Core-generic `core.activityBar.order` setting (unknown ids dropped, new views append); Settings gear stays pinned. Renderer suite 97/97, typecheck clean.
+
+### Changed
+
+- **Version bump promotes `## [Unreleased]`** (`scripts/version-bump.mjs`, `tests/unit/scripts/changelog-sync.test.ts`). `syncChangelog` now promotes a non-empty top `## [Unreleased]` section to `## [<next>] - <date>` and inserts a fresh empty `## [Unreleased]` above it; an empty Unreleased (or a missing date) leaves headers alone, so re-running the bump is a header no-op. Existing rename/stability behavior unchanged. (Pre-existing note: 2 `version-bump.test.ts` counter-range tests fail on the clean tree — test/implementation drift on the 0-9 vs 0-99 patch scheme, untouched by this change.)
+
 ## [1.2.1] - 2026-09-22
 
 ### Added
@@ -28,8 +36,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Workspace tab-reorder design + plan** (`docs/superpowers/specs/2026-09-22-tab-reorder-design.md`, plan `docs/superpowers/plans/2026-09-22-tab-reorder.md`). Native HTML5 tab drag plus `Ctrl+Left/Right` keyboard move over the flat `_tabs` list (ADR-0006 flat-reorder allowance); order persists via the existing v1 `core.workspace.layout` payload; renderer-only (`tab-bar.ts` interaction, `workspace.ts` state). Documents the prior-failure traps (stale not-draggable test, missing `dragover` `preventDefault`, Shadow DOM retargeting).
 
 - **Workspace tabs are reorderable by drag-and-drop + keyboard** (`src/renderer/components/tab-bar.ts`, `src/renderer/components/workspace.ts`, `tests/unit/renderer/tab-bar.test.ts`, `tests/unit/renderer/workspace.test.ts`). Tabs carry `draggable="true"` with a `tab-reorder` intent event (accent drop indicator) plus `Ctrl+Left/Right` `tab-move` on focused tabs; workspace splices the flat `_tabs` array, keeps `activePanelId`, and persists via the existing v1 save. Replaces the stale not-draggable test; 25/25 tab/workspace tests pass, full renderer suite 94/94, typecheck clean.
-
-- **Activity Bar icons are reorderable by drag-and-drop + keyboard** (`src/renderer/components/activity-bar.ts`, `src/renderer/index.ts`, `tests/unit/renderer/activity-bar-icons.test.ts`, design `docs/superpowers/specs/2026-09-22-activity-reorder-design.md`, plan `docs/superpowers/plans/2026-09-22-activity-reorder.md`). Extension buttons carry `draggable="true"` with an `activity-reorder` intent event (accent indicator) plus `Ctrl+Up/Down` `activity-move`; order persists in the new Core-generic `core.activityBar.order` setting (unknown ids dropped, new views append); Settings gear stays pinned. Renderer suite 97/97, typecheck clean.
 
 ## [1.2.0] - 2026-09-15
 

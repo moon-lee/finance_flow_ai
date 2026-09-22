@@ -426,6 +426,6 @@
 
 | File | Status | Purpose |
 |------|--------|---------|
-| `scripts/version-bump.mjs` | new | Pure `bumpVersion` + runner — increments `package.json#version` and syncs `package-lock.json` (`version` + `packages.""`); run-only-when-invoked detection. |
+| `scripts/version-bump.mjs` | modified | Pure `bumpVersion` + runner — increments `package.json#version` and syncs `package-lock.json` (`version` + `packages.""`); run-only-when-invoked detection. `syncChangelog` promotes a non-empty top `## [Unreleased]` to `## [<next>] - <date>` with a fresh empty `## [Unreleased]` above; empty Unreleased leaves headers alone. |
 | `tests/unit/scripts/version-bump.test.ts` | new | Pure-function coverage (rollovers `1.0.99 → 1.1.0`, `1.9.99 → 2.0.0`, malformed input throws); loads the `.mjs` via `file:` URL to bypass the Vite module graph. |
 | `package.json` | modified | Add `version:bump` script (`node scripts/version-bump.mjs`). |
