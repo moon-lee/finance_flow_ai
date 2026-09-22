@@ -9,7 +9,7 @@ import './components/backup-screen';
 import './components/toast-container';
 import './components/extension-manager';
 import { overlayCoordinator } from './overlay-coordinator';
-import type { ActivityView } from './components/activity-bar';
+import { sortActivityViews, type ActivityView } from './components/activity-bar';
 import type { PaletteCommand } from './components/command-palette';
 import type { HostLogEntry, HostStatus } from '../types/finance-shell';
 import type { NavigationPanel } from './components/navigation-panel';
@@ -165,7 +165,7 @@ async function loadExtensionContributions(): Promise<void> {
     const contributions = await window.financeShell?.extensions.list();
     if (!contributions) return;
     if (activityBar) {
-      activityBar.views = await Promise.all(contributions.views.map(async (v) => {
+      const built = await Promise.all(contributions.views.map(async (v) => {
         viewToExtension.set(v.view.id, v.extensionId);
         let setting: unknown;
         try {
@@ -181,6 +181,13 @@ async function loadExtensionContributions(): Promise<void> {
         const iconUrl = extensionIconUrl(v.extensionId, v.view.icon);
         return { id: v.view.id, name: v.view.name, icon: v.view.icon, iconUrl, color };
       }));
+      let savedOrder: unknown;
+      try {
+        savedOrder = await window.financeShell?.settings?.get?.('core.activityBar.order');
+      } catch {
+        savedOrder = undefined;
+      }
+      activityBar.views = sortActivityViews(built, savedOrder);
     }
     if (commandPalette) {
       commandPalette.extensionCommands = contributions.commands.map((c) => ({
@@ -199,9 +206,61 @@ async function loadExtensionContributions(): Promise<void> {
         group: n.navigation.group
       })));
     }
+    wireActivityReorder();
   } catch (err) {
     rendererLogger.error('Failed to load extension contributions:', err);
   }
+}
+
+let activityReorderWired = false;
+
+function currentActivityIds(): string[] {
+  return (activityBar?.views ?? []).map((v) => v.id);
+}
+
+async function persistActivityOrder(): Promise<void> {
+  try {
+    await window.financeShell?.settings?.set?.('core.activityBar.order', currentActivityIds());
+  } catch (err) {
+    rendererLogger.warn('Failed to persist activity bar order:', err as string);
+  }
+}
+
+function reorderActivityViews(fromId: string, toId: string, after: boolean): void {
+  if (!activityBar || fromId === toId) return;
+  const views = activityBar.views.slice();
+  const from = views.findIndex((v) => v.id === fromId);
+  const to = views.findIndex((v) => v.id === toId);
+  if (from === -1 || to === -1) return;
+  const [moved] = views.splice(from, 1);
+  const target = views.findIndex((v) => v.id === toId);
+  views.splice(after ? target + 1 : target, 0, moved);
+  activityBar.views = views;
+  void persistActivityOrder();
+}
+
+function moveActivityView(viewId: string, dir: -1 | 1): void {
+  if (!activityBar) return;
+  const views = activityBar.views.slice();
+  const i = views.findIndex((v) => v.id === viewId);
+  const j = i + dir;
+  if (i === -1 || j < 0 || j >= views.length) return;
+  [views[i], views[j]] = [views[j], views[i]];
+  activityBar.views = views;
+  void persistActivityOrder();
+}
+
+function wireActivityReorder(): void {
+  if (activityReorderWired || !activityBar) return;
+  activityReorderWired = true;
+  activityBar.addEventListener('activity-reorder', (e: Event) => {
+    const d = (e as CustomEvent).detail as { fromViewId: string; toViewId: string; after: boolean };
+    reorderActivityViews(d.fromViewId, d.toViewId, d.after);
+  });
+  activityBar.addEventListener('activity-move', (e: Event) => {
+    const d = (e as CustomEvent).detail as { viewId: string; dir: -1 | 1 };
+    moveActivityView(d.viewId, d.dir);
+  });
 }
 
 window.addEventListener('click', (event) => {

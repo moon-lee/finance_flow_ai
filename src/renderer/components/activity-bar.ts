@@ -1,5 +1,5 @@
 import { LitElement, css, html } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import { mixWithWhite } from '../../shared/theme-color';
 
 export interface ActivityView {
@@ -8,6 +8,17 @@ export interface ActivityView {
   icon: string;
   iconUrl?: string;
   color?: string;
+}
+
+/** Order extension views by a saved id list. Unknown saved ids are dropped; views missing from the list append at the end in registry order. Non-array input returns views unchanged. */
+export function sortActivityViews<T extends { id: string }>(views: T[], order: unknown): T[] {
+  if (!Array.isArray(order)) return views.slice();
+  const rank = new Map((order as unknown[]).filter((id): id is string => typeof id === 'string').map((id, i) => [id, i]));
+  return views.slice().sort((a, b) => {
+    const ra = rank.get(a.id) ?? Number.MAX_SAFE_INTEGER;
+    const rb = rank.get(b.id) ?? Number.MAX_SAFE_INTEGER;
+    return ra - rb;
+  });
 }
 
 @customElement('activity-bar')
@@ -68,6 +79,14 @@ export class ActivityBar extends LitElement {
       pointer-events: none;
     }
 
+    button.drop-before {
+      box-shadow: inset 0 2px 0 var(--accent);
+    }
+
+    button.drop-after {
+      box-shadow: inset 0 -2px 0 var(--accent);
+    }
+
     .empty-hint {
 
     .empty-hint {
@@ -85,6 +104,12 @@ export class ActivityBar extends LitElement {
   @property({ type: String })
   activeView: string = '';
 
+  @state()
+  private _dragFrom: string | null = null;
+
+  @state()
+  private _dropKey: string | null = null;
+
   private _selectView(viewId: string) {
     this.activeView = viewId;
     this.dispatchEvent(new CustomEvent('view-changed', {
@@ -95,15 +120,67 @@ export class ActivityBar extends LitElement {
     this.requestUpdate();
   }
 
+  private _onDragStart(e: DragEvent, viewId: string) {
+    this._dragFrom = viewId;
+    if (e.dataTransfer) {
+      e.dataTransfer.setData('text/plain', viewId);
+      e.dataTransfer.effectAllowed = 'move';
+    }
+  }
+
+  private _onDragOver(e: DragEvent, viewId: string) {
+    e.preventDefault();
+    if (!this._dragFrom || this._dragFrom === viewId) return;
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const after = e.clientY > rect.top + rect.height / 2;
+    this._dropKey = `${after ? 'after' : 'before'}:${viewId}`;
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+  }
+
+  private _onDragLeave(e: DragEvent) {
+    const to = (e as DragEvent & { relatedTarget?: Node | null }).relatedTarget;
+    if (to && (e.currentTarget as HTMLElement).contains(to as Node)) return;
+    this._dropKey = null;
+  }
+
+  private _onDrop(e: DragEvent, viewId: string) {
+    e.preventDefault();
+    const from = this._dragFrom ?? e.dataTransfer?.getData('text/plain') ?? '';
+    this._dragFrom = null;
+    this._dropKey = null;
+    if (!from || from === viewId) return;
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const after = e.clientY > rect.top + rect.height / 2;
+    this.dispatchEvent(new CustomEvent('activity-reorder', { detail: { fromViewId: from, toViewId: viewId, after }, bubbles: true, composed: true }));
+  }
+
+  private _onDragEnd() {
+    this._dragFrom = null;
+    this._dropKey = null;
+  }
+
+  private _onButtonKeyDown(e: KeyboardEvent, viewId: string) {
+    if (!e.ctrlKey || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return;
+    e.preventDefault();
+    this.dispatchEvent(new CustomEvent('activity-move', { detail: { viewId, dir: e.key === 'ArrowDown' ? 1 : -1 }, bubbles: true, composed: true }));
+  }
+
   render() {
     const buttons = this.views.map((view) => html`
       <button
-        class="${this.activeView === view.id ? 'active' : ''}"
+        class="${this.activeView === view.id ? 'active' : ''} ${this._dropKey === `before:${view.id}` ? 'drop-before' : ''} ${this._dropKey === `after:${view.id}` ? 'drop-after' : ''}"
         title="${view.name}"
         aria-label="${view.name}"
         data-view-id="${view.id}"
+        draggable="true"
         style="${this.activeView === view.id ? `background: rgba(255, 255, 255, 0.35);${view.color ? ` --active-indicator: ${mixWithWhite(view.color, 0.35)};` : ''}` : ''}"
         @click="${(e: MouseEvent) => { if (e.isTrusted) this._selectView(view.id); }}"
+        @keydown="${(e: KeyboardEvent) => this._onButtonKeyDown(e, view.id)}"
+        @dragstart="${(e: DragEvent) => this._onDragStart(e, view.id)}"
+        @dragover="${(e: DragEvent) => this._onDragOver(e, view.id)}"
+        @dragleave="${(e: DragEvent) => this._onDragLeave(e)}"
+        @drop="${(e: DragEvent) => this._onDrop(e, view.id)}"
+        @dragend="${() => this._onDragEnd()}"
       >${view.iconUrl
         ? html`<img class="activity-icon" data-view-id="${view.id}" src="${view.iconUrl}" alt="" aria-hidden="true" />`
         : view.icon}</button>

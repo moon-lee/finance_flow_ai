@@ -63,7 +63,7 @@
 | File | Status | Purpose |
 |------|--------|---------|
 | `src/shared/extension-icon.ts` | new | Shared icon asset contract: validated relative `.svg`/`.png` paths and `finance-shell://extensions/<id>/<asset>` URL builder. |
-| `src/renderer/components/activity-bar.ts` | modified | Renders `iconUrl` image assets at 28px or legacy glyphs; built-in Settings gear image; shared button styling with no extension background. |
+| `src/renderer/components/activity-bar.ts` | modified | Renders `iconUrl` image assets at 28px or legacy glyphs; built-in Settings gear image (pinned, not reorderable); shared button styling with no extension background. Extension buttons are `draggable` with `activity-reorder` (drop indicator) + `Ctrl+Up/Down` `activity-move`; exports pure `sortActivityViews` order helper. |
 | `src/renderer/index.ts` | modified | Resolves manifest icon paths to safe renderer asset URLs and passes `iconUrl` to the Activity Bar. |
 | `src/renderer/public/icons/settings.svg` | new | Built-in neutral Settings gear (28px-friendly, no text). |
 | `src/extension-host/manifest-schema.ts` | modified | Validates legacy glyph or safe relative SVG/PNG icon asset paths. |
