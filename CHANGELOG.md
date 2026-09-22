@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-09-22
+
 ### Added
 
 - **Taskflow extension design spec** (`docs/superpowers/specs/2026-09-17-taskflow-design.md`, plan `docs/superpowers/plans/2026-09-17-taskflow.md`). Standalone `taskflow` SDK extension (BP Diary view + Todo List view) porting the `D:/MyProjects/bp_diary` Flutter app (Core scope: inline entry + history on one screen, status) to local `taskflow_bp_readings` tables, plus `taskflow_todos` (title, done, due date, priority; filters, inline rename, clear-completed) absorbing the retired `todo-list` extension via a same-name `todo-list` service alias for the dashboard; Shelf/Postgres backend dropped, PDF export and settings deferred.
