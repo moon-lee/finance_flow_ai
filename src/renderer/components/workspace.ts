@@ -459,6 +459,30 @@ export class WorkspacePanel extends LitElement {
     this._focusPanel(panelId);
   }
 
+  private _onTabReorder(fromPanelId: string, toPanelId: string, after: boolean) {
+    const from = this._tabs.findIndex(t => t.panelId === fromPanelId);
+    const to = this._tabs.findIndex(t => t.panelId === toPanelId);
+    if (from === -1 || to === -1 || from === to) return;
+    const next = this._tabs.slice();
+    const [moved] = next.splice(from, 1);
+    const target = next.findIndex(t => t.panelId === toPanelId);
+    next.splice(after ? target + 1 : target, 0, moved);
+    this._tabs = next;
+    this._scheduleSave();
+    this.requestUpdate();
+  }
+
+  private _onTabMove(panelId: string, dir: -1 | 1) {
+    const i = this._tabs.findIndex(t => t.panelId === panelId);
+    const j = i + dir;
+    if (i === -1 || j < 0 || j >= this._tabs.length) return;
+    const next = this._tabs.slice();
+    [next[i], next[j]] = [next[j], next[i]];
+    this._tabs = next;
+    this._scheduleSave();
+    this.requestUpdate();
+  }
+
   private async _restorePanel(panelId: string) {
     const tab = this._tabs.find(t => t.panelId === panelId);
     if (tab?.commandId) {
@@ -511,7 +535,7 @@ export class WorkspacePanel extends LitElement {
 
     return html`
       <div class="tab-strip">
-        <tab-bar .tabs="${tabs}" .activePanelId="${this._activePanelId}" @tab-focus="${(e: CustomEvent) => this._onTabFocus(e.detail.panelId)}" @tab-close="${(e: CustomEvent) => this._onTabClose(e.detail.panelId)}"></tab-bar>
+        <tab-bar .tabs="${tabs}" .activePanelId="${this._activePanelId}" @tab-focus="${(e: CustomEvent) => this._onTabFocus(e.detail.panelId)}" @tab-close="${(e: CustomEvent) => this._onTabClose(e.detail.panelId)}" @tab-reorder="${(e: CustomEvent) => this._onTabReorder(e.detail.fromPanelId, e.detail.toPanelId, e.detail.after)}" @tab-move="${(e: CustomEvent) => this._onTabMove(e.detail.panelId, e.detail.dir)}"></tab-bar>
       </div>
       <div class="content">
         ${this._activePanelId && this._unmountedPanelIds.has(this._activePanelId) ? html`

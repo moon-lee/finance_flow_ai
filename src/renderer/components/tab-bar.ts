@@ -1,5 +1,5 @@
 import { LitElement, css, html } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import type { Tab } from './types';
 
 @customElement('tab-bar')
@@ -97,6 +97,14 @@ export class TabBar extends LitElement {
       background: var(--tab-icon-active-bg);
       color: var(--tab-active-text);
     }
+
+    .tab.drop-before {
+      box-shadow: inset 2px 0 0 var(--accent);
+    }
+
+    .tab.drop-after {
+      box-shadow: inset -2px 0 0 var(--accent);
+    }
   `;
 
   @property({ type: Array })
@@ -108,6 +116,12 @@ export class TabBar extends LitElement {
   @property({ type: String })
   direction: 'horizontal' | 'vertical' = 'horizontal';
 
+  @state()
+  private _dragFrom: string | null = null;
+
+  @state()
+  private _dropKey: string | null = null;
+
   private _onTabClick(panelId: string) {
     this.dispatchEvent(new CustomEvent('tab-focus', { detail: { panelId }, bubbles: true, composed: true }));
   }
@@ -117,14 +131,67 @@ export class TabBar extends LitElement {
     this.dispatchEvent(new CustomEvent('tab-close', { detail: { panelId }, bubbles: true, composed: true }));
   }
 
+  private _onDragStart(e: DragEvent, panelId: string) {
+    this._dragFrom = panelId;
+    if (e.dataTransfer) {
+      e.dataTransfer.setData('text/plain', panelId);
+      e.dataTransfer.effectAllowed = 'move';
+    }
+  }
+
+  private _onDragOver(e: DragEvent, panelId: string) {
+    e.preventDefault();
+    if (!this._dragFrom || this._dragFrom === panelId) return;
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const after = e.clientX > rect.left + rect.width / 2;
+    this._dropKey = `${after ? 'after' : 'before'}:${panelId}`;
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+  }
+
+  private _onDragLeave(e: DragEvent) {
+    const to = (e as DragEvent & { relatedTarget?: Node | null }).relatedTarget;
+    if (to && (e.currentTarget as HTMLElement).contains(to as Node)) return;
+    this._dropKey = null;
+  }
+
+  private _onDrop(e: DragEvent, panelId: string) {
+    e.preventDefault();
+    const from = this._dragFrom ?? e.dataTransfer?.getData('text/plain') ?? '';
+    this._dragFrom = null;
+    this._dropKey = null;
+    if (!from || from === panelId) return;
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const after = e.clientX > rect.left + rect.width / 2;
+    this.dispatchEvent(new CustomEvent('tab-reorder', { detail: { fromPanelId: from, toPanelId: panelId, after }, bubbles: true, composed: true }));
+  }
+
+  private _onDragEnd() {
+    this._dragFrom = null;
+    this._dropKey = null;
+  }
+
+  private _onTabKeyDown(e: KeyboardEvent, panelId: string) {
+    if (!e.ctrlKey || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight')) return;
+    e.preventDefault();
+    this.dispatchEvent(new CustomEvent('tab-move', { detail: { panelId, dir: e.key === 'ArrowRight' ? 1 : -1 }, bubbles: true, composed: true }));
+  }
+
   render() {
     return html`
       <div class="tabs" role="tablist">
         ${this.tabs.map(tab => html`
-          <div class="tab ${tab.panelId === this.activePanelId ? 'active' : ''}"
-               role="tab"
-               aria-selected="${tab.panelId === this.activePanelId}"
-               @click="${() => tab.panelId && this._onTabClick(tab.panelId)}">
+          <div class="tab ${tab.panelId === this.activePanelId ? 'active' : ''} ${this._dropKey === `before:${tab.panelId}` ? 'drop-before' : ''} ${this._dropKey === `after:${tab.panelId}` ? 'drop-after' : ''}"
+                role="tab"
+                tabindex="0"
+                draggable="true"
+                aria-selected="${tab.panelId === this.activePanelId}"
+                @click="${() => tab.panelId && this._onTabClick(tab.panelId)}"
+                @keydown="${(e: KeyboardEvent) => tab.panelId && this._onTabKeyDown(e, tab.panelId)}"
+                @dragstart="${(e: DragEvent) => tab.panelId && this._onDragStart(e, tab.panelId)}"
+                @dragover="${(e: DragEvent) => tab.panelId && this._onDragOver(e, tab.panelId)}"
+                @dragleave="${(e: DragEvent) => this._onDragLeave(e)}"
+                @drop="${(e: DragEvent) => tab.panelId && this._onDrop(e, tab.panelId)}"
+                @dragend="${() => this._onDragEnd()}">
             <span
               class="tab-icon"
               style="${tab.panelId === this.activePanelId && tab.color ? `background: ${tab.color}; color: #ffffff;` : ''}"

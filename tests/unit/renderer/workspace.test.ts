@@ -274,4 +274,42 @@ describe('workspace-panel', () => {
 
     document.body.removeChild(document.querySelector('workspace-panel')!);
   });
+
+  it('reorders tabs on tab-reorder and keeps the active panel', () => {
+    const el = makeEl() as unknown as {
+      _tabs: Tab[];
+      _activePanelId: string;
+      _addPanel: (panelId: string, label: string) => void;
+      _focusPanel: (panelId: string) => void;
+      _onTabReorder: (fromPanelId: string, toPanelId: string, after: boolean) => void;
+    };
+    el._addPanel(SALARY.panelId, SALARY.label);
+    el._focusPanel(DASHBOARD.panelId);
+    el._onTabReorder(SALARY.panelId, DASHBOARD.panelId, false);
+    expect(el._tabs.map((t) => t.panelId)).toEqual([SALARY.panelId, DASHBOARD.panelId]);
+    expect(el._activePanelId).toBe(DASHBOARD.panelId);
+    document.body.removeChild(document.querySelector('workspace-panel')!);
+  });
+
+  it('ignores reorder with unknown panel ids', () => {
+    const el = makeEl() as unknown as {
+      _tabs: Tab[];
+      _onTabReorder: (fromPanelId: string, toPanelId: string, after: boolean) => void;
+    };
+    el._onTabReorder('panel-missing', DASHBOARD.panelId, false);
+    expect(el._tabs).toEqual([DASHBOARD]);
+    document.body.removeChild(document.querySelector('workspace-panel')!);
+  });
+
+  it('moves a tab with tab-move direction', () => {
+    const el = makeEl() as unknown as {
+      _tabs: Tab[];
+      _addPanel: (panelId: string, label: string) => void;
+      _onTabMove: (panelId: string, dir: -1 | 1) => void;
+    };
+    el._addPanel(SALARY.panelId, SALARY.label);
+    el._onTabMove(DASHBOARD.panelId, 1);
+    expect(el._tabs.map((t) => t.panelId)).toEqual([SALARY.panelId, DASHBOARD.panelId]);
+    document.body.removeChild(document.querySelector('workspace-panel')!);
+  });
 });

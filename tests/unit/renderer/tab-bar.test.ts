@@ -62,13 +62,30 @@ describe('tab-bar', () => {
     document.body.removeChild(el);
   });
 
-  it('does not mark tabs draggable', async () => {
+  it('marks tabs draggable for reorder', async () => {
     const el = document.createElement('tab-bar') as TabBar;
     el.tabs = [{ panelId: 'panel-1', label: 'Dashboard' }];
     document.body.appendChild(el);
     await el.updateComplete;
     const shadow = el.shadowRoot as unknown as { querySelector: (sel: string) => HTMLElement | null } | null;
-    expect(shadow?.querySelector('.tab')?.hasAttribute('draggable')).toBe(false);
+    expect(shadow?.querySelector('.tab')?.getAttribute('draggable')).toBe('true');
+    document.body.removeChild(el);
+  });
+
+  it('dispatches tab-move on Ctrl+ArrowRight', async () => {
+    const el = document.createElement('tab-bar') as TabBar;
+    el.tabs = [
+      { panelId: 'panel-1', label: 'Dashboard' },
+      { panelId: 'panel-2', label: 'Salary' },
+    ];
+    document.body.appendChild(el);
+    await el.updateComplete;
+    const handler = vi.fn();
+    el.addEventListener('tab-move', handler);
+    const shadow = el.shadowRoot as unknown as { querySelectorAll: (sel: string) => NodeListOf<HTMLElement> } | null;
+    const first = shadow?.querySelectorAll('.tab')[0];
+    first?.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', ctrlKey: true, bubbles: true, composed: true }));
+    expect(handler).toHaveBeenCalledWith(expect.objectContaining({ detail: { panelId: 'panel-1', dir: 1 } }));
     document.body.removeChild(el);
   });
 });

@@ -1,7 +1,7 @@
 ---
 version: 1.2.0
 created: 2026-06-14
-last_updated: 2026-09-19T02:33:44+10:00
+last_updated: 2026-09-22T12:00:00+10:00
 ---
 
 # Changelog
@@ -22,6 +22,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **TaxFlow extension design spec** (`docs/superpowers/specs/2026-09-19-taxflow-design.md`, plan `docs/superpowers/plans/2026-09-19-taxflow.md`). Standalone `taxflow` SDK extension porting the `2026-2027 Tax Summary` sheet: single `taxflow` tab with Tax Summary view (year switch + 7 cards: income, deductions, spouse, family MLS, result, forecast, super top-up planner) + Tax Rates view (per-year brackets, flat 2% Medicare, MLS tiers, reference links, copy-last-year, locks); 6 `taxflow_*` tables with data-driven `taxflow_item_types`; wages via `pay` service with typed fallback; `tax` domain service (`getEstimate`/`getEstimateWithSuper`/`getMls`); card reorder via `taxflow.cardOrder`. 2026-27 rates verified (15% brackets, ATO MLS tiers + child shift, sheet F-block refund 2,681).
 
 - **SDK `AGENTS.md.template` gains §12: never edit `refresh` files** (`scripts/sdk/templates/AGENTS.md.template`). Future `init` projects get an explicit rule: `refresh` overwrites `src/finance.d.ts`, `src/vite-env.d.ts`, `src/vendor/**`, `src/styles/**` — custom styles go in a new `src/styles/<id>-styles.ts` or the author's own view file, never the vendored files.
+
+- **Workspace tab-reorder design + plan** (`docs/superpowers/specs/2026-09-22-tab-reorder-design.md`, plan `docs/superpowers/plans/2026-09-22-tab-reorder.md`). Native HTML5 tab drag plus `Ctrl+Left/Right` keyboard move over the flat `_tabs` list (ADR-0006 flat-reorder allowance); order persists via the existing v1 `core.workspace.layout` payload; renderer-only (`tab-bar.ts` interaction, `workspace.ts` state). Documents the prior-failure traps (stale not-draggable test, missing `dragover` `preventDefault`, Shadow DOM retargeting).
+
+- **Workspace tabs are reorderable by drag-and-drop + keyboard** (`src/renderer/components/tab-bar.ts`, `src/renderer/components/workspace.ts`, `tests/unit/renderer/tab-bar.test.ts`, `tests/unit/renderer/workspace.test.ts`). Tabs carry `draggable="true"` with a `tab-reorder` intent event (accent drop indicator) plus `Ctrl+Left/Right` `tab-move` on focused tabs; workspace splices the flat `_tabs` array, keeps `activePanelId`, and persists via the existing v1 save. Replaces the stale not-draggable test; 25/25 tab/workspace tests pass, full renderer suite 94/94, typecheck clean.
 
 ## [1.2.0] - 2026-09-15
 
