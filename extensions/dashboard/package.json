@@ -11,7 +11,7 @@
     "themeColor": "#4EC9B0",
     "main": "src/main.ts",
     "description": "Default landing view aggregating net worth, YTD salary, last payslip, and accounts.",
-    "dependencies": ["salary-history"],
+    "dependencies": ["salary-history","mortgage","taskflow"],
     "activationEvents": ["onStartup"],
     "contributions": {
       "views": [
