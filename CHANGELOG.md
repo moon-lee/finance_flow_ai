@@ -1,7 +1,7 @@
 ---
 version: 1.2.2
 created: 2026-06-14
-last_updated: 2026-09-23T13:40:57+10:00
+last_updated: 2026-09-24T11:30:00+10:00
 ---
 
 # Changelog
@@ -12,6 +12,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+### Added
+
+- **Wealth Flow design spec, merged Bank + Stock** (`docs/superpowers/specs/2026-09-23-wealthflow-design.md`; supersedes the separate bank/stock specs, now removed). One standalone `wealthflow` extension (lazy `onView`, mirrors `todo-list`/`mortgage`), Bank-first build order (§4): `wealthflow_banks` master (name, BSB + account number as TEXT with masked display, `is_active` Activate/Deactivate, no hard-delete, rate opted out) + `wealthflow_interest_entries` monthly log (any date, app-enforced once-per-month rule, auto-filled `finance_year`); `wealthflow_stocks` master (globally unique uppercase ticker `code`, `shares` REAL) + `wealthflow_dividends` receipt log mirroring the Other Income sheet (type enum, gross, franking, no month rule, `foreign_offset` deferred); single-tab UI (master lists with Active/Inactive/All, entries/logs, FY footer, FY-selector Overview cards, en-AU AUD); additive `getInterestSummary` / `getDividendSummary` / `getOverviewSummary` service (deactivated masters included); sheet-mirror seed test; trades/CGT/DRP/prices/dashboard parked (§10).
+- **Wealth Flow spec §5 UI revision: sheet-grid entry, global FY, inline editing** (`docs/superpowers/specs/2026-09-23-wealthflow-design.md`). Interest entry becomes a 12-month × N-bank grid mirroring the xlsx habit (tab-through typing, duplicates impossible by construction; single form kept for corrections); one FY selector in the child-tab bar rules all views + footer + Overview; masters edit inline (Enter/Esc), modals only for deactivation confirms and new-bank; grid/footer single-source totals and global-FY tests added (§9).
+- **Wealth Flow future-phases note: trades / CGT / DRP** (`docs/superpowers/specs/2026-09-23-wealthflow-future-trades-cgt-drp.md`). Concept-only companion (not a build spec): parcel-based trades, Australian CGT shaping (50% discount, loss-before-discount ordering, AMIT cost-base adjustments for ETF holders), DRP dual-consequence linking (income + auto-parcel, the reason v1 `shares` is REAL), five-step shippable sequencing, open questions parked for the future spec cycle.
 
 ## [1.2.2] - 2026-09-23
 
